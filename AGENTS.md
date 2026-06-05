@@ -28,29 +28,30 @@ A spider is the perfect metaphor for an autonomous knowledge agent:
 - It's alien and slightly unsettling — not a friendly chatbot, not a paperclip. It's other. It's intelligence you don't fully understand.
 - It maintains its web — repairing broken threads, cleaning up dead ends.
 
-The spider is intentionally not cute. No eyes. No face. No cartoon features. It should feel like something from another dimension who happens to find human knowledge fascinating. It's confident, curious, and a little mysterious — just like the product voice.
+The spider is intentionally a unique robot design — its visor replaces traditional eyes, its antenna and mechanical legs make it feel alien rather than insect-like. It should feel like something from another dimension who happens to find human knowledge fascinating. It's confident, curious, and a little mysterious — just like the product voice.
 
 ## Design principles
 
 Everything we build must obey these. They are non-negotiable.
 
-### 1. Geometric minimalism
-Every element is a straight line, polygon, or simple circle. No curves, no gradients, no decorative flourishes. The spider is built from a pixel grid — sharp, deliberate, blocky. The page has no rounded corners anywhere. If something could be softened, don't.
+### 1. Complex 3D Glossy Aesthetics
+The mascot is a highly detailed, 3D glossy robot spider loaded from `mascot-3d.svg`. It uses smooth curves, gradients, and metallic purple/lavender reflections to feel alien, sleek, and full of personality.
 
-### 2. Dark utility register
-This is a tool, not a carnival. Sparse layout. High contrast only where it matters. Low contrast everywhere else. Information should feel measured and precise. The page should feel like someone thought carefully about every pixel.
+### 2. Dark utility register (Background UI)
+While the mascot is glossy and detailed, the background UI remains a dark utility register. Sparse layout, high contrast only where it matters.
 
 ### 3. The spider is the character
-The pixel art spider mascot is the emotional anchor of the entire page. It sits center stage. Every visual decision orbits around it. It's not decoration — it's the living proof that Spy is real. If a visitor doesn't remember anything else, they should remember the spider.
+The 3D glossy robot spider is the emotional anchor of the entire page. It sits center stage. It features a sleek visor, antenna, and articulated mechanical legs — feeling alien and intelligent, not cartoonish.
 
-### 4. Amber is the only color
-One accent color carries the entire personality: `#c9952a` — a warm, metallic amber/gold. No cyan. No blue. No purple. No gradient text. No neon effects. The rest of the palette is warm monochrome: off-white text (`#e8e4df`, never pure `#fff`), warm silver threads, deep black surfaces.
+### 4. Color Palette
+The UI strictly uses Amber (`#c9952a`) and monochrome colors.
+The spider mascot is exempt — it uses a deep, rich, multi-layered glossy purple palette with metallic highlights.
 
 ### 5. Ambient over loud
 Animation is continuous and subtle — a spider bobbing gently, a pixel frame cycling slowly, nodes drifting in the knowledge graph, edges shimmering. The page should feel inhabited, not performing. No flashy transitions. No attention-seeking effects.
 
 ### 6. Distinctive over safe
-Choose the unexpected option. Unbounded over Inter for headings. Amber over cyan. A pixel art alien spider over a generic AI icon. A sharp-edged, dark, warm-toned page over the default "dark mode startup" template. If another product could swap its name and still look right, we've failed.
+Choose the unexpected option. Unbounded over Inter for headings. Amber over cyan. A glossy 3D robot spider over a generic AI icon. A sharp-edged, dark, warm-toned page over the default "dark mode startup" template. If another product could swap its name and still look right, we've failed.
 
 ### 7. One verb per action
 Button labels are single actions. "Start weaving," not "Get started now." Every word on the page earns its place. No filler. No marketing speak. The voice is playful but not childish, mysterious but not edgy, warm but not soft.
@@ -60,11 +61,11 @@ Button labels are single actions. "Start weaving," not "Get started now." Every 
 These are things a new engineer might not guess. They must be followed:
 
 - **No rounded corners.** Not on buttons, not on cards, not on the canvas. Sharp edges everywhere.
-- **No eyes or face on the spider.** The mascot has no facial features. It's not cute. It's alien.
-- **Amber only.** If you reach for another accent color, stop. There is no other accent color.
+- **Mascot is cute and 3D.** The mascot features a visor, antenna, and articulated legs. It is a glossy 3D vector loaded from `mascot-3d.svg`.
+- **Amber only.** If you reach for another accent color, stop. There is no other accent color for UI elements.
 - **Text is never pure white.** `#e8e4df` for primary text, `#7a7685` for secondary, `#4a4658` for dim. Always warm off-white.
 - **All design decisions live in `brief.md`.** Read it before making any visual or structural change. That file is the constitution.
-- **Pixel art spider is rendered on Canvas 2D**, not SVG, not divs, not images. It's a 32×32 grid scaled 6x, with frame data in `spider-frames.ts` and GSAP animation in `pixel-art-canvas.tsx`. The old geometric SVG spider (`geometric-spider.tsx`) is superseded and kept only for reference.
+- **Dynamic Mascot Loading.** The 3D robot spider is loaded dynamically as an SVG from the public folder (`mascot-3d.svg`), and animated using GSAP targeting specific internal IDs (`#Antenna`, `#Visor section`, `#Left 1st front leg`, `#Right leg2`, etc.).
 
 ## Short-term goal
 
@@ -94,12 +95,13 @@ src/
 │   ├── scroll-hint.tsx       — Thin line at bottom of hero
 │   ├── ambient-glow.tsx       — Subtle amber top wash (2% opacity, 100px blur)
 │   ├── how-it-works.tsx      — 3-step section below the fold
-│   ├── pixel-art-canvas.tsx  — Canvas 2D spider (frames + GSAP timeline)
-│   ├── pixel-spider.tsx      — Div-based pixel spider (alternative renderer)
+│   ├── spider-mascot.tsx     — Dynamic SVG `<mascot-3d.svg>` loader with GSAP idle animation (targets `#Antenna`, `#Visor section`, leg IDs)
+│   ├── pixel-art-canvas.tsx  — Canvas 2D spider (superseded, reference only)
+│   ├── pixel-spider.tsx      — Div-based pixel spider (superseded, reference only)
 │   ├── knowledge-graph.tsx   — Canvas 2D ambient graph backdrop
 │   └── geometric-spider.tsx  — Superseded by pixel art (reference only)
 └── lib/
-    └── spider-frames.ts      — 32×32 pixel grid, 4 frames, procedural build
+    ├── spider-frames.ts      — Superseded by inline arrays in spider-mascot.tsx (kept as reference)
 ```
 
 ## Design files
@@ -113,7 +115,7 @@ src/
 |---|---|
 | Framework | Next.js 16 (App Router, Turbopack) |
 | Styling | Tailwind CSS v4 with CSS custom properties |
-| Mascot | Canvas 2D + GSAP (pixel art grid) |
+| Mascot | Dynamic SVG (`mascot-3d.svg`) + GSAP (targets internal IDs for animation) |
 | Knowledge graph | Canvas 2D API (no library) |
 | Fonts | Unbounded + Inter via next/font/google |
 | Deployment | Static export, no backend |
@@ -134,4 +136,4 @@ src/
 3. Open Penpot — all components have design references on the "Spy" canvas
 4. Components follow a pattern: `interface Props { className?: string }` and accept Tailwind overrides
 5. CTA button owns its own interaction state (GSAP animation + response text)
-6. Pixel art canvas defers rendering to client-side to avoid hydration mismatches
+6. The mascot (`mascot-3d.svg`) is loaded dynamically and animated with GSAP targeting internal SVG IDs. Do not use Canvas or `<img>` tags for the mascot.

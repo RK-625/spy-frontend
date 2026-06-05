@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Unbounded, Inter } from "next/font/google";
+import { Unbounded, Inter, VT323 } from "next/font/google";
 import "./globals.css";
 
 const unbounded = Unbounded({
@@ -16,6 +16,13 @@ const inter = Inter({
   display: "swap",
 });
 
+const vt323 = VT323({
+  variable: "--font-terminal",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Spy — An alien sent to organize your chaos.",
   description:
@@ -28,7 +35,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${unbounded.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${unbounded.variable} ${inter.variable} ${vt323.variable}`}
+      suppressHydrationWarning
+    >
       <body className="min-h-screen flex flex-col bg-background text-text-primary font-sans">
         {children}
       </body>

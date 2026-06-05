@@ -49,18 +49,18 @@ Do NOT look like:
 - Terminal/developer tool aesthetics (monospace, green-on-black)
 - Corporate SaaS (navy, rounded cards, "trusted by" logos)
 - Cyberpunk templates (purple gradients, glass panels, neon borders)
-- Cartoonish mascots, big eyes, cute characters
+- Cartoonish mascots, big eyes, cute characters — the robot spider has a visor and insectoid eyes, not a cute face
 - Any product that could swap its name and still work
 
 ## Design principles
 
-1. **Geometric minimalism** — Every element is a straight line, polygon, or simple circle. No curves, gradients, or decorative flourishes. The spider is built from a pixel grid — sharp, deliberate, blocky. The page has no rounded corners.
+1. **Complex 3D Glossy Aesthetics** — The mascot is a highly detailed 3D glossy robot spider loaded from `mascot-3d.svg`. It uses smooth curves, gradients, and metallic purple/lavender reflections to feel alien, sleek, and full of personality. The page itself has no rounded corners or decorative flourishes — the spider is the complex visual, everything else recedes.
 
 2. **Dark utility register** — Sparse layout, high contrast where it matters, low contrast everywhere else. The page is a tool introduction, not a carnival. Information should feel measured and precise.
 
-3. **The web is the product** — The knowledge graph is proof, not decoration. It runs full-screen behind the hero as ambient evidence of what Spy does. The pixel art spider sits at the center as the character anchor.
+3. **The web is the product** — The knowledge graph is proof, not decoration. It runs full-screen behind the hero as ambient evidence of what Spy does. The 3D glossy robot spider sits at the center as the character anchor.
 
-4. **Distinctive over safe** — Choose the unexpected option. Unbounded over Inter for headings. Amber over cyan for interactive elements. A pixel art spider mascot over a generic AI icon. This product has personality; the design should too.
+4. **Distinctive over safe** — Choose the unexpected option. Unbounded over Inter for headings. Amber over cyan for interactive elements. A glossy 3D robot spider mascot over a generic AI icon. This product has personality; the design should too.
 
 5. **Ambient over loud** — Continuous subtle animation (spider bob, frame-cycle breathing, node pulse, edge shimmer) over flashy effects. The page should feel inhabited, not performing.
 
@@ -96,7 +96,7 @@ The palette is restrained and monochrome-tinted. One accent carries the personal
 - `#4a4658` — dim
 
 **Color rules:**
-- Amber is the ONLY accent color. No cyan, no blue, no purple.
+- Amber is the only UI accent color. No cyan, no blue, no purple in UI elements (buttons, glows, highlights, text, borders). The spider mascot is exempt — it uses its own glossy purple/lavender palette with metallic reflections.
 - Web threads are warm silver, not cold white.
 - Text is warm off-white, never pure #fff.
 - No gradient text, no neon effects.
@@ -111,7 +111,7 @@ The palette is restrained and monochrome-tinted. One accent carries the personal
 
 ### Motion (GSAP)
 
-- **Spider idle:** Frame-cycle animation (4 frames, ~500ms each, GSAP timeline loop) + gentle bob (translateY, 2s cycle), glow pulse on accent stripe (3s)
+- **Spider idle:** Continuous GSAP tweens — body float (translateY, 2.5s sine.inOut, yoyo), leg twitches (rotation via svgOrigin from hip joints, staggered per leg), pedipalp micro-movement. No frame cycling — all continuous motion via gsap.to().
 - **Knowledge graph (canvas):** Continuous ambient — nodes drift gently (sin/cos wave), edges shimmer (sine pulse), occasional new thread flash (amber, 0.15% chance per frame)
 - **CTA interaction:** Button scale bounce (1 → 1.03 → 1, 0.15s), response text fades in (0.5s)
 - **Exit:** CTA response fades out after 3.5s
@@ -119,8 +119,8 @@ The palette is restrained and monochrome-tinted. One accent carries the personal
 
 ### Composition
 
-- **Hero:** Center stage. Pixel art spider mascot at the heart. Logo ("S P Y") above tagline. CTA below tagline. All stacked vertically.
-- **Proof:** The pixel art spider is the character anchor. The knowledge graph below it serves as ambient proof.
+- **Hero:** Center stage. 3D glossy robot spider mascot at the heart. Logo ("S P Y") above tagline. CTA below tagline. All stacked vertically.
+- **Proof:** The 3D glossy robot spider is the character anchor. The knowledge graph below it serves as ambient proof.
 - **Depth:** "How it works" section below the fold with cliffhanger principle.
 - **Scroll hint:** Thin line at bottom of hero suggesting more content below.
 - **Ambient top glow:** Subtle amber wash at the top of the page, nearly invisible (2% opacity, 100px blur).
@@ -134,18 +134,13 @@ The palette is restrained and monochrome-tinted. One accent carries the personal
 - No border-radius (all components are sharp-edged)
 - One verb per button label
 
-### Spider mascot (PixelArtCanvas)
-- Rendered on a Canvas 2D element with `image-rendering: pixelated`
-- 32×32 pixel grid, scaled 6x for display (192×192px)
-- Built procedurally from frame data in `spider-frames.ts` (4 frames for breathing cycle)
-- Body: two segments (cephalothorax + abdomen) as filled ellipses on the grid
-- 8 segmented legs as line segments
-- Amber accent stripe on abdomen (center horizontal line)
-- Colors: `#1a1a2e` (body), `#22223a` (legs), `#c9952a` (accent)
-- No eyes, no face, no cartoon features
-- GSAP-driven: frame cycling timeline, float animation, glow pulse
+### Spider mascot (SpiderMascot)
+- Rendered using a complex, 3D-style glossy vector SVG (`mascot-3d.svg`) loaded dynamically
+- The mascot is a shiny 3D robot spider with a visor, antenna, and articulated mechanical legs
+- Colors: Deep glossy purples and lavender tones with metallic reflections
+- Animation: SVG is loaded dynamically from `/mascot-3d.svg`, and GSAP targets internal grouped IDs (`#Antenna`, `#Visor section`, `#Left 1st front leg`, `#Right leg2`, `#Right back leg`, etc.) for physics-based animations — floating, antenna twitch, visor scan, leg micro-movements
+- Mascot feels alien, intelligent, and highly detailed — completely distinct from the geometric minimalist UI behind it
 - Always centered, always the visual anchor
-- Canvas is 192×192px
 
 ### Knowledge graph
 - Canvas-rendered for performance
@@ -158,7 +153,7 @@ The palette is restrained and monochrome-tinted. One accent carries the personal
 
 - **Framework:** Next.js 16 App Router
 - **Styling:** Tailwind CSS v4 with CSS variables
-- **Mascot:** Canvas 2D API (pixel art grid) + GSAP for animation timeline
+- **Mascot:** Dynamic SVG (`mascot-3d.svg`) loaded dynamically, animated with GSAP targeting internal group IDs for physics-based motion
 - **Knowledge graph:** Canvas 2D API (self-contained, no library)
 - **Fonts:** Google Fonts (Unbounded + Inter) via next/font
 - **No client state management** needed for v1

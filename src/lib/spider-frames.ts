@@ -66,7 +66,8 @@ function fillEllipse(
 function buildSpider(
   legOffsetX: number,
   legOffsetY: number,
-  bodyShift: number
+  bodyShift: number,
+  waveAmount: number = 0
 ): Grid {
   const g = empty();
 
@@ -86,9 +87,9 @@ function buildSpider(
   line(g, 12, 11 + bodyShift, 9 + legOffsetX, 7 + legOffsetY, 2);
   line(g, 9 + legOffsetX, 7 + legOffsetY, 6, 4 + legOffsetY, 2);
 
-  // Front-right pair (forward-up)
-  line(g, 20, 11 + bodyShift, 23 - legOffsetX, 7 + legOffsetY, 2);
-  line(g, 23 - legOffsetX, 7 + legOffsetY, 26, 4 + legOffsetY, 2);
+  // Front-right pair (forward-up) — This leg waves!
+  line(g, 20, 11 + bodyShift, 23 - legOffsetX, 7 + legOffsetY - Math.floor(waveAmount / 2), 2);
+  line(g, 23 - legOffsetX, 7 + legOffsetY - Math.floor(waveAmount / 2), 26, 4 + legOffsetY - waveAmount, 2);
 
   // Mid-front-left (sideways)
   line(g, 11, 13 + bodyShift, 7 + legOffsetX, 12, 2);
@@ -129,4 +130,19 @@ export const FRAMES: Grid[] = [
   buildSpider(-1, 0, 1),
   // Frame 3: legs slightly outward again, body back to center
   buildSpider(1, -1, 0),
+];
+
+// A dedicated sequence for a "hello" wave, lifting the front-right leg high
+export const WAVE_FRAMES: Grid[] = [
+  buildSpider(0, 0, 0, 0),   // idle
+  buildSpider(0, 0, 1, 0),   // anticipation squash down
+  buildSpider(0, 0, -1, 2),  // spring up, leg starts lifting
+  buildSpider(0, 0, -1, 4),  // leg high
+  buildSpider(0, 0, -1, 2),  // leg drops slightly
+  buildSpider(0, 0, -1, 4),  // leg high again (the wave)
+  buildSpider(0, 0, -1, 2),  // leg drops slightly
+  buildSpider(0, 0, -1, 4),  // leg high again (the wave)
+  buildSpider(0, 0, -1, 2),  // leg drops slightly
+  buildSpider(0, 0, -1, 4),  // leg high again (the wave)
+  buildSpider(0, 0, 0, 0),   // return to idle
 ];

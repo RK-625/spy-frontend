@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import gsap from "gsap";
-import PixelArtCanvas from "@/components/pixel-art-canvas";
+import SpiderMascot from "@/components/spider-mascot";
 import Logo from "@/components/logo";
 import Tagline from "@/components/tagline";
 import CtaButton from "@/components/cta-button";
@@ -26,7 +26,7 @@ export default function HeroSection() {
       className="relative z-10 flex flex-col items-center text-center px-6 pt-[15vh]"
     >
       <AmbientGlow />
-      <PixelArtCanvas onReady={handleReady} />
+      <SpiderMascot onReady={handleReady} />
       <Logo className="mt-6 mb-6" />
       <Tagline className="mb-10" />
       <CtaButton />

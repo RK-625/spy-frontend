@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import gsap from "gsap";
 
 interface GeometricSpiderProps {
@@ -33,16 +33,11 @@ const SVG_MARKUP = `<svg width="160" height="180" viewBox="0 0 160 180" fill="no
 </svg>`;
 
 export default function GeometricSpider({ onReady }: GeometricSpiderProps) {
-  const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted || !containerRef.current || !glowRef.current) return;
+    if (!containerRef.current || !glowRef.current) return;
 
     const container = containerRef.current;
     const svgEl = container.querySelector("svg");
@@ -77,8 +72,10 @@ export default function GeometricSpider({ onReady }: GeometricSpiderProps) {
 
     onReady?.();
 
-    return () => { tl.kill(); };
-  }, [mounted, onReady]);
+    return () => {
+      tl.kill();
+    };
+  }, [onReady]);
 
   return (
     <div ref={containerRef} className="relative inline-flex items-center justify-center">
@@ -87,12 +84,10 @@ export default function GeometricSpider({ onReady }: GeometricSpiderProps) {
         className="absolute rounded-full bg-neutral-400/5"
         style={{ width: 220, height: 220 }}
       />
-      {mounted && (
-        <div
-          className="relative z-10 leading-none"
-          dangerouslySetInnerHTML={{ __html: SVG_MARKUP }}
-        />
-      )}
+      <div
+        className="relative z-10 leading-none"
+        dangerouslySetInnerHTML={{ __html: SVG_MARKUP }}
+      />
     </div>
   );
 }
