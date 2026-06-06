@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { GradientBackground } from '@/components/ui/gradient-background'
-import AuroraMarqueeButton from '@/components/aurora-marquee-button'
+import ChromeButton from '@/components/ui/chrome-button'
 import NoiseField from './noise-field'
 import {
   INITIAL_PULSE_RING_STATE,
@@ -335,7 +335,7 @@ export default function NoiseFieldBg() {
             transform: 'translateX(-50%)',
             pointerEvents: 'auto',
           }}>
-            <AuroraMarqueeButton label="START WEAVING" />
+            <ChromeButton>START WEAVING</ChromeButton>
           </div>
         </div>
       </div>

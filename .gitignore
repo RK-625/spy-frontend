@@ -11,6 +11,9 @@
 !.yarn/versions
 /.commandcode
 /.deprecated
+/.antigravitycli
+/.codegraph
+/.kiro
 
 # testing
 /coverage
