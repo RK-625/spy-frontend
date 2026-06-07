@@ -1,35 +1,13 @@
 "use client";
 
-import { useRef } from "react";
-import gsap from "gsap";
-import SpiderMascot from "@/components/spider-mascot";
-import Logo from "@/components/logo";
-import Tagline from "@/components/tagline";
-import CtaButton from "@/components/cta-button";
-import AmbientGlow from "@/components/ambient-glow";
-
 export default function HeroSection() {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const handleReady = () => {
-    if (containerRef.current) {
-      gsap.to(containerRef.current, {
-        "--accent-glow-amount": "1",
-        duration: 0.01,
-      } as gsap.TweenVars);
-    }
-  };
-
   return (
-    <div
-      ref={containerRef}
-      className="relative z-10 flex flex-col items-center text-center px-6 pt-[15vh]"
-    >
-      <AmbientGlow />
-      <SpiderMascot onReady={handleReady} />
-      <Logo className="mt-6 mb-6" />
-      <Tagline className="mb-10" />
-      <CtaButton />
+    <div className="flex items-center justify-center min-h-screen">
+      <h1
+        className="font-[family-name:var(--font-terminal)] font-bold text-text-primary text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none opacity-0 [text-shadow:2px_2px_0_rgba(6,6,16,0.9),4px_4px_0_rgba(6,6,16,0.7),0_0_12px_rgba(232,228,223,0.15)] animate-[fade-in_1.2s_ease-out_2.5s_forwards]"
+      >
+        KNOWLEDGE UNSTRTUCTED IS JUST NOISE !!!
+      </h1>
     </div>
   );
 }

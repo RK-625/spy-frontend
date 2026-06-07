@@ -11,13 +11,16 @@ const ShaderGradient = dynamic(
   { ssr: false }
 )
 
-import HeroSection from "@/components/hero-section";
-import ScrollHint from "@/components/scroll-hint";
-import HowItWorks from "@/components/how-it-works";
+import HeroSection from "@/components/hero-section"
+import ScrollHint from "@/components/scroll-hint"
+import HowItWorks from "@/components/how-it-works"
 
 export default function Home() {
   return (
     <div className="relative min-h-screen overflow-hidden">
+      {/* CSS black overlay — fades out after 1.5s delay over 1s */}
+      <div className="fixed inset-0 z-50 bg-[#060610] pointer-events-none animate-[fade-out_1s_ease-out_1.5s_forwards]" />
+
       <div className="fixed inset-0 -z-10">
         <ShaderGradientCanvas>
           <ShaderGradient
@@ -27,9 +30,16 @@ export default function Home() {
             cDistance={1.5}
             cPolarAngle={140}
             cameraZoom={12.5}
-            color1="#3D0A6E"
-            color2="#7B2DCE"
-            color3="#D4A8F0"
+            // COLOR NOTES (ShaderGradient with city env + lightType=3d + reflection=0.5):
+            // color1=dark body — lower hex = darker (e.g. #4A1280), raise R/G for lighter
+            // color2=mid purple — the main visible surface tone
+            // color3=lavender highlight — lighter = more pastel/lavender
+            // To lighten overall: raise all R/G values relative to B
+            // To darken: lower R/G, keep B dominant
+            // Target feel: deep purple body fading to lavender highlight
+            color1="#4A1280"
+            color2="#8838DE"
+            color3="#DDB8F8"
             envPreset="city"
             grain="on"
             lightType="3d"
@@ -52,11 +62,12 @@ export default function Home() {
           />
         </ShaderGradientCanvas>
       </div>
+
       <div className="relative z-10 flex flex-col items-center">
-        {/* <HeroSection />
-        <ScrollHint />
+        <HeroSection />
+        {/* <ScrollHint />
         <HowItWorks /> */}
       </div>
     </div>
-  );
+  )
 }

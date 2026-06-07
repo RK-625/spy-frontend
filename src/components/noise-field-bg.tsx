@@ -327,7 +327,16 @@ export default function NoiseFieldBg() {
             WebkitTextFillColor: 'transparent',
             whiteSpace: 'nowrap',
           }}>S</span>
-
+          <div style={{
+            position: 'absolute',
+            top: 'calc(50% + 76px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            pointerEvents: 'auto',
+          }}>
+            {/* ChromeButton was removed — kept as reference */}
+            START WEAVING
+          </div>
         </div>
       </div>
     </div>
