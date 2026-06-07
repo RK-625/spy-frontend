@@ -18,8 +18,8 @@ import HowItWorks from "@/components/how-it-works"
 export default function Home() {
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* CSS black overlay — fades out after 1.5s delay over 1s */}
-      <div className="fixed inset-0 z-50 bg-[#060610] pointer-events-none animate-[fade-out_1s_ease-out_1.5s_forwards]" />
+      {/* Black overlay dissolves slowly — holds near-full opacity for most of the duration */}
+      <div className="fixed inset-0 z-50 bg-[#060610] pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
 
       <div className="fixed inset-0 -z-10">
         <ShaderGradientCanvas>
