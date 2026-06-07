@@ -27,9 +27,9 @@ export default function Home() {
             cDistance={1.5}
             cPolarAngle={140}
             cameraZoom={12.5}
-            color1="#809bd6"
-            color2="#910aff"
-            color3="#af38ff"
+            color1="#3D0A6E"
+            color2="#7B2DCE"
+            color3="#D4A8F0"
             envPreset="city"
             grain="on"
             lightType="3d"
