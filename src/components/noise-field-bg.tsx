@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { GradientBackground } from '@/components/ui/gradient-background'
-import ChromeButton from '@/components/ui/chrome-button'
 import NoiseField from './noise-field'
 import {
   INITIAL_PULSE_RING_STATE,
@@ -328,15 +327,7 @@ export default function NoiseFieldBg() {
             WebkitTextFillColor: 'transparent',
             whiteSpace: 'nowrap',
           }}>S</span>
-          <div style={{
-            position: 'absolute',
-            top: 'calc(50% + 76px)',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            pointerEvents: 'auto',
-          }}>
-            <ChromeButton>START WEAVING</ChromeButton>
-          </div>
+
         </div>
       </div>
     </div>

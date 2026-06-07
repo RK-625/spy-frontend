@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Unbounded, Inter, VT323 } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
 
 const unbounded = Unbounded({
   variable: "--font-display",
@@ -9,12 +10,7 @@ const unbounded = Unbounded({
   display: "swap",
 });
 
-const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  display: "swap",
-});
+const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
 const vt323 = VT323({
   variable: "--font-terminal",
@@ -37,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${unbounded.variable} ${inter.variable} ${vt323.variable}`}
+      className={cn(unbounded.variable, vt323.variable, "font-sans", inter.variable)}
       suppressHydrationWarning
     >
       <body className="min-h-screen flex flex-col bg-background text-text-primary font-sans">
