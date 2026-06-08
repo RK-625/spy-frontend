@@ -13,6 +13,7 @@ export default function HeroSection() {
   const [phase2A, setPhase2A] = useState("");
   const [phase2B, setPhase2B] = useState("");
   const [currentPhase, setCurrentPhase] = useState(1);
+  const [sweepActive, setSweepActive] = useState(false);
 
   const handleAnimationEnd = useCallback(() => {
     if (currentPhase === 1) {
@@ -67,6 +68,9 @@ export default function HeroSection() {
     overflow: true,
     playOnMount: false,
     range: [65, 125],
+    onAnimationEnd: () => {
+      setTimeout(() => setSweepActive(true), 200);
+    },
   });
 
   const whiteGlow =
