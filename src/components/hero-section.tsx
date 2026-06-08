@@ -71,8 +71,7 @@ export default function HeroSection() {
 
   const whiteGlow =
     "[text-shadow:2px_2px_0_rgba(6,6,16,0.9),4px_4px_0_rgba(6,6,16,0.7),0_0_12px_rgba(222,212,240,0.15)]";
-  const amberGlow =
-    "[text-shadow:2px_2px_0_rgba(6,6,16,0.9),4px_4px_0_rgba(6,6,16,0.7),0_0_12px_rgba(200,149,42,0.15)]";
+  const purpleGlow = "";
 
   const isPhase3 = currentPhase === 3;
 
@@ -86,7 +85,7 @@ export default function HeroSection() {
           />
           <span
             ref={refB}
-            className={`font-[family-name:var(--font-terminal)] font-bold text-[#c9952a] text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none ${amberGlow}`}
+            className={`font-[family-name:var(--font-terminal)] font-bold text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none relative glossy-text ${purpleGlow}`}
           />
         </div>
       ) : (
