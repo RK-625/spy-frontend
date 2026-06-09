@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useScramble } from "use-scramble";
 
-const PHASE_1 = "KNOWLEDGE UNSTRTUCTED IS JUST NOISE !!!";
+const PHASE_1 = "KNOWLEDGE UNSTRUCTURED IS JUST NOISE !!!";
 const PHASE_2 = "MANAGE THE CHAOS";
 const PHASE_3_A = "MEET";
 const PHASE_3_B = "SYPDER";
@@ -14,6 +14,8 @@ export default function HeroSection() {
   const [phase2B, setPhase2B] = useState("");
   const [currentPhase, setCurrentPhase] = useState(1);
   const [sweepActive, setSweepActive] = useState(false);
+  const replayARef = useRef<(() => void) | null>(null);
+  const replayBRef = useRef<(() => void) | null>(null);
 
   const handleAnimationEnd = useCallback(() => {
     if (currentPhase === 1) {
@@ -27,11 +29,15 @@ export default function HeroSection() {
         setText("");
         setPhase2A(PHASE_3_A);
         setPhase2B(PHASE_3_B);
+        setTimeout(() => {
+          replayARef.current?.();
+          replayBRef.current?.();
+        }, 50);
       }, 1000);
     }
   }, [currentPhase]);
 
-  const { ref } = useScramble({
+  const { ref, replay } = useScramble({
     text,
     speed: 0.35,
     tick: 2,
@@ -43,9 +49,11 @@ export default function HeroSection() {
     range: [65, 125],
     onAnimationEnd: handleAnimationEnd,
   });
+  const replayMainRef = useRef<(() => void) | null>(null);
+  replayMainRef.current = replay;
 
-  // Second scramble for "MEET THE " — synced with phase 3
-  const { ref: refA } = useScramble({
+  // Second scramble for "MEET" — synced with phase 3
+  const { ref: refA, replay: replayA } = useScramble({
     text: phase2A,
     speed: 0.35,
     tick: 2,
@@ -56,9 +64,10 @@ export default function HeroSection() {
     playOnMount: false,
     range: [65, 125],
   });
+  replayARef.current = replayA;
 
-  // "SYPDER" scramble — separate ref for amber styling
-  const { ref: refB } = useScramble({
+  // "SYPDER" scramble — separate ref for glossy purple styling
+  const { ref: refB, replay: replayB } = useScramble({
     text: phase2B,
     speed: 0.35,
     tick: 2,
@@ -72,6 +81,7 @@ export default function HeroSection() {
       setTimeout(() => setSweepActive(true), 200);
     },
   });
+  replayBRef.current = replayB;
 
   const whiteGlow =
     "[text-shadow:2px_2px_0_rgba(6,6,16,0.9),4px_4px_0_rgba(6,6,16,0.7),0_0_12px_rgba(222,212,240,0.15)]";
@@ -89,7 +99,7 @@ export default function HeroSection() {
           />
           <span
             ref={refB}
-            className={`font-[family-name:var(--font-terminal)] font-bold text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none relative glossy-text ${purpleGlow}`}
+            className={`font-[family-name:var(--font-terminal)] font-bold text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none relative inline-block glossy-text ${sweepActive ? "sweep" : ""}`}
           />
         </div>
       ) : (
