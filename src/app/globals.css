@@ -177,37 +177,40 @@
   content: "";
   position: absolute;
   inset: -4px;
-  background: linear-gradient(
-    105deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.35) 47%,
-    rgba(255, 255, 255, 0.65) 50%,
-    rgba(255, 255, 255, 0.35) 53%,
-    transparent 70%
+  background: radial-gradient(
+    ellipse 35% 120% at center,
+    rgba(255, 255, 255, 0.7) 0%,
+    rgba(220, 200, 255, 0.35) 25%,
+    transparent 60%
   );
+  background-size: 300% 100%;
+  background-position: 150% center;
   pointer-events: none;
-  transform: translateX(-130%);
   opacity: 0;
   z-index: 1;
 }
 
 .glossy-text.sweep::after {
-  animation: sweep 1.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+  animation: coin-glint 3s ease-in-out 0.2s infinite;
 }
 
-@keyframes sweep {
+@keyframes coin-glint {
   0% {
-    transform: translateX(-130%);
+    background-position: 150% center;
     opacity: 0;
   }
-  12% {
+  8% {
     opacity: 1;
   }
-  88% {
+  50% {
+    background-position: -50% center;
     opacity: 1;
+  }
+  58% {
+    opacity: 0;
   }
   100% {
-    transform: translateX(130%);
+    background-position: -50% center;
     opacity: 0;
   }
 }
