@@ -173,46 +173,26 @@
     drop-shadow(0 0 24px rgba(116, 59, 232, 0.3));
 }
 
-.glossy-text::after {
+.interactive-underline {
+  position: relative;
+  cursor: pointer;
+}
+
+.interactive-underline::after {
   content: "";
   position: absolute;
-  inset: -4px;
-  background: radial-gradient(
-    ellipse 35% 120% at center,
-    rgba(255, 255, 255, 0.7) 0%,
-    rgba(220, 200, 255, 0.35) 25%,
-    transparent 60%
-  );
-  background-size: 300% 100%;
-  background-position: 150% center;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 1;
+  left: 0;
+  bottom: 8px;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, #9a6ae0, #e8dff8, #9a6ae0);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.glossy-text.sweep::after {
-  animation: coin-glint 3s ease-in-out 0.2s infinite;
-}
-
-@keyframes coin-glint {
-  0% {
-    background-position: 150% center;
-    opacity: 0;
-  }
-  8% {
-    opacity: 1;
-  }
-  50% {
-    background-position: -50% center;
-    opacity: 1;
-  }
-  58% {
-    opacity: 0;
-  }
-  100% {
-    background-position: -50% center;
-    opacity: 0;
-  }
+.interactive-underline:hover::after {
+  transform: scaleX(1);
 }
 
 .dark {

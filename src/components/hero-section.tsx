@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useScramble } from "use-scramble";
+import ShinyText from "./ShinyText";
 
 const PHASE_1 = "KNOWLEDGE UNSTRUCTURED IS JUST NOISE !!!";
 const PHASE_2 = "MANAGE THE CHAOS";
 const PHASE_3_A = "MEET";
-const PHASE_3_B = "SYPDER";
+const PHASE_3_B = "SPYDER";
 
 export default function HeroSection() {
   const [text, setText] = useState(PHASE_1);
@@ -97,9 +98,12 @@ export default function HeroSection() {
             ref={refA}
             className={`font-[family-name:var(--font-terminal)] font-bold text-[#ded4f0] text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none ${whiteGlow}`}
           />
-          <span
+          <ShinyText
             ref={refB}
-            className={`font-[family-name:var(--font-terminal)] font-bold text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none relative inline-block glossy-text ${sweepActive ? "sweep" : ""}`}
+            disabled={!sweepActive}
+            speed={3}
+            spread={120}
+            className="font-[family-name:var(--font-terminal)] font-bold text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none relative inline-block glossy-text interactive-underline"
           />
         </div>
       ) : (

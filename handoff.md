@@ -9,10 +9,10 @@ The landing page hero section is fully built with three animation phases:
 
 1. **Phase 1:** "KNOWLEDGE UNSTRUCTURED IS JUST NOISE !!!" scrambles in (use-scramble, speed 0.35)
 2. **Phase 2:** "MANAGE THE CHAOS" scrambles in after 1s pause
-3. **Phase 3:** "MEET" + "SYPDER" scramble in side by side after 1s pause
+3. **Phase 3:** "MEET" + "SPYDER" scramble in side by side after 1s pause
    - "MEET" is lavender-white (`#ded4f0`)
-   - "SYPDER" uses glossy purple gradient + drop-shadow block shadows (lavender → deep purple)
-   - After scramble resolves (~200ms), a white highlight bar sweeps across "SYPDER" (CSS `::after`, 1.5s animation)
+   - "SPYDER" uses glossy purple gradient + drop-shadow block shadows (lavender → deep purple)
+   - After scramble resolves (~200ms), a white highlight bar sweeps across "SPYDER" (CSS `::after`, 1.5s animation)
 
 **Black overlay dissolve:** covers shader load — 0.8s delay → 2.5s linear fade (`@keyframes dissolve-out`). Text starts at 2.5s (after overlay clears).
 
