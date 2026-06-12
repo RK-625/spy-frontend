@@ -103,7 +103,7 @@ export default function HeroSection() {
             disabled={!sweepActive}
             speed={3}
             spread={120}
-            className="font-[family-name:var(--font-terminal)] font-bold text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none relative inline-block glossy-text interactive-underline"
+            className="font-[family-name:var(--font-terminal)] font-bold text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none glossy-text"
           />
         </div>
       ) : (
