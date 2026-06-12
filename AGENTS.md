@@ -44,14 +44,13 @@ While the mascot is glossy and detailed, the background UI remains a dark utilit
 The 3D glossy robot spider is the emotional anchor of the entire page. It sits center stage. It features a sleek visor, antenna, and articulated mechanical legs — feeling alien and intelligent, not cartoonish.
 
 ### 4. Color Palette
-The UI strictly uses Amber (`#c9952a`) and monochrome colors.
-The spider mascot is exempt — it uses a deep, rich, multi-layered glossy purple palette with metallic highlights.
+The background uses a dynamic 3D sphere gradient in deep purples and lavender highlights (`#4A1280` / `#8838DE` / `#DDB8F8`) morphing over deepest black. Text uses lavender-white (`#ded4f0`) and a glossy purple gradient (`#e8dff8` to `#9a6ae0`). Gold/Amber (`#c9952a`) is reserved strictly for interactive action elements and buttons below the fold.
 
 ### 5. Ambient over loud
-Animation is continuous and subtle — a spider bobbing gently, a pixel frame cycling slowly, nodes drifting in the knowledge graph, edges shimmering. The page should feel inhabited, not performing. No flashy transitions. No attention-seeking effects.
+Animation is continuous and subtle — a morphing 3D gradient sphere, a spider bobbing gently, text scrambling phases, and a CSS glint sweep across titles. The page should feel inhabited, not performing. No flashy transitions. No attention-seeking effects.
 
 ### 6. Distinctive over safe
-Choose the unexpected option. Unbounded over Inter for headings. Amber over cyan. A glossy 3D robot spider over a generic AI icon. A sharp-edged, dark, warm-toned page over the default "dark mode startup" template. If another product could swap its name and still look right, we've failed.
+Choose the unexpected option. Unbounded and VT323 over Inter for headings. A deep, glossy purple/lavender theme over the typical startup dark/cyan templates. A sharp-edged, dark page over the default "dark mode startup" template. If another product could swap its name and still look right, we've failed.
 
 ### 7. One verb per action
 Button labels are single actions. "Start weaving," not "Get started now." Every word on the page earns its place. No filler. No marketing speak. The voice is playful but not childish, mysterious but not edgy, warm but not soft.
@@ -62,8 +61,8 @@ These are things a new engineer might not guess. They must be followed:
 
 - **No rounded corners.** Not on buttons, not on cards, not on the canvas. Sharp edges everywhere.
 - **Mascot is cute and 3D.** The mascot features a visor, antenna, and articulated legs. It is a glossy 3D vector loaded from `mascot-3d.svg`.
-- **Amber only.** If you reach for another accent color, stop. There is no other accent color for UI elements.
-- **Text is never pure white.** `#e8e4df` for primary text, `#7a7685` for secondary, `#4a4658` for dim. Always warm off-white.
+- **Gold/Amber Accents.** Interactive elements and buttons use gold/amber. The main title/scramble typography and the mascot itself are exempt, using custom purple/lavender gradient tones.
+- **Text is never pure white.** `#ded4f0` or warm off-white `#e8e4df` for primary text, `#7a7685` for secondary, `#4a4658` for dim.
 - **All design decisions live in `brief.md`.** Read it before making any visual or structural change. That file is the constitution.
 - **Dynamic Mascot Loading.** The 3D robot spider is loaded dynamically as an SVG from the public folder (`mascot-3d.svg`), and animated using GSAP targeting specific internal IDs (`#Antenna`, `#Visor section`, `#Left 1st front leg`, `#Right leg2`, etc.).
 
@@ -116,8 +115,8 @@ src/
 | Framework | Next.js 16 (App Router, Turbopack) |
 | Styling | Tailwind CSS v4 with CSS custom properties |
 | Mascot | Dynamic SVG (`mascot-3d.svg`) + GSAP (targets internal IDs for animation) |
-| Knowledge graph | Canvas 2D API (no library) |
-| Fonts | Unbounded + Inter via next/font/google |
+| Backdrop | ShaderGradient 3D canvas (`@shadergradient/react` sphere) |
+| Fonts | Unbounded + Inter + VT323 via next/font/google |
 | Deployment | Static export, no backend |
 
 ## Constraints

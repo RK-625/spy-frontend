@@ -105,7 +105,7 @@ export default function PixelArtCanvas({
       {/* Glow ring */}
       <div
         ref={glowRef}
-        className="absolute rounded-full"
+        className="absolute "
         style={{
           width: FRAME_W * scale * 1.8,
           height: FRAME_H * scale * 1.8,
