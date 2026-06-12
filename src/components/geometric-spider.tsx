@@ -81,7 +81,7 @@ export default function GeometricSpider({ onReady }: GeometricSpiderProps) {
     <div ref={containerRef} className="relative inline-flex items-center justify-center">
       <div
         ref={glowRef}
-        className="absolute rounded-full bg-neutral-400/5"
+        className="absolute  bg-neutral-400/5"
         style={{ width: 220, height: 220 }}
       />
       <div
