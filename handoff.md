@@ -1,60 +1,84 @@
-# Spy Landing Page — Handoff (option1 branch)
+# Spy — Chat Page Redesign Handoff
 
-## Branch: `option1`
-**Checked in at:** `c093fb3` — working tree clean, all changes committed.
+**Branch:** `chat-interface` (NOT committed yet — 375 insertions, 104 deletions across 2 files)
+**Date:** 2026-06-13
 
-## Current State
+---
 
-The landing page hero section is fully built with three animation phases:
+## What was done
 
-1. **Phase 1:** "KNOWLEDGE UNSTRUCTURED IS JUST NOISE !!!" scrambles in (use-scramble, speed 0.35)
-2. **Phase 2:** "MANAGE THE CHAOS" scrambles in after 1s pause
-3. **Phase 3:** "MEET" + "SPYDER" scramble in side by side after 1s pause
-   - "MEET" is lavender-white (`#ded4f0`)
-   - "SPYDER" uses glossy purple gradient + drop-shadow block shadows (lavender → deep purple)
-   - After scramble resolves (~200ms), a white highlight bar sweeps across "SPYDER" (CSS `::after`, 1.5s animation)
+Complete visual redesign of the `/home` chat page. Two files modified:
 
-**Black overlay dissolve:** covers shader load — 0.8s delay → 2.5s linear fade (`@keyframes dissolve-out`). Text starts at 2.5s (after overlay clears).
+### `src/app/globals.css` (+302 lines)
+- Replaced all gold/amber accent (`#c9952a`) with glossy lavender-white (`#e8dff8`) across ALL CSS variables (`:root`, `.dark`)
+- Added comprehensive chat design system: markdown typography (h1–h4, code blocks, tables, blockquotes, links), input elevation with focus glow, role labels, user bubble gradient, assistant message left accent border, conversation bottom fade, custom scrollbar (2px, hidden by default, visible on hover), selection colors, toolbar refinement
 
-**Background:** `@shadergradient/react` sphere with `lightType="3d"`, `envPreset="city"`, `reflection=0.5`, colors `#4A1280`/`#8838DE`/`#DDB8F8`. Loaded via dynamic import with `ssr: false`.
+### `src/app/home/page.tsx` (+111 lines)
+- Added ShaderGradient backdrop + dissolve overlay + dark tint (was previously only the bare `Example` component)
+- Added header with "SPY" (ShinyText) + "WEAVING SIGNAL" label + gradient top line
+- Added "You" / "Spy" role labels above each message
+- Wrapped input area in elevated container (`chat-input-wrap`) with ambient glow line
+- Refined suggestion chips: Inter font (was VT323), smaller size, subtle lavender borders, white hover states
+- Changed page layout from bare `h-screen` to full `min-h-screen` with centered `h-screen` container
 
-## Files
+---
 
-| File | Purpose |
-|---|---|
-| `src/app/page.tsx` | Page orchestrator — ShaderGradient background + overlay + HeroSection |
-| `src/components/hero-section.tsx` | 3-phase scramble chain + sweep trigger |
-| `src/app/globals.css` | `@keyframes dissolve-out`, `.glossy-text` + `::after` sweep, `@keyframes sweep` |
-| `src/components/scroll-hint.tsx` | **Commented out in page.tsx** — wire up when ready |
-| `src/components/how-it-works.tsx` | **Commented out in page.tsx** — wire up when ready |
-| `src/components/ui/scramble-text.tsx` | **Untracked, unused** — utility wrapper for future sections |
-| `public/mascot-3d.svg` | Mascot SVG — source of purple palette |
+## Key design tokens (current state)
+- **Accent:** `#e8dff8` (glossy lavender-white, replaces gold)
+- **Accent hover:** `#f0eaff`
+- **Secondary:** `#1a1038`, `#C8ACFB`
+- **Muted:** `#181230`, `#C8ACFB`
+- **Border:** `rgba(208, 184, 245, 0.15)`
+- **No rounded corners anywhere** (per brief)
+- **Fonts:** Unbounded (display), Inter (body/sans), VT323 (terminal/tech)
 
-## Key Props
+---
 
-**ShaderGradient** (locked, tune colors via `color1`/`color2`/`color3`):
+## Known issues / next steps
+
+1. **Suggestion chip font uses `var(--font-body)` but only `--font-sans` is defined** in the layout. This works because Tailwind resolves it, but the CSS variable name is wrong. Should be `var(--font-sans)` or the layout should define `--font-body`.
+
+2. **Root page (`/`) was NOT touched** — still uses the landing page with mascot, ShaderGradient, etc. The `/home` page now has its own ShaderGradient backdrop which duplicates the root page's.
+
+3. **`h-screen` vs `min-h-screen`**: The main container uses `h-screen` for fixed viewport layout. The outer wrapper still uses `min-h-screen`. This is intentional — the inner container constrains the chat within viewport.
+
+4. **The gold accent was removed from ALL CSS variables** — this affects every shadcn component project-wide, not just the chat page. If the root landing page uses gold accents, they will now be lavender-white.
+
+5. **Handoff file was deleted** (`handoff.md` shows as deleted in git status).
+
+---
+
+## Design constitution
+
+Read `brief.md` before making any visual changes. Key non-negotiables:
+- No rounded corners
+- Mascot is 3D glossy robot spider (loaded from `mascot-3d.svg`)
+- Gold/Amber was originally for interactive elements — now replaced with glossy lavender-white (`#e8dff8`)
+- Text is never pure white — always `#ded4f0` or `#e8e4df`
+- Ambient over loud — subtle continuous animation, no flashy transitions
+
+---
+
+## Suggested skills
+
+- `/frontend-design` — for any further visual refinement
+- `/design` — for design review and polish passes
+- `/shadcn` — if adding or modifying shadcn components
+- `/gsap-react` — if adding animations to the chat page
+
+---
+
+## Project structure (relevant files)
+
 ```
-lightType="3d" envPreset="city" reflection={0.5}
-type="sphere" uDensity=0.8 uStrength=0.4 uFrequency=5.5 uSpeed=0.3 uAmplitude=7
-cAzimuthAngle=250 cPolarAngle=140 cDistance=1.5 cameraZoom=12.5
+src/
+├── app/
+│   ├── page.tsx              — Root landing page (NOT modified)
+│   ├── home/page.tsx         — Chat page (MODIFIED — main work)
+│   ├── layout.tsx            — Root layout + fonts
+│   └── globals.css           — Design tokens + chat styles (MODIFIED)
+├── components/
+│   ├── ShinyText.tsx         — Glossy text effect for logo
+│   └── ai-elements/          — Chat components (NOT modified)
+└── brief.md                  — Design constitution (read-only reference)
 ```
-
-**Use-scramble** config (all phases):
-```
-speed: 0.35, tick: 2, step: 1, scramble: 2, chance: 0.7, overflow: true, range: [65, 125]
-```
-
-## Next likely work (not started)
-
-- ScrollHint and HowItWorks — uncomment and build below the fold
-- ScrollTrigger integration between hero and sections below
-- Overall page layout polish with how-it-works content
-- Mascot SVG interactive integration on hero around the text
-- GSAP-based ambient animations on the mascot
-
-## Suggested Skills
-
-- `/gsap-core` — GSAP core for ambient mascot animation (spider bobbing/legs)
-- `/gsap-timeline` — timeline for sequencing scroll-triggered animations
-- `/gsap-scrolltrigger` — scroll-driven reveal for HowItWorks section
-- `/frontend-design` — layout/design polish for the below-the-fold sections

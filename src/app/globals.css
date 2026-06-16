@@ -12,8 +12,8 @@
   --color-text-secondary: #7a7685;
   --color-text-dim: #4a4658;
 
-  --color-accent: #c9952a;
-  --color-accent-hover: #e0ad3a;
+  --color-accent: #e8dff8;
+  --color-accent-hover: #f0eaff;
 
   --color-border-subtle: rgba(200, 195, 184, 0.08);
   --color-border-strong: rgba(200, 195, 184, 0.15);
@@ -82,7 +82,7 @@
   }
 
   ::selection {
-    background: rgba(201, 149, 42, 0.25);
+    background: rgba(232, 223, 248, 0.15);
     color: var(--color-text-primary);
   }
   html {
@@ -122,32 +122,32 @@
 :root {
   --background: #060610;
   --foreground: #e8e4df;
-  --card: #080812;
+  --card: #100a1e;
   --card-foreground: #e8e4df;
-  --popover: #080812;
+  --popover: #100a1e;
   --popover-foreground: #e8e4df;
-  --primary: #c9952a;
-  --primary-foreground: #060610;
-  --secondary: #1a1a24;
-  --secondary-foreground: #7a7685;
-  --muted: #11111a;
-  --muted-foreground: #7a7685;
-  --accent: #11111a;
-  --accent-foreground: #c9952a;
+  --primary: #e8dff8;
+  --primary-foreground: #150c28;
+  --secondary: #1a1038;
+  --secondary-foreground: #C8ACFB;
+  --muted: #181230;
+  --muted-foreground: #C8ACFB;
+  --accent: #1e1540;
+  --accent-foreground: #e8dff8;
   --destructive: #7f1d1d;
   --destructive-foreground: #e8e4df;
-  --border: rgba(200, 195, 184, 0.15);
-  --input: rgba(200, 195, 184, 0.15);
-  --ring: #c9952a;
-  --radius: 0rem;
+  --border: rgba(208, 184, 245, 0.15);
+  --input: rgba(208, 184, 245, 0.15);
+  --ring: #e8dff8;
+  --radius: 0.55rem;
   --sidebar: #060610;
   --sidebar-foreground: #e8e4df;
-  --sidebar-primary: #c9952a;
+  --sidebar-primary: #e8dff8;
   --sidebar-primary-foreground: #060610;
   --sidebar-accent: #11111a;
-  --sidebar-accent-foreground: #c9952a;
+  --sidebar-accent-foreground: #e8dff8;
   --sidebar-border: rgba(200, 195, 184, 0.15);
-  --sidebar-ring: #c9952a;
+  --sidebar-ring: #e8dff8;
 }
 
 /* Glossy purple text effect — mascot palette (bright for dark bg) */
@@ -186,30 +186,405 @@
 .dark {
   --background: #060610;
   --foreground: #e8e4df;
-  --card: #080812;
+  --card: #100a1e;
   --card-foreground: #e8e4df;
-  --popover: #080812;
+  --popover: #100a1e;
   --popover-foreground: #e8e4df;
-  --primary: #c9952a;
-  --primary-foreground: #060610;
-  --secondary: #1a1a24;
-  --secondary-foreground: #7a7685;
-  --muted: #11111a;
-  --muted-foreground: #7a7685;
-  --accent: #11111a;
-  --accent-foreground: #c9952a;
+  --primary: #e8dff8;
+  --primary-foreground: #150c28;
+  --secondary: #1a1038;
+  --secondary-foreground: #C8ACFB;
+  --muted: #181230;
+  --muted-foreground: #C8ACFB;
+  --accent: #1e1540;
+  --accent-foreground: #e8dff8;
   --destructive: #7f1d1d;
   --destructive-foreground: #e8e4df;
-  --border: rgba(200, 195, 184, 0.15);
-  --input: rgba(200, 195, 184, 0.15);
-  --ring: #c9952a;
-  --radius: 0rem;
+  --border: rgba(208, 184, 245, 0.15);
+  --input: rgba(208, 184, 245, 0.15);
+  --ring: #e8dff8;
+  --radius: 0.55rem;
   --sidebar: #060610;
   --sidebar-foreground: #e8e4df;
-  --sidebar-primary: #c9952a;
+  --sidebar-primary: #e8dff8;
   --sidebar-primary-foreground: #060610;
   --sidebar-accent: #11111a;
-  --sidebar-accent-foreground: #c9952a;
+  --sidebar-accent-foreground: #e8dff8;
   --sidebar-border: rgba(200, 195, 184, 0.15);
-  --sidebar-ring: #c9952a;
+  --sidebar-ring: #e8dff8;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Chat Page — Enhanced Design System
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Global minimal scrollbar — thin, fades naturally ── */
+*::-webkit-scrollbar { width: 2px; height: 2px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 0; }
+* { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.15) transparent; }
+
+/* ── Conversation scrollbar — always visible, faint ── */
+[role="log"] *::-webkit-scrollbar,
+[role="log"]::-webkit-scrollbar {
+  width: 4px;
+}
+[role="log"] *::-webkit-scrollbar-thumb,
+[role="log"]::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+  min-height: 40px;
+}
+[role="log"] *,
+[role="log"] {
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  scrollbar-width: thin;
+}
+
+/* Single-edge gutter for conversation, not both-edges */
+[role="log"] > div {
+  scrollbar-gutter: stable !important;
+}
+
+/* ── Divider (between messages and input section) ── */
+.divide-y > :not(:first-child) {
+  border-top: 1px solid rgba(200, 172, 251, 0.08);
+  background: transparent !important;
+}
+
+/* ── Sources & Reasoning Triggers ── */
+[data-slot="collapsible-trigger"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius);
+  background: rgba(200, 172, 251, 0.04);
+  border: 1px solid rgba(200, 172, 251, 0.08);
+  font-size: 0.75rem;
+  color: #C8ACFB;
+  transition: background 0.2s, border-color 0.2s;
+  cursor: pointer;
+}
+[data-slot="collapsible-trigger"]:hover {
+  background: rgba(200, 172, 251, 0.08);
+  border-color: rgba(200, 172, 251, 0.15);
+}
+[data-slot="collapsible-trigger"] svg:last-child {
+  transition: rotate 0.25s ease;
+}
+[data-slot="collapsible-trigger"][data-state="open"] svg:last-child {
+  rotate: 180deg;
+}
+
+/* ── Sources Collapsible — smooth transition ── */
+[data-state="open"][data-slot="collapsible-content"] {
+  animation: collapsible-open 0.25s ease-out;
+}
+[data-state="closed"][data-slot="collapsible-content"] {
+  animation: collapsible-close 0.25s ease-in forwards;
+}
+@keyframes collapsible-open {
+  from { opacity: 0; transform: translateY(-4px); max-height: 0; }
+  to { opacity: 1; transform: translateY(0); max-height: 500px; }
+}
+@keyframes collapsible-close {
+  from { opacity: 1; transform: translateY(0); max-height: 500px; }
+  to { opacity: 0; transform: translateY(-4px); max-height: 0; }
+}
+
+/* ── Input Elevation ── */
+.chat-input-wrap {
+  border-radius: 0.825rem;
+  border: 1px solid rgba(200, 172, 251, 0.08);
+  background: rgba(10, 5, 22, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: border-color 0.35s ease, box-shadow 0.35s ease;
+}
+.chat-input-wrap:focus-within {
+  border-color: rgba(200, 172, 251, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(200, 172, 251, 0.03),
+    0 0 40px rgba(200, 172, 251, 0.05),
+    0 8px 40px rgba(0, 0, 0, 0.3);
+}
+.chat-input-wrap:focus-within .chat-input-glow {
+  opacity: 1;
+}
+.chat-input-glow {
+  position: absolute;
+  top: -1px;
+  left: 20%;
+  right: 20%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200, 172, 251, 0.3), transparent);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.chat-input-wrap [data-slot="input-group"] {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+/* ── Markdown: Headings (capped to 3 levels) ── */
+.group.is-assistant h1,
+.group.is-assistant h2,
+.group.is-assistant h3 {
+  font-family: var(--font-display);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.group.is-assistant h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e8dff8;
+  margin: 0.6em 0 0.3em !important;
+}
+.group.is-assistant h2 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ded4f0;
+  margin: 0.5em 0 0.25em !important;
+}
+.group.is-assistant h3 {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #C8ACFB;
+  margin: 0.4em 0 0.2em !important;
+}
+.group.is-assistant h4,
+.group.is-assistant h5,
+.group.is-assistant h6 {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #9a8cc0;
+  margin: 0.3em 0 0.2em !important;
+}
+
+/* ── Markdown: Body ── */
+.group.is-assistant p {
+  margin: 0.35em 0;
+  line-height: 1.72;
+  color: #e8e4df;
+}
+.group.is-assistant strong {
+  color: #e8dff8;
+  font-weight: 600;
+}
+.group.is-assistant em {
+  color: #C8ACFB;
+}
+.group.is-assistant ul,
+.group.is-assistant ol {
+  padding-left: 1.3rem;
+  margin: 0.4em 0;
+}
+.group.is-assistant li {
+  margin: 0.15em 0;
+  line-height: 1.65;
+}
+.group.is-assistant li::marker {
+  color: rgba(200, 172, 251, 0.4);
+}
+
+/* ── Code Blocks — single clean container ── */
+.group.is-assistant [data-streamdown="code-block"] {
+  margin: 0.5em 0 !important;
+}
+[data-streamdown="code-block"] {
+  background: rgba(10, 5, 22, 0.8);
+  border: 1px solid rgba(200, 172, 251, 0.08);
+  border-radius: var(--radius);
+  padding: 0;
+  position: relative;
+}
+[data-streamdown="code-block"]:hover [data-streamdown="code-block-actions"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+[data-streamdown="code-block-header"] {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.75rem;
+  padding: 0;
+  border-bottom: none;
+  background: transparent;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  opacity: 1;
+}
+
+[data-streamdown="code-block-body"] {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0.65rem 0.75rem;
+}
+
+[data-streamdown="code-block-body"] pre {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+
+[data-streamdown="code-block-body"] pre code {
+  background: transparent;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+[data-streamdown="code-block-actions"] {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  background: rgba(10, 5, 22, 0.9);
+  border: 1px solid rgba(200, 172, 251, 0.1);
+  border-radius: var(--radius);
+  padding: 0.15rem;
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 2;
+}
+
+[data-streamdown="code-block-actions"] button {
+  border-radius: var(--radius);
+}
+
+/* Hide download button, keep copy */
+[data-streamdown="code-block-actions"] button[data-action="download"],
+[data-streamdown="code-block-actions"] button:first-child:not([data-action="copy"]):not([aria-label*="Copy"]) {
+  display: none !important;
+}
+
+/* ── Code: inline and pre ── */
+.group.is-assistant code:not(pre code) {
+  background: rgba(200, 172, 251, 0.08);
+  color: #C8ACFB;
+  padding: 0.12em 0.45em;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  border: 1px solid rgba(200, 172, 251, 0.06);
+}
+.group.is-assistant pre {
+  background: transparent;
+  border: none;
+  padding: 0;
+  overflow-x: auto;
+  margin: 0;
+}
+.group.is-assistant pre code {
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: #ded4f0;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* ── Markdown: Misc ── */
+.group.is-assistant blockquote {
+  border-left: 2px solid rgba(232, 223, 248, 0.3);
+  padding: 0.3em 0 0.3em 1em;
+  margin: 0.5em 0;
+  color: #7a7685;
+}
+.group.is-assistant a {
+  color: #e8dff8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(232, 223, 248, 0.25);
+  transition: color 0.2s, text-decoration-color 0.2s;
+}
+.group.is-assistant a:hover {
+  color: #f0eaff;
+  text-decoration-color: #f0eaff;
+}
+.group.is-assistant hr {
+  border: none;
+  border-top: 1px solid rgba(200, 172, 251, 0.08);
+  margin: 0.8em 0;
+}
+.group.is-assistant table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  font-size: 0.85em;
+}
+.group.is-assistant th {
+  text-align: left;
+  padding: 0.4em 0.8em;
+  border-bottom: 1px solid rgba(200, 172, 251, 0.12);
+  color: #C8ACFB;
+  font-weight: 500;
+}
+.group.is-assistant td {
+  padding: 0.4em 0.8em;
+  border-bottom: 1px solid rgba(200, 172, 251, 0.05);
+}
+
+/* ── User Bubble Enhancement ── */
+.group.is-user {
+  align-items: flex-end;
+}
+.group.is-user [class*="bg-secondary"] {
+  background: linear-gradient(135deg, rgba(30, 21, 64, 0.95), rgba(26, 16, 56, 0.85)) !important;
+  border: 1px solid rgba(200, 172, 251, 0.08);
+  border-radius: var(--radius);
+  max-width: 70%;
+  margin-left: auto;
+}
+
+/* ── Toolbar Buttons — consistent radius + height ── */
+.chat-input-wrap [data-slot="button"] {
+  border-radius: var(--radius);
+  height: 2rem;
+  min-height: 2rem;
+  max-height: 2rem;
+}
+
+/* ── Assistant Message Accent — removed, clean block now ── */
+
+/* ── Message Branch Selector — right aligned (handled in component) ── */
+
+/* ── Selection ── */
+.group.is-assistant ::selection {
+  background: rgba(200, 172, 251, 0.2);
+  color: #e8e4df;
+}
+.group.is-user ::selection {
+  background: rgba(232, 223, 248, 0.15);
+  color: #e8e4df;
+}
+
+/* ── Conversation Bottom Fade ── */
+.chat-fade-bottom::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: linear-gradient(to bottom, transparent, rgba(21, 12, 40, 0.9));
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ── Scroll-to-bottom button ── */
+[data-slot="scroll-button"] {
+  background: rgba(10, 5, 22, 0.85) !important;
+  border: 1px solid rgba(200, 172, 251, 0.12) !important;
+  border-radius: var(--radius) !important;
+  backdrop-filter: blur(8px);
+}
+
+/* ── Toolbar Refinement ── */
+.chat-input-wrap [data-slot="input-group-addon"] {
+  border-top: 1px solid rgba(200, 172, 251, 0.05) !important;
 }

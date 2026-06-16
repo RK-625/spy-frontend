@@ -64,7 +64,7 @@ import {
 } from "@/components/ai-elements/sources";
 import { SpeechInput } from "@/components/ai-elements/speech-input";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
-import type { ToolUIPart } from "ai";
+import type { FileUIPart, ToolUIPart } from "ai";
 import { CheckIcon, GlobeIcon } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useCallback, useMemo, useState } from "react";
@@ -346,7 +346,7 @@ const AttachmentItem = ({
   attachment,
   onRemove,
 }: {
-  attachment: { id: string; name: string; type: string; url: string };
+  attachment: FileUIPart & { id: string };
   onRemove: (id: string) => void;
 }) => {
   const handleRemove = useCallback(() => {
@@ -399,7 +399,19 @@ const SuggestionItem = ({
     onClick(suggestion);
   }, [onClick, suggestion]);
 
-  return <Suggestion onClick={handleClick} suggestion={suggestion} />;
+  return (
+    <Suggestion
+      className="rounded-[var(--radius)] font-[family-name:var(--font-body)] text-[0.75rem] font-medium tracking-wide
+                 text-[#9a8cc0] border-[rgba(200,172,251,0.1)] bg-[rgba(14,7,32,0.5)]
+                 hover:border-[rgba(232,223,248,0.2)] hover:bg-[rgba(232,223,248,0.06)]
+                 hover:text-[#f0eaff]
+                 data-[state=selected]:border-[rgba(232,223,248,0.2)]
+                 data-[state=selected]:bg-[rgba(232,223,248,0.06)]
+                 transition-all duration-200"
+      onClick={handleClick}
+      suggestion={suggestion}
+    />
+  );
 };
 
 const ModelItem = ({
@@ -584,7 +596,7 @@ const Example = () => {
 
   return (
     <div className="relative flex size-full flex-col divide-y overflow-hidden">
-      <Conversation>
+      <Conversation className="chat-fade-bottom">
         <ConversationContent>
           {messages.map(({ versions, ...message }) => (
             <MessageBranch defaultBranch={0} key={message.key}>
@@ -636,7 +648,7 @@ const Example = () => {
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="grid shrink-0 gap-4 pt-4">
+      <div className="grid shrink-0 gap-3 pt-4">
         <Suggestions className="px-4">
           {suggestions.map((suggestion) => (
             <SuggestionItem
@@ -646,7 +658,9 @@ const Example = () => {
             />
           ))}
         </Suggestions>
-        <div className="w-full px-4 pb-4">
+        <div className="w-full px-4 pb-4 pt-1">
+          <div className="chat-input-wrap relative">
+          <div className="chat-input-glow" />
           <PromptInput globalDrop multiple onSubmit={handleSubmit}>
             <PromptInputHeader>
               <PromptInputAttachmentsDisplay />
@@ -655,7 +669,7 @@ const Example = () => {
               <PromptInputTextarea onChange={handleTextChange} value={text} />
             </PromptInputBody>
             <PromptInputFooter>
-              <PromptInputTools>
+              <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)]">
                 <PromptInputActionMenu>
                   <PromptInputActionMenuTrigger />
                   <PromptInputActionMenuContent>
@@ -670,17 +684,17 @@ const Example = () => {
                 />
                 <PromptInputButton
                   onClick={toggleWebSearch}
+                  size="icon-sm"
                   variant={useWebSearch ? "default" : "ghost"}
                 >
                   <GlobeIcon size={16} />
-                  <span>Search</span>
                 </PromptInputButton>
                 <ModelSelector
                   onOpenChange={setModelSelectorOpen}
                   open={modelSelectorOpen}
                 >
                   <ModelSelectorTrigger asChild>
-                    <PromptInputButton>
+                    <PromptInputButton className="bg-[#0e0720]/60 border border-[#C8ACFB]/10 hover:bg-[#0e0720]/80 hover:border-[#C8ACFB]/20">
                       {selectedModelData?.chefSlug && (
                         <ModelSelectorLogo
                           provider={selectedModelData.chefSlug}
@@ -718,10 +732,84 @@ const Example = () => {
               <PromptInputSubmit disabled={isSubmitDisabled} status={status} />
             </PromptInputFooter>
           </PromptInput>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default function HomePage() { return <div className="h-screen w-full bg-background"><Example /></div>; }
+import dynamic from "next/dynamic";
+import ShinyText from "@/components/ShinyText";
+
+const ShaderGradientCanvas = dynamic(
+  () => import("@shadergradient/react").then((mod) => ({ default: mod.ShaderGradientCanvas })),
+  { ssr: false }
+);
+const ShaderGradient = dynamic(
+  () => import("@shadergradient/react").then((mod) => ({ default: mod.ShaderGradient })),
+  { ssr: false }
+);
+
+export default function HomePage() {
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-[#150c28]">
+      <div className="fixed inset-0 z-50 bg-[#150c28] pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
+
+      <div className="fixed inset-0 -z-10">
+        <ShaderGradientCanvas>
+          <ShaderGradient
+            animate="on"
+            brightness={0.7}
+            cAzimuthAngle={250}
+            cDistance={1.5}
+            cPolarAngle={140}
+            cameraZoom={10}
+            color1="#4A1280"
+            color2="#8838DE"
+            color3="#DDB8F8"
+            envPreset="city"
+            grain="on"
+            lightType="3d"
+            positionX={0}
+            positionY={0}
+            positionZ={0}
+            reflection={0.5}
+            rotationX={0}
+            rotationY={0}
+            rotationZ={140}
+            shader="defaults"
+            type="sphere"
+            uAmplitude={7}
+            uDensity={0.8}
+            uFrequency={5.5}
+            uSpeed={0.3}
+            uStrength={0.4}
+            uTime={0}
+            wireframe={false}
+          />
+        </ShaderGradientCanvas>
+      </div>
+
+      <div className="fixed inset-0 z-0 bg-[#150c28]/50 pointer-events-none" />
+
+      <div className="relative z-10 flex flex-col items-center">
+        <div className="mx-auto flex h-screen w-full max-w-4xl flex-col bg-[#150c28]/80 backdrop-blur-sm">
+          <header className="relative flex items-center gap-3 border-b border-[#d0b8f5]/10 px-6 py-4">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C8ACFB]/15 to-transparent" />
+            <ShinyText
+              className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"
+              spread={120}
+            >
+              SPY
+            </ShinyText>
+            <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-[#C8ACFB]">
+              WEAVING SIGNAL
+            </span>
+          </header>
+          <Example />
+        </div>
+      </div>
+    </div>
+  );
+}

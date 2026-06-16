@@ -54,8 +54,8 @@ export const MessageContent = ({
 }: MessageContentProps) => (
   <div
     className={cn(
-      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm",
-      "group-[.is-user]:ml-auto group-[.is-user]: group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
+      "flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm",
+      "group-[.is-user]:ml-auto group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
       "group-[.is-assistant]:text-foreground",
       className
     )}
@@ -187,7 +187,7 @@ export const MessageBranch = ({
   return (
     <MessageBranchContext.Provider value={contextValue}>
       <div
-        className={cn("grid w-full gap-2 [&>div]:pb-0", className)}
+        className={cn("grid w-full gap-2 [&>div]:pb-0 [&>[data-slot=button-group]]:justify-self-end", className)}
         {...props}
       />
     </MessageBranchContext.Provider>
@@ -242,10 +242,7 @@ export const MessageBranchSelector = ({
 
   return (
     <ButtonGroup
-      className={cn(
-        "[&>*:not(:first-child)]: [&>*:not(:last-child)]:",
-        className
-      )}
+      className={cn("w-fit", className)}
       orientation="horizontal"
       {...props}
     />
@@ -314,7 +311,7 @@ export const MessageBranchPage = ({
       )}
       {...props}
     >
-      {currentBranch + 1} of {totalBranches}
+      {currentBranch + 1}/{totalBranches}
     </ButtonGroupText>
   );
 };
