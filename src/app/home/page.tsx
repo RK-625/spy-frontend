@@ -57,18 +57,24 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import {
-  Source,
   Sources,
+  Source,
   SourcesContent,
   SourcesTrigger,
 } from "@/components/ai-elements/sources";
 import { SpeechInput } from "@/components/ai-elements/speech-input";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import type { FileUIPart, ToolUIPart } from "ai";
-import { CheckIcon, GlobeIcon } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
+import { Globe } from "lucide-react";
 import { nanoid } from "nanoid";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
+import { ChatSidebar } from "@/components/ChatSidebar";
+import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface MessageType {
   key: string;
@@ -437,7 +443,7 @@ const ModelItem = ({
         ))}
       </ModelSelectorLogoGroup>
       {isSelected ? (
-        <CheckIcon className="ml-auto size-4" />
+        <DotMatrixIcon name="check" size={16} className="ml-auto" />
       ) : (
         <div className="ml-auto size-4" />
       )}
@@ -445,39 +451,41 @@ const ModelItem = ({
   );
 };
 
+const EmptyState = () => (
+  <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+    <div className="text-[#C8ACFB]/40 font-[family-name:var(--font-terminal)] text-2xl">
+      _
+    </div>
+    <p className="max-w-sm text-sm text-[#7a7685]">
+      Ask Spy anything. Throw it a question, a mess, a half-formed idea — and
+      watch the web start to weave.
+    </p>
+  </div>
+);
+
 const Example = () => {
-  const [model, setModel] = useState<string>(models[0].id);
-  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-  const [text, setText] = useState<string>("");
-  const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
-  const [status, setStatus] = useState<
-    "submitted" | "streaming" | "ready" | "error"
-  >("ready");
-  const [messages, setMessages] = useState<MessageType[]>(initialMessages);
-  const [, setStreamingMessageId] = useState<string | null>(null);
+  const {
+    model,
+    setModel,
+    modelSelectorOpen,
+    setModelSelectorOpen,
+    text,
+    setText,
+    useWebSearch,
+    status,
+    setStatus,
+    messages,
+    setMessages,
+    setStreamingMessageId,
+    updateMessageContent,
+    toggleWebSearch,
+    error,
+    setError,
+  } = useChatContext();
 
   const selectedModelData = useMemo(
     () => models.find((m) => m.id === model),
     [model]
-  );
-
-  const updateMessageContent = useCallback(
-    (messageId: string, newContent: string) => {
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.versions.some((v) => v.id === messageId)) {
-            return {
-              ...msg,
-              versions: msg.versions.map((v) =>
-                v.id === messageId ? { ...v, content: newContent } : v
-              ),
-            };
-          }
-          return msg;
-        })
-      );
-    },
-    []
   );
 
   const streamResponse = useCallback(
@@ -497,18 +505,22 @@ const Example = () => {
       setStatus("ready");
       setStreamingMessageId(null);
     },
-    [updateMessageContent]
+    [updateMessageContent, setStatus, setStreamingMessageId]
   );
 
   const addUserMessage = useCallback(
     (content: string) => {
+      const trimmed = content.trim();
+      if (!trimmed) return;
+
+      const userTimestamp = Date.now();
       const userMessage: MessageType = {
         from: "user",
-        key: `user-${Date.now()}`,
+        key: `user-${userTimestamp}`,
         versions: [
           {
-            content,
-            id: `user-${Date.now()}`,
+            content: trimmed,
+            id: `user-${userTimestamp}`,
           },
         ],
       };
@@ -516,13 +528,14 @@ const Example = () => {
       setMessages((prev) => [...prev, userMessage]);
 
       setTimeout(() => {
-        const assistantMessageId = `assistant-${Date.now()}`;
+        const assistantTimestamp = Date.now();
+        const assistantMessageId = `assistant-${assistantTimestamp}`;
         const randomResponse =
           mockResponses[Math.floor(Math.random() * mockResponses.length)];
 
         const assistantMessage: MessageType = {
           from: "assistant",
-          key: `assistant-${Date.now()}`,
+          key: `assistant-${assistantTimestamp}`,
           versions: [
             {
               content: "",
@@ -535,15 +548,15 @@ const Example = () => {
         streamResponse(assistantMessageId, randomResponse);
       }, 500);
     },
-    [streamResponse]
+    [streamResponse, setMessages]
   );
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      const hasText = Boolean(message.text);
+      const hasText = Boolean(message.text?.trim());
       const hasAttachments = Boolean(message.files?.length);
 
-      if (!(hasText || hasAttachments)) {
+      if (!hasText && !hasAttachments) {
         return;
       }
 
@@ -555,10 +568,16 @@ const Example = () => {
         });
       }
 
-      addUserMessage(message.text || "Sent with attachments");
+      const text = hasText
+        ? message.text!.trim()
+        : message.files
+            ?.map((f) => f.filename || "file")
+            .join(", ") || "Attachment";
+
+      addUserMessage(text);
       setText("");
     },
-    [addUserMessage]
+    [addUserMessage, setStatus, setText]
   );
 
   const handleSuggestionClick = useCallback(
@@ -566,89 +585,117 @@ const Example = () => {
       setStatus("submitted");
       addUserMessage(suggestion);
     },
-    [addUserMessage]
+    [addUserMessage, setStatus]
   );
 
-  const handleTranscriptionChange = useCallback((transcript: string) => {
-    setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
-  }, []);
+  const handleTranscriptionChange = useCallback(
+    (transcript: string) => {
+      setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+    },
+    [setText]
+  );
 
   const handleTextChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       setText(event.target.value);
     },
-    []
+    [setText]
   );
 
-  const toggleWebSearch = useCallback(() => {
-    setUseWebSearch((prev) => !prev);
-  }, []);
-
-  const handleModelSelect = useCallback((modelId: string) => {
-    setModel(modelId);
-    setModelSelectorOpen(false);
-  }, []);
+  const handleModelSelect = useCallback(
+    (modelId: string) => {
+      setModel(modelId);
+      setModelSelectorOpen(false);
+    },
+    [setModel, setModelSelectorOpen]
+  );
 
   const isSubmitDisabled = useMemo(
-    () => !(text.trim() || status) || status === "streaming",
+    () => !text.trim() || status === "submitted",
     [text, status]
   );
 
+  const handleStop = useCallback(() => {
+    setStatus("ready");
+    setStreamingMessageId(null);
+  }, [setStatus, setStreamingMessageId]);
+
   return (
     <div className="relative flex size-full flex-col divide-y overflow-hidden">
-      <Conversation className="chat-fade-bottom">
-        <ConversationContent>
-          {messages.map(({ versions, ...message }) => (
-            <MessageBranch defaultBranch={0} key={message.key}>
-              <MessageBranchContent>
-                {versions.map((version) => (
-                  <Message
-                    from={message.from}
-                    key={`${message.key}-${version.id}`}
-                  >
-                    <div>
-                      {message.sources?.length && (
-                        <Sources>
-                          <SourcesTrigger count={message.sources.length} />
-                          <SourcesContent>
-                            {message.sources.map((source) => (
-                              <Source
-                                href={source.href}
-                                key={source.href}
-                                title={source.title}
-                              />
-                            ))}
-                          </SourcesContent>
-                        </Sources>
-                      )}
-                      {message.reasoning && (
-                        <Reasoning duration={message.reasoning.duration}>
-                          <ReasoningTrigger />
-                          <ReasoningContent>
-                            {message.reasoning.content}
-                          </ReasoningContent>
-                        </Reasoning>
-                      )}
-                      <MessageContent>
-                        <MessageResponse>{version.content}</MessageResponse>
-                      </MessageContent>
-                    </div>
-                  </Message>
-                ))}
-              </MessageBranchContent>
-              {versions.length > 1 && (
-                <MessageBranchSelector>
-                  <MessageBranchPrevious />
-                  <MessageBranchPage />
-                  <MessageBranchNext />
-                </MessageBranchSelector>
-              )}
-            </MessageBranch>
-          ))}
+      <Conversation className="chat-fade-bottom" aria-live="polite">
+        <ConversationContent aria-label="Conversation messages">
+          {error && (
+            <div className="mb-4 flex items-center gap-3 rounded-[var(--radius)] border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              <span className="text-red-400">⚠</span>
+              <span className="flex-1">{error}</span>
+              <button
+                className="rounded border border-red-500/30 px-2 py-0.5 text-xs text-red-300 transition-colors hover:bg-red-500/20"
+                onClick={() => {
+                  setError(null);
+                  setStatus("ready");
+                }}
+                type="button"
+                aria-label="Dismiss error"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+          {messages.length === 0 ? (
+            <EmptyState />
+          ) : (
+            messages.map(({ versions, ...message }) => (
+              <MessageBranch defaultBranch={0} key={message.key}>
+                <MessageBranchContent>
+                  {versions.map((version) => (
+                    <Message
+                      from={message.from}
+                      key={`${message.key}-${version.id}`}
+                    >
+                      <div>
+                        {message.sources?.length && (
+                          <Sources>
+                            <SourcesTrigger count={message.sources.length} />
+                            <SourcesContent>
+                              {message.sources.map((source) => (
+                                <Source
+                                  href={source.href}
+                                  key={source.href}
+                                  title={source.title}
+                                />
+                              ))}
+                            </SourcesContent>
+                          </Sources>
+                        )}
+                        {message.reasoning && (
+                          <Reasoning duration={message.reasoning.duration}>
+                            <ReasoningTrigger />
+                            <ReasoningContent>
+                              {message.reasoning.content}
+                            </ReasoningContent>
+                          </Reasoning>
+                        )}
+                        <MessageContent>
+                          <MessageResponse>{version.content}</MessageResponse>
+                        </MessageContent>
+                      </div>
+                    </Message>
+                  ))}
+                </MessageBranchContent>
+                {versions.length > 1 && (
+                  <MessageBranchSelector>
+                    <MessageBranchPrevious />
+                    <MessageBranchPage />
+                    <MessageBranchNext />
+                  </MessageBranchSelector>
+                )}
+              </MessageBranch>
+            ))
+          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="grid shrink-0 gap-3 pt-4">
+      <div className="flex shrink-0 flex-col gap-3 pt-4">
         <Suggestions className="px-4">
           {suggestions.map((suggestion) => (
             <SuggestionItem
@@ -661,7 +708,14 @@ const Example = () => {
         <div className="w-full px-4 pb-4 pt-1">
           <div className="chat-input-wrap relative">
           <div className="chat-input-glow" />
-          <PromptInput globalDrop multiple onSubmit={handleSubmit}>
+          <PromptInput
+            globalDrop
+            multiple
+            onSubmit={handleSubmit}
+            accept="image/*,.pdf,.txt,.md,.json,.ts,.tsx,.js,.jsx"
+            maxFiles={5}
+            maxFileSize={10 * 1024 * 1024}
+          >
             <PromptInputHeader>
               <PromptInputAttachmentsDisplay />
             </PromptInputHeader>
@@ -671,13 +725,13 @@ const Example = () => {
             <PromptInputFooter>
               <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)]">
                 <PromptInputActionMenu>
-                  <PromptInputActionMenuTrigger />
+                  <PromptInputActionMenuTrigger className="text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]" />
                   <PromptInputActionMenuContent>
                     <PromptInputActionAddAttachments />
                   </PromptInputActionMenuContent>
                 </PromptInputActionMenu>
                 <SpeechInput
-                  className="shrink-0"
+                  className="shrink-0 text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]"
                   onTranscriptionChange={handleTranscriptionChange}
                   size="icon-sm"
                   variant="ghost"
@@ -686,25 +740,31 @@ const Example = () => {
                   onClick={toggleWebSearch}
                   size="icon-sm"
                   variant={useWebSearch ? "default" : "ghost"}
+                  aria-label={useWebSearch ? "Disable web search" : "Enable web search"}
+                  tooltip={{
+                    content: useWebSearch ? "Disable web search" : "Enable web search",
+                    side: "top",
+                  }}
+                  className={cn(
+                    "transition-colors",
+                    useWebSearch
+                      ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-white"
+                      : "text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]"
+                  )}
                 >
-                  <GlobeIcon size={16} />
+                  <DotMatrixIcon name="globe" size={16} />
                 </PromptInputButton>
                 <ModelSelector
                   onOpenChange={setModelSelectorOpen}
                   open={modelSelectorOpen}
                 >
                   <ModelSelectorTrigger asChild>
-                    <PromptInputButton className="bg-[#0e0720]/60 border border-[#C8ACFB]/10 hover:bg-[#0e0720]/80 hover:border-[#C8ACFB]/20">
-                      {selectedModelData?.chefSlug && (
-                        <ModelSelectorLogo
-                          provider={selectedModelData.chefSlug}
-                        />
-                      )}
-                      {selectedModelData?.name && (
-                        <ModelSelectorName>
-                          {selectedModelData.name}
-                        </ModelSelectorName>
-                      )}
+                    <PromptInputButton
+                      className="shrink-0 text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]"
+                      variant="ghost"
+                      aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
+                    >
+                      <DotMatrixIcon name="cpu" size={16} />
                     </PromptInputButton>
                   </ModelSelectorTrigger>
                   <ModelSelectorContent>
@@ -729,7 +789,11 @@ const Example = () => {
                   </ModelSelectorContent>
                 </ModelSelector>
               </PromptInputTools>
-              <PromptInputSubmit disabled={isSubmitDisabled} status={status} />
+              <PromptInputSubmit
+                disabled={isSubmitDisabled}
+                onStop={handleStop}
+                status={status}
+              />
             </PromptInputFooter>
           </PromptInput>
           </div>
@@ -793,23 +857,41 @@ export default function HomePage() {
 
       <div className="fixed inset-0 z-0 bg-[#150c28]/50 pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col items-center">
-        <div className="mx-auto flex h-screen w-full max-w-4xl flex-col bg-[#150c28]/80 backdrop-blur-sm">
-          <header className="relative flex items-center gap-3 border-b border-[#d0b8f5]/10 px-6 py-4">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C8ACFB]/15 to-transparent" />
-            <ShinyText
-              className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"
-              spread={120}
+      <div className="relative z-10 flex h-screen w-full">
+        {/* Sidebar — sibling to main chat area, but shares chat context */}
+        <ChatProviderWrapper>
+          <ChatSidebar />
+          {/* Main chat area */}
+          <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
+            <div
+              className="flex h-full w-full max-w-4xl flex-col bg-[#150c28]/80 backdrop-blur-sm"
             >
-              SPY
-            </ShinyText>
-            <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-[#C8ACFB]">
-              WEAVING SIGNAL
-            </span>
-          </header>
-          <Example />
-        </div>
+              <header className="relative flex items-center gap-3 border-b border-[#d0b8f5]/10 px-6 py-4">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C8ACFB]/15 to-transparent" />
+                <ShinyText
+                  className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"
+                  spread={120}
+                >
+                  SPY
+                </ShinyText>
+                <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-[#C8ACFB]">
+                  WEAVING SIGNAL
+                </span>
+              </header>
+              <Example />
+            </div>
+          </div>
+        </ChatProviderWrapper>
       </div>
     </div>
+  );
+}
+
+// Wrap sidebar + chat area in a single ChatProvider so they share state
+function ChatProviderWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <ChatProvider initialMessages={initialMessages}>{children}</ChatProvider>
+    </TooltipProvider>
   );
 }

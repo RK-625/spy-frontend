@@ -6,17 +6,9 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { DotMatrixIcon, type DotMatrixIconName } from "@/components/ai-elements/dot-matrix-icons";
 import { cn } from "@/lib/utils";
 import type { FileUIPart, SourceDocumentUIPart } from "ai";
-import {
-  FileTextIcon,
-  GlobeIcon,
-  ImageIcon,
-  Music2Icon,
-  PaperclipIcon,
-  VideoIcon,
-  XIcon,
-} from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 import { createContext, useCallback, useContext, useMemo } from "react";
 
@@ -38,13 +30,16 @@ export type AttachmentMediaCategory =
 
 export type AttachmentVariant = "grid" | "inline" | "list";
 
-const mediaCategoryIcons: Record<AttachmentMediaCategory, typeof ImageIcon> = {
-  audio: Music2Icon,
-  document: FileTextIcon,
-  image: ImageIcon,
-  source: GlobeIcon,
-  unknown: PaperclipIcon,
-  video: VideoIcon,
+const mediaCategoryIcons: Record<
+  AttachmentMediaCategory,
+  { name: DotMatrixIconName; className: string }
+> = {
+  audio: { name: "mic", className: "size-4" },
+  document: { name: "book", className: "size-4" },
+  image: { name: "square", className: "size-4" },
+  source: { name: "globe", className: "size-4" },
+  unknown: { name: "cpu", className: "size-4" },
+  video: { name: "arrowUp", className: "size-4" },
 };
 
 // ============================================================================
@@ -101,7 +96,7 @@ const renderAttachmentImage = (
   ) : (
     <img
       alt={filename || "Image"}
-      className="size-full  object-cover"
+      className="size-full object-cover"
       height={20}
       src={url}
       width={20}
@@ -212,7 +207,7 @@ export const Attachment = ({
             "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
           ],
           variant === "list" && [
-            "flex w-full items-center gap-3  border p-3",
+            "flex w-full items-center gap-3 border p-3",
             "hover:bg-accent/50",
           ],
           className
@@ -242,8 +237,12 @@ export const AttachmentPreview = ({
 
   const iconSize = variant === "inline" ? "size-3" : "size-4";
 
-  const renderIcon = (Icon: typeof ImageIcon) => (
-    <Icon className={cn(iconSize, "text-muted-foreground")} />
+  const renderIcon = (entry: { name: DotMatrixIconName; className: string }) => (
+    <DotMatrixIcon
+      name={entry.name}
+      size={variant === "inline" ? 12 : 16}
+      className={cn("text-muted-foreground", entry.className)}
+    />
   );
 
   const renderContent = () => {
@@ -255,8 +254,8 @@ export const AttachmentPreview = ({
       return <video className="size-full object-cover" muted src={data.url} />;
     }
 
-    const Icon = mediaCategoryIcons[mediaCategory];
-    return fallbackIcon ?? renderIcon(Icon);
+    const entry = mediaCategoryIcons[mediaCategory];
+    return fallbackIcon ?? renderIcon(entry);
   };
 
   return (
@@ -264,8 +263,8 @@ export const AttachmentPreview = ({
       className={cn(
         "flex shrink-0 items-center justify-center overflow-hidden",
         variant === "grid" && "size-full bg-muted",
-        variant === "inline" && "size-5  bg-background",
-        variant === "list" && "size-12  bg-muted",
+        variant === "inline" && "size-5 bg-background",
+        variant === "list" && "size-12 bg-muted",
         className
       )}
       {...props}
@@ -340,18 +339,18 @@ export const AttachmentRemove = ({
       aria-label={label}
       className={cn(
         variant === "grid" && [
-          "absolute top-2 right-2 size-6  p-0",
+          "absolute top-2 right-2 size-6 p-0",
           "bg-background/80 backdrop-blur-sm",
           "opacity-0 transition-opacity group-hover:opacity-100",
           "hover:bg-background",
           "[&>svg]:size-3",
         ],
         variant === "inline" && [
-          "size-5  p-0",
+          "size-5 p-0",
           "opacity-0 transition-opacity group-hover:opacity-100",
           "[&>svg]:size-2.5",
         ],
-        variant === "list" && ["size-8 shrink-0  p-0", "[&>svg]:size-4"],
+        variant === "list" && ["size-8 shrink-0 p-0", "[&>svg]:size-4"],
         className
       )}
       onClick={handleClick}
@@ -359,7 +358,7 @@ export const AttachmentRemove = ({
       variant="ghost"
       {...props}
     >
-      {children ?? <XIcon />}
+      {children ?? <DotMatrixIcon name="x" size={16} />}
       <span className="sr-only">{label}</span>
     </Button>
   );

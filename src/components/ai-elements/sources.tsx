@@ -6,7 +6,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { BookIcon, ChevronDownIcon } from "lucide-react";
+import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
 import type { ComponentProps } from "react";
 
 export type SourcesProps = ComponentProps<"div">;
@@ -34,9 +34,9 @@ export const SourcesTrigger = ({
   >
     {children ?? (
       <>
-        <BookIcon className="size-4" />
+        <DotMatrixIcon name="book" size={16} />
         <p className="font-medium">Used {count} sources</p>
-        <ChevronDownIcon className="h-4 w-4" />
+        <DotMatrixIcon name="chevronDown" size={16} />
       </>
     )}
   </CollapsibleTrigger>

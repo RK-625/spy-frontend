@@ -11,7 +11,7 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
-import { BrainIcon, ChevronDownIcon } from "lucide-react";
+import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
 import type { ComponentProps, ReactNode } from "react";
 import {
   createContext,
@@ -183,9 +183,10 @@ export const ReasoningTrigger = memo(
       >
         {children ?? (
           <>
-            <BrainIcon className="size-4" />
+            <DotMatrixIcon name="cpu" size={16} />
             {getThinkingMessage(isStreaming, duration)}
-            <ChevronDownIcon
+            <DotMatrixIcon
+              name="chevronDown"
               className={cn(
                 "size-4 transition-transform",
                 isOpen ? "rotate-180" : "rotate-0"

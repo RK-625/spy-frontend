@@ -3,7 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { MicIcon, SquareIcon } from "lucide-react";
+
+import { DotmSquare18 } from "@/components/ui/dotm-square-18";
+import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
+import { MicIcon } from "@/components/ui/mic";
+import { AnimatePresence, motion } from "motion/react";
 import type { ComponentProps } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -96,11 +100,15 @@ export const SpeechInput = ({
 }: SpeechInputProps) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [mode] = useState<SpeechInputMode>(detectSpeechInputMode);
   const [isRecognitionReady, setIsRecognitionReady] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const rafRef = useRef<number | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const onTranscriptionChangeRef = useRef<
     SpeechInputProps["onTranscriptionChange"]
@@ -132,7 +140,11 @@ export const SpeechInput = ({
 
     const handleEnd = () => {
       setIsListening(false);
+      setIsSpeaking(false);
     };
+
+    const handleSoundStart = () => setIsSpeaking(true);
+    const handleSoundEnd = () => setIsSpeaking(false);
 
     const handleResult = (event: Event) => {
       const speechEvent = event as SpeechRecognitionEvent;
@@ -160,6 +172,8 @@ export const SpeechInput = ({
 
     speechRecognition.addEventListener("start", handleStart);
     speechRecognition.addEventListener("end", handleEnd);
+    speechRecognition.addEventListener("soundstart", handleSoundStart);
+    speechRecognition.addEventListener("soundend", handleSoundEnd);
     speechRecognition.addEventListener("result", handleResult);
     speechRecognition.addEventListener("error", handleError);
 
@@ -169,6 +183,8 @@ export const SpeechInput = ({
     return () => {
       speechRecognition.removeEventListener("start", handleStart);
       speechRecognition.removeEventListener("end", handleEnd);
+      speechRecognition.removeEventListener("soundstart", handleSoundStart);
+      speechRecognition.removeEventListener("soundend", handleSoundEnd);
       speechRecognition.removeEventListener("result", handleResult);
       speechRecognition.removeEventListener("error", handleError);
       speechRecognition.stop();
@@ -180,6 +196,11 @@ export const SpeechInput = ({
   // Cleanup MediaRecorder and stream on unmount
   useEffect(
     () => () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
       if (mediaRecorderRef.current?.state === "recording") {
         mediaRecorderRef.current.stop();
       }
@@ -204,6 +225,31 @@ export const SpeechInput = ({
       const mediaRecorder = new MediaRecorder(stream);
       audioChunksRef.current = [];
 
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const audioCtx = new AudioCtx();
+        audioContextRef.current = audioCtx;
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        const source = audioCtx.createMediaStreamSource(stream);
+        source.connect(analyser);
+        analyserRef.current = analyser;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        const checkVolume = () => {
+          if (!analyserRef.current) return;
+          analyserRef.current.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+          const average = sum / dataArray.length;
+          setIsSpeaking(average > 10);
+          rafRef.current = requestAnimationFrame(checkVolume);
+        };
+        checkVolume();
+      } catch (e) {
+        setIsSpeaking(true);
+      }
+
       const handleDataAvailable = (event: BlobEvent) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
@@ -211,6 +257,13 @@ export const SpeechInput = ({
       };
 
       const handleStop = async () => {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        if (audioContextRef.current) {
+          audioContextRef.current.close().catch(() => {});
+          audioContextRef.current = null;
+        }
+        setIsSpeaking(false);
+
         for (const track of stream.getTracks()) {
           track.stop();
         }
@@ -236,6 +289,12 @@ export const SpeechInput = ({
       };
 
       const handleError = () => {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        if (audioContextRef.current) {
+          audioContextRef.current.close().catch(() => {});
+          audioContextRef.current = null;
+        }
+        setIsSpeaking(false);
         setIsListening(false);
         for (const track of stream.getTracks()) {
           track.stop();
@@ -288,35 +347,57 @@ export const SpeechInput = ({
 
   return (
     <div className="relative inline-flex items-center justify-center">
-      {/* Animated pulse rings */}
-      {isListening &&
-        [0, 1, 2].map((index) => (
-          <div
-            className="absolute inset-0 animate-ping  border-2 border-red-400/30"
-            key={index}
-            style={{
-              animationDelay: `${index * 0.3}s`,
-              animationDuration: "2s",
-            }}
-          />
-        ))}
-
       {/* Main record button */}
       <Button
         className={cn(
-          "relative z-10  transition-all duration-300",
-          isListening
-            ? "bg-destructive text-white hover:bg-destructive/80 hover:text-white"
-            : "bg-primary text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground",
+          "relative z-10 transition-all duration-300",
           className
         )}
         disabled={isDisabled}
         onClick={toggleListening}
         {...props}
       >
-        {isProcessing && <Spinner />}
-        {!isProcessing && isListening && <SquareIcon className="size-4" />}
-        {!(isProcessing || isListening) && <MicIcon className="size-4" />}
+        <AnimatePresence mode="wait">
+          {isProcessing ? (
+            <motion.div
+              key="processing"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="flex items-center justify-center"
+            >
+              <Spinner />
+            </motion.div>
+          ) : isListening ? (
+            <motion.div
+              key="listening"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="flex items-center justify-center"
+            >
+              <DotmSquare18
+                size={16}
+                dotSize={2}
+                color="currentColor"
+                animated={isSpeaking}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="idle"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="flex items-center justify-center"
+            >
+              <DotMatrixIcon name="mic" size={16} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Button>
     </div>
   );

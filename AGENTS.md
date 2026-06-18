@@ -10,7 +10,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Spy is an agent-first knowledge base. The user doesn't organize their own notes. They throw messy, raw, unstructured information at Spy — and the agent weaves it into a knowledge graph, connecting related concepts, mapping memory orientation, and maintaining the web over time. Think of it as an alien intelligence that lives in your notes, finds patterns you didn't see, and builds a living map of everything you know.
 
-The product is not yet built. What we're building right now is the **landing page** — the first thing a visitor sees. Its job is to make the visitor believe this agent is real, alive, and worth trying.
+The **landing page** is built and polished. What we're building right now is the **chat UI** — the conversation interface where users interact with the AI agent. Its job is to feel like talking to an alien intelligence that's already weaving your knowledge.
 
 ## The story
 
@@ -44,7 +44,7 @@ While the mascot is glossy and detailed, the background UI remains a dark utilit
 The 3D glossy robot spider is the emotional anchor of the entire page. It sits center stage. It features a sleek visor, antenna, and articulated mechanical legs — feeling alien and intelligent, not cartoonish.
 
 ### 4. Color Palette
-The background uses a dynamic 3D sphere gradient in deep purples and lavender highlights (`#4A1280` / `#8838DE` / `#DDB8F8`) morphing over deepest black. Text uses lavender-white (`#ded4f0`) and a glossy purple gradient (`#e8dff8` to `#9a6ae0`). Gold/Amber (`#c9952a`) is reserved strictly for interactive action elements and buttons below the fold.
+The background uses a dynamic 3D sphere gradient in deep purples and lavender highlights (`#4A1280` / `#8838DE` / `#DDB8F8`) morphing over deepest black. Text uses lavender-white (`#ded4f0`) and a glossy purple gradient (`#e8dff8` to `#9a6ae0`). Gold/Amber (`#c9952a`) is reserved strictly for interactive action elements, buttons, and system notices below the fold.
 
 ### 5. Ambient over loud
 Animation is continuous and subtle — a morphing 3D gradient sphere, a spider bobbing gently, text scrambling phases, and a CSS glint sweep across titles. The page should feel inhabited, not performing. No flashy transitions. No attention-seeking effects.
@@ -83,10 +83,26 @@ But right now, we're building the door. Make it good enough that people want to 
 ```
 src/
 ├── app/
-│   ├── page.tsx              — Thin orchestrator (just composes components)
+│   ├── page.tsx              — Landing page (composes hero components)
+│   ├── home/
+│   │   └── page.tsx          — Chat UI (conversation, messages, input, suggestions)
 │   ├── layout.tsx            — Root layout + fonts + metadata + hydration fix
-│   └── globals.css           — Tailwind v4 @theme tokens
+│   └── globals.css           — Tailwind v4 @theme tokens + design tokens + chat styles
 ├── components/
+│   ├── ai-elements/          — Chat UI component library
+│   │   ├── conversation.tsx  — Scrollable message container (StickToBottom)
+│   │   ├── message.tsx       — Message wrapper (user/assistant), branch selector, toolbar
+│   │   ├── prompt-input.tsx  — Chat input (textarea, toolbar, submit, attachments)
+│   │   ├── speech-input.tsx  — Microphone button (speech recognition + media recorder)
+│   │   ├── suggestion.tsx    — Suggestion chips (horizontal scroll)
+│   │   ├── model-selector.tsx — Model picker (dialog with search)
+│   │   ├── sources.tsx       — Collapsible source links
+│   │   ├── reasoning.tsx     — Collapsible reasoning/thinking display
+│   │   ├── attachments.tsx   — File attachment preview and management
+│   │   ├── shimmer.tsx       — Streaming message animation
+│   │   └── scroll-to-bottom.tsx — Floating scroll button
+│   ├── ui/                   — shadcn primitives (Button, Input, Dialog, etc.)
+│   ├── ShinyText.tsx         — Glint sweep animation for "SPY" header
 │   ├── hero-section.tsx      — Hero layout (composes hero items)
 │   ├── logo.tsx              — "S P Y" in Unbounded, text-secondary
 │   ├── tagline.tsx           — "An alien sent to organize your chaos."
@@ -101,6 +117,7 @@ src/
 │   └── geometric-spider.tsx  — Superseded by pixel art (reference only)
 └── lib/
     ├── spider-frames.ts      — Superseded by inline arrays in spider-mascot.tsx (kept as reference)
+    └── utils.ts              — cn() helper for Tailwind class merging
 ```
 
 ## Design files
@@ -132,7 +149,8 @@ src/
 
 1. Read **`brief.md`** — it's the design constitution
 2. Run `npm run dev` — starts on `localhost:3000`
-3. Open Penpot — all components have design references on the "Spy" canvas
-4. Components follow a pattern: `interface Props { className?: string }` and accept Tailwind overrides
-5. CTA button owns its own interaction state (GSAP animation + response text)
-6. The mascot (`mascot-3d.svg`) is loaded dynamically and animated with GSAP targeting internal SVG IDs. Do not use Canvas or `<img>` tags for the mascot.
+3. Landing page at `/`, chat UI at `/home`
+4. Open Penpot — all components have design references on the "Spy" canvas
+5. Components follow a pattern: `interface Props { className?: string }` and accept Tailwind overrides
+6. CTA button owns its own interaction state (GSAP animation + response text)
+7. The mascot (`mascot-3d.svg`) is loaded dynamically and animated with GSAP targeting internal SVG IDs. Do not use Canvas or `<img>` tags for the mascot.

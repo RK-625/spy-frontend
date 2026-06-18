@@ -22,19 +22,25 @@
     "hooks": "@/hooks"
   },
   "registries": {
+    "@animate-ui": "https://animate-ui.com/r/{name}.json",
+    "@lucide-animated": "https://lucide-animated.com/r/{name}.json",
     "@react-bits": "https://reactbits.dev/r/{name}.json",
     "@retroui": "https://retroui.dev/r/{name}.json",
     "@aceternity": "https://ui.aceternity.com/registry/{name}.json",
-    "@ss-components": "https://shadcnstudio.com/r/components/{style}/{name}.json",
     "@ai-elements": "https://ai-sdk.dev/elements/api/registry/{name}.json",
-    "@lucide-animated": "https://lucide-animated.com/r/{name}.json",
     "@manifest": "https://ui.manifest.build/r/{name}.json",
     "@aicanvas": "https://aicanvas.me/r/{name}.json",
     "@fluid": "https://www.fluidfunctionalism.com/r/{name}.json",
     "@ncdai": "https://chanhdai.com/r/{name}.json",
-    "@shadcnblocks": "https://shadcnblocks.com/r/{name}.json",
     "@cult-ui": "https://cult-ui.com/r/{name}.json",
     "@dotmatrix": "https://dotmatrix.zzzzshawn.cloud/r/{name}.json",
-    "@beui": "https://beui.saura3h.xyz/r/{name}.json"
+    "@beui": "https://beui.saura3h.xyz/r/{name}.json",
+    "@animbits": "https://animbits.dev/r/{name}.json",
+    "@iconiq": "https://iconiqui.com/r/{name}.json",
+    "@kokonutui": "https://kokonutui.com/r/{name}.json",
+    "@shadcn-studio": "https://shadcnstudio.com/r/{style}/{name}.json",
+    "@ss-components": "https://shadcnstudio.com/r/components/{style}/{name}.json",
+    "@ss-blocks": "https://shadcnstudio.com/r/blocks/{style}/{name}.json",
+    "@ss-themes": "https://shadcnstudio.com/r/themes/{name}.json"
   }
 }

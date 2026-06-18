@@ -1,84 +1,105 @@
-# Spy — Chat Page Redesign Handoff
+# Spy — Chat UI Handoff
 
-**Branch:** `chat-interface` (NOT committed yet — 375 insertions, 104 deletions across 2 files)
-**Date:** 2026-06-13
-
----
-
-## What was done
-
-Complete visual redesign of the `/home` chat page. Two files modified:
-
-### `src/app/globals.css` (+302 lines)
-- Replaced all gold/amber accent (`#c9952a`) with glossy lavender-white (`#e8dff8`) across ALL CSS variables (`:root`, `.dark`)
-- Added comprehensive chat design system: markdown typography (h1–h4, code blocks, tables, blockquotes, links), input elevation with focus glow, role labels, user bubble gradient, assistant message left accent border, conversation bottom fade, custom scrollbar (2px, hidden by default, visible on hover), selection colors, toolbar refinement
-
-### `src/app/home/page.tsx` (+111 lines)
-- Added ShaderGradient backdrop + dissolve overlay + dark tint (was previously only the bare `Example` component)
-- Added header with "SPY" (ShinyText) + "WEAVING SIGNAL" label + gradient top line
-- Added "You" / "Spy" role labels above each message
-- Wrapped input area in elevated container (`chat-input-wrap`) with ambient glow line
-- Refined suggestion chips: Inter font (was VT323), smaller size, subtle lavender borders, white hover states
-- Changed page layout from bare `h-screen` to full `min-h-screen` with centered `h-screen` container
+**Branch:** `chat-interface`
+**Build status:** `npm run build` passes clean (5/5 static pages)
+**Run:** `npm run dev` serves on port 3000
 
 ---
 
-## Key design tokens (current state)
-- **Accent:** `#e8dff8` (glossy lavender-white, replaces gold)
-- **Accent hover:** `#f0eaff`
-- **Secondary:** `#1a1038`, `#C8ACFB`
-- **Muted:** `#181230`, `#C8ACFB`
-- **Border:** `rgba(208, 184, 245, 0.15)`
-- **No rounded corners anywhere** (per brief)
-- **Fonts:** Unbounded (display), Inter (body/sans), VT323 (terminal/tech)
+## Current state snapshot
+
+### What is BUILT and WORKING
+
+**`/home` (chat page)**
+- `<HomePage>` wraps `<ChatSidebar>` + `<ChatProvider>` + `<Example />` (chat content)
+- `<ChatSidebar>` — single-component 2-mode sidebar (icon 56px ↔ full 240px)
+- `<ChatProvider>` — React context holding messages, status, model, error state
+- `<Example />` consumes context, renders `Conversation > Message > MessageResponse`
+- `ConversationEmptyState` shown when `messages.length === 0`
+
+**Sidebar (`src/components/ChatSidebar.tsx`, ~320 lines)**
+- 2 modes: `icon` (56px rail) and `full` (240px) — single component, `motion.aside` with `animate={{ width }}`
+- `icon` mode: 4 icon buttons + Recents divider + "No conversations yet" text
+- `full` mode: all same items with labels beside icons + ⌘K badge on Search
+- State persists via `localStorage["spy-sidebar-mode"]`
+- `⌘B` toggles `icon` ↔ `full`
+- Settings opens a `SettingsDialog` (shadcn Dialog with live state)
+- ChatProvider context wired: "New chat" calls `clearMessages()`
+- NO floating menu button — rail is always visible (default = icon mode)
+- NO tooltips
+- NO hidden mode — can't fully hide the sidebar
+
+**Icons — NOW ALL PIXEL ART**
+- All lucide-react AI-element icons swapped to `PixelArtSvg` (pixelarticons)
+- All local `*Icon.tsx` wrapper files DELETED (17 files removed, 10 KB+ saved)
+- `PixelArtSvg` renders raw pixel-art SVG paths from `pixelart-paths.ts`
+- `pixelarticons` npm package installed (813 SVGs, MIT license) — used ONLY for path extraction
+- Comparison prototypes: `prototype-3way-icons.html` (3 libraries side-by-side)
+
+**ChatContext (`src/contexts/ChatContext.tsx`, ~95 lines)**
+- Holds: `messages`, `status`, `model`, `text`, `error`, `referencedSources`
+- Methods: `addUserMessage`, `clearMessages`, `setModel`, `setStatus`, `setError`
+- Wraps both ChatSidebar + Example in `HomePage`
+
+**Design tokens** (`src/app/globals.css`, ~680 lines)
+- `--radius: 0.55rem` (8.8px) — all shadcn buttons/inputs/cards
+- `pixel` radius variant: `--radius-pixel: 0rem` — for pixel-art icons
+- `--font-terminal` (VT323), `--font-display` (Unbounded), `--font-body` (Inter)
+- `--font-code` (monospace stack: Cascadia, Source Code Pro)
+- ~40 design tokens for border surface accent and scrollbar scales
+- `@media (prefers-reduced-motion: reduce)` disables all animations
+- Scrollbar: 2px global, 4px conversation, hidden on default conversation hover
+
+**ChatProvider** (`src/contexts/ChatContext.tsx`)
+- 95 lines, type-safe React context + Provider pattern
+- Messages initialized from `initialMessages` static data (4 hardcoded messages)
+
+**AI-Elements** (in `src/components/ai-elements/`)
+- 12 files, ~50 components, ALL ported to `PixelArtSvg`
+- Sources/Reasoning triggers use pixel art icons
+- Code blocks flattened (single container, no nested windows)
+- Collapsible animations fixed (0.25s symmetric open/close, max-height animated)
 
 ---
 
-## Known issues / next steps
+## Key files MODIFIED (most recent → oldest)
 
-1. **Suggestion chip font uses `var(--font-body)` but only `--font-sans` is defined** in the layout. This works because Tailwind resolves it, but the CSS variable name is wrong. Should be `var(--font-sans)` or the layout should define `--font-body`.
+| File | What changed |
+|------|-------------|
+| `ChatSidebar.tsx` | Rewrote: 2-mode inline sidebar (56↔240px), no tooltips, no floating button, push layout |
+| `home/page.tsx` | Wrapped in ChatProvider, refactored Example to use context, added empty state |
+| `contexts/ChatContext.tsx` | New file — all chat state centralized |
+| `globals.css` | ~680 lines of design tokens, scrollbar, collapsible, tokenize, reduced-motion |
+| `ai-elements/*.tsx` (12 files) | ALL icons swapped to PixelArtSvg (lucide-react removed from these files) |
+| `ui/pixelart-svg.tsx` | New file — renders pixel art icons from paths map |
+| `ui/pixelart-paths.ts` | New file — 30 pixelarticons SVG path definitions |
+| `ui/command-palette.tsx` | Fixed: Search icon import (was missing) |
 
-2. **Root page (`/`) was NOT touched** — still uses the landing page with mascot, ShaderGradient, etc. The `/home` page now has its own ShaderGradient backdrop which duplicates the root page's.
+## Files DELETED (bloat removal)
 
-3. **`h-screen` vs `min-h-screen`**: The main container uses `h-screen` for fixed viewport layout. The outer wrapper still uses `min-h-screen`. This is intentional — the inner container constrains the chat within viewport.
-
-4. **The gold accent was removed from ALL CSS variables** — this affects every shadcn component project-wide, not just the chat page. If the root landing page uses gold accents, they will now be lavender-white.
-
-5. **Handoff file was deleted** (`handoff.md` shows as deleted in git status).
-
----
-
-## Design constitution
-
-Read `brief.md` before making any visual changes. Key non-negotiables:
-- No rounded corners
-- Mascot is 3D glossy robot spider (loaded from `mascot-3d.svg`)
-- Gold/Amber was originally for interactive elements — now replaced with glossy lavender-white (`#e8dff8`)
-- Text is never pure white — always `#ded4f0` or `#e8e4df`
-- Ambient over loud — subtle continuous animation, no flashy transitions
-
----
+| Deleted | Why |
+|---------|-----|
+| `pixel-art-canvas.tsx` | Superseded by `pixelart-svg.tsx` |
+| `pixel-spider.tsx` | Superseded by `pixelart-svg.tsx` |
+| `geometric-spider.tsx` | Superseded by `pixelart-svg.tsx` |
+| 9 `*Icon.tsx` files (plus, x, menu, search, settings, message-square, message-square-plus, pen-tool, copy) | All UI icons now use `PixelArtSvg` directly — no wrapper components needed |
+| `pixelart-icons-compact.tsx` (3 variants) | Redundant wrapper — `PixelArtSvg` handles all sizing |
+| 10 references `pixelart-motion-paths.ts` | Dead code, never exported from |
+| `prototype-icons.html`, `prototype-3way-icons.html`, `prototype-rounded.html` | Reference only, kept in root for review but not in build |
+| `src/lib/spider-frames.ts` | Superseded by inline arrays in spider-mascot.tsx |
+| `src/app/home/suggestion-test/` | Test route, deleted |
 
 ## Suggested skills
 
-- `/frontend-design` — for any further visual refinement
-- `/design` — for design review and polish passes
-- `/shadcn` — if adding or modifying shadcn components
-- `/gsap-react` — if adding animations to the chat page
+- `/design` — for design checkup, review, or finish passes
+- `/grill-me` — for interrogating design decisions before building
+- `lucide-animated` — if animated icons are needed again (registry available but not used currently)
+- `pixelarticons` — the installed icon library (npm package, not registry)
 
 ---
 
-## Project structure (relevant files)
+## Next 3 things to do
 
-```
-src/
-├── app/
-│   ├── page.tsx              — Root landing page (NOT modified)
-│   ├── home/page.tsx         — Chat page (MODIFIED — main work)
-│   ├── layout.tsx            — Root layout + fonts
-│   └── globals.css           — Design tokens + chat styles (MODIFIED)
-├── components/
-│   ├── ShinyText.tsx         — Glossy text effect for logo
-│   └── ai-elements/          — Chat components (NOT modified)
-└── brief.md                  — Design constitution (read-only reference)
-```
+1. **Wire conversation list** — currently always shows "No conversations yet". Need to store conversations in context and render them in the sidebar Recents section.
+2. **Wire real LLM** — replace `streamResponse` setTimeout mock with `useChat` from AI SDK. The whole `streamResponse` function is throwaway.
+3. **Add sidebar hover actions** — `pen-tool` (rename) and `copy` (duplicate) on conversation rows. Icons already have paths in `pixelart-paths.ts`.

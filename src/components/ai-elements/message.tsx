@@ -17,7 +17,7 @@ import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
 import type { UIMessage } from "ai";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import {
   createContext,
@@ -260,6 +260,7 @@ export const MessageBranchPrevious = ({
   return (
     <Button
       aria-label="Previous branch"
+      className={cn("text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]", props.className)}
       disabled={totalBranches <= 1}
       onClick={goToPrevious}
       size="icon-sm"
@@ -267,7 +268,7 @@ export const MessageBranchPrevious = ({
       variant="ghost"
       {...props}
     >
-      {children ?? <ChevronLeftIcon size={14} />}
+      {children ?? <DotMatrixIcon name="chevronLeft" size={14} />}
     </Button>
   );
 };
@@ -283,6 +284,7 @@ export const MessageBranchNext = ({
   return (
     <Button
       aria-label="Next branch"
+      className={cn("text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]", props.className)}
       disabled={totalBranches <= 1}
       onClick={goToNext}
       size="icon-sm"
@@ -290,7 +292,7 @@ export const MessageBranchNext = ({
       variant="ghost"
       {...props}
     >
-      {children ?? <ChevronRightIcon size={14} />}
+      {children ?? <DotMatrixIcon name="chevronRight" size={14} />}
     </Button>
   );
 };
