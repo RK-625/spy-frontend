@@ -59,9 +59,10 @@ Button labels are single actions. "Start weaving," not "Get started now." Every 
 
 These are things a new engineer might not guess. They must be followed:
 
-- **No rounded corners.** Not on buttons, not on cards, not on the canvas. Sharp edges everywhere.
+- **Restrained rounded corners.** We use `--radius: 0.55rem` globally. Do not use fully rounded pill shapes.
 - **Mascot is cute and 3D.** The mascot features a visor, antenna, and articulated legs. It is a glossy 3D vector loaded from `mascot-3d.svg`.
-- **Gold/Amber Accents.** Interactive elements and buttons use gold/amber. The main title/scramble typography and the mascot itself are exempt, using custom purple/lavender gradient tones.
+- **Gold/Amber Accents.** Gold/Amber (`#c9952a`) is reserved strictly for the focus ring (`--ring`) and the main Landing Page CTA button. Chat UI components and loaders should use the default lavender/white styling.
+- **Custom DotMatrix Icons.** Do not use `lucide-react` or standard smooth vector icons in the Chat UI. Always use the pixel-art `DotMatrixIcon` registry to maintain the alien aesthetic.
 - **Text is never pure white.** `#ded4f0` or warm off-white `#e8e4df` for primary text, `#7a7685` for secondary, `#4a4658` for dim.
 - **All design decisions live in `brief.md`.** Read it before making any visual or structural change. That file is the constitution.
 - **Dynamic Mascot Loading.** The 3D robot spider is loaded dynamically as an SVG from the public folder (`mascot-3d.svg`), and animated using GSAP targeting specific internal IDs (`#Antenna`, `#Visor section`, `#Left 1st front leg`, `#Right leg2`, etc.).
@@ -111,12 +112,9 @@ src/
 │   ├── ambient-glow.tsx       — Subtle amber top wash (2% opacity, 100px blur)
 │   ├── how-it-works.tsx      — 3-step section below the fold
 │   ├── spider-mascot.tsx     — Dynamic SVG `<mascot-3d.svg>` loader with GSAP idle animation (targets `#Antenna`, `#Visor section`, leg IDs)
-│   ├── pixel-art-canvas.tsx  — Canvas 2D spider (superseded, reference only)
-│   ├── pixel-spider.tsx      — Div-based pixel spider (superseded, reference only)
-│   ├── knowledge-graph.tsx   — Canvas 2D ambient graph backdrop
-│   └── geometric-spider.tsx  — Superseded by pixel art (reference only)
+│   ├── dot-matrix-icons.tsx  — Central registry for pixel-art SVG icons
+│   └── knowledge-graph.tsx   — Canvas 2D ambient graph backdrop
 └── lib/
-    ├── spider-frames.ts      — Superseded by inline arrays in spider-mascot.tsx (kept as reference)
     └── utils.ts              — cn() helper for Tailwind class merging
 ```
 
@@ -143,7 +141,7 @@ src/
 - No backend or API calls — pure frontend
 - No external runtime dependencies beyond React, Next.js, GSAP
 - Build produces static export (prerendered)
-- No rounded corners anywhere
+- Restrained rounded corners only (--radius)
 
 ## Getting started
 

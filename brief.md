@@ -95,7 +95,7 @@ Do NOT look like:
 
 **Color rules:**
 - Background is dark purple/lavender, transitioning to deepest black
-- All interactive accents use glossy lavender-white (`#e8dff8`), never gold
+- Interactive accents in the Chat UI use glossy lavender-white (`#e8dff8`), while focus rings and the Landing Page CTA use Gold/Amber (`#c9952a`).
 - Text is never pure `#fff` — always warm off-white or lavender-tinted
 - Borders use `rgba(200, 172, 251, 0.08)` at 1px — barely visible, structural
 
@@ -150,7 +150,7 @@ Do NOT look like:
 - **Elevated wrapper:** `0.825rem` radius, `rgba(10,5,22,0.65)` bg, `blur(16px)` backdrop, 1px border
 - **Focus state:** border `rgba(200,172,251,0.2)`, glow shadow, top gradient line
 - **Toolbar:** all buttons `size-8` (32×32), `var(--radius)` corners, ghost variant
-- **Submit:** `bg-primary` (`#e8dff8`), `text-primary-foreground` (`#150c28`), ArrowUp icon
+- **Submit/Stop:** `bg-primary` (`#e8dff8`), `text-primary-foreground` (`#150c28`), ArrowUp icon. The button never fades out or disables during generation. It stays fully opaque and instantly morphs into a universal Stop button (Square icon) when weaving/streaming.
 
 ### Suggestion Chips
 
@@ -163,7 +163,7 @@ Do NOT look like:
 
 - `inline-flex`, `var(--radius)` corners, `rgba(200,172,251,0.04)` bg
 - 1px border `rgba(200,172,251,0.08)`, hover: `0.08` bg, `0.15` border
-- Icon (BookIcon/BrainIcon) + text + chevron, 0.75rem font
+- DotMatrix icon (book/cpu) + text + chevron, 0.75rem font
 - Chevron rotates 180° on open via CSS `rotate` property
 
 ### Scrollbar
@@ -172,6 +172,10 @@ Do NOT look like:
 - Global: 2px wide, same thumb color
 
 ## Component rules
+
+### Icons
+- **Dot Matrix System:** Strictly use `DotMatrixIcon` for all UI icons. Never use smooth vector icons like `lucide-react`.
+- **Alien Aesthetic:** Icons are rendered as pixel-art grids to reinforce the alien/terminal theme.
 
 ### Buttons
 - Lavender-white (`#e8dff8`) background for primary actions

@@ -172,7 +172,7 @@
   --destructive-foreground: #e8e4df;
   --border: rgba(208, 184, 245, 0.15);
   --input: rgba(208, 184, 245, 0.15);
-  --ring: #e8dff8;
+  --ring: #c9952a;
   --radius: 0.55rem;
   --sidebar: #060610;
   --sidebar-foreground: #e8e4df;
@@ -236,7 +236,7 @@
   --destructive-foreground: #e8e4df;
   --border: rgba(208, 184, 245, 0.15);
   --input: rgba(208, 184, 245, 0.15);
-  --ring: #e8dff8;
+  --ring: #c9952a;
   --radius: 0.55rem;
   --sidebar: #060610;
   --sidebar-foreground: #e8e4df;
@@ -303,10 +303,10 @@
   background: var(--surface-hover);
   border-color: var(--border-strong);
 }
-[data-slot="collapsible-trigger"] svg:last-child {
+[data-slot="collapsible-trigger"] > :last-child {
   transition: rotate 0.25s ease;
 }
-[data-slot="collapsible-trigger"][data-state="open"] svg:last-child {
+[data-state="open"][data-slot="collapsible-trigger"] > :last-child {
   rotate: 180deg;
 }
 

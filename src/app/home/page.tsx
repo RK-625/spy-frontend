@@ -611,7 +611,7 @@ const Example = () => {
   );
 
   const isSubmitDisabled = useMemo(
-    () => !text.trim() || status === "submitted",
+    () => status === "ready" && !text.trim(),
     [text, status]
   );
 
