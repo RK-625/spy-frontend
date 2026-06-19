@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 
 import { DotmSquare18 } from "@/components/ui/dotm-square-18";
 import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
-import { MicIcon } from "@/components/ui/mic";
 import { AnimatePresence, motion } from "motion/react";
 import type { ComponentProps } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";

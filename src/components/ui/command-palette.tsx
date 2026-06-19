@@ -4,7 +4,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Command, Monitor, Moon, Search, Sun, X } from "lucide-react";
 
 import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
-import { SearchIcon } from "@/components/ui/search";
+
 import { motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 const QUERY_SPLIT_REGEX = /\s+/;
 
 const commandItemHighlightClassName =
-  "absolute inset-0 rounded-lg bg-accent/60";
+  "absolute inset-0 rounded-[var(--radius)] bg-accent/60";
 
 function useDebouncedValue<T>(value: T, delayMs = 150): T {
   const [debounced, setDebounced] = React.useState(value);
@@ -32,7 +32,7 @@ function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
   return (
     <kbd
       className={cn(
-        "pointer-events-none inline-flex h-5 w-fit min-w-5 select-none items-center justify-center gap-1 rounded-[6px] border border-border bg-background px-1.5 font-medium font-sans text-[11px] text-muted-foreground",
+        "pointer-events-none inline-flex h-5 w-fit min-w-5 select-none items-center justify-center gap-1 rounded-[var(--radius)] border border-border bg-background px-1.5 font-medium font-sans text-[11px] text-muted-foreground",
         className
       )}
       data-slot="kbd"
@@ -154,7 +154,7 @@ function CommandMenuTrigger({
   return (
     <button
       className={cn(
-        "flex w-full max-w-sm items-center gap-2 rounded-lg border border-border/80 bg-background/60 px-3 py-2 text-left text-muted-foreground text-sm backdrop-blur-sm transition-colors hover:bg-accent/50",
+        "flex w-full max-w-sm items-center gap-2 rounded-[var(--radius)] border border-border/80 bg-background/60 px-3 py-2 text-left text-muted-foreground text-sm backdrop-blur-sm transition-colors hover:bg-accent/50",
         className
       )}
       onClick={onClick}
@@ -406,7 +406,7 @@ function CommandPalette({
     return (
       <button
         className={cn(
-          "relative isolate flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-foreground text-sm transition-colors focus-visible:outline-none"
+          "relative isolate flex w-full items-start gap-3 rounded-[var(--radius)] px-3 py-2.5 text-left text-foreground text-sm transition-colors focus-visible:outline-none"
         )}
         key={key}
         onClick={() => handleItemSelect(item)}
@@ -466,7 +466,7 @@ function CommandPalette({
           <DialogPrimitive.Overlay className="fixed inset-0 z-[220] bg-background/55 backdrop-blur-sm" />
           <DialogPrimitive.Content
             className={cn(
-              "fixed inset-x-4 top-[calc(var(--nav-stack-height-mobile)+0.75rem+env(safe-area-inset-top,0px))] z-[221] flex max-h-[calc(100dvh-var(--nav-stack-height-mobile)-1.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] flex-col overflow-hidden rounded-2xl border border-border/80 bg-background shadow-[0_28px_90px_rgba(10,10,10,0.12)] outline-none sm:inset-x-6 lg:top-[calc(var(--nav-stack-height-desktop)+1rem)] lg:left-1/2 lg:max-h-[min(560px,calc(100dvh-var(--nav-stack-height-desktop)-2rem))] lg:w-[min(680px,calc(100vw-2rem))] lg:-translate-x-1/2",
+              "fixed inset-x-4 top-[calc(var(--nav-stack-height-mobile)+0.75rem+env(safe-area-inset-top,0px))] z-[221] flex max-h-[calc(100dvh-var(--nav-stack-height-mobile)-1.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-background shadow-[0_28px_90px_rgba(10,10,10,0.12)] outline-none sm:inset-x-6 lg:top-[calc(var(--nav-stack-height-desktop)+1rem)] lg:left-1/2 lg:max-h-[min(560px,calc(100dvh-var(--nav-stack-height-desktop)-2rem))] lg:w-[min(680px,calc(100vw-2rem))] lg:-translate-x-1/2",
               className
             )}
             onOpenAutoFocus={(event) => {
@@ -505,7 +505,7 @@ function CommandPalette({
               <DialogPrimitive.Close asChild>
                 <button
                   aria-label="Close search"
-                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   type="button"
                 >
                   <X className="size-4" />

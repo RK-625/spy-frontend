@@ -1,56 +1,12 @@
 "use client";
 
-import type { ToolUIPart } from "ai";
+import type { UIMessage, ToolUIPart } from "ai";
+import { DefaultChatTransport } from "ai";
+import { useChat } from "@ai-sdk/react";
 import { createContext, useCallback, useContext, useState } from "react";
+import { ChatMessage, ChatStatus, ChatContextValue } from "@/types";
 
-export interface ChatMessage {
-  key: string;
-  from: "user" | "assistant";
-  sources?: { href: string; title: string }[];
-  versions: {
-    id: string;
-    content: string;
-  }[];
-  reasoning?: {
-    content: string;
-    duration: number;
-  };
-  tools?: {
-    name: string;
-    description: string;
-    status: ToolUIPart["state"];
-    parameters: Record<string, unknown>;
-    result: string | undefined;
-    error: string | undefined;
-  }[];
-}
 
-export type ChatStatus = "submitted" | "streaming" | "ready" | "error";
-
-interface ChatContextValue {
-  // State
-  model: string;
-  setModel: (id: string) => void;
-  modelSelectorOpen: boolean;
-  setModelSelectorOpen: (b: boolean) => void;
-  text: string;
-  setText: React.Dispatch<React.SetStateAction<string>>;
-  useWebSearch: boolean;
-  setUseWebSearch: (b: boolean) => void;
-  status: ChatStatus;
-  setStatus: (s: ChatStatus) => void;
-  messages: ChatMessage[];
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
-  streamingMessageId: string | null;
-  setStreamingMessageId: (id: string | null) => void;
-
-  // Actions
-  clearMessages: () => void;
-  updateMessageContent: (messageId: string, newContent: string) => void;
-  toggleWebSearch: () => void;
-  setError: (error: string | null) => void;
-  error: string | null;
-}
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
@@ -63,41 +19,70 @@ export function ChatProvider({
 }) {
   const [model, setModel] = useState<string>("gpt-4o");
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-  const [text, setText] = useState<string>("");
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
-  const [status, setStatus] = useState<ChatStatus>("ready");
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
-    null
+  const [text, setText] = useState<string>("");
+
+  const {
+    messages: aiMessages,
+    status: aiStatus,
+    stop,
+    sendMessage,
+    error: aiError,
+    setMessages: setAiMessages,
+  } = useChat({
+    id: "spy-chat",
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
+    messages: initialMessages.map((m: ChatMessage) => ({
+      id: m.key,
+      role: m.from === "user" ? "user" : "assistant",
+      parts: [{ type: "text", text: m.versions[0]?.content || "" }]
+    })),
+  });
+
+  const append = useCallback(
+    async (message: any, options?: any) => {
+      sendMessage({ text: message.content });
+      return null;
+    },
+    [sendMessage]
   );
-  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = useCallback(
+    (e?: { preventDefault?: () => void }) => {
+      e?.preventDefault?.();
+      if (!text.trim()) return;
+      append({ role: "user", content: text });
+      setText("");
+    },
+    [text, append, setText]
+  );
+
+  const status = aiStatus as ChatStatus;
+  const error = aiError ? aiError.message : null;
+  const streamingMessageId =
+    status === "streaming" ? aiMessages[aiMessages.length - 1]?.id : null;
+
+  const messages: ChatMessage[] = aiMessages.map((msg: UIMessage) => {
+    const original = initialMessages.find((m: ChatMessage) => m.key === msg.id);
+    return {
+      key: msg.id,
+      from: msg.role === "user" ? "user" : "assistant",
+      sources: original?.sources,
+      reasoning: original?.reasoning,
+      tools: original?.tools,
+      versions: [
+        {
+          id: msg.id,
+          content: msg.parts.filter((p: any) => p.type === "text").map((p: any) => p.text).join("")
+        }
+      ],
+    };
+  });
 
   const clearMessages = useCallback(() => {
-    setMessages([]);
+    setAiMessages([]);
     setText("");
-    setStatus("ready");
-    setError(null);
-    setStreamingMessageId(null);
-  }, []);
-
-  const updateMessageContent = useCallback(
-    (messageId: string, newContent: string) => {
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.versions.some((v) => v.id === messageId)) {
-            return {
-              ...msg,
-              versions: msg.versions.map((v) =>
-                v.id === messageId ? { ...v, content: newContent } : v
-              ),
-            };
-          }
-          return msg;
-        })
-      );
-    },
-    []
-  );
+  }, [setAiMessages, setText]);
 
   const toggleWebSearch = useCallback(() => {
     setUseWebSearch((prev) => !prev);
@@ -113,16 +98,13 @@ export function ChatProvider({
     useWebSearch,
     setUseWebSearch,
     status,
-    setStatus,
     messages,
-    setMessages,
-    streamingMessageId,
-    setStreamingMessageId,
     clearMessages,
-    updateMessageContent,
     toggleWebSearch,
     error,
-    setError,
+    handleSubmit,
+    stop,
+    append,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
