@@ -6,6 +6,7 @@ import {
   UIMessage,
 } from "ai";
 import React from "react";
+import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
 export type { ChatStatus };
 
@@ -15,8 +16,6 @@ export interface ChatContextValue {
   setModel: (id: string) => void;
   modelSelectorOpen: boolean;
   setModelSelectorOpen: (b: boolean) => void;
-  textPart: TextUIPart;
-  setTextPart: React.Dispatch<React.SetStateAction<TextUIPart>>;
   useWebSearch: boolean;
   setUseWebSearch: (b: boolean) => void;
   status: ChatStatus;
@@ -26,7 +25,7 @@ export interface ChatContextValue {
   toggleWebSearch: () => void;
   clearMessages: () => void;
   error: Error | undefined;
-  handleSubmit: (e?: { preventDefault?: () => void }) => void;
+  handleSubmit: (message: PromptInputMessage) => void;
   stop: () => void;
   sendMessage: (
     message?: CreateUIMessage<UIMessage>,

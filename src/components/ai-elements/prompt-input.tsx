@@ -208,11 +208,11 @@ const ProviderAttachmentsContext = createContext<AttachmentsContext | null>(
 
 
 // Optional variants (do NOT throw). Useful for dual-mode components.
-const useOptionalPromptInputController = () =>
+export const useOptionalPromptInputController = () =>
   useContext(PromptInputController);
 
 
-const useOptionalProviderAttachments = () =>
+export const useOptionalProviderAttachments = () =>
   useContext(ProviderAttachmentsContext);
 
 export type PromptInputProviderProps = PropsWithChildren<{

@@ -5,17 +5,16 @@ import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { createContext, useCallback, useContext, useState } from "react";
 import { ChatContextValue } from "@/types";
+import { toast } from "sonner";
+import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
-const ChatContext = createContext<ChatContextValue | null>(null);
+const ChatContext = createContext<ChatContextValue | null>(null); // defining the bucket
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [model, setModel] = useState<string>("gpt-4o");
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
-  const [textPart, setTextPart] = useState<TextUIPart>({
-    text: "",
-    type: "text",
-  });
+
 
   const { messages, status, stop, sendMessage, error, setMessages } =
     useChat<UIMessage>({
@@ -25,22 +24,30 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     });
 
   const handleSubmit = useCallback(
-    (e?: { preventDefault?: () => void }) => {
-      e?.preventDefault?.();
-      if (!textPart.text.trim()) return;
-      sendMessage({
-        role: "user",
-        parts: [textPart],
-      });
-      setTextPart((prev) => ({ ...prev, text: "" }));
+    async (message: PromptInputMessage) => {
+      const hasText = Boolean(message.text?.trim());
+      const hasAttachments = Boolean(message.files?.length);
+
+      if (!hasText && !hasAttachments) {
+        return;
+      }
+      try {
+        await sendMessage({
+          text: message.text?.trim() || "",
+          files: message.files && message.files.length > 0 ? message.files : undefined,
+        });
+
+
+      } catch (e) {
+        console.error(e);
+      }
     },
-    [textPart, sendMessage],
+    [sendMessage],
   );
 
   const clearMessages = useCallback(() => {
     setMessages([]);
-    setTextPart((prev) => ({ ...prev, text: "" }));
-  }, [setMessages, setTextPart]);
+  }, [setMessages]);
 
   const toggleWebSearch = useCallback(() => {
     setUseWebSearch((prev) => !prev);
@@ -51,8 +58,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setModel,
     modelSelectorOpen,
     setModelSelectorOpen,
-    textPart,
-    setTextPart,
+
     useWebSearch,
     setUseWebSearch,
     status,

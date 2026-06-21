@@ -50,6 +50,8 @@ import {
   PromptInputTextarea,
   PromptInputTools,
   usePromptInputAttachments,
+  PromptInputProvider,
+  useOptionalPromptInputController,
 } from "@/components/ai-elements/prompt-input";
 import {
   Reasoning,
@@ -69,7 +71,6 @@ import type { FileUIPart, SourceUrlUIPart } from "ai";
 import { cn } from "@/lib/utils";
 import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
 import { useCallback, useMemo } from "react";
-import { toast } from "sonner";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -246,8 +247,6 @@ const Example = () => {
     setModel,
     modelSelectorOpen,
     setModelSelectorOpen,
-    textPart,
-    setTextPart,
     useWebSearch,
     status,
     messages,
@@ -255,42 +254,17 @@ const Example = () => {
     error,
     sendMessage,
     stop,
+    handleSubmit,
   } = useChatContext();
+
+  const controller = useOptionalPromptInputController();
+  const attachments = usePromptInputAttachments();
 
   const selectedModelData = useMemo(
     () => models.find((m) => m.id === model),
     [model],
   );
 
-  const handleSubmit = useCallback(
-    (message: PromptInputMessage) => {
-      const hasText = Boolean(message.text?.trim());
-      const hasAttachments = Boolean(message.files?.length);
-
-      if (!hasText && !hasAttachments) {
-        return;
-      }
-
-      if (message.files?.length) {
-        toast.success("Files attached", {
-          description: `${message.files.length} file(s) attached to message`,
-        });
-      }
-
-      const textToAppend = hasText
-        ? message.text!.trim()
-        : message.files?.map((f) => f.filename || "file").join(", ") ||
-          "Attachment";
-
-      sendMessage({
-        role: "user",
-        parts: [{ type: "text", text: textToAppend }],
-      });
-
-      setTextPart((prev) => ({ ...prev, text: "" }));
-    },
-    [sendMessage, setTextPart],
-  );
 
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
@@ -304,19 +278,22 @@ const Example = () => {
 
   const handleTranscriptionChange = useCallback(
     (transcript: string) => {
-      setTextPart((prev) => ({
-        ...prev,
-        text: prev.text ? `${prev.text} ${transcript}` : transcript,
-      }));
+      if (controller) {
+        controller.textInput.setInput(
+          controller.textInput.value ? `${controller.textInput.value} ${transcript}` : transcript
+        );
+      }
     },
-    [setTextPart],
+    [controller],
   );
 
   const handleTextChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setTextPart((prev) => ({ ...prev, text: event.target.value }));
+      if (controller) {
+        controller.textInput.setInput(event.target.value);
+      }
     },
-    [setTextPart],
+    [controller],
   );
 
   const handleModelSelect = useCallback(
@@ -328,8 +305,8 @@ const Example = () => {
   );
 
   const isSubmitDisabled = useMemo(
-    () => status === "ready" && !textPart.text.trim(),
-    [textPart, status],
+    () => status === "ready" && !controller?.textInput.value.trim() && attachments.files.length === 0,
+    [controller?.textInput.value, attachments.files.length, status],
   );
 
   const handleStop = useCallback(() => {
@@ -441,7 +418,7 @@ const Example = () => {
               <PromptInputBody>
                 <PromptInputTextarea
                   onChange={handleTextChange}
-                  value={textPart.text}
+                  value={controller?.textInput.value || ""}
                 />
               </PromptInputBody>
               <PromptInputFooter>
@@ -610,7 +587,9 @@ export default function HomePage() {
                   WEAVING SIGNAL
                 </span>
               </header>
-              <Example />
+              <PromptInputProvider>
+                <Example />
+              </PromptInputProvider>
             </div>
           </div>
         </ChatProviderWrapper>
