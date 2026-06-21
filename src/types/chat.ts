@@ -1,4 +1,4 @@
-import { ToolUIPart, UIMessage } from "ai";
+import { ChatRequestOptions, ChatStatus, ToolUIPart, UIMessage } from "ai";
 import React from "react";
 
 export interface ChatMessage {
@@ -23,7 +23,7 @@ export interface ChatMessage {
     }[];
   }
 
-export type ChatStatus = "submitted" | "streaming" | "ready" | "error";
+export type { ChatStatus };
 
 export interface ChatContextValue {
   // State
@@ -46,6 +46,6 @@ export interface ChatContextValue {
   stop: () => void;
   append: (
     message: UIMessage | Omit<UIMessage, "id">,
-    chatRequestOptions?: any
+    chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
 }

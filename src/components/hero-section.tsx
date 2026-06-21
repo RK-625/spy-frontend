@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useScramble } from "use-scramble";
 import ShinyText from "./ShinyText";
 
@@ -51,7 +51,9 @@ export default function HeroSection() {
     onAnimationEnd: handleAnimationEnd,
   });
   const replayMainRef = useRef<(() => void) | null>(null);
-  replayMainRef.current = replay;
+  useEffect(() => {
+    replayMainRef.current = replay;
+  }, [replay]);
 
   // Second scramble for "MEET" — synced with phase 3
   const { ref: refA, replay: replayA } = useScramble({
@@ -65,7 +67,9 @@ export default function HeroSection() {
     playOnMount: false,
     range: [65, 125],
   });
-  replayARef.current = replayA;
+  useEffect(() => {
+    replayARef.current = replayA;
+  }, [replayA]);
 
   // "SYPDER" scramble — separate ref for glossy purple styling
   const { ref: refB, replay: replayB } = useScramble({
@@ -82,11 +86,12 @@ export default function HeroSection() {
       setTimeout(() => setSweepActive(true), 200);
     },
   });
-  replayBRef.current = replayB;
+  useEffect(() => {
+    replayBRef.current = replayB;
+  }, [replayB]);
 
   const whiteGlow =
     "[text-shadow:2px_2px_0_rgba(6,6,16,0.9),4px_4px_0_rgba(6,6,16,0.7),0_0_12px_rgba(222,212,240,0.15)]";
-  const purpleGlow = "";
 
   const isPhase3 = currentPhase === 3;
 

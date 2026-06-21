@@ -38,7 +38,7 @@ const mediaCategoryIcons: Record<
   document: { name: "book", className: "size-4" },
   image: { name: "square", className: "size-4" },
   source: { name: "globe", className: "size-4" },
-  unknown: { name: "cpu", className: "size-4" },
+  unknown: { name: "settings", className: "size-4" },
   video: { name: "arrowUp", className: "size-4" },
 };
 

@@ -1,7 +1,7 @@
 import { openai } from "@ai-sdk/openai"
-import { generateText, streamText } from "ai"
+import { streamText, type CoreMessage } from "ai"
 
-export async function runAgent(messages:any[]) {
+export async function runAgent(messages: CoreMessage[]) {
     const currmdeol = openai("gpt-4o");
     const result = streamText({model : currmdeol , system : "You are a helpful AI assistant, Be breif and playful ",messages});
     return result;

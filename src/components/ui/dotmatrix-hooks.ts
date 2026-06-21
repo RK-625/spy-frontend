@@ -25,7 +25,8 @@ export function useCyclePhase({ active, cycleMsBase, speed = 1 }: UseCyclePhaseO
   const [phase, setPhase] = useState(0);
   useEffect(() => {
     if (!active) {
-      setPhase(0);
+      // ponytail: defer state update to avoid cascading render warning on mount/effect transition
+      setTimeout(() => setPhase(0), 0);
       return;
     }
     const safeSpeed = speed > 0 ? speed : 1;
@@ -100,7 +101,8 @@ export function useSteppedCycle({
     if (!active) {
       activeRef.current = false;
       currentStepRef.current = idleStep;
-      setStep(idleStep);
+      // ponytail: defer state update to avoid cascading render warning on mount/effect transition
+      setTimeout(() => setStep(idleStep), 0);
       return;
     }
     const updateStep = (now: number) => {

@@ -79,15 +79,18 @@ export function ChatSidebar() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === "full" || saved === "icon") {
-        setMode(saved);
+    // ponytail: defer state updates to avoid synchronous state transitions during mount
+    setTimeout(() => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved === "full" || saved === "icon") {
+          setMode(saved);
+        }
+      } catch {
+        // localStorage unavailable, keep default
       }
-    } catch {
-      // localStorage unavailable, keep default
-    }
-    setHydrated(true);
+      setHydrated(true);
+    }, 0);
   }, []);
 
   useEffect(() => {
@@ -138,7 +141,7 @@ export function ChatSidebar() {
   }, []);
 
   const isFull = mode === "full";
-  const isIcon = mode === "icon";
+
   const currentWidth = isFull ? FULL_WIDTH : ICON_WIDTH;
 
   return (

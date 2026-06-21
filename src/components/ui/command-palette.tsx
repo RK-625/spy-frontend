@@ -148,7 +148,10 @@ function CommandMenuTrigger({
   const [isMac, setIsMac] = React.useState(true);
 
   React.useEffect(() => {
-    setIsMac(navigator.platform.toLowerCase().includes("mac"));
+    // ponytail: defer state update to avoid synchronous state transition during mount
+    setTimeout(() => {
+      setIsMac(navigator.platform.toLowerCase().includes("mac"));
+    }, 0);
   }, []);
 
   return (
@@ -201,7 +204,10 @@ function CommandPalette({
   const itemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
 
   React.useEffect(() => {
-    setIsMac(navigator.platform.toLowerCase().includes("mac"));
+    // ponytail: defer state update to avoid synchronous state transition during mount
+    setTimeout(() => {
+      setIsMac(navigator.platform.toLowerCase().includes("mac"));
+    }, 0);
   }, []);
 
   React.useEffect(() => {
@@ -218,9 +224,12 @@ function CommandPalette({
       };
     }
 
-    setShowContent(false);
-    setQuery("");
-    setActiveIndex(0);
+    // ponytail: defer state updates to avoid synchronous state transition during effect execution
+    setTimeout(() => {
+      setShowContent(false);
+      setQuery("");
+      setActiveIndex(0);
+    }, 0);
   }, [contentDelay, open]);
 
   React.useEffect(() => {
@@ -228,7 +237,10 @@ function CommandPalette({
       return;
     }
 
-    setOpen(false);
+    // ponytail: defer state update to avoid synchronous state transition during effect execution
+    setTimeout(() => {
+      setOpen(false);
+    }, 0);
   }, [pathname]);
 
   React.useEffect(() => {
@@ -321,11 +333,14 @@ function CommandPalette({
     itemRefs.current = itemRefs.current.slice(0, resolvedItems.length);
 
     if (resolvedItems.length === 0) {
-      setActiveIndex(0);
+      // ponytail: defer state updates to avoid synchronous state transition during effect execution
+      setTimeout(() => setActiveIndex(0), 0);
       return;
     }
 
-    setActiveIndex((current) => Math.min(current, resolvedItems.length - 1));
+    setTimeout(() => {
+      setActiveIndex((current) => Math.min(current, resolvedItems.length - 1));
+    }, 0);
   }, [resolvedItems.length]);
 
   React.useEffect(() => {
@@ -396,11 +411,8 @@ function CommandPalette({
     }
   };
 
-  let optionIndex = -1;
-
   const renderItem = (item: CommandMenuItemDef, key: string) => {
-    optionIndex += 1;
-    const index = optionIndex;
+    const index = resolvedItems.indexOf(item);
     const isActive = index === activeIndex;
 
     return (

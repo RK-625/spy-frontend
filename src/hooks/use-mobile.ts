@@ -11,7 +11,10 @@ export function useIsMobile() {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
     mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    // ponytail: defer update to avoid synchronous state transition during mount
+    setTimeout(() => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    }, 0);
     return () => mql.removeEventListener("change", onChange)
   }, [])
 

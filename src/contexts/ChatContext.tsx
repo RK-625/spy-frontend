@@ -1,6 +1,6 @@
 "use client";
 
-import type { UIMessage, ToolUIPart } from "ai";
+import type { UIMessage, TextUIPart } from "ai";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { createContext, useCallback, useContext, useState } from "react";
@@ -29,19 +29,22 @@ export function ChatProvider({
     sendMessage,
     error: aiError,
     setMessages: setAiMessages,
-  } = useChat({
+  } = useChat<UIMessage>({
     id: "spy-chat",
     transport: new DefaultChatTransport({ api: "/api/chat" }),
-    messages: initialMessages.map((m: ChatMessage) => ({
+    messages: initialMessages.map((m: ChatMessage): UIMessage => ({
       id: m.key,
       role: m.from === "user" ? "user" : "assistant",
       parts: [{ type: "text", text: m.versions[0]?.content || "" }]
-    })),
+    })) as UIMessage[],
   });
 
   const append = useCallback(
-    async (message: any, options?: any) => {
-      sendMessage({ text: message.content });
+    async (message: UIMessage | Omit<UIMessage, "id">) => {
+      // ponytail: resolves prompt from parts array
+      const textPart = message.parts?.[0];
+      const text = textPart && textPart.type === "text" ? textPart.text : undefined;
+      if (text) sendMessage({ text });
       return null;
     },
     [sendMessage]
@@ -51,7 +54,10 @@ export function ChatProvider({
     (e?: { preventDefault?: () => void }) => {
       e?.preventDefault?.();
       if (!text.trim()) return;
-      append({ role: "user", content: text });
+      append({ 
+        role: "user", 
+        parts: [{ type: "text", text }] 
+      });
       setText("");
     },
     [text, append, setText]
@@ -59,9 +65,6 @@ export function ChatProvider({
 
   const status = aiStatus as ChatStatus;
   const error = aiError ? aiError.message : null;
-  const streamingMessageId =
-    status === "streaming" ? aiMessages[aiMessages.length - 1]?.id : null;
-
   const messages: ChatMessage[] = aiMessages.map((msg: UIMessage) => {
     const original = initialMessages.find((m: ChatMessage) => m.key === msg.id);
     return {
@@ -73,7 +76,10 @@ export function ChatProvider({
       versions: [
         {
           id: msg.id,
-          content: msg.parts.filter((p: any) => p.type === "text").map((p: any) => p.text).join("")
+          content: msg.parts
+            .filter((p): p is TextUIPart => p.type === "text")
+            .map((p: TextUIPart) => p.text)
+            .join("")
         }
       ],
     };

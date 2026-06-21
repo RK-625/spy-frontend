@@ -1171,7 +1171,7 @@ export const PromptInputSubmit = ({
 }: PromptInputSubmitProps) => {
   const isGenerating = status === "submitted" || status === "streaming";
 
-  let iconKey = status || "ready";
+  const iconKey = status || "ready";
   let Icon = <DotMatrixIcon name="arrowUp" size={16} />;
 
   if (status === "submitted") {

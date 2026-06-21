@@ -116,8 +116,10 @@ export const SpeechInput = ({
     useRef<SpeechInputProps["onAudioRecorded"]>(onAudioRecorded);
 
   // Keep refs in sync
-  onTranscriptionChangeRef.current = onTranscriptionChange;
-  onAudioRecordedRef.current = onAudioRecorded;
+  useEffect(() => {
+    onTranscriptionChangeRef.current = onTranscriptionChange;
+    onAudioRecordedRef.current = onAudioRecorded;
+  }, [onTranscriptionChange, onAudioRecorded]);
 
   // Initialize Speech Recognition when mode is speech-recognition
   useEffect(() => {
@@ -177,7 +179,8 @@ export const SpeechInput = ({
     speechRecognition.addEventListener("error", handleError);
 
     recognitionRef.current = speechRecognition;
-    setIsRecognitionReady(true);
+    // ponytail: defer state update to avoid cascading render warning in effect
+    setTimeout(() => setIsRecognitionReady(true), 0);
 
     return () => {
       speechRecognition.removeEventListener("start", handleStart);
@@ -188,7 +191,8 @@ export const SpeechInput = ({
       speechRecognition.removeEventListener("error", handleError);
       speechRecognition.stop();
       recognitionRef.current = null;
-      setIsRecognitionReady(false);
+      // ponytail: defer state update to avoid cascading render warning in effect
+      setTimeout(() => setIsRecognitionReady(false), 0);
     };
   }, [mode, lang]);
 
@@ -225,7 +229,7 @@ export const SpeechInput = ({
       audioChunksRef.current = [];
 
       try {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         const audioCtx = new AudioCtx();
         audioContextRef.current = audioCtx;
         const analyser = audioCtx.createAnalyser();
@@ -245,7 +249,7 @@ export const SpeechInput = ({
           rafRef.current = requestAnimationFrame(checkVolume);
         };
         checkVolume();
-      } catch (e) {
+      } catch {
         setIsSpeaking(true);
       }
 

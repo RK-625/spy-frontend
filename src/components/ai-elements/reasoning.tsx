@@ -183,7 +183,7 @@ export const ReasoningTrigger = memo(
       >
         {children ?? (
           <>
-            <DotMatrixIcon name="cpu" size={16} />
+            <DotMatrixIcon name="settings" size={16} />
             {getThinkingMessage(isStreaming, duration)}
             <DotMatrixIcon
               name="chevronDown"
