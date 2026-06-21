@@ -1,27 +1,11 @@
-import { ChatRequestOptions, ChatStatus, ToolUIPart, UIMessage } from "ai";
+import {
+  ChatRequestOptions,
+  ChatStatus,
+  CreateUIMessage,
+  TextUIPart,
+  UIMessage,
+} from "ai";
 import React from "react";
-
-export interface ChatMessage {
-    key: string;
-    from: "user" | "assistant";
-    sources?: { href: string; title: string }[];
-    versions: {
-      id: string;
-      content: string;
-    }[];
-    reasoning?: {
-      content: string;
-      duration: number;
-    };
-    tools?: {
-      name: string;
-      description: string;
-      status: ToolUIPart["state"];
-      parameters: Record<string, unknown>;
-      result: string | undefined;
-      error: string | undefined;
-    }[];
-  }
 
 export type { ChatStatus };
 
@@ -31,21 +15,21 @@ export interface ChatContextValue {
   setModel: (id: string) => void;
   modelSelectorOpen: boolean;
   setModelSelectorOpen: (b: boolean) => void;
-  text: string;
-  setText: React.Dispatch<React.SetStateAction<string>>;
+  textPart: TextUIPart;
+  setTextPart: React.Dispatch<React.SetStateAction<TextUIPart>>;
   useWebSearch: boolean;
   setUseWebSearch: (b: boolean) => void;
   status: ChatStatus;
-  messages: ChatMessage[];
+  messages: UIMessage[];
 
   // Actions
-  clearMessages: () => void;
   toggleWebSearch: () => void;
-  error: string | null;
+  clearMessages: () => void;
+  error: Error | undefined;
   handleSubmit: (e?: { preventDefault?: () => void }) => void;
   stop: () => void;
-  append: (
-    message: UIMessage | Omit<UIMessage, "id">,
-    chatRequestOptions?: ChatRequestOptions
-  ) => Promise<string | null | undefined>;
+  sendMessage: (
+    message?: CreateUIMessage<UIMessage>,
+    options?: ChatRequestOptions,
+  ) => Promise<void>;
 }

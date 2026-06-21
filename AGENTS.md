@@ -83,6 +83,8 @@ But right now, we're building the door. Make it good enough that people want to 
 
 ```
 src/
+├── ai/
+│   └── agent.ts              — Server-side model streaming logic
 ├── app/
 │   ├── page.tsx              — Landing page (composes hero components)
 │   ├── home/
@@ -102,7 +104,12 @@ src/
 │   │   ├── attachments.tsx   — File attachment preview and management
 │   │   ├── shimmer.tsx       — Streaming message animation
 │   │   └── scroll-to-bottom.tsx — Floating scroll button
-│   ├── ui/                   — shadcn primitives (Button, Input, Dialog, etc.)
+│   ├── ui/                   — shadcn primitives (Button, Input, Dialog, etc.) + custom components:
+│   │   ├── command-palette.tsx — Command palette search trigger and modal
+│   │   ├── dotmatrix-core.tsx  — Custom pixel-art dot-matrix grids and utilities
+│   │   └── dotmatrix-hooks.ts — Animation state hooks for dot-matrix cells
+│   ├── ChatSidebar.tsx       — Collapsible navigation drawer (Recents list + Search)
+│   ├── SettingsDialog.tsx    — Chat/model parameter override drawer
 │   ├── ShinyText.tsx         — Glint sweep animation for "SPY" header
 │   ├── hero-section.tsx      — Hero layout (composes hero items)
 │   ├── logo.tsx              — "S P Y" in Unbounded, text-secondary
@@ -114,8 +121,15 @@ src/
 │   ├── spider-mascot.tsx     — Dynamic SVG `<mascot-3d.svg>` loader with GSAP idle animation (targets `#Antenna`, `#Visor section`, leg IDs)
 │   ├── dot-matrix-icons.tsx  — Central registry for pixel-art SVG icons
 │   └── knowledge-graph.tsx   — Canvas 2D ambient graph backdrop
-└── lib/
-    └── utils.ts              — cn() helper for Tailwind class merging
+├── contexts/
+│   └── ChatContext.tsx       — Shared state provider for Chat UI (useChat wrapper)
+├── hooks/
+│   └── use-mobile.ts         — Responsive layout breakpoint state hook
+├── lib/
+│   └── utils.ts              — cn() helper for Tailwind class merging
+└── types/
+    ├── chat.ts               — Type declarations for ChatContextValue
+    └── index.ts              — Main TypeScript module definitions entrypoint
 ```
 
 ## Design files

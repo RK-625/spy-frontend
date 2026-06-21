@@ -64,43 +64,15 @@ import {
 } from "@/components/ai-elements/sources";
 import { SpeechInput } from "@/components/ai-elements/speech-input";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
-import type { FileUIPart, ToolUIPart } from "ai";
+import type { FileUIPart, SourceUrlUIPart } from "ai";
 
 import { cn } from "@/lib/utils";
 import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
-import { nanoid } from "nanoid";
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
-
-interface MessageType {
-  key: string;
-  from: "user" | "assistant";
-  sources?: { href: string; title: string }[];
-  versions: {
-    id: string;
-    content: string;
-  }[];
-  reasoning?: {
-    content: string;
-    duration: number;
-  };
-  tools?: {
-    name: string;
-    description: string;
-    status: ToolUIPart["state"];
-    parameters: Record<string, unknown>;
-    result: string | undefined;
-    error: string | undefined;
-  }[];
-}
-
-const initialMessages: MessageType[] = [];
-
-
-
 
 const models = [
   {
@@ -151,7 +123,6 @@ const suggestions = [
   "Explain cloud computing basics",
 ];
 
-
 const chefs = ["OpenAI", "Anthropic", "Google"];
 
 const AttachmentItem = ({
@@ -180,7 +151,7 @@ const PromptInputAttachmentsDisplay = () => {
     (id: string) => {
       attachments.remove(id);
     },
-    [attachments]
+    [attachments],
   );
 
   if (attachments.files.length === 0) {
@@ -275,20 +246,20 @@ const Example = () => {
     setModel,
     modelSelectorOpen,
     setModelSelectorOpen,
-    text,
-    setText,
+    textPart,
+    setTextPart,
     useWebSearch,
     status,
     messages,
     toggleWebSearch,
     error,
-    append,
+    sendMessage,
     stop,
   } = useChatContext();
 
   const selectedModelData = useMemo(
     () => models.find((m) => m.id === model),
-    [model]
+    [model],
   );
 
   const handleSubmit = useCallback(
@@ -308,42 +279,44 @@ const Example = () => {
 
       const textToAppend = hasText
         ? message.text!.trim()
-        : message.files
-            ?.map((f) => f.filename || "file")
-            .join(", ") || "Attachment";
+        : message.files?.map((f) => f.filename || "file").join(", ") ||
+          "Attachment";
 
-      append({
+      sendMessage({
         role: "user",
         parts: [{ type: "text", text: textToAppend }],
       });
-      
-      setText("");
+
+      setTextPart((prev) => ({ ...prev, text: "" }));
     },
-    [append, setText]
+    [sendMessage, setTextPart],
   );
 
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
-      append({
+      sendMessage({
         role: "user",
         parts: [{ type: "text", text: suggestion }],
       });
     },
-    [append]
+    [sendMessage],
   );
 
   const handleTranscriptionChange = useCallback(
     (transcript: string) => {
-      setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+      setTextPart((prev) => ({
+        ...prev,
+        text: prev.text ? `${prev.text} ${transcript}` : transcript,
+      }));
     },
-    [setText]
+    [setTextPart],
   );
 
   const handleTextChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setText(event.target.value);
+      setTextPart((prev) => ({ ...prev, text: event.target.value }));
     },
-    [setText]
+    [setTextPart],
   );
 
   const handleModelSelect = useCallback(
@@ -351,12 +324,12 @@ const Example = () => {
       setModel(modelId);
       setModelSelectorOpen(false);
     },
-    [setModel, setModelSelectorOpen]
+    [setModel, setModelSelectorOpen],
   );
 
   const isSubmitDisabled = useMemo(
-    () => status === "ready" && !text.trim(),
-    [text, status]
+    () => status === "ready" && !textPart.text.trim(),
+    [textPart, status],
   );
 
   const handleStop = useCallback(() => {
@@ -370,57 +343,71 @@ const Example = () => {
           {error && (
             <div className="mb-4 flex items-center gap-3 rounded-[var(--radius)] border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
               <span className="text-red-400">⚠</span>
-              <span className="flex-1">{error}</span>
+              <span className="flex-1">{error.message}</span>
             </div>
           )}
           {messages.length === 0 ? (
             <EmptyState />
           ) : (
-            messages.map(({ versions, ...message }) => (
-              <MessageBranch defaultBranch={0} key={message.key}>
+            messages.map((message) => (
+              <MessageBranch defaultBranch={0} key={message.id}>
                 <MessageBranchContent>
-                  {versions.map((version) => (
-                    <Message
-                      from={message.from}
-                      key={`${message.key}-${version.id}`}
-                    >
-                      <div>
-                        {message.sources?.length && (
+                  <Message
+                    from={message.role === "user" ? "user" : "assistant"}
+                    key={message.id}
+                  >
+                    <div>
+                      {/* 1. Reasoning parts first */}
+                      {message.parts.map((part, index) => {
+                        if (part.type === "reasoning") {
+                          return (
+                            <Reasoning key={index} duration={0}>
+                              <ReasoningTrigger />
+                              <ReasoningContent>
+                                {part.text || ""}
+                              </ReasoningContent>
+                            </Reasoning>
+                          );
+                        }
+                        return null;
+                      })}
+
+                      {/* 2. Sources (Grouped) */}
+                      {(() => {
+                        const sources = message.parts.filter(
+                          (p): p is SourceUrlUIPart => p.type === "source-url"
+                        );
+                        if (sources.length === 0) return null;
+                        return (
                           <Sources>
-                            <SourcesTrigger count={message.sources.length} />
+                            <SourcesTrigger count={sources.length} />
                             <SourcesContent>
-                              {message.sources.map((source) => (
+                              {sources.map((src, index) => (
                                 <Source
-                                  href={source.href}
-                                  key={source.href}
-                                  title={source.title}
+                                  key={index}
+                                  href={src.url}
+                                  title={src.title || "Source"}
                                 />
                               ))}
                             </SourcesContent>
                           </Sources>
-                        )}
-                        {message.reasoning && (
-                          <Reasoning duration={message.reasoning.duration}>
-                            <ReasoningTrigger />
-                            <ReasoningContent>
-                              {message.reasoning.content}
-                            </ReasoningContent>
-                          </Reasoning>
-                        )}
-                        <MessageContent>
-                          <MessageResponse>{version.content}</MessageResponse>
-                        </MessageContent>
-                      </div>
-                    </Message>
-                  ))}
+                        );
+                      })()}
+
+                      {/* 3. Text parts last */}
+                      {message.parts.map((part, index) => {
+                        if (part.type === "text") {
+                          return (
+                            <MessageContent key={index}>
+                              <MessageResponse>{part.text}</MessageResponse>
+                            </MessageContent>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  </Message>
                 </MessageBranchContent>
-                {versions.length > 1 && (
-                  <MessageBranchSelector>
-                    <MessageBranchPrevious />
-                    <MessageBranchPage />
-                    <MessageBranchNext />
-                  </MessageBranchSelector>
-                )}
               </MessageBranch>
             ))
           )}
@@ -439,95 +426,104 @@ const Example = () => {
         </Suggestions>
         <div className="w-full px-4 pb-4 pt-1">
           <div className="chat-input-wrap relative">
-          <div className="chat-input-glow" />
-          <PromptInput
-            globalDrop
-            multiple
-            onSubmit={handleSubmit}
-            accept="image/*,.pdf,.txt,.md,.json,.ts,.tsx,.js,.jsx"
-            maxFiles={5}
-            maxFileSize={10 * 1024 * 1024}
-          >
-            <PromptInputHeader>
-              <PromptInputAttachmentsDisplay />
-            </PromptInputHeader>
-            <PromptInputBody>
-              <PromptInputTextarea onChange={handleTextChange} value={text} />
-            </PromptInputBody>
-            <PromptInputFooter>
-              <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)]">
-                <PromptInputActionMenu>
-                  <PromptInputActionMenuTrigger className="text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]" />
-                  <PromptInputActionMenuContent>
-                    <PromptInputActionAddAttachments />
-                  </PromptInputActionMenuContent>
-                </PromptInputActionMenu>
-                <SpeechInput
-                  className="shrink-0 text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]"
-                  onTranscriptionChange={handleTranscriptionChange}
-                  size="icon-sm"
-                  variant="ghost"
+            <div className="chat-input-glow" />
+            <PromptInput
+              globalDrop
+              multiple
+              onSubmit={handleSubmit}
+              accept="image/*,.pdf,.txt,.md,.json,.ts,.tsx,.js,.jsx"
+              maxFiles={5}
+              maxFileSize={10 * 1024 * 1024}
+            >
+              <PromptInputHeader>
+                <PromptInputAttachmentsDisplay />
+              </PromptInputHeader>
+              <PromptInputBody>
+                <PromptInputTextarea
+                  onChange={handleTextChange}
+                  value={textPart.text}
                 />
-                <PromptInputButton
-                  onClick={toggleWebSearch}
-                  size="icon-sm"
-                  variant={useWebSearch ? "default" : "ghost"}
-                  aria-label={useWebSearch ? "Disable web search" : "Enable web search"}
-                  tooltip={{
-                    content: useWebSearch ? "Disable web search" : "Enable web search",
-                    side: "top",
-                  }}
-                  className={cn(
-                    "transition-colors",
-                    useWebSearch
-                      ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-white"
-                      : "text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]"
-                  )}
-                >
-                  <DotMatrixIcon name="globe" size={16} />
-                </PromptInputButton>
-                <ModelSelector
-                  onOpenChange={setModelSelectorOpen}
-                  open={modelSelectorOpen}
-                >
-                  <ModelSelectorTrigger asChild>
-                    <PromptInputButton
-                      className="shrink-0 text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]"
-                      variant="ghost"
-                      aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
-                    >
-                      <DotMatrixIcon name="settings" size={16} />
-                    </PromptInputButton>
-                  </ModelSelectorTrigger>
-                  <ModelSelectorContent>
-                    <ModelSelectorInput placeholder="Search models..." />
-                    <ModelSelectorList>
-                      <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                      {chefs.map((chef) => (
-                        <ModelSelectorGroup heading={chef} key={chef}>
-                          {models
-                            .filter((m) => m.chef === chef)
-                            .map((m) => (
-                              <ModelItem
-                                isSelected={model === m.id}
-                                key={m.id}
-                                m={m}
-                                onSelect={handleModelSelect}
-                              />
-                            ))}
-                        </ModelSelectorGroup>
-                      ))}
-                    </ModelSelectorList>
-                  </ModelSelectorContent>
-                </ModelSelector>
-              </PromptInputTools>
-              <PromptInputSubmit
-                disabled={isSubmitDisabled}
-                onStop={handleStop}
-                status={status}
-              />
-            </PromptInputFooter>
-          </PromptInput>
+              </PromptInputBody>
+              <PromptInputFooter>
+                <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)]">
+                  <PromptInputActionMenu>
+                    <PromptInputActionMenuTrigger className="text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]" />
+                    <PromptInputActionMenuContent>
+                      <PromptInputActionAddAttachments />
+                    </PromptInputActionMenuContent>
+                  </PromptInputActionMenu>
+                  <SpeechInput
+                    className="shrink-0 text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]"
+                    onTranscriptionChange={handleTranscriptionChange}
+                    size="icon-sm"
+                    variant="ghost"
+                  />
+                  <PromptInputButton
+                    onClick={toggleWebSearch}
+                    size="icon-sm"
+                    variant={useWebSearch ? "default" : "ghost"}
+                    aria-label={
+                      useWebSearch ? "Disable web search" : "Enable web search"
+                    }
+                    tooltip={{
+                      content: useWebSearch
+                        ? "Disable web search"
+                        : "Enable web search",
+                      side: "top",
+                    }}
+                    className={cn(
+                      "transition-colors",
+                      useWebSearch
+                        ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-white"
+                        : "text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]",
+                    )}
+                  >
+                    <DotMatrixIcon name="globe" size={16} />
+                  </PromptInputButton>
+                  <ModelSelector
+                    onOpenChange={setModelSelectorOpen}
+                    open={modelSelectorOpen}
+                  >
+                    <ModelSelectorTrigger asChild>
+                      <PromptInputButton
+                        className="shrink-0 text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]"
+                        variant="ghost"
+                        aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
+                      >
+                        <DotMatrixIcon name="settings" size={16} />
+                      </PromptInputButton>
+                    </ModelSelectorTrigger>
+                    <ModelSelectorContent>
+                      <ModelSelectorInput placeholder="Search models..." />
+                      <ModelSelectorList>
+                        <ModelSelectorEmpty>
+                          No models found.
+                        </ModelSelectorEmpty>
+                        {chefs.map((chef) => (
+                          <ModelSelectorGroup heading={chef} key={chef}>
+                            {models
+                              .filter((m) => m.chef === chef)
+                              .map((m) => (
+                                <ModelItem
+                                  isSelected={model === m.id}
+                                  key={m.id}
+                                  m={m}
+                                  onSelect={handleModelSelect}
+                                />
+                              ))}
+                          </ModelSelectorGroup>
+                        ))}
+                      </ModelSelectorList>
+                    </ModelSelectorContent>
+                  </ModelSelector>
+                </PromptInputTools>
+                <PromptInputSubmit
+                  disabled={isSubmitDisabled}
+                  onStop={handleStop}
+                  status={status}
+                />
+              </PromptInputFooter>
+            </PromptInput>
           </div>
         </div>
       </div>
@@ -539,12 +535,18 @@ import dynamic from "next/dynamic";
 import ShinyText from "@/components/ShinyText";
 
 const ShaderGradientCanvas = dynamic(
-  () => import("@shadergradient/react").then((mod) => ({ default: mod.ShaderGradientCanvas })),
-  { ssr: false }
+  () =>
+    import("@shadergradient/react").then((mod) => ({
+      default: mod.ShaderGradientCanvas,
+    })),
+  { ssr: false },
 );
 const ShaderGradient = dynamic(
-  () => import("@shadergradient/react").then((mod) => ({ default: mod.ShaderGradient })),
-  { ssr: false }
+  () =>
+    import("@shadergradient/react").then((mod) => ({
+      default: mod.ShaderGradient,
+    })),
+  { ssr: false },
 );
 
 export default function HomePage() {
@@ -595,9 +597,7 @@ export default function HomePage() {
           <ChatSidebar />
           {/* Main chat area */}
           <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
-            <div
-              className="flex h-full w-full max-w-4xl flex-col bg-[#150c28]/80 backdrop-blur-sm"
-            >
+            <div className="flex h-full w-full max-w-4xl flex-col bg-[#150c28]/80 backdrop-blur-sm">
               <header className="relative flex items-center gap-3 border-b border-[#d0b8f5]/10 px-6 py-4">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C8ACFB]/15 to-transparent" />
                 <ShinyText
@@ -623,7 +623,7 @@ export default function HomePage() {
 function ChatProviderWrapper({ children }: { children: React.ReactNode }) {
   return (
     <TooltipProvider delayDuration={300}>
-      <ChatProvider initialMessages={initialMessages}>{children}</ChatProvider>
+      <ChatProvider>{children}</ChatProvider>
     </TooltipProvider>
   );
 }

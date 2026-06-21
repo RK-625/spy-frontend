@@ -69,7 +69,7 @@ export function SettingsDialog({
 
           {error && (
             <div className="rounded-[var(--radius)] border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">
-              {error}
+              {error.message}
             </div>
           )}
 
