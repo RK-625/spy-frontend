@@ -6,7 +6,7 @@ import {
   UIMessage,
 } from "ai";
 import React from "react";
-import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import type { PromptInputMessage } from "@/components/chat/ai-elements/prompt-input";
 
 export type { ChatStatus };
 

@@ -17,7 +17,7 @@ const ShaderGradient = dynamic(
   { ssr: false },
 );
 
-import HeroSection from "@/components/hero-section";
+import HeroSection from "@/components/landing/hero-section";
 
 export default function Home() {
   return (

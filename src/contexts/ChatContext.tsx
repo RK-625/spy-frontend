@@ -6,7 +6,7 @@ import { useChat } from "@ai-sdk/react";
 import { createContext, useCallback, useContext, useState } from "react";
 import { ChatContextValue } from "@/types";
 import { toast } from "sonner";
-import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import type { PromptInputMessage } from "@/components/chat/ai-elements/prompt-input";
 
 const ChatContext = createContext<ChatContextValue | null>(null); // defining the bucket
 

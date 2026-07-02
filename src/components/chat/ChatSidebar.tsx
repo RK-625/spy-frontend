@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { CommandPalette } from "@/components/ui/command-palette";
-import { SettingsDialog } from "@/components/SettingsDialog";
+import { SettingsDialog } from "@/components/chat/SettingsDialog";
 import { useChatContext } from "@/contexts/ChatContext";
 import { cn } from "@/lib/utils";
 import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";

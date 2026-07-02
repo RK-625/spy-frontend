@@ -3,7 +3,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Command, Monitor, Moon, Search, Sun, X } from "lucide-react";
 
-import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
 
 import { motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";

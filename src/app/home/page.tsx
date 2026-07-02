@@ -5,12 +5,12 @@ import {
   AttachmentPreview,
   AttachmentRemove,
   Attachments,
-} from "@/components/ai-elements/attachments";
+} from "@/components/chat/ai-elements/attachments";
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from "@/components/ai-elements/conversation";
+} from "@/components/chat/ai-elements/conversation";
 import {
   Message,
   MessageBranch,
@@ -21,7 +21,7 @@ import {
   MessageBranchSelector,
   MessageContent,
   MessageResponse,
-} from "@/components/ai-elements/message";
+} from "@/components/chat/ai-elements/message";
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -34,8 +34,8 @@ import {
   ModelSelectorLogoGroup,
   ModelSelectorName,
   ModelSelectorTrigger,
-} from "@/components/ai-elements/model-selector";
-import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+} from "@/components/chat/ai-elements/model-selector";
+import type { PromptInputMessage } from "@/components/chat/ai-elements/prompt-input";
 import {
   PromptInput,
   PromptInputActionAddAttachments,
@@ -52,26 +52,26 @@ import {
   usePromptInputAttachments,
   PromptInputProvider,
   useOptionalPromptInputController,
-} from "@/components/ai-elements/prompt-input";
+} from "@/components/chat/ai-elements/prompt-input";
 import {
   Reasoning,
   ReasoningContent,
   ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
+} from "@/components/chat/ai-elements/reasoning";
 import {
   Sources,
   Source,
   SourcesContent,
   SourcesTrigger,
-} from "@/components/ai-elements/sources";
-import { SpeechInput } from "@/components/ai-elements/speech-input";
-import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
+} from "@/components/chat/ai-elements/sources";
+import { SpeechInput } from "@/components/chat/ai-elements/speech-input";
+import { Suggestion, Suggestions } from "@/components/chat/ai-elements/suggestion";
 import type { FileUIPart, SourceUrlUIPart } from "ai";
 
 import { cn } from "@/lib/utils";
-import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
 import { useCallback, useMemo } from "react";
-import { ChatSidebar } from "@/components/ChatSidebar";
+import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -265,7 +265,6 @@ const Example = () => {
     [model],
   );
 
-
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
       sendMessage({
@@ -280,7 +279,9 @@ const Example = () => {
     (transcript: string) => {
       if (controller) {
         controller.textInput.setInput(
-          controller.textInput.value ? `${controller.textInput.value} ${transcript}` : transcript
+          controller.textInput.value
+            ? `${controller.textInput.value} ${transcript}`
+            : transcript,
         );
       }
     },
@@ -305,7 +306,10 @@ const Example = () => {
   );
 
   const isSubmitDisabled = useMemo(
-    () => status === "ready" && !controller?.textInput.value.trim() && attachments.files.length === 0,
+    () =>
+      status === "ready" &&
+      !controller?.textInput.value.trim() &&
+      attachments.files.length === 0,
     [controller?.textInput.value, attachments.files.length, status],
   );
 
@@ -352,7 +356,7 @@ const Example = () => {
                       {/* 2. Sources (Grouped) */}
                       {(() => {
                         const sources = message.parts.filter(
-                          (p): p is SourceUrlUIPart => p.type === "source-url"
+                          (p): p is SourceUrlUIPart => p.type === "source-url",
                         );
                         if (sources.length === 0) return null;
                         return (
@@ -509,7 +513,7 @@ const Example = () => {
 };
 
 import dynamic from "next/dynamic";
-import ShinyText from "@/components/ShinyText";
+import ShinyText from "@/components/ui/ShinyText";
 
 const ShaderGradientCanvas = dynamic(
   () =>
