@@ -15,6 +15,7 @@
 /.codegraph
 /.kiro
 /.learning
+/.kirograph
 
 # testing
 /coverage
