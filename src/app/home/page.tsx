@@ -267,12 +267,13 @@ const Example = () => {
 
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
+      if (status !== "ready") return;
       sendMessage({
         role: "user",
         parts: [{ type: "text", text: suggestion }],
       });
     },
-    [sendMessage],
+    [sendMessage, status],
   );
 
   const handleTranscriptionChange = useCallback(
@@ -307,9 +308,9 @@ const Example = () => {
 
   const isSubmitDisabled = useMemo(
     () =>
-      status === "ready" &&
-      !controller?.textInput.value.trim() &&
-      attachments.files.length === 0,
+      status !== "ready" ||
+      (!controller?.textInput.value.trim() &&
+        attachments.files.length === 0),
     [controller?.textInput.value, attachments.files.length, status],
   );
 

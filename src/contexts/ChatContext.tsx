@@ -25,6 +25,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
+      if (status !== "ready") return;
+
       const hasText = Boolean(message.text?.trim());
       const hasAttachments = Boolean(message.files?.length);
 
@@ -42,7 +44,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         console.error(e);
       }
     },
-    [sendMessage],
+    [sendMessage, status],
   );
 
   const clearMessages = useCallback(() => {

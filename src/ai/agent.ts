@@ -1,13 +1,21 @@
-import { openai } from "@ai-sdk/openai";
-import { streamText, type ModelMessage } from "ai";
-
-export async function runAgent(messages: ModelMessage[]) {
-  const currmdeol = openai("gpt-4o");
+import { createOpenAI } from "@ai-sdk/openai";
+import {
+  streamText,
+  convertToModelMessages,
+  type UIMessage,
+  type LanguageModel,
+} from "ai";
+const deepseek = createOpenAI({
+  baseURL: "https://api.deepseek.com",
+  apiKey: process.env.DEEPSEEK_API_KEY, // Set this in your environment
+});
+export async function runAgent(messages: UIMessage[]) {
+  const currmdeol = deepseek.chat("deepseek-v4-flash");
+  const modelMessages = await convertToModelMessages(messages);
   const result = streamText({
-    model: currmdeol,
-    system: "You are a helpful AI assistant, Be breif and playful ",
-    messages,
+    model: currmdeol as unknown as LanguageModel,
+    system: "You are a helpful AI assistant. Be brief and playful. ",
+    messages: modelMessages,
   });
   return result;
 }
-
