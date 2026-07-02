@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
-import { initSpiderMascotAnimation } from "../animation/spider/mascot";
+import { initSpiderMascotAnimation } from "./spider/mascot";
 
 export default function SpiderMascot({ onReady }: { onReady?: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
