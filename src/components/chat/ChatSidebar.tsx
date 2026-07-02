@@ -6,7 +6,7 @@ import { CommandPalette } from "@/components/ui/command-palette";
 import { SettingsDialog } from "@/components/chat/SettingsDialog";
 import { useChatContext } from "@/contexts/ChatContext";
 import { cn } from "@/lib/utils";
-import { DotMatrixIcon } from "@/components/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
 
 type SidebarMode = "icon" | "full";
 const STORAGE_KEY = "spy-sidebar-mode";
@@ -44,9 +44,12 @@ function SidebarItem({
       className={cn(
         "group relative flex w-full items-center gap-2 rounded-[var(--radius)] px-3 py-2 transition-all duration-200 outline-none",
         "focus-visible:ring-2 focus-visible:ring-[rgba(200,172,251,0.4)]",
-        !isPrimary && !active && "text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]",
+        !isPrimary &&
+          !active &&
+          "text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]",
         active && !isPrimary && "bg-[rgba(200,172,251,0.12)] text-[#e8dff8]",
-        isPrimary && "text-[#e8dff8] font-medium text-[0.8125rem] hover:bg-[rgba(200,172,251,0.08)]",
+        isPrimary &&
+          "text-[#e8dff8] font-medium text-[0.8125rem] hover:bg-[rgba(200,172,251,0.08)]",
       )}
     >
       <span className="flex-shrink-0">
@@ -154,17 +157,26 @@ export function ChatSidebar() {
         aria-label="Conversation navigation"
       >
         {/* Top: expand/collapse toggle — centered when collapsed, right when expanded */}
-        <div className={cn("flex items-center px-2 pt-3", isFull ? "justify-end" : "justify-center")}>
+        <div
+          className={cn(
+            "flex items-center px-2 pt-3",
+            isFull ? "justify-end" : "justify-center",
+          )}
+        >
           <button
             onClick={handleToggleMode}
             className={cn(
               "flex size-10 items-center justify-center rounded-[var(--radius)] transition-all duration-200 outline-none",
               "text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]",
-              "focus-visible:ring-2 focus-visible:ring-[rgba(200,172,251,0.4)]"
+              "focus-visible:ring-2 focus-visible:ring-[rgba(200,172,251,0.4)]",
             )}
             aria-label={isFull ? "Collapse to icons" : "Expand sidebar"}
           >
-            {isFull ? <DotMatrixIcon name="panelLeftClose" size={16} /> : <DotMatrixIcon name="panelLeftOpen" size={16} />}
+            {isFull ? (
+              <DotMatrixIcon name="panelLeftClose" size={16} />
+            ) : (
+              <DotMatrixIcon name="panelLeftOpen" size={16} />
+            )}
           </button>
         </div>
 
@@ -186,7 +198,7 @@ export function ChatSidebar() {
             trigger={
               <div
                 className={cn(
-                  "rounded-[var(--radius)] focus-within:ring-2 focus-within:ring-[rgba(200,172,251,0.4)]"
+                  "rounded-[var(--radius)] focus-within:ring-2 focus-within:ring-[rgba(200,172,251,0.4)]",
                 )}
               >
                 <SidebarItem
@@ -218,9 +230,7 @@ export function ChatSidebar() {
             <div className="h-px flex-1 bg-[rgba(200,172,251,0.08)]" />
           </div>
           <div className="flex flex-1 items-center justify-center px-4">
-            <span className="text-sm text-[#7a7685]">
-              No conversations yet
-            </span>
+            <span className="text-sm text-[#7a7685]">No conversations yet</span>
           </div>
         </motion.div>
 
