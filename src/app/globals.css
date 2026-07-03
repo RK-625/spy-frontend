@@ -575,12 +575,16 @@
   margin-left: auto;
 }
 
-/* ── Toolbar Buttons — consistent radius + height ── */
 .chat-input-wrap [data-slot="button"] {
   border-radius: var(--radius);
   height: 2rem;
   min-height: 2rem;
   max-height: 2rem;
+}
+
+/* Redefine global focus ring for the workspace route to use lavender outline */
+.workspace-root {
+  --ring: rgba(200, 172, 251, 0.40);
 }
 
 /* ── Assistant Message Accent — removed, clean block now ── */

@@ -43,7 +43,7 @@ function SidebarItem({
       aria-label={label}
       className={cn(
         "group relative flex w-full items-center gap-2 rounded-[var(--radius)] px-3 py-2 transition-all duration-200 outline-none",
-        "focus-visible:ring-2 focus-visible:ring-[rgba(200,172,251,0.4)]",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         !isPrimary &&
           !active &&
           "text-text-primary hover:bg-[rgba(200,172,251,0.08)]",
@@ -168,7 +168,7 @@ export function ChatSidebar() {
             className={cn(
               "flex size-10 items-center justify-center rounded-[var(--radius)] transition-all duration-200 outline-none",
               "text-text-primary hover:bg-[rgba(200,172,251,0.08)]",
-              "focus-visible:ring-2 focus-visible:ring-[rgba(200,172,251,0.4)]",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             )}
             aria-label={isFull ? "Collapse to icons" : "Expand sidebar"}
           >
@@ -198,7 +198,7 @@ export function ChatSidebar() {
             trigger={
               <div
                 className={cn(
-                  "rounded-[var(--radius)] focus-within:ring-2 focus-within:ring-[rgba(200,172,251,0.4)]",
+                  "rounded-[var(--radius)] focus-within:ring-2 focus-within:ring-ring",
                 )}
               >
                 <SidebarItem

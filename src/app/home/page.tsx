@@ -38,10 +38,6 @@ import {
 import type { PromptInputMessage } from "@/components/chat/ai-elements/prompt-input";
 import {
   PromptInput,
-  PromptInputActionAddAttachments,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuTrigger,
   PromptInputBody,
   PromptInputButton,
   PromptInputFooter,
@@ -436,12 +432,19 @@ const Example = () => {
               </PromptInputBody>
               <PromptInputFooter>
                 <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)]">
-                  <PromptInputActionMenu>
-                    <PromptInputActionMenuTrigger className="text-text-primary hover:bg-[rgba(200,172,251,0.08)]" />
-                    <PromptInputActionMenuContent>
-                      <PromptInputActionAddAttachments />
-                    </PromptInputActionMenuContent>
-                  </PromptInputActionMenu>
+                  <PromptInputButton
+                    onClick={attachments.openFileDialog}
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="Add photos or files"
+                    tooltip={{
+                      content: "Add photos or files",
+                      side: "top",
+                    }}
+                    className="text-text-primary hover:bg-[rgba(200,172,251,0.08)]"
+                  >
+                    <DotMatrixIcon name="plus" size={16} />
+                  </PromptInputButton>
                   <SpeechInput
                     className="shrink-0 text-text-primary hover:bg-[rgba(200,172,251,0.08)]"
                     onTranscriptionChange={handleTranscriptionChange}
@@ -548,7 +551,7 @@ const ShaderGradient = dynamic(
 
 export default function HomePage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#150c28]">
+    <div className="relative min-h-screen overflow-hidden bg-[#150c28] workspace-root">
       <div className="fixed inset-0 z-50 bg-[#150c28] pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
 
       <div className="fixed inset-0 -z-10">
