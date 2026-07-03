@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
+import { DotmTriangle16 } from "@/components/ui/dotm-triangle-16";
+import { AnimatePresence, motion } from "motion/react";
 import type { ComponentProps } from "react";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -46,21 +47,39 @@ export const ConversationScrollButton = ({
   }, [scrollToBottom]);
 
   return (
-    !isAtBottom && (
-      <Button
-        className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%]  dark:bg-background dark:hover:bg-muted",
-          className
-        )}
-        onClick={handleScrollToBottom}
-        size="icon"
-        type="button"
-        variant="outline"
-        {...props}
-      >
-        <DotMatrixIcon name="arrowDown" size={16} />
-      </Button>
-    )
+    <AnimatePresence>
+      {!isAtBottom && (
+        <motion.div
+          initial={{ opacity: 0, y: 8, scale: 0.95, x: "-50%" }}
+          animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
+          exit={{ opacity: 0, y: 8, scale: 0.95, x: "-50%" }}
+          transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
+          className="absolute bottom-4 left-[50%] z-30"
+        >
+          <Button
+            className={cn(
+              "!size-8 !rounded-[var(--radius)] transition-colors duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
+              "bg-[#e8dff8] text-[#0a0a0c] hover:bg-white",
+              className
+            )}
+            onClick={handleScrollToBottom}
+            size="icon"
+            type="button"
+            variant="default"
+            {...props}
+          >
+            <DotmTriangle16
+              size={16}
+              dotSize={2}
+              dotShape="square"
+              color="currentColor"
+              animated={false}
+              className="rotate-180"
+            />
+          </Button>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

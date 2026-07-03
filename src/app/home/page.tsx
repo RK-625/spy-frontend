@@ -308,9 +308,9 @@ const Example = () => {
 
   const isSubmitDisabled = useMemo(
     () =>
-      status !== "ready" ||
-      (!controller?.textInput.value.trim() &&
-        attachments.files.length === 0),
+      status === "ready" &&
+      !controller?.textInput.value.trim() &&
+      attachments.files.length === 0,
     [controller?.textInput.value, attachments.files.length, status],
   );
 
@@ -429,13 +429,13 @@ const Example = () => {
               <PromptInputFooter>
                 <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)]">
                   <PromptInputActionMenu>
-                    <PromptInputActionMenuTrigger className="text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]" />
+                    <PromptInputActionMenuTrigger className="text-text-primary hover:bg-[rgba(200,172,251,0.08)]" />
                     <PromptInputActionMenuContent>
                       <PromptInputActionAddAttachments />
                     </PromptInputActionMenuContent>
                   </PromptInputActionMenu>
                   <SpeechInput
-                    className="shrink-0 text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]"
+                    className="shrink-0 text-text-primary hover:bg-[rgba(200,172,251,0.08)]"
                     onTranscriptionChange={handleTranscriptionChange}
                     size="icon-sm"
                     variant="ghost"
@@ -457,7 +457,7 @@ const Example = () => {
                       "transition-colors",
                       useWebSearch
                         ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-white"
-                        : "text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]",
+                        : "text-text-primary hover:bg-[rgba(200,172,251,0.08)]",
                     )}
                   >
                     <DotMatrixIcon name="globe" size={16} />
@@ -468,7 +468,7 @@ const Example = () => {
                   >
                     <ModelSelectorTrigger asChild>
                       <PromptInputButton
-                        className="shrink-0 text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]"
+                        className="shrink-0 text-text-primary hover:bg-[rgba(200,172,251,0.08)]"
                         variant="ghost"
                         aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
                       >
@@ -500,6 +500,13 @@ const Example = () => {
                   </ModelSelector>
                 </PromptInputTools>
                 <PromptInputSubmit
+                  className={cn(
+                    "!size-8 !rounded-[var(--radius)] transition-colors duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] disabled:!opacity-100",
+                    !isSubmitDisabled
+                      ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-white"
+                      : "text-text-primary hover:bg-[rgba(200,172,251,0.08)]",
+                  )}
+                  variant={!isSubmitDisabled ? "default" : "ghost"}
                   disabled={isSubmitDisabled}
                   onStop={handleStop}
                   status={status}

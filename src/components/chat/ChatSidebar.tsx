@@ -46,10 +46,10 @@ function SidebarItem({
         "focus-visible:ring-2 focus-visible:ring-[rgba(200,172,251,0.4)]",
         !isPrimary &&
           !active &&
-          "text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]",
-        active && !isPrimary && "bg-[rgba(200,172,251,0.12)] text-[#e8dff8]",
+          "text-text-primary hover:bg-[rgba(200,172,251,0.08)]",
+        active && !isPrimary && "bg-[rgba(200,172,251,0.12)] text-text-primary",
         isPrimary &&
-          "text-[#e8dff8] font-medium text-[0.8125rem] hover:bg-[rgba(200,172,251,0.08)]",
+          "text-text-primary font-medium text-[0.8125rem] hover:bg-[rgba(200,172,251,0.08)]",
       )}
     >
       <span className="flex-shrink-0">
@@ -167,7 +167,7 @@ export function ChatSidebar() {
             onClick={handleToggleMode}
             className={cn(
               "flex size-10 items-center justify-center rounded-[var(--radius)] transition-all duration-200 outline-none",
-              "text-[#9a8cc0] hover:bg-[rgba(200,172,251,0.08)] hover:text-[#e8e4df]",
+              "text-text-primary hover:bg-[rgba(200,172,251,0.08)]",
               "focus-visible:ring-2 focus-visible:ring-[rgba(200,172,251,0.4)]",
             )}
             aria-label={isFull ? "Collapse to icons" : "Expand sidebar"}

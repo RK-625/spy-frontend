@@ -1172,14 +1172,26 @@ export const PromptInputSubmit = ({
   const isGenerating = status === "submitted" || status === "streaming";
 
   const iconKey = status || "ready";
-  let Icon = <DotMatrixIcon name="arrowUp" size={16} />;
+  let Icon = (
+    <DotmTriangle16
+      size={16}
+      dotSize={2}
+      dotShape="square"
+      color="currentColor"
+      animated={status === "submitted"}
+    />
+  );
 
-  if (status === "submitted") {
-    Icon = <DotmTriangle16 size={16} dotSize={2} dotShape="square" color="currentColor" />;
-  } else if (status === "streaming") {
-    Icon = <DotmHex9 size={16} dotSize={2.5} dotShape="square" color="currentColor" />;
-  } else if (status === "error") {
-    Icon = <DotMatrixIcon name="x" size={16} />;
+  if (status === "streaming") {
+    Icon = (
+      <DotmHex9
+        size={16}
+        dotSize={2.5}
+        dotShape="square"
+        color="currentColor"
+        animated={true}
+      />
+    );
   }
 
   const handleClick = useCallback(

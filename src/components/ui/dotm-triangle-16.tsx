@@ -145,10 +145,12 @@ export function DotmTriangle16({
           const col = index % MATRIX_SIZE;
           const isActive = isWithinTriangleMask(row, col);
 
-          const phase = reducedMotion || matrixPhase === "idle" ? 0.12 : cyclePhase;
-          const opacity = isActive ? opacityForCell(row, col, phase) : 0;
+          const isIdle = reducedMotion || matrixPhase === "idle";
+          const opacity = isActive
+            ? (isIdle ? HIGH_OPACITY : opacityForCell(row, col, cyclePhase))
+            : 0;
 
-                    const dmxBloom = dmxDotBloomParts(isActive, opacity, bloom, halo, opacityBase, opacityMid, opacityPeak);
+          const dmxBloom = dmxDotBloomParts(isActive, opacity, bloom, halo, opacityBase, opacityMid, opacityPeak);
 
           return (
             <span
