@@ -65,7 +65,10 @@ import {
   SourcesTrigger,
 } from "@/components/chat/ai-elements/sources";
 import { SpeechInput } from "@/components/chat/ai-elements/speech-input";
-import { Suggestion, Suggestions } from "@/components/chat/ai-elements/suggestion";
+import {
+  Suggestion,
+  Suggestions,
+} from "@/components/chat/ai-elements/suggestion";
 import type { FileUIPart, SourceUrlUIPart } from "ai";
 
 import { cn } from "@/lib/utils";
@@ -268,12 +271,17 @@ const Example = () => {
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
       if (status !== "ready") return;
-      sendMessage({
-        role: "user",
-        parts: [{ type: "text", text: suggestion }],
-      });
+      sendMessage(
+        {
+          role: "user",
+          parts: [{ type: "text", text: suggestion }],
+        },
+        {
+          body: { model, useWebSearch },
+        }
+      );
     },
-    [sendMessage, status],
+    [sendMessage, status, model, useWebSearch],
   );
 
   const handleTranscriptionChange = useCallback(

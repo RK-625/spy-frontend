@@ -1,6 +1,6 @@
 "use client";
 
-import type { TextUIPart, UIMessage } from "ai";
+import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { createContext, useCallback, useContext, useState } from "react";
@@ -15,11 +15,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
 
-
   const { messages, status, stop, sendMessage, error, setMessages } =
     useChat<UIMessage>({
       id: "spy-chat",
-      transport: new DefaultChatTransport({ api: "/api/chat" }),
+      transport: new DefaultChatTransport({
+        api: "/api/chat",
+      }),
       messages: [] as UIMessage[],
     });
 
@@ -34,17 +35,23 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       try {
-        await sendMessage({
-          text: message.text?.trim() || "",
-          files: message.files && message.files.length > 0 ? message.files : undefined,
-        });
-
-
+        await sendMessage(
+          {
+            text: message.text?.trim() || "",
+            files:
+              message.files && message.files.length > 0
+                ? message.files
+                : undefined,
+          },
+          {
+            body: { model, useWebSearch },
+          },
+        );
       } catch (e) {
         console.error(e);
       }
     },
-    [sendMessage, status],
+    [sendMessage, status, model, useWebSearch],
   );
 
   const clearMessages = useCallback(() => {
