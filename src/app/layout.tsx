@@ -34,7 +34,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn(unbounded.variable, vt323.variable, "font-sans", inter.variable, interBody.variable)}
+      className={cn(unbounded.variable, vt323.variable, "font-sans", inter.variable, interBody.variable, "dark")}
       suppressHydrationWarning
     >
       <body className="min-h-screen flex flex-col bg-background text-text-primary font-sans">

@@ -473,7 +473,7 @@
   line-height: 1.6;
 }
 
-[data-streamdown="code-block-actions"] {
+[data-streamdown$="actions"] {
   position: absolute;
   top: 0.4rem;
   right: 0.4rem;
@@ -486,7 +486,8 @@
   z-index: 2;
 }
 
-[data-streamdown="code-block-actions"] button {
+[data-streamdown="code-block-copy-button"],
+[data-streamdown="table-wrapper"] > div:first-child > div.relative > button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -500,21 +501,39 @@
   cursor: pointer;
 }
 
-[data-streamdown="code-block-actions"] button:hover {
+[data-streamdown="code-block-copy-button"]:hover,
+[data-streamdown="table-wrapper"] > div:first-child > div.relative > button:hover {
   background: rgba(200, 172, 251, 0.08) !important;
   color: #f0eaff !important;
 }
 
-[data-streamdown="code-block-actions"] button svg {
+[data-streamdown="code-block-copy-button"] svg,
+[data-streamdown="table-wrapper"] > div:first-child > div.relative > button svg {
   width: 16px !important;
   height: 16px !important;
   stroke-width: 2.5px !important;
   shape-rendering: crispEdges !important;
 }
 
-/* Keep only the Copy button, hide download and maximize */
-[data-streamdown="code-block-actions"] button:not([data-streamdown="code-block-copy-button"]) {
-  display: none !important;
+/* Table Copy Dropdown Menu */
+[data-streamdown="table-wrapper"] .absolute.top-full {
+  background: rgba(10, 5, 22, 0.95) !important;
+  border: 1px solid rgba(200, 172, 251, 0.15) !important;
+  backdrop-filter: blur(12px) !important;
+  border-radius: var(--radius) !important;
+  padding: 0.25rem !important;
+}
+
+[data-streamdown="table-wrapper"] .absolute.top-full button {
+  color: #ded4f0 !important;
+  background: transparent !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+  padding: 0.35rem 0.5rem !important;
+}
+
+[data-streamdown="table-wrapper"] .absolute.top-full button:hover {
+  background: rgba(200, 172, 251, 0.12) !important;
+  color: #fff !important;
 }
 
 /* ── Code: inline and pre ── */
@@ -566,22 +585,79 @@
   border-top: 1px solid var(--border-subtle);
   margin: 0.8em 0;
 }
-.group.is-assistant table {
+/* ── Streamdown Table Overrides ── */
+[data-streamdown="table-wrapper"] {
+  background: rgba(10, 5, 22, 0.65) !important;
+  border: 1px solid rgba(200, 172, 251, 0.08) !important;
+  border-radius: 0.825rem !important;
+  padding: 0.5rem !important;
+  margin: 0.75em 0 !important;
+  position: relative !important;
+}
+
+[data-streamdown="table-wrapper"] > div:first-child {
+  position: absolute !important;
+  top: 0.75rem !important;
+  right: 0.75rem !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+[data-streamdown="table-wrapper"]:hover > div:first-child {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+[data-streamdown="table-wrapper"] > div.border-collapse {
+  background: transparent !important;
+  border: 1px solid rgba(200, 172, 251, 0.08) !important;
+  border-radius: 0.5rem !important;
+  margin-top: 0 !important;
+}
+
+[data-streamdown="table"] {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.5em 0;
+  margin: 0 !important;
   font-size: 0.85em;
 }
-.group.is-assistant th {
-  text-align: left;
-  padding: 0.4em 0.8em;
-  border-bottom: 1px solid var(--border-medium);
-  color: #C8ACFB;
-  font-weight: 500;
+
+[data-streamdown="table-header"] {
+  background: rgba(200, 172, 251, 0.05) !important;
 }
-.group.is-assistant td {
-  padding: 0.4em 0.8em;
-  border-bottom: 1px solid var(--border-faint);
+
+[data-streamdown="table-header-cell"] {
+  color: #C8ACFB !important;
+  font-weight: 500 !important;
+  text-align: left;
+  padding: 0.6rem 0.8rem !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(200, 172, 251, 0.1) !important;
+}
+
+[data-streamdown="table-cell"] {
+  color: #ded4f0 !important;
+  padding: 0.6rem 0.8rem !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(200, 172, 251, 0.05) !important;
+}
+
+[data-streamdown="table-row"]:last-child [data-streamdown="table-cell"] {
+  border-bottom: none !important;
+}
+
+[data-streamdown="table-row"]:hover {
+  background: rgba(200, 172, 251, 0.03) !important;
+}
+
+/* Disable Streamdown's ugly default divide-y borders */
+[data-streamdown="table-body"].divide-y > :not([hidden]) ~ :not([hidden]),
+[data-streamdown="table"].divide-y > :not([hidden]) ~ :not([hidden]) {
+  border-top-width: 0 !important;
 }
 
 /* ── User Bubble Enhancement ── */
@@ -662,4 +738,141 @@
 /* ── Toolbar Refinement ── */
 .chat-input-wrap [data-slot="input-group-addon"] {
   border-top: 1px solid var(--border-faint) !important;
+}
+
+/* ── Streamdown Mermaid Overrides ── */
+[data-streamdown="mermaid-block"] {
+  background: rgba(10, 5, 22, 0.65) !important;
+  border: 1px solid rgba(200, 172, 251, 0.08) !important;
+  border-radius: 0.825rem !important;
+  padding: 0 !important;
+  position: relative !important;
+  overflow: hidden !important;
+  gap: 0 !important;
+}
+
+/* Float the "mermaid" label */
+[data-streamdown="mermaid-block"] > div:first-child {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.75rem;
+  padding: 0;
+  background: transparent;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+}
+
+/* Strip the default inner border/background and push diagram down */
+[data-streamdown="mermaid-block"] > div.rounded-md.border {
+  background: transparent !important;
+  border: none !important;
+  margin-top: 2rem !important;
+}
+
+/* Prevent diagram relative container from collapsing */
+[data-streamdown="mermaid"] > div.relative {
+  display: block !important;
+  position: relative !important;
+  height: auto !important;
+  min-height: 200px !important;
+}
+
+/* Strip the sticky wrapper spacing */
+[data-streamdown="mermaid-block"] > div.sticky {
+  position: absolute !important;
+  top: 0.4rem !important;
+  right: 0.4rem !important;
+  margin: 0 !important;
+  height: auto !important;
+  z-index: 10;
+}
+
+/* Restyle the action bar container */
+[data-streamdown="mermaid-block-actions"] {
+  background: transparent !important;
+  border: none !important;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+[data-streamdown="mermaid-block"]:hover [data-streamdown="mermaid-block-actions"] {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Style the buttons exactly like the code-block copy button */
+[data-streamdown="mermaid-block-actions"] button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: var(--radius) !important;
+  background: transparent !important;
+  border: none !important;
+  color: #ded4f0 !important;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+[data-streamdown="mermaid-block-actions"] button:hover {
+  background: rgba(200, 172, 251, 0.08) !important;
+  color: #f0eaff !important;
+}
+
+
+
+/* ── Retheme Mermaid SVG Elements for Spy Dark Theme ── */
+[data-streamdown="mermaid"] svg .node rect,
+[data-streamdown="mermaid"] svg .node circle,
+[data-streamdown="mermaid"] svg .node ellipse,
+[data-streamdown="mermaid"] svg .node polygon,
+[data-streamdown="mermaid"] svg .node path {
+  fill: rgba(18, 10, 36, 0.9) !important;
+  stroke: rgba(200, 172, 251, 0.25) !important;
+  stroke-width: 1.5px !important;
+}
+
+[data-streamdown="mermaid"] svg .node .label,
+[data-streamdown="mermaid"] svg .node .label text,
+[data-streamdown="mermaid"] svg .node .label span,
+[data-streamdown="mermaid"] svg .node .label p {
+  color: #e8e4df !important;
+  fill: #e8e4df !important;
+}
+
+[data-streamdown="mermaid"] svg .edgePath .path {
+  stroke: rgba(200, 172, 251, 0.35) !important;
+  stroke-width: 1.5px !important;
+}
+
+[data-streamdown="mermaid"] svg .marker,
+[data-streamdown="mermaid"] svg .arrowheadPath {
+  fill: rgba(200, 172, 251, 0.35) !important;
+  stroke: rgba(200, 172, 251, 0.35) !important;
+}
+
+[data-streamdown="mermaid"] svg .edgeLabel rect {
+  fill: rgba(10, 5, 22, 0.95) !important;
+}
+
+[data-streamdown="mermaid"] svg .labelBkg,
+[data-streamdown="mermaid"] svg .edgeLabel rect,
+[data-streamdown="mermaid"] svg .edgeLabel {
+  fill: rgba(10, 5, 22, 0.95) !important;
+  background-color: rgba(10, 5, 22, 0.95) !important;
+  stroke: rgba(200, 172, 251, 0.15) !important;
+  rx: 4px !important;
+  ry: 4px !important;
+  border-radius: 4px !important;
+  color: #C8ACFB !important;
+}
+
+[data-streamdown="mermaid"] svg .edgeLabel span,
+[data-streamdown="mermaid"] svg .edgeLabel p,
+[data-streamdown="mermaid"] svg .edgeLabel div {
+  color: #C8ACFB !important;
+  background-color: transparent !important;
 }

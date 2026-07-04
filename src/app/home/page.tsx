@@ -31,7 +31,6 @@ import {
   ModelSelectorItem,
   ModelSelectorList,
   ModelSelectorLogo,
-  ModelSelectorLogoGroup,
   ModelSelectorName,
   ModelSelectorTrigger,
 } from "@/components/chat/ai-elements/model-selector";
@@ -73,44 +72,7 @@ import { useCallback, useMemo } from "react";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
-
-const models = [
-  {
-    chef: "OpenAI",
-    chefSlug: "openai",
-    id: "gpt-4o",
-    name: "GPT-4o",
-    providers: ["openai", "azure"],
-  },
-  {
-    chef: "OpenAI",
-    chefSlug: "openai",
-    id: "gpt-4o-mini",
-    name: "GPT-4o Mini",
-    providers: ["openai", "azure"],
-  },
-  {
-    chef: "Anthropic",
-    chefSlug: "anthropic",
-    id: "claude-opus-4-20250514",
-    name: "Claude 4 Opus",
-    providers: ["anthropic", "azure", "google", "amazon-bedrock"],
-  },
-  {
-    chef: "Anthropic",
-    chefSlug: "anthropic",
-    id: "claude-sonnet-4-20250514",
-    name: "Claude 4 Sonnet",
-    providers: ["anthropic", "azure", "google", "amazon-bedrock"],
-  },
-  {
-    chef: "Google",
-    chefSlug: "google",
-    id: "gemini-2.0-flash-exp",
-    name: "Gemini 2.0 Flash",
-    providers: ["google"],
-  },
-];
+import { models, chefs } from "@/types/models";
 
 const suggestions = [
   "What are the latest trends in AI?",
@@ -122,8 +84,6 @@ const suggestions = [
   "What is the difference between SQL and NoSQL?",
   "Explain cloud computing basics",
 ];
-
-const chefs = ["OpenAI", "Anthropic", "Google"];
 
 const AttachmentItem = ({
   attachment,
@@ -212,17 +172,12 @@ const ModelItem = ({
 
   return (
     <ModelSelectorItem onSelect={handleSelect} value={m.id}>
-      <ModelSelectorLogo provider={m.chefSlug} />
+      <ModelSelectorLogo icon={m.icon} />
       <ModelSelectorName>{m.name}</ModelSelectorName>
-      <ModelSelectorLogoGroup>
-        {m.providers.map((provider) => (
-          <ModelSelectorLogo key={provider} provider={provider} />
-        ))}
-      </ModelSelectorLogoGroup>
       {isSelected ? (
-        <DotMatrixIcon name="check" size={16} className="ml-auto" />
+        <DotMatrixIcon name="check" size={10} className="ml-auto" />
       ) : (
-        <div className="ml-auto size-4" />
+        <div className="ml-auto size-2.5" />
       )}
     </ModelSelectorItem>
   );
@@ -274,7 +229,7 @@ const Example = () => {
         },
         {
           body: { model, useWebSearch },
-        }
+        },
       );
     },
     [sendMessage, status, model, useWebSearch],

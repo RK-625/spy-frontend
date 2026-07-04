@@ -330,6 +330,11 @@ export const MessageResponse = memo(
         className
       )}
       plugins={streamdownPlugins}
+      controls={{
+        table: { copy: true, download: false, fullscreen: false },
+        code: { copy: true, download: false },
+        mermaid: { copy: true, download: false, fullscreen: true, panZoom: false },
+      }}
       {...props}
     />
   ),

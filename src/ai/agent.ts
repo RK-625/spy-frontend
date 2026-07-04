@@ -1,16 +1,15 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { createDeepSeek } from "@ai-sdk/deepseek";
 import {
   streamText,
   convertToModelMessages,
   type UIMessage,
-  type LanguageModel,
   stepCountIs,
 } from "ai";
 import { toolSet } from "./toolset";
 
-const deepseek = createOpenAI({
-  baseURL: "https://api.deepseek.com",
-  apiKey: process.env.DEEPSEEK_API_KEY, // Set this in your environment
+const deepseek = createDeepSeek({
+  apiKey: process.env.DEEPSEEK_API_KEY,
 });
 
 export async function runAgent({
@@ -26,7 +25,7 @@ export async function runAgent({
   const modelMessages = await convertToModelMessages(messages);
   const { webSearch, ...toolsWithoutSearch } = toolSet;
   const result = streamText({
-    model: currmdeol as unknown as LanguageModel,
+    model: currmdeol,
     system: "You are a helpful AI assistant. Be brief and playful. ",
     messages: modelMessages,
     tools: useWebSearch ? toolSet : toolsWithoutSearch,

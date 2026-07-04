@@ -10,27 +10,33 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
+import { Openai } from "@/components/ui/svgs/openai";
+import { AnthropicWhite } from "@/components/ui/svgs/anthropicWhite";
+import { Google } from "@/components/ui/svgs/google";
+import { Deepseek } from "@/components/ui/svgs/deepseek";
+import { icons } from "lucide-react";
 
-export type ModelSelectorProps = ComponentProps<typeof Dialog>;
+export type ModelSelectorProps = ComponentProps<typeof Popover>;
 
 export const ModelSelector = (props: ModelSelectorProps) => (
-  <Dialog {...props} />
+  <Popover {...props} />
 );
 
-export type ModelSelectorTriggerProps = ComponentProps<typeof DialogTrigger>;
+export type ModelSelectorTriggerProps = ComponentProps<typeof PopoverTrigger>;
 
 export const ModelSelectorTrigger = (props: ModelSelectorTriggerProps) => (
-  <DialogTrigger {...props} />
+  <PopoverTrigger {...props} />
 );
 
-export type ModelSelectorContentProps = ComponentProps<typeof DialogContent> & {
+export type ModelSelectorContentProps = ComponentProps<
+  typeof PopoverContent
+> & {
   title?: ReactNode;
 };
 
@@ -40,25 +46,24 @@ export const ModelSelectorContent = ({
   title = "Model Selector",
   ...props
 }: ModelSelectorContentProps) => (
-  <DialogContent
-    aria-describedby={undefined}
+  <PopoverContent
     className={cn(
-      "outline-hidden! border-none! p-0 outline-border! outline-solid!",
-      className
+      "w-[170px] p-0 outline-hidden! border border-[var(--border-subtle)] bg-popover/80 backdrop-blur-[16px] shadow-2xl rounded-[var(--radius)]",
+      className,
     )}
+    sideOffset={12}
     {...props}
   >
-    <DialogTitle className="sr-only">{title}</DialogTitle>
-    <Command className="**:data-[slot=command-input-wrapper]:h-auto">
+    <Command className="**:data-[slot=command-input-wrapper]:h-auto bg-transparent">
       {children}
     </Command>
-  </DialogContent>
+  </PopoverContent>
 );
 
-export type ModelSelectorDialogProps = ComponentProps<typeof CommandDialog>;
+export type ModelSelectorDialogProps = ComponentProps<typeof Popover>; // Fallback
 
 export const ModelSelectorDialog = (props: ModelSelectorDialogProps) => (
-  <CommandDialog {...props} />
+  <Popover {...props} />
 );
 
 export type ModelSelectorInputProps = ComponentProps<typeof CommandInput>;
@@ -67,7 +72,7 @@ export const ModelSelectorInput = ({
   className,
   ...props
 }: ModelSelectorInputProps) => (
-  <CommandInput className={cn("h-auto py-3.5", className)} {...props} />
+  <CommandInput className={cn("h-auto", className)} {...props} />
 );
 
 export type ModelSelectorListProps = ComponentProps<typeof CommandList>;
@@ -108,100 +113,20 @@ export const ModelSelectorSeparator = (props: ModelSelectorSeparatorProps) => (
   <CommandSeparator {...props} />
 );
 
-export type ModelSelectorLogoProps = Omit<
-  ComponentProps<"img">,
-  "src" | "alt"
-> & {
-  provider:
-    | "moonshotai-cn"
-    | "lucidquery"
-    | "moonshotai"
-    | "zai-coding-plan"
-    | "alibaba"
-    | "xai"
-    | "vultr"
-    | "nvidia"
-    | "upstage"
-    | "groq"
-    | "github-copilot"
-    | "mistral"
-    | "vercel"
-    | "nebius"
-    | "deepseek"
-    | "alibaba-cn"
-    | "google-vertex-anthropic"
-    | "venice"
-    | "chutes"
-    | "cortecs"
-    | "github-models"
-    | "togetherai"
-    | "azure"
-    | "baseten"
-    | "huggingface"
-    | "opencode"
-    | "fastrouter"
-    | "google"
-    | "google-vertex"
-    | "cloudflare-workers-ai"
-    | "inception"
-    | "wandb"
-    | "openai"
-    | "zhipuai-coding-plan"
-    | "perplexity"
-    | "openrouter"
-    | "zenmux"
-    | "v0"
-    | "iflowcn"
-    | "synthetic"
-    | "deepinfra"
-    | "zhipuai"
-    | "submodel"
-    | "zai"
-    | "inference"
-    | "requesty"
-    | "morph"
-    | "lmstudio"
-    | "anthropic"
-    | "aihubmix"
-    | "fireworks-ai"
-    | "modelscope"
-    | "llama"
-    | "scaleway"
-    | "amazon-bedrock"
-    | "cerebras"
-    // oxlint-disable-next-line typescript-eslint(ban-types) -- intentional pattern for autocomplete-friendly string union
-    | (string & {});
-};
+export type ModelSelectorLogoProps = {
+  icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  className?: string;
+} & React.SVGProps<SVGSVGElement>;
 
 export const ModelSelectorLogo = ({
-  provider,
+  icon: Icon,
   className,
   ...props
-}: ModelSelectorLogoProps) => (
-  <img
-    {...props}
-    alt={`${provider} logo`}
-    className={cn("size-3 dark:invert", className)}
-    height={12}
-    src={`https://models.dev/logos/${provider}.svg`}
-    width={12}
-  />
-);
+}: ModelSelectorLogoProps) => {
+  const commonClasses = cn("size-2.5", className);
 
-export type ModelSelectorLogoGroupProps = ComponentProps<"div">;
-
-export const ModelSelectorLogoGroup = ({
-  className,
-  ...props
-}: ModelSelectorLogoGroupProps) => (
-  <div
-    className={cn(
-      "flex shrink-0 items-center -space-x-1 [&>img]: [&>img]:bg-background [&>img]:p-px [&>img]:ring-1 dark:[&>img]:bg-foreground",
-      className
-    )}
-    {...props}
-  />
-);
+  return <Icon className={commonClasses} {...props} />;
+};
 
 export type ModelSelectorNameProps = ComponentProps<"span">;
 

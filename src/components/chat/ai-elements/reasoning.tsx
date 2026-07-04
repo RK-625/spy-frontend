@@ -217,7 +217,16 @@ export const ReasoningContent = memo(
       )}
       {...props}
     >
-      <Streamdown plugins={streamdownPlugins}>{children}</Streamdown>
+      <Streamdown
+        plugins={streamdownPlugins}
+        controls={{
+          table: { copy: true, download: false, fullscreen: false },
+          code: { copy: true, download: false },
+          mermaid: { copy: true, download: false, fullscreen: true, panZoom: false },
+        }}
+      >
+        {children}
+      </Streamdown>
     </CollapsibleContent>
   )
 );
