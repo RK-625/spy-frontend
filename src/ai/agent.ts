@@ -1,5 +1,3 @@
-import { createOpenAI } from "@ai-sdk/openai";
-import { createDeepSeek } from "@ai-sdk/deepseek";
 import {
   streamText,
   convertToModelMessages,
@@ -7,10 +5,7 @@ import {
   stepCountIs,
 } from "ai";
 import { toolSet } from "./toolset";
-
-const deepseek = createDeepSeek({
-  apiKey: process.env.DEEPSEEK_API_KEY,
-});
+import { modelStore } from "./modelstore";
 
 export async function runAgent({
   messages,
@@ -21,11 +16,10 @@ export async function runAgent({
   model: string;
   useWebSearch: boolean;
 }) {
-  const currmdeol = deepseek.chat("deepseek-v4-flash");
   const modelMessages = await convertToModelMessages(messages);
   const { webSearch, ...toolsWithoutSearch } = toolSet;
   const result = streamText({
-    model: currmdeol,
+    model: modelStore(model),
     system: "You are a helpful AI assistant. Be brief and playful. ",
     messages: modelMessages,
     tools: useWebSearch ? toolSet : toolsWithoutSearch,

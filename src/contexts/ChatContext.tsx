@@ -11,7 +11,7 @@ import type { PromptInputMessage } from "@/components/chat/ai-elements/prompt-in
 const ChatContext = createContext<ChatContextValue | null>(null); // defining the bucket
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-  const [model, setModel] = useState<string>("gpt-4o");
+  const [model, setModel] = useState<string>("deepseek-v4-flash");
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
 

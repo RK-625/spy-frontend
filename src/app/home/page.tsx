@@ -171,7 +171,7 @@ const ModelItem = ({
   }, [onSelect, m.id]);
 
   return (
-    <ModelSelectorItem onSelect={handleSelect} value={m.id}>
+    <ModelSelectorItem onSelect={handleSelect} value={m.name}>
       <ModelSelectorLogo icon={m.icon} />
       <ModelSelectorName>{m.name}</ModelSelectorName>
       {isSelected ? (
