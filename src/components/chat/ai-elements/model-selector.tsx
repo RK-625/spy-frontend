@@ -20,7 +20,7 @@ import { Openai } from "@/components/ui/svgs/openai";
 import { AnthropicWhite } from "@/components/ui/svgs/anthropicWhite";
 import { Google } from "@/components/ui/svgs/google";
 import { Deepseek } from "@/components/ui/svgs/deepseek";
-import { icons } from "lucide-react";
+
 
 export type ModelSelectorProps = ComponentProps<typeof Popover>;
 

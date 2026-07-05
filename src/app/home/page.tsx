@@ -386,7 +386,7 @@ const Example = () => {
                 />
               </PromptInputBody>
               <PromptInputFooter>
-                <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)]">
+                <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)] [&_button[data-model-trigger]]:!w-auto [&_button[data-model-trigger]]:!px-2">
                   <PromptInputButton
                     onClick={attachments.openFileDialog}
                     size="icon-sm"
@@ -434,11 +434,21 @@ const Example = () => {
                   >
                     <ModelSelectorTrigger asChild>
                       <PromptInputButton
-                        className="shrink-0 text-text-primary hover:bg-[rgba(200,172,251,0.08)]"
+                        data-model-trigger
+                        className="shrink-0 text-text-primary hover:bg-[rgba(200,172,251,0.08)] flex items-center gap-1.5"
                         variant="ghost"
                         aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
                       >
-                        <DotMatrixIcon name="settings" size={16} />
+                        {selectedModelData ? (
+                          <selectedModelData.icon className="size-3 shrink-0" />
+                        ) : (
+                          <DotMatrixIcon name="settings" size={16} />
+                        )}
+                        {selectedModelData ? (
+                          <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide">
+                            {selectedModelData.name}
+                          </span>
+                        ) : null}
                       </PromptInputButton>
                     </ModelSelectorTrigger>
                     <ModelSelectorContent>
