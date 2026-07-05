@@ -10,6 +10,7 @@ export interface AIModel {
   id: string;
   name: string;
   icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  mode: string[];
 }
 
 export const models: AIModel[] = [
@@ -54,6 +55,7 @@ export const models: AIModel[] = [
     id: "deepseek-v4-pro",
     name: "DeepSeek V4 Pro",
     icon: Deepseek,
+    mode: ["high", "max"],
   },
   {
     chef: "DeepSeek",
@@ -61,6 +63,7 @@ export const models: AIModel[] = [
     id: "deepseek-v4-flash",
     name: "DeepSeek V4 Flash",
     icon: Deepseek,
+    mode: ["high", "max"],
   },
 ];
 

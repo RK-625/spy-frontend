@@ -12,7 +12,9 @@ const ChatContext = createContext<ChatContextValue | null>(null); // defining th
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [model, setModel] = useState<string>("deepseek-v4-flash");
+  const [mode, setMode] = useState<string>("high");
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+  const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
 
   const { messages, status, stop, sendMessage, error, setMessages } =
@@ -44,14 +46,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 : undefined,
           },
           {
-            body: { model, useWebSearch },
+            body: { model, useWebSearch, mode },
           },
         );
       } catch (e) {
         console.error(e);
       }
     },
-    [sendMessage, status, model, useWebSearch],
+    [sendMessage, status, model, useWebSearch, mode],
   );
 
   const clearMessages = useCallback(() => {
@@ -65,8 +67,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const value: ChatContextValue = {
     model,
     setModel,
+    mode,
+    setMode,
     modelSelectorOpen,
     setModelSelectorOpen,
+    modeSelectorOpen,
+    setModeSelectorOpen,
 
     useWebSearch,
     setUseWebSearch,

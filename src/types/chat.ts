@@ -14,8 +14,12 @@ export interface ChatContextValue {
   // State
   model: string;
   setModel: (id: string) => void;
+  mode: string;
+  setMode: (mode: string) => void;
   modelSelectorOpen: boolean;
   setModelSelectorOpen: (b: boolean) => void;
+  modeSelectorOpen: boolean;
+  setModeSelectorOpen: (b: boolean) => void;
   useWebSearch: boolean;
   setUseWebSearch: (b: boolean) => void;
   status: ChatStatus;

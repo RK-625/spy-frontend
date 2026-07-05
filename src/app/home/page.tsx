@@ -199,8 +199,12 @@ const Example = () => {
   const {
     model,
     setModel,
+    mode,
+    setMode,
     modelSelectorOpen,
     setModelSelectorOpen,
+    modeSelectorOpen,
+    setModeSelectorOpen,
     useWebSearch,
     status,
     messages,
@@ -474,6 +478,48 @@ const Example = () => {
                       </ModelSelectorList>
                     </ModelSelectorContent>
                   </ModelSelector>
+                  {selectedModelData?.mode && selectedModelData.mode.length > 0 && (
+                    <ModelSelector
+                      onOpenChange={setModeSelectorOpen}
+                      open={modeSelectorOpen}
+                    >
+                      <ModelSelectorTrigger asChild>
+                        <PromptInputButton
+                          data-model-trigger
+                          className="shrink-0 text-text-primary hover:bg-[rgba(200,172,251,0.08)] flex items-center justify-center px-2"
+                          variant="ghost"
+                          aria-label="Select mode"
+                        >
+                          <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide capitalize">
+                            {mode}
+                          </span>
+                        </PromptInputButton>
+                      </ModelSelectorTrigger>
+                      <ModelSelectorContent className="w-auto">
+                        <ModelSelectorList>
+                          {selectedModelData.mode.map((m) => (
+                            <ModelSelectorItem
+                              key={m}
+                              value={m}
+                              onSelect={(val) => {
+                                setMode(val);
+                                setModeSelectorOpen(false);
+                              }}
+                            >
+                              <span className="capitalize">{m}</span>
+                              {mode === m && (
+                                <DotMatrixIcon
+                                  name="check"
+                                  size={14}
+                                  className="ml-auto opacity-50"
+                                />
+                              )}
+                            </ModelSelectorItem>
+                          ))}
+                        </ModelSelectorList>
+                      </ModelSelectorContent>
+                    </ModelSelector>
+                  )}
                 </PromptInputTools>
                 <PromptInputSubmit
                   className={cn(

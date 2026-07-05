@@ -11,10 +11,12 @@ export async function runAgent({
   messages,
   model,
   useWebSearch,
+  mode,
 }: {
   messages: UIMessage[];
   model: string;
   useWebSearch: boolean;
+  mode?: string;
 }) {
   const modelMessages = await convertToModelMessages(messages);
   const { webSearch, ...toolsWithoutSearch } = toolSet;
@@ -24,6 +26,7 @@ export async function runAgent({
     messages: modelMessages,
     tools: useWebSearch ? toolSet : toolsWithoutSearch,
     stopWhen: useWebSearch ? stepCountIs(5) : undefined,
+    reasoning: mode ? { effort: mode as "high" | "max" } : undefined,
   });
   return result;
 }
