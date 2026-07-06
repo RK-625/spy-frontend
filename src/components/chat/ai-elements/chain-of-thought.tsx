@@ -9,6 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, memo, useContext, useMemo } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
 import type { DotMatrixIconName } from "@/components/chat/ai-elements/dot-matrix-icons";
 import { Shimmer } from "./shimmer";
@@ -100,23 +101,44 @@ const ChainOfThoughtHeader = memo(
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "group relative flex w-full items-center gap-3 text-sm transition-colors",
+          "group flex w-full items-center gap-2 text-sm transition-colors",
           "text-[#9a8cc0] hover:text-[#e8dff8]",
           className,
         )}
       >
         {/* Pixel brain icon */}
-        <div className="relative flex w-5 flex-col items-center justify-center">
-          <DotMatrixIcon name="bulb" size={14} className="shrink-0 opacity-70" />
-          {isOpen && (
-            <div className="absolute top-[20px] -bottom-[12px] w-px bg-[rgba(200,172,251,0.15)]" />
-          )}
+        <DotMatrixIcon name="bulb" size={14} className="shrink-0 opacity-70" />
+        <div className="relative inline-grid items-center">
+          <AnimatePresence mode="popLayout">
+            {isStreaming ? (
+              <motion.div
+                key="shimmering"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4 }}
+                className="col-start-1 row-start-1"
+              >
+                <Shimmer as="div" className="text-left font-[family-name:var(--font-terminal)] text-[0.9rem] tracking-widest uppercase transition-colors">
+                  {"Reasoning"}
+                </Shimmer>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="static"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4 }}
+                className="col-start-1 row-start-1"
+              >
+                <div className="relative inline-block text-left font-[family-name:var(--font-terminal)] text-[0.9rem] tracking-widest uppercase transition-colors">
+                  {"Reasoning"}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-
-        <span className="text-left font-[family-name:var(--font-terminal)] text-[0.9rem] tracking-widest uppercase transition-colors">
-          Reasoning
-        </span>
-
         {stepCount !== undefined && stepCount > 0 && (
           <span className="rounded-full bg-[rgba(200,172,251,0.12)] px-2 py-0.5 font-[family-name:var(--font-terminal)] text-[0.6rem] text-[#C8ACFB] tracking-widest">
             {stepCount} steps
@@ -150,12 +172,14 @@ export const ChainOfThoughtContent = memo(
       <Collapsible open={isOpen}>
         <CollapsibleContent
           className={cn(
-            "space-y-0",
+            "px-2 space-y-0",
             "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
             className,
           )}
           {...props}
         >
+          {/* Top divider */}
+          <div className="mb-3 mt-1 h-px bg-gradient-to-r from-transparent via-[rgba(200,172,251,0.15)] to-transparent" />
           {children}
         </CollapsibleContent>
       </Collapsible>
@@ -210,7 +234,7 @@ export const ChainOfThoughtStep = memo(
       <div className="relative flex flex-col items-center">
         <div
           className={cn(
-            "relative z-10 flex size-5 shrink-0 items-center justify-center rounded-full",
+            "relative z-10 mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full",
             "border border-[rgba(200,172,251,0.15)] bg-[rgba(14,7,32,0.8)]",
             stepIconColors[status],
           )}
@@ -219,7 +243,7 @@ export const ChainOfThoughtStep = memo(
         </div>
         {/* Vertical connector — always draw unless isLast */}
         {!isLast && (
-          <div className="w-px flex-1 bg-[rgba(200,172,251,0.15)]" />
+          <div className="mt-1 w-px flex-1 bg-gradient-to-b from-[rgba(200,172,251,0.2)] to-transparent" />
         )}
       </div>
 
@@ -297,25 +321,6 @@ export const ChainOfThoughtSearchResult = memo(
   },
 );
 
-// ─── Done indicator ───────────────────────────────────────────────────────────
-
-export const ChainOfThoughtDone = memo(
-  ({ className }: { className?: string }) => (
-    <div
-      className={cn(
-        "flex items-center gap-3 text-[0.7rem] text-[#7a7685] font-[family-name:var(--font-terminal)] tracking-widest uppercase",
-        "fade-in-0 animate-in duration-500",
-        className,
-      )}
-    >
-      <div className="relative flex w-5 flex-col items-center justify-center">
-        <DotMatrixIcon name="check" size={10} className="text-[#C8ACFB] z-10 bg-[rgba(14,7,32,0.8)] rounded-full" />
-      </div>
-      Done
-    </div>
-  ),
-);
-
 // ─── Display names ────────────────────────────────────────────────────────────
 
 ChainOfThought.displayName = "ChainOfThought";
@@ -324,4 +329,3 @@ ChainOfThoughtContent.displayName = "ChainOfThoughtContent";
 ChainOfThoughtStep.displayName = "ChainOfThoughtStep";
 ChainOfThoughtSearchResults.displayName = "ChainOfThoughtSearchResults";
 ChainOfThoughtSearchResult.displayName = "ChainOfThoughtSearchResult";
-ChainOfThoughtDone.displayName = "ChainOfThoughtDone";

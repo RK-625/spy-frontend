@@ -27,7 +27,7 @@ export async function runAgent({
     system: "You are a helpful AI assistant. Be brief and playful. ",
     messages: modelMessages,
     tools: useWebSearch ? toolSet : toolsWithoutSearch,
-    stopWhen: useWebSearch ? stepCountIs(5) : undefined,
+    stopWhen: useWebSearch ? stepCountIs(25) : stepCountIs(5),
     providerOptions: resolvedProviderOptions,
   });
   return result;

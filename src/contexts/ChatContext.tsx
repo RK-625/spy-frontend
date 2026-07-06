@@ -15,11 +15,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<string>("high");
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
-  const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
+  const [useWebSearch, setUseWebSearch] = useState<boolean>(true);
 
   const { messages, status, stop, sendMessage, error, setMessages } =
     useChat<UIMessage>({
       id: "spy-chat",
+      experimental_throttle: 50,
       transport: new DefaultChatTransport({
         api: "/api/chat",
       }),
