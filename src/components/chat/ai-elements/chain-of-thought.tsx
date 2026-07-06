@@ -1626,13 +1626,13 @@ const LOADING_PHRASES = [
   "Villain-arc-starting",
   "Redemption-arc-chasing",
   "Plot-armor-activating",
-  "Side-character-energy"
+  "Side-character-energy",
 ];
 const ChainOfThoughtHeader = memo(
   ({ isStreaming, stepCount, className }: ChainOfThoughtHeaderProps) => {
     const { isOpen, setIsOpen } = useChainOfThought();
-    const [phraseIndex, setPhraseIndex] = useState(() => 
-      Math.floor(Math.random() * LOADING_PHRASES.length)
+    const [phraseIndex, setPhraseIndex] = useState(() =>
+      Math.floor(Math.random() * LOADING_PHRASES.length),
     );
     useEffect(() => {
       if (!isStreaming) return;
@@ -1640,7 +1640,7 @@ const ChainOfThoughtHeader = memo(
         setPhraseIndex(
           Math.floor(Math.random() * (LOADING_PHRASES.length - 1)),
         );
-      }, 1500);
+      }, 7500);
       return () => clearInterval(interval);
     }, [isStreaming]);
     const displayText = isStreaming
