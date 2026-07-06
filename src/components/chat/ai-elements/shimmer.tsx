@@ -1,12 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { MotionProps } from "motion/react";
-import { motion } from "motion/react";
-import type { CSSProperties, ElementType, JSX } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import type { CSSProperties, ElementType } from "react";
 import { memo, useMemo } from "react";
-
-type MotionHTMLProps = MotionProps & Record<string, unknown>;
 
 export interface TextShimmerProps {
   children: string;
@@ -14,6 +11,7 @@ export interface TextShimmerProps {
   className?: string;
   duration?: number;
   spread?: number;
+  active?: boolean;
 }
 
 const ShimmerComponent = ({
@@ -22,43 +20,51 @@ const ShimmerComponent = ({
   className,
   duration = 2,
   spread = 2,
+  active = true,
 }: TextShimmerProps) => {
-  const MotionComponent = useMemo(() => {
-    if (typeof Component === "string" && Component in motion) {
-      return motion[Component as keyof typeof motion] as React.ComponentType<MotionHTMLProps>;
-    }
-    return motion.p;
-  }, [Component]);
-
   const dynamicSpread = useMemo(
     () => (children?.length ?? 0) * spread,
     [children, spread]
   );
 
   return (
-    <MotionComponent
-      animate={{ backgroundPosition: "0% center" }}
-      className={cn(
-        "relative inline-block bg-[length:250%_100%,auto] bg-clip-text !text-transparent",
-        "[--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--color-background),#0000_calc(50%+var(--spread)))] [background-repeat:no-repeat,padding-box]",
-        className
-      )}
-      initial={{ backgroundPosition: "100% center" }}
-      style={
-        {
-          "--spread": `${dynamicSpread}px`,
-          backgroundImage:
-            "var(--bg), linear-gradient(var(--color-muted-foreground), var(--color-muted-foreground))",
-        } as CSSProperties
-      }
-      transition={{
-        duration,
-        ease: "linear",
-        repeat: Number.POSITIVE_INFINITY,
-      }}
-    >
-      {children}
-    </MotionComponent>
+    <Component className={cn("relative inline-block", className)}>
+      {/* Static text base layer */}
+      <span className="opacity-100">{children}</span>
+
+      {/* Animated shimmer overlay */}
+      <AnimatePresence>
+        {active && (
+          <motion.span
+            aria-hidden="true"
+            animate={{ opacity: 1, backgroundPosition: "0% center" }}
+            className={cn(
+              "absolute inset-0 block bg-[length:250%_100%,auto] bg-clip-text !text-transparent",
+              "[--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--color-background),#0000_calc(50%+var(--spread)))] [background-repeat:no-repeat,padding-box]"
+            )}
+            initial={{ opacity: 0, backgroundPosition: "100% center" }}
+            exit={{ opacity: 0 }}
+            style={
+              {
+                "--spread": `${dynamicSpread}px`,
+                backgroundImage:
+                  "var(--bg), linear-gradient(var(--color-muted-foreground), var(--color-muted-foreground))",
+              } as CSSProperties
+            }
+            transition={{
+              opacity: { duration: 0.4 },
+              backgroundPosition: {
+                duration,
+                ease: "linear",
+                repeat: Number.POSITIVE_INFINITY,
+              },
+            }}
+          >
+            {children}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </Component>
   );
 };
 

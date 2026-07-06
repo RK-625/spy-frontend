@@ -9,7 +9,6 @@ import {
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, memo, useContext, useMemo } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
 import type { DotMatrixIconName } from "@/components/chat/ai-elements/dot-matrix-icons";
 import { Shimmer } from "./shimmer";
@@ -108,37 +107,9 @@ const ChainOfThoughtHeader = memo(
       >
         {/* Pixel brain icon */}
         <DotMatrixIcon name="bulb" size={14} className="shrink-0 opacity-70" />
-        <div className="relative inline-grid items-center">
-          <AnimatePresence mode="popLayout">
-            {isStreaming ? (
-              <motion.div
-                key="shimmering"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.4 }}
-                className="col-start-1 row-start-1"
-              >
-                <Shimmer as="div" className="text-left font-[family-name:var(--font-terminal)] text-[0.9rem] tracking-widest uppercase transition-colors">
-                  {"Reasoning"}
-                </Shimmer>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="static"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.4 }}
-                className="col-start-1 row-start-1"
-              >
-                <div className="relative inline-block text-left font-[family-name:var(--font-terminal)] text-[0.9rem] tracking-widest uppercase transition-colors">
-                  {"Reasoning"}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <Shimmer as="div" active={isStreaming} className="text-left font-[family-name:var(--font-terminal)] text-[0.9rem] tracking-widest uppercase transition-colors">
+          {"Reasoning"}
+        </Shimmer>
         {stepCount !== undefined && stepCount > 0 && (
           <span className="rounded-full bg-[rgba(200,172,251,0.12)] px-2 py-0.5 font-[family-name:var(--font-terminal)] text-[0.6rem] text-[#C8ACFB] tracking-widest">
             {stepCount} steps
