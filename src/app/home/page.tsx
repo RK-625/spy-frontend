@@ -49,10 +49,12 @@ import {
   useOptionalPromptInputController,
 } from "@/components/chat/ai-elements/prompt-input";
 import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/chat/ai-elements/reasoning";
+  ChainOfThought,
+  ChainOfThoughtStep,
+  ChainOfThoughtSearchResults,
+  ChainOfThoughtSearchResult,
+  ChainOfThoughtDone,
+} from "@/components/chat/ai-elements/chain-of-thought";
 import {
   Sources,
   Source,
@@ -302,22 +304,79 @@ const Example = () => {
                     key={message.id}
                   >
                     <div>
-                      {/* 1. Reasoning parts first */}
-                      {message.parts.map((part, index) => {
-                        if (part.type === "reasoning") {
-                          return (
-                            <Reasoning key={index} duration={0}>
-                              <ReasoningTrigger />
-                              <ReasoningContent>
-                                {part.text || ""}
-                              </ReasoningContent>
-                            </Reasoning>
-                          );
-                        }
-                        return null;
-                      })}
+                      {/* 1. Chain of Thought — groups ALL reasoning steps + tool calls into one timeline */}
+                      {(() => {
+                        const reasoningParts = message.parts.filter(
+                          (p) => p.type === "reasoning"
+                        );
+                        // Collect webSearch tool invocations that are done.
+                        // webSearch is a STATIC tool → SDK emits type: 'tool-webSearch', not 'dynamic-tool'
+                        const webSearchCalls = message.parts.filter(
+                          (p): p is Extract<typeof p, { type: "tool-webSearch" }> =>
+                            p.type === "tool-webSearch" &&
+                            (p as { state?: string }).state === "output-available"
+                        );
 
-                      {/* 2. Sources (Grouped) */}
+                        if (reasoningParts.length === 0 && webSearchCalls.length === 0)
+                          return null;
+
+                        const totalSteps = reasoningParts.length + webSearchCalls.length;
+
+                        return (
+                          <ChainOfThought stepCount={totalSteps} defaultOpen>
+                            {/* Reasoning steps */}
+                            {reasoningParts.map((part, index) => {
+                              if (part.type !== "reasoning") return null;
+                              // Show a brief summary (first 120 chars of reasoning text)
+                              const preview = part.text
+                                ? part.text.trim().slice(0, 120).replace(/\n/g, " ") +
+                                  (part.text.length > 120 ? "…" : "")
+                                : "Thinking…";
+                              return (
+                                <ChainOfThoughtStep
+                                  key={`reasoning-${index}`}
+                                  icon="settings"
+                                  label={preview}
+                                  status="complete"
+                                />
+                              );
+                            })}
+
+                            {/* Web search steps */}
+                            {webSearchCalls.map((part, index) => {
+                              if ((part as { state?: string }).state !== "output-available") return null;
+                              const partAsAny = part as { input?: { query?: string }; output?: { results?: Array<{ title?: string; url: string }> } };
+                              const query = partAsAny.input?.query ?? "Web search";
+                              const results = partAsAny.output?.results ?? [];
+
+                              return (
+                                <ChainOfThoughtStep
+                                  key={`search-${index}`}
+                                  icon="globe"
+                                  label={query}
+                                  status="complete"
+                                >
+                                  <ChainOfThoughtSearchResults>
+                                    {results.slice(0, 6).map((r, ri) => (
+                                      <ChainOfThoughtSearchResult
+                                        key={ri}
+                                        href={r.url}
+                                      />
+                                    ))}
+                                  </ChainOfThoughtSearchResults>
+                                </ChainOfThoughtStep>
+                              );
+                            })}
+
+                            {/* Done indicator — shown when message is complete (has text) */}
+                            {message.parts.some((p) => p.type === "text") && (
+                              <ChainOfThoughtDone />
+                            )}
+                          </ChainOfThought>
+                        );
+                      })()}
+
+                      {/* 2. Sources from native source-url parts (e.g. Google grounding) */}
                       {(() => {
                         const sources = message.parts.filter(
                           (p): p is SourceUrlUIPart => p.type === "source-url",

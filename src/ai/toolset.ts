@@ -12,7 +12,7 @@ const webSearch: Tool = tool({
     try {
       const response = await exa.search(query, {
         numResults: 5,
-        contents: { text: { maxCharacters: 2000 } },
+        contents: { text: { maxCharacters: 5000 } },
       });
       return {
         results: response.results.map((r) => ({

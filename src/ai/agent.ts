@@ -5,7 +5,7 @@ import {
   stepCountIs,
 } from "ai";
 import { toolSet } from "./toolset";
-import { modelStore } from "./modelstore";
+import { modelConfig } from "./modelstore";
 
 export async function runAgent({
   messages,
@@ -20,13 +20,15 @@ export async function runAgent({
 }) {
   const modelMessages = await convertToModelMessages(messages);
   const { webSearch, ...toolsWithoutSearch } = toolSet;
+  const { model: resolvedModel, providerOptions: resolvedProviderOptions } =
+    modelConfig({ model, mode });
   const result = streamText({
-    model: modelStore(model),
+    model: resolvedModel,
     system: "You are a helpful AI assistant. Be brief and playful. ",
     messages: modelMessages,
     tools: useWebSearch ? toolSet : toolsWithoutSearch,
     stopWhen: useWebSearch ? stepCountIs(5) : undefined,
-    reasoning: mode ? { effort: mode as "high" | "max" } : undefined,
+    providerOptions: resolvedProviderOptions,
   });
   return result;
 }
