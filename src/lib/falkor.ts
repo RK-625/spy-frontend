@@ -25,12 +25,10 @@ const GRAPH_NAME = "spy_brain";
 let db: Awaited<ReturnType<typeof FalkorDB.connect>> | null = null;
 
 export async function getDb() {
-  if (!db) {
-    db = await FalkorDB.connect({
-      url: process.env.DATABASE_URL,
-    });
-    console.log("Falkor Client Connected");
-  }
+  if (db) return db.selectGraph(GRAPH_NAME);
+
+  db = await FalkorDB.connect({ url: process.env.DATABASE_URL });
+  console.log("Falkor Client Connected");
   return db.selectGraph(GRAPH_NAME);
 }
 
