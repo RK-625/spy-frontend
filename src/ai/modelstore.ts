@@ -3,7 +3,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
 import { deepseek } from "@ai-sdk/deepseek";
 import { models } from "../types/models";
-import { LanguageModel } from "ai";
+import { EmbeddingModel, LanguageModel } from "ai";
 import { type SharedV3ProviderOptions } from "@ai-sdk/provider";
 
 export const modelConfig = ({
@@ -45,4 +45,9 @@ export const modelConfig = ({
     default:
       throw new Error(`Unknown model: ${model}`);
   }
+};
+
+// Right now only Google embeddings are supported
+export const embedModel = (): EmbeddingModel => {
+  return google.embedding("gemini-embedding-2");
 };
