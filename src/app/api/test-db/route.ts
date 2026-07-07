@@ -7,7 +7,7 @@ export async function GET() {
     const db = await getDb();
     const textToEmbed = "Spy is an alien intelligence.";
     const vector = await generateEmbedding(textToEmbed);
-    const pingResult = await db.ping();
+    const pingResult = await db.query("RETURN 1 AS ok");
     return NextResponse.json({
       success: true,
       message: "Connected to the FalkorDb",
