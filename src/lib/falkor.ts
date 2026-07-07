@@ -27,7 +27,7 @@ let db: Awaited<ReturnType<typeof FalkorDB.connect>> | null = null;
 export async function getDb() {
   if (!db) {
     db = await FalkorDB.connect({
-      socket: { url: process.env.DATABASE_URL },
+      url: process.env.DATABASE_URL,
     });
     console.log("Falkor Client Connected");
   }
