@@ -1,6 +1,7 @@
 import { createClient } from "redis";
 import { Memory, Links } from "../types/graph-schema";
 import { z } from "zod";
+import { FalkorDB } from "falkordb";
 const client = createClient({
   url: process.env.DATABASE_URL,
 });

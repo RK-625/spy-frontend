@@ -37,6 +37,7 @@
     "doticons": "^0.9.0",
     "embla-carousel-react": "^8.6.0",
     "exa-js": "^2.16.0",
+    "falkordb": "^6.6.2",
     "gsap": "^3.12.7",
     "lucide-react": "^1.20.0",
     "media-chrome": "^4.19.2",
@@ -72,6 +73,5 @@
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
     "typescript": "^5"
-  },
-  "optionalDependencies": {}
+  }
 }
