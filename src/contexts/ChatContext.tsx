@@ -17,7 +17,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(true);
 
-  const { messages, status, stop, sendMessage, error, setMessages } =
+  const { messages, status, stop, sendMessage, error, setMessages, addToolOutput } =
     useChat<UIMessage>({
       id: "spy-chat",
       experimental_throttle: 50,
@@ -85,6 +85,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     handleSubmit,
     stop,
     sendMessage,
+    addToolOutput,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

@@ -35,4 +35,5 @@ export interface ChatContextValue {
     message?: CreateUIMessage<UIMessage>,
     options?: ChatRequestOptions,
   ) => Promise<void>;
+  addToolOutput: ReturnType<typeof import("@ai-sdk/react").useChat>["addToolOutput"];
 }
