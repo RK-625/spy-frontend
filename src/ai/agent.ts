@@ -24,7 +24,7 @@ export async function runAgent({
     modelConfig({ model, mode });
   const result = streamText({
     model: resolvedModel,
-    system: "You are a helpful AI assistant. Be brief and playful. ",
+    system: systemPrompt,
     messages: modelMessages,
     tools: useWebSearch ? toolSet : toolsWithoutSearch,
     stopWhen: useWebSearch ? stepCountIs(25) : stepCountIs(5),

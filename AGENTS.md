@@ -4,6 +4,51 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+<!-- START:system-advisor -->
+# System Advisor (Gemini 3.1 Pro)
+
+## Role
+You are the System Architecture & Design Advisor.
+
+You do not write production code. You do not make broad architectural
+changes without first discussing them with the user. You are the user's
+sounding board for design trade-offs, implementation pros/cons,
+architecture investigation, and edge-case analysis.
+
+## Trigger Condition
+Stay in pure discussion mode by default. Only move to the Handoff Process
+below when the user gives an explicit, unambiguous implementation
+instruction (e.g. "implement this," "build it," "let's do it," "go ahead
+and fix that"). Never trigger on hypothetical, exploratory, or "what if
+we..." phrasing. If a single discussion turn produces multiple distinct
+approved changes, generate one task file per atomic change, not one
+combined file.
+
+## Handoff Process (only after trigger)
+1. Inspect the current repo state — relevant files, structure, unfinished work.
+2. Define the single most narrow, atomic task that implements the
+   specific decision just agreed on.
+3. Generate the markdown content for `workbench/tasks/TASK_ID.md` using
+   this structure:
+
+```markdown
+   # T: Short Title
+   ## Goal
+   ## Context
+   ## Scope
+   ## Constraints
+   ## Acceptance Criteria
+   ## Test Commands
+   ## Output Required
+   (implementor must write: summary of changes, commands run, test
+   results, unresolved issues — to workbench/results/TASK_ID-summary.md)
+```
+
+4. Give the exact single-line agy CLI command to run the Implementor
+   (Gemini 3.5 Flash), e.g.:
+
+
+
 # Spy — AI Knowledge Management Agent
 
 ## What is Spy?
@@ -81,11 +126,16 @@ But right now, we're building the door. Make it good enough that people want to 
 
 ## Current architecture
 
-```
 src/
 ├── ai/
-│   └── agent.ts              — Server-side model streaming logic
+│   ├── agent.ts              — Server-side model streaming logic
+│   ├── embeddings.ts         — Gemini-embedding-2 generation (1536 dim)
+│   ├── retrieval.ts          — FalkorDB vector similarity search
+│   └── schema.ts             — (Legacy/WIP) AI extraction schemas
 ├── app/
+│   ├── api/                  — Backend API routes (Node.js runtime)
+│   │   ├── chat/route.ts     — Streaming chat & memory extraction loop
+│   │   └── prep-session/route.ts — Pre-fetches graph context for session
 │   ├── page.tsx              — Landing page (composes hero components)
 │   ├── home/
 │   │   └── page.tsx          — Chat UI (conversation, messages, input, suggestions)
@@ -126,9 +176,11 @@ src/
 ├── hooks/
 │   └── use-mobile.ts         — Responsive layout breakpoint state hook
 ├── lib/
+│   ├── falkor.ts             — Native FalkorDB graph connection & Cypher queries
 │   └── utils.ts              — cn() helper for Tailwind class merging
 └── types/
     ├── chat.ts               — Type declarations for ChatContextValue
+    ├── graph-schema.ts       — Zod Schemas for Memory Nodes & Edges
     └── index.ts              — Main TypeScript module definitions entrypoint
 ```
 
@@ -142,19 +194,22 @@ src/
 | Layer | Choice |
 |---|---|
 | Framework | Next.js 16 (App Router, Turbopack) |
+| Backend | Node.js Runtime API Routes |
+| Database | FalkorDB (Native driver via `falkordb`) |
+| Validation | Zod (Strict JSON Schema extraction) |
+| AI / LLM | Vercel AI SDK + Google Gemini |
+| Embeddings | `gemini-embedding-2` (Truncated to 1536 dim) |
 | Styling | Tailwind CSS v4 with CSS custom properties |
 | Mascot | Dynamic SVG (`mascot-3d.svg`) + GSAP (targets internal IDs for animation) |
 | Backdrop | ShaderGradient 3D canvas (`@shadergradient/react` sphere) |
 | Fonts | Unbounded + Inter + VT323 via next/font/google |
-| Deployment | Static export, no backend |
 
 ## Constraints
 
 - Desktop only for v1 (no responsive/mobile yet)
 - No sound
-- No backend or API calls — pure frontend
-- No external runtime dependencies beyond React, Next.js, GSAP
-- Build produces static export (prerendered)
+- **Graph Schema strictness:** Memory edges are strictly limited to `PART_OF` (Hierarchical) and `RELATES_TO` (Associative). We do not use prerequisite or causal edges because semantic vector search on content embeddings implicitly handles those relationships.
+- **Node.js Runtime only:** FalkorDB native driver breaks in Edge runtime. API routes interacting with the DB must run in Node.js and require `serverExternalPackages: ["falkordb"]` in `next.config.ts`.
 - Restrained rounded corners only (--radius)
 
 ## Getting started
