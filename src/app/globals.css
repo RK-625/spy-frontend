@@ -736,7 +736,7 @@
 }
 
 /* ── Toolbar Refinement ── */
-.chat-input-wrap [data-slot="input-group-addon"] {
+.chat-input-wrap [data-prompt-footer] {
   border-top: 1px solid var(--border-faint) !important;
 }
 
