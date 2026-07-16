@@ -40,8 +40,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { AnimatePresence, motion } from "motion/react";
+import { WIDGET, WIDGET_TYPE } from "./widget-layout";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
+import { AnimatePresence, motion } from "motion/react";
 import { DotmTriangle16 } from "@/components/dotmatrix/triangle-16";
 import { DotmHex9 } from "@/components/dotmatrix/hex-9";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
@@ -69,6 +70,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
+
+const MotionInputGroup = motion.create(InputGroup);
 
 // ============================================================================
 // Helpers
@@ -189,6 +193,12 @@ export interface TextInputContext {
   clear: () => void;
 }
 
+export type AskUserQuestionData = {
+  question: string;
+  options: string[];
+  allowCustomInput: boolean;
+} | null;
+
 export interface PromptInputControllerProps {
   textInput: TextInputContext;
   attachments: AttachmentsContext;
@@ -197,6 +207,11 @@ export interface PromptInputControllerProps {
     ref: RefObject<HTMLInputElement | null>,
     open: () => void
   ) => void;
+  askUserQuestionData?: AskUserQuestionData;
+  setAskUserQuestionData?: (data: AskUserQuestionData) => void;
+  handleOptionSelect?: (option: string) => void;
+  /** Shared cascade-exit flag: true while options/pencil are animating out after widget close. */
+  isCascadeExiting: boolean;
 }
 
 const PromptInputController = createContext<PromptInputControllerProps | null>(
@@ -218,6 +233,8 @@ export const useOptionalProviderAttachments = () =>
 export type PromptInputProviderProps = PropsWithChildren<{
   initialInput?: string;
   maxFiles?: number;
+  askUserQuestionData?: AskUserQuestionData;
+  setAskUserQuestionData?: (data: AskUserQuestionData) => void;
 }>;
 
 /**
@@ -227,11 +244,54 @@ export type PromptInputProviderProps = PropsWithChildren<{
 export const PromptInputProvider = ({
   initialInput: initialTextInput = "",
   maxFiles,
+  askUserQuestionData,
+  setAskUserQuestionData,
   children,
 }: PromptInputProviderProps) => {
   // ----- textInput state
   const [textInput, setTextInput] = useState(initialTextInput);
   const clearInput = useCallback(() => setTextInput(""), []);
+
+  // ----- shared cascade-exit state (single source for Body + Textarea)
+  const [isCascadeExiting, setIsCascadeExiting] = useState(false);
+  const [prevAskData, setPrevAskData] = useState(askUserQuestionData);
+  // Last non-null payload for exit duration (prevAskData is already null when exit starts).
+  // Adjust during render when ask payload is present — not in an effect (react-hooks/set-state-in-effect).
+  const [lastAskMeta, setLastAskMeta] = useState({ n: 0, allowCustom: false });
+  if (askUserQuestionData) {
+    const next = {
+      n: askUserQuestionData.options.length,
+      allowCustom: !!askUserQuestionData.allowCustomInput,
+    };
+    if (
+      next.n !== lastAskMeta.n ||
+      next.allowCustom !== lastAskMeta.allowCustom
+    ) {
+      setLastAskMeta(next);
+    }
+  }
+
+  if (askUserQuestionData !== prevAskData) {
+    setPrevAskData(askUserQuestionData);
+    if (!askUserQuestionData) {
+      setIsCascadeExiting(true);
+    } else {
+      setIsCascadeExiting(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!isCascadeExiting) return;
+    const { n, allowCustom } = lastAskMeta;
+    // Hold through last content exit AND layout spring settle (avoids mid-spring retarget snap)
+    const contentMs =
+      ((allowCustom ? MORPH_MOVE_MS : 0) + n * MORPH_STAGGER + MORPH_MOVE_MS) *
+      1000;
+    const layoutMs = MORPH_LAYOUT.duration * 1000;
+    const s = contentMs + layoutMs;
+    const t = window.setTimeout(() => setIsCascadeExiting(false), s);
+    return () => window.clearTimeout(t);
+  }, [isCascadeExiting, lastAskMeta]);
 
   // ----- attachments state (global when wrapped)
   const [attachmentFiles, setAttachmentFiles] = useState<
@@ -336,6 +396,10 @@ export const PromptInputProvider = ({
     []
   );
 
+  const handleOptionSelect = useCallback((option: string) => {
+    setTextInput(option);
+  }, []);
+
   const controller = useMemo<PromptInputControllerProps>(
     () => ({
       __registerFileInput,
@@ -345,8 +409,12 @@ export const PromptInputProvider = ({
         setInput: setTextInput,
         value: textInput,
       },
+      askUserQuestionData,
+      setAskUserQuestionData,
+      handleOptionSelect,
+      isCascadeExiting,
     }),
-    [textInput, clearInput, attachments, __registerFileInput]
+    [textInput, clearInput, attachments, __registerFileInput, askUserQuestionData, setAskUserQuestionData, handleOptionSelect, isCascadeExiting]
   );
 
   return (
@@ -875,16 +943,25 @@ export const PromptInput = ({
         title="Upload files"
         type="file"
       />
-      <form
+      <motion.form
+        layout
+        transition={MORPH_LAYOUT}
         className={cn("w-full", className)}
         onSubmit={handleSubmit}
-        ref={formRef}
+        ref={formRef as RefObject<HTMLFormElement>}
         {...restProps}
       >
-        <InputGroup className="h-auto flex-col overflow-hidden">
+        <MotionInputGroup 
+          layout
+          transition={MORPH_LAYOUT}
+          // Always column: InputGroup only auto-flex-cols when a *direct* child has
+          // data-align=block-*. Header may return null (empty chat); footer is wrapped
+          // in motion.div for AnimatePresence — neither guarantees a direct align child.
+          className="h-auto flex-col overflow-hidden"
+        >
           {children}
-        </InputGroup>
-      </form>
+        </MotionInputGroup>
+      </motion.form>
     </>
   );
 
@@ -902,6 +979,28 @@ export const PromptInput = ({
   );
 };
 
+// ============================================================================
+// AskUserQuestion morph timing (shared enter/exit family)
+// ============================================================================
+
+/** Opacity + y duration for content & chrome */
+const MORPH_MOVE_MS = 0.2;
+/** Per option / cascade step */
+const MORPH_STAGGER = 0.04;
+/** Layout springs on form / InputGroup / body padding */
+const MORPH_LAYOUT = { type: "spring" as const, bounce: 0, duration: 0.4 };
+/** |y| offset — same magnitude both directions */
+const MORPH_Y = 10;
+
+/** Match InputGroupAddon block-* tokens: px-2.5 = 10px, pb-2/pt-2 = 8px */
+const MORPH_PAD_X = 10;
+const MORPH_PAD_Y = 8;
+
+const contentExitDuration = (n: number, allowCustom: boolean): number => {
+  const customOffset = allowCustom ? MORPH_MOVE_MS : 0;
+  return customOffset + n * MORPH_STAGGER + MORPH_MOVE_MS;
+};
+
 export type PromptInputBodyProps = HTMLAttributes<HTMLDivElement>;
 
 export const PromptInputBody = ({
@@ -909,10 +1008,243 @@ export const PromptInputBody = ({
   children,
   ...props
 }: PromptInputBodyProps) => {
+  const {
+    onDrag: _d,
+    onDragStart: _ds,
+    onDragEnd: _de,
+    onAnimationStart: _as,
+    onAnimationEnd: _ae,
+    onAnimationIteration: _ai,
+    ...restProps
+  } = props;
+  void _d;
+  void _ds;
+  void _de;
+  void _as;
+  void _ae;
+  void _ai;
+  const controller = useOptionalPromptInputController();
+  const askData = controller?.askUserQuestionData;
+  const isWidgetMode = !!askData;
+
+  // Remember cascade meta after askData clears (adjust state during render when props change)
+  const [cascadeMeta, setCascadeMeta] = useState({ n: 0, allowCustom: false });
+  if (askData) {
+    const next = {
+      n: askData.options.length,
+      allowCustom: askData.allowCustomInput,
+    };
+    if (
+      next.n !== cascadeMeta.n ||
+      next.allowCustom !== cascadeMeta.allowCustom
+    ) {
+      setCascadeMeta(next);
+    }
+  }
+
+  const n = askData ? askData.options.length : cascadeMeta.n;
+  const allowCustom = askData ? askData.allowCustomInput : cascadeMeta.allowCustom;
+
+  // LIFO: custom last-in / first-out. Options reverse after the custom beat.
+  const optionExitDelay = allowCustom ? MORPH_MOVE_MS : 0;
+
+  // Shared cascade-exit flag from provider (single timer for Body + Textarea)
+  const isCascadeExiting = controller?.isCascadeExiting ?? false;
+
+  // Layout chrome active while widget is open or cascade is still exiting
+  const unitActive = isWidgetMode || isCascadeExiting;
+
   return (
-    <div className={cn("contents", className)} {...props}>
-      {children}
-    </div>
+    <motion.div 
+      // layout off here — form + InputGroup already layout; nested layout overshoots top clip
+      layout={false}
+      // gap must be a number (px), never CSS "normal" — Motion cannot animate normal → 0
+      style={{
+        gap: unitActive ? WIDGET.STACK_GAP : 0,
+      }}
+      initial={{
+        paddingLeft: 0,
+        paddingRight: 0,
+        paddingBottom: 0,
+      }}
+      animate={{
+        // Align with InputGroupAddon chrome (10/8) so chat ↔ widget has no hard jump
+        paddingLeft: unitActive ? WIDGET.PAD_X : 0,
+        paddingRight: unitActive ? WIDGET.PAD_X : 0,
+        paddingBottom: unitActive ? WIDGET.ROW_PAD_Y : 0,
+      }}
+      transition={MORPH_LAYOUT}
+      className={cn("flex flex-col w-full", className)} 
+      {...restProps}
+    >
+      <AnimatePresence>
+        {isWidgetMode &&
+          askData.options.map((opt, i) => (
+            <motion.button
+              key={opt}
+              initial={{ opacity: 0, y: -MORPH_Y, height: 0, paddingTop: 0, paddingBottom: 0, overflow: "hidden" }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                height: "auto",
+                paddingTop: WIDGET.ROW_PAD_Y,
+                paddingBottom: WIDGET.ROW_PAD_Y,
+                overflow: "hidden",
+                transition: {
+                  duration: MORPH_MOVE_MS,
+                  delay: i * MORPH_STAGGER,
+                  height: { duration: MORPH_MOVE_MS, delay: i * MORPH_STAGGER },
+                  paddingTop: { duration: MORPH_MOVE_MS, delay: i * MORPH_STAGGER },
+                  paddingBottom: { duration: MORPH_MOVE_MS, delay: i * MORPH_STAGGER },
+                },
+              }}
+              exit={{
+                opacity: 0,
+                y: -MORPH_Y,
+                height: 0,
+                paddingTop: 0,
+                paddingBottom: 0,
+                overflow: "hidden",
+                transition: {
+                  duration: MORPH_MOVE_MS,
+                  // After custom fully done, reverse options: last → first
+                  delay: optionExitDelay + (n - 1 - i) * MORPH_STAGGER,
+                  // Nested props must carry the same delay or height collapses early
+                  height: {
+                    duration: MORPH_MOVE_MS,
+                    delay: optionExitDelay + (n - 1 - i) * MORPH_STAGGER,
+                  },
+                  paddingTop: {
+                    duration: MORPH_MOVE_MS,
+                    delay: optionExitDelay + (n - 1 - i) * MORPH_STAGGER,
+                  },
+                  paddingBottom: {
+                    duration: MORPH_MOVE_MS,
+                    delay: optionExitDelay + (n - 1 - i) * MORPH_STAGGER,
+                  },
+                },
+              }}
+              style={{ gap: WIDGET.ROW_GAP }}
+              type="button"
+              aria-label={`Option ${i + 1}: ${opt}`}
+              onClick={(e) => {
+                const form = e.currentTarget.closest("form");
+                controller?.handleOptionSelect?.(opt);
+                flushSync(() => {});
+                if (!(controller?.textInput.value === opt)) {
+                  controller?.textInput.setInput(opt);
+                }
+                form?.requestSubmit();
+              }}
+              className="group flex flex-row items-center rounded-[var(--radius)] hover:bg-accent/10 transition-colors w-full text-left"
+            >
+              <div 
+                style={{ width: WIDGET.BADGE, height: WIDGET.BADGE }} 
+                className="shrink-0 flex items-center justify-center bg-accent/20 rounded-[0.4rem]"
+              >
+                <span className={WIDGET_TYPE.number}>{i + 1}</span>
+              </div>
+              <span className={cn(WIDGET_TYPE.option, "flex-grow min-w-0")}>{opt}</span>
+              <DotMatrixIcon 
+                name="cornerDownLeft" 
+                size={16} 
+                className="opacity-0 group-hover:opacity-100 text-text-primary transition-opacity shrink-0 mr-1"
+              />
+            </motion.button>
+          ))}
+      </AnimatePresence>
+      {/*
+        Custom row: textarea always mounted and always visible.
+        Open: pencil enters left (gap opens → field nudged right).
+        Close: pencil AnimatePresence exit only; gap closes → field expands left;
+        field rides layout up as options/header height-collapse (true reverse).
+      */}
+      <motion.div 
+        className={cn(
+          "flex flex-row items-center w-full min-w-0",
+          unitActive ? "hover:bg-accent/10 transition-colors" : ""
+        )}
+        // Solid flex gap (same as option rows) — do NOT rely on Motion-only animate.gap
+        style={{
+          gap:
+            (isWidgetMode || isCascadeExiting) && allowCustom
+              ? WIDGET.ROW_GAP
+              : 0,
+        }}
+        initial={false}
+        animate={{
+          // Match option row vertical pad; horizontal comes from body PAD_X only
+          paddingTop: unitActive ? WIDGET.ROW_PAD_Y : 0,
+          paddingBottom: unitActive ? WIDGET.ROW_PAD_Y : 0,
+          paddingLeft: 0,
+          paddingRight: 0,
+          borderRadius: unitActive ? "var(--radius)" : 0,
+        }}
+        transition={{
+          paddingTop: MORPH_LAYOUT,
+          paddingBottom: MORPH_LAYOUT,
+          paddingLeft: MORPH_LAYOUT,
+          paddingRight: MORPH_LAYOUT,
+          borderRadius: MORPH_LAYOUT,
+        }}
+      >
+        <AnimatePresence>
+          {isWidgetMode && allowCustom && (
+            <motion.div
+              key="custom-pencil"
+              initial={{
+                opacity: 0,
+                y: -MORPH_Y,
+                width: 0,
+                height: 0,
+                overflow: "hidden",
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                width: WIDGET.BADGE,
+                height: WIDGET.BADGE,
+                overflow: "hidden",
+                transition: {
+                  duration: MORPH_MOVE_MS,
+                  delay: 0,
+                  width: { duration: MORPH_MOVE_MS, delay: 0 },
+                  height: { duration: MORPH_MOVE_MS, delay: 0 },
+                  opacity: { duration: MORPH_MOVE_MS, delay: 0 },
+                  y: { duration: MORPH_MOVE_MS, delay: 0 },
+                },
+              }}
+              exit={{
+                opacity: 0,
+                y: -MORPH_Y,
+                width: 0,
+                height: 0,
+                overflow: "hidden",
+                transition: {
+                  duration: MORPH_MOVE_MS,
+                  delay: 0,
+                  width: { duration: MORPH_MOVE_MS, delay: 0 },
+                  height: { duration: MORPH_MOVE_MS, delay: 0 },
+                  opacity: { duration: MORPH_MOVE_MS, delay: 0 },
+                  y: { duration: MORPH_MOVE_MS, delay: 0 },
+                },
+              }}
+              className="shrink-0"
+            >
+              <div 
+                style={{ width: WIDGET.BADGE, height: WIDGET.BADGE }} 
+                className="flex items-center justify-center bg-accent/20 rounded-[0.4rem]"
+              >
+                <DotMatrixIcon name="pencil" size={14} className="text-[#ded4f0]" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <div className="flex-grow min-w-0 flex items-center">
+          {children}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -930,10 +1262,19 @@ export const PromptInputTextarea = ({
   const controller = useOptionalPromptInputController();
   const attachments = usePromptInputAttachments();
   const [isComposing, setIsComposing] = useState(false);
+  const askData = controller?.askUserQuestionData;
+  const isWidgetMode = !!askData;
+
+  // Compact min-height held through full content cascade on exit.
+  const isCascadeExiting = controller?.isCascadeExiting ?? false;
+  const allowCustom = askData?.allowCustomInput ?? false;
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
+      // Call the external onKeyDown handler first
       onKeyDown?.(e);
+
+      // If the external handler prevented default, don't run internal logic
       if (e.defaultPrevented) {
         return;
       }
@@ -947,6 +1288,7 @@ export const PromptInputTextarea = ({
         }
         e.preventDefault();
 
+        // Check if the submit button is disabled before submitting
         const { form } = e.currentTarget;
         const submitButton = form?.querySelector(
           'button[type="submit"]'
@@ -958,6 +1300,7 @@ export const PromptInputTextarea = ({
         form?.requestSubmit();
       }
 
+      // Remove last attachment when Backspace is pressed and textarea is empty
       if (
         e.key === "Backspace" &&
         e.currentTarget.value === "" &&
@@ -1003,6 +1346,8 @@ export const PromptInputTextarea = ({
   const handleCompositionEnd = useCallback(() => setIsComposing(false), []);
   const handleCompositionStart = useCallback(() => setIsComposing(true), []);
 
+  // Single source of truth: controller, controlled props, or local uncontrolled state.
+  // No effect to mirror React props/state into React state (set-state-in-effect).
   const [uncontrolledVal, setUncontrolledVal] = useState(
     () => String(props.defaultValue ?? props.value ?? ""),
   );
@@ -1031,29 +1376,82 @@ export const PromptInputTextarea = ({
       ? { value: String(props.value) }
       : { value: uncontrolledVal };
 
+  // Stay compact until full cascade settle — not only when custom input was on
+  const isCompact = isWidgetMode || isCascadeExiting;
+
+  const showCustomPlaceholder = isWidgetMode && allowCustom;
   const isEmpty = !textValue;
+
+  // Placeholder sits inside the field column (after pencil+ROW_GAP siblings). Do not
+  // add BADGE+ROW_GAP again — that double-offsets. Chat: align to PAD_X content inset.
+  const placeholderLeft = isCompact ? 0 : WIDGET.PAD_X;
+
   const { style: propsStyle, ...restTextareaProps } = props;
 
   return (
     <div className="relative flex-grow min-w-0 flex items-center">
       <InputGroupTextarea
         className={cn(
-          "field-sizing-content max-h-48 min-h-16 overflow-x-hidden w-full resize-none px-2.5 py-2",
-          "text-sm text-text-primary placeholder:text-text-secondary",
+          "field-sizing-content max-h-48 overflow-x-hidden transition-[min-height,padding] duration-400 ease-out w-full",
+          WIDGET_TYPE.input,
+          isCompact
+            ? "bg-transparent border-none focus-visible:ring-0 shadow-none px-0 py-0 m-0 resize-none focus:outline-none placeholder:text-transparent"
+            : "",
           className
         )}
-        style={propsStyle}
+        style={{
+          ...propsStyle,
+          minHeight: isCompact ? WIDGET.FIELD_MIN_H : WIDGET.CHAT_MIN_H,
+          paddingLeft: isCompact ? 0 : WIDGET.PAD_X,
+          paddingRight: isCompact ? 0 : WIDGET.PAD_X,
+        }}
         name="message"
         aria-label="Message input"
         onCompositionEnd={handleCompositionEnd}
         onCompositionStart={handleCompositionStart}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
-        placeholder={isEmpty ? placeholder : ""}
+        placeholder=""
         {...restTextareaProps}
         {...controlledProps}
         onChange={handleTextareaChange}
       />
+      {isEmpty && (
+        <AnimatePresence>
+          {showCustomPlaceholder ? (
+            <motion.span
+              key="custom-placeholder"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: MORPH_MOVE_MS }}
+              style={{ left: placeholderLeft }}
+              className={cn(
+                "absolute top-1/2 -translate-y-1/2 pointer-events-none select-none",
+                WIDGET_TYPE.placeholder
+              )}
+            >
+              Or type your own...
+            </motion.span>
+          ) : (
+            <motion.span
+              key="default-placeholder"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: MORPH_MOVE_MS }}
+              style={{ left: placeholderLeft }}
+              className={cn(
+                "absolute pointer-events-none select-none",
+                isCompact ? "top-1/2 -translate-y-1/2" : "top-2.5",
+                WIDGET_TYPE.placeholder
+              )}
+            >
+              {placeholder}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      )}
     </div>
   );
 };
@@ -1068,7 +1466,44 @@ export const PromptInputHeader = ({
   children,
   ...props
 }: PromptInputHeaderProps) => {
-  if (Children.count(children) === 0) {
+  const controller = useOptionalPromptInputController();
+  const askData = controller?.askUserQuestionData;
+  const isCascadeExiting = controller?.isCascadeExiting ?? false;
+
+  // Remember last cascade length / question after askData clears.
+  // Hooks must run unconditionally (before any early return) — Rules of Hooks.
+  const [cascadeMeta, setCascadeMeta] = useState({ n: 0, allowCustom: false });
+  const [lastQuestion, setLastQuestion] = useState("");
+  if (askData) {
+    const next = {
+      n: askData.options.length,
+      allowCustom: askData.allowCustomInput,
+    };
+    if (
+      next.n !== cascadeMeta.n ||
+      next.allowCustom !== cascadeMeta.allowCustom
+    ) {
+      setCascadeMeta(next);
+    }
+    if (askData.question !== lastQuestion) {
+      setLastQuestion(askData.question);
+    }
+  }
+  const { n, allowCustom } = cascadeMeta;
+  const customOffset = allowCustom ? MORPH_MOVE_MS : 0;
+  const headerExitDelay = customOffset + n * MORPH_STAGGER;
+
+  // Presence follows askData so AnimatePresence gets a true exit when it clears.
+  // Keep header *mounted* during isCascadeExiting so exit is not skipped by return null.
+  const showQuestion = !!askData;
+  const questionText = askData?.question ?? lastQuestion;
+
+  // Empty header only after cascade settles (not mid-exit)
+  if (
+    !askData &&
+    !isCascadeExiting &&
+    Children.count(children) === 0
+  ) {
     return null;
   }
 
@@ -1078,6 +1513,51 @@ export const PromptInputHeader = ({
       className={cn("flex-col gap-1 items-start w-full", className)}
       {...props}
     >
+      <AnimatePresence>
+        {showQuestion && (
+          <motion.div
+            key="question-header"
+            initial={{ opacity: 0, y: -MORPH_Y, height: 0, paddingTop: 0, paddingBottom: 0, overflow: "hidden" }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              height: "auto",
+              paddingTop: "8px",
+              paddingBottom: "4px",
+              overflow: "hidden",
+              transition: {
+                duration: MORPH_MOVE_MS,
+                delay: 0,
+                height: { duration: MORPH_MOVE_MS, delay: 0 },
+                paddingTop: { duration: MORPH_MOVE_MS, delay: 0 },
+                paddingBottom: { duration: MORPH_MOVE_MS, delay: 0 },
+              },
+            }}
+            exit={{
+              opacity: 0,
+              y: -MORPH_Y,
+              height: 0,
+              paddingTop: 0,
+              paddingBottom: 0,
+              overflow: "hidden",
+              transition: {
+                duration: MORPH_MOVE_MS,
+                delay: headerExitDelay,
+                height: { duration: MORPH_MOVE_MS, delay: headerExitDelay },
+                paddingTop: { duration: MORPH_MOVE_MS, delay: headerExitDelay },
+                paddingBottom: {
+                  duration: MORPH_MOVE_MS,
+                  delay: headerExitDelay,
+                },
+              },
+            }}
+            // Addon already supplies px-2.5; only add top/bottom so we don't double horizontal pad
+            className="pt-2 pb-1 w-full"
+          >
+            <p className={WIDGET_TYPE.question}>{questionText}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {children}
     </InputGroupAddon>
   );
@@ -1093,15 +1573,65 @@ export const PromptInputFooter = ({
   children,
   ...props
 }: PromptInputFooterProps) => {
+  const controller = useOptionalPromptInputController();
+  const askData = controller?.askUserQuestionData;
+
+  // Remember last cascade length so footer return delay stays correct after askData clears
+  const [cascadeMeta, setCascadeMeta] = useState({ n: 0, allowCustom: false });
+  if (askData) {
+    const next = {
+      n: askData.options.length,
+      allowCustom: askData.allowCustomInput,
+    };
+    if (
+      next.n !== cascadeMeta.n ||
+      next.allowCustom !== cascadeMeta.allowCustom
+    ) {
+      setCascadeMeta(next);
+    }
+  }
+  const { n, allowCustom } = cascadeMeta;
+  const isCascadeExiting = controller?.isCascadeExiting ?? false;
+  // Widget + custom: keep footer. Chat: only after cascade so footer height doesn't fight collapse
+  const showFooter = askData
+    ? !!askData.allowCustomInput
+    : isCascadeExiting
+      ? allowCustom
+      : true;
+  const footerEnterDelay =
+    askData || isCascadeExiting ? 0 : contentExitDuration(n, allowCustom);
+
   return (
-    <InputGroupAddon
-      data-prompt-footer
-      align="block-end"
-      className={cn("justify-between gap-1", className)}
-      {...props}
-    >
-      {children}
-    </InputGroupAddon>
+    <AnimatePresence>
+      {showFooter && (
+        <motion.div
+          key="footer"
+          initial={{ opacity: 0, y: MORPH_Y }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            transition: { duration: MORPH_MOVE_MS, delay: footerEnterDelay },
+          }}
+          exit={{
+            opacity: 0,
+            y: MORPH_Y,
+            transition: { duration: MORPH_MOVE_MS },
+          }}
+          className="w-full flex-shrink-0 overflow-hidden"
+          // Tools + submit move as one unit; no nested tools width animation
+          layout={false}
+        >
+          <InputGroupAddon
+            data-prompt-footer
+            align="block-end"
+            className={cn("justify-between gap-1", className)}
+            {...props}
+          >
+            {children}
+          </InputGroupAddon>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

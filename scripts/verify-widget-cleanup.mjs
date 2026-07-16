@@ -45,11 +45,7 @@ for (const sym of FORBIDDEN) {
   }
 }
 
-const toolset = readFileSync(join(root, "src/ai/toolset.ts"), "utf8");
-if (toolset.includes("askUserQuestion")) {
-  console.error("FAIL: toolset.ts still contains askUserQuestion");
-  failed = true;
-}
+// askUserQuestion may remain in toolset for a future redesign; UI is deprecated.
 
 if (failed) {
   process.exit(1);

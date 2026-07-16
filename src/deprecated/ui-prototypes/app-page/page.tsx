@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
   InteractiveQuestionVariantA,
   InteractiveQuestionVariantB,
@@ -28,40 +28,29 @@ export default function UIPrototypesPage() {
     console.log(`[${variant}] Selected: ${value}`);
   };
 
-  const [widgetMode, setWidgetMode] = useState(false);
-
   return (
     <div className="min-h-screen bg-[#060610] text-[#e8e4df] p-10 font-sans flex flex-col items-center">
       <div className="w-full max-w-3xl flex flex-col gap-16">
         <div>
           <h1 className="font-unbounded text-2xl text-[#ded4f0] mb-2">Interactive Question Widget Prototypes</h1>
-          <p className="text-[#7a7685] mb-8">Review the design variants below for the multiple-choice question widget.</p>
+          <p className="text-[#7a7685] mb-8">
+            Static design variants below. The morphing prompt-input widget was removed from the live chat shell;
+            snapshot lives under <code className="text-[#c8acfb]">src/deprecated/ask-user-question-widget/</code>.
+          </p>
         </div>
 
-        {/* Morphing Widget Prototype */}
+        {/* Chat prompt shell (no askUserQuestion morph — that logic is deprecated) */}
         <section className="flex flex-col gap-6">
-          <div className="border-b border-[rgba(200,172,251,0.1)] pb-2 flex justify-between items-end">
-            <div>
-              <h2 className="font-unbounded text-xl text-[#ded4f0]">Morphing Prompt Input</h2>
-              <p className="text-sm text-[#9a8cc0] mt-1">Tests the transition between normal chat and the multiple-choice widget.</p>
-            </div>
-            <button
-              onClick={() => setWidgetMode(!widgetMode)}
-              className="rounded bg-[#c9952a] px-4 py-2 text-sm font-bold text-black hover:bg-[#d9a53a]"
-            >
-              Toggle Widget Mode
-            </button>
+          <div className="border-b border-[rgba(200,172,251,0.1)] pb-2">
+            <h2 className="font-unbounded text-xl text-[#ded4f0]">Chat Prompt Input (live shell)</h2>
+            <p className="text-sm text-[#9a8cc0] mt-1">
+              Plain chat composition only. For the old morphing widget source, open the deprecated snapshot.
+            </p>
           </div>
           
           <div className="p-8 bg-[#150c28] rounded-xl border border-[rgba(200,172,251,0.08)] shadow-lg relative flex justify-center">
             <div className="w-full max-w-2xl">
-              <PromptInputProvider
-                askUserQuestionData={widgetMode ? {
-                  question: sampleQuestion,
-                  options: sampleOptions,
-                  allowCustomInput: true
-                } : null}
-              >
+              <PromptInputProvider>
                 <div className="chat-input-wrap relative w-full">
                   <div className="chat-input-glow" />
                   <PromptInput onSubmit={(msg, e) => { e.preventDefault(); console.log(msg); }}>
