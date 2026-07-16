@@ -151,6 +151,7 @@ Do NOT look like:
 - **Focus state:** border `rgba(200,172,251,0.2)`, glow shadow, top gradient line
 - **Toolbar:** all buttons `size-8` (32×32), `var(--radius)` corners, ghost variant
 - **Submit/Stop:** `bg-primary` (`#e8dff8`), `text-primary-foreground` (`#150c28`), ArrowUp icon. The button never fades out or disables during generation. It stays fully opaque and instantly morphs into a universal Stop button (Square icon) when weaving/streaming.
+- **Chat-only shell:** Live `prompt-input` is conversation chrome (attachments header, textarea, tools, submit). There is **no** in-prompt multiple-choice / morphing “ask user question” widget in production; that experiment is deprecated under `src/deprecated/ask-user-question-widget/` pending redesign.
 
 ### Suggestion Chips
 
@@ -174,7 +175,7 @@ Do NOT look like:
 ## Component rules
 
 ### Icons
-- **Dot Matrix System:** Strictly use `DotMatrixIcon` for all UI icons. Never use smooth vector icons like `lucide-react`.
+- **Dot Matrix System:** Strictly use `DotMatrixIcon` from `@/components/dotmatrix/icons` for all UI icons. Never use smooth vector icons like `lucide-react`.
 - **Alien Aesthetic:** Icons are rendered as pixel-art grids to reinforce the alien/terminal theme.
 
 ### Buttons
@@ -197,7 +198,8 @@ Do NOT look like:
 
 - **Framework:** Next.js 16 App Router (Turbopack)
 - **Styling:** Tailwind CSS v4 with CSS custom properties
-- **Chat UI:** ai-elements (local components on shadcn primitives)
+- **Chat UI:** local `components/chat/ai-elements` on shadcn-style `components/ui` primitives
+- **AI / API:** Vercel AI SDK + streaming chat route (`/api/chat`); FalkorDB for graph/memory where wired
 - **Mascot:** Dynamic SVG + GSAP
 - **Backdrop:** ShaderGradient 3D canvas
 - **Fonts:** Google Fonts (Unbounded + Inter + VT323) via next/font
@@ -206,5 +208,7 @@ Do NOT look like:
 
 - Desktop only for v1 (no responsive/mobile yet)
 - No sound
-- No backend/API calls in demo — pure frontend with mock streaming
-- Build produces static export (prerendered)
+- Product is a real Next.js app with API routes (not a pure static marketing demo). Design work should still avoid inventing new backend contracts without product intent.
+- Graph edges (when using memory graph): `PART_OF` and `RELATES_TO` only — see `AGENTS.md`
+- Node.js runtime for FalkorDB-touching routes (not Edge)
+- Restrained rounded corners only (`--radius`)

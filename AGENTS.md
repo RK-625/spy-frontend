@@ -130,7 +130,9 @@ You can invoke subagents in two ways:
 
 Spy is an agent-first knowledge base. The user doesn't organize their own notes. They throw messy, raw, unstructured information at Spy — and the agent weaves it into a knowledge graph, connecting related concepts, mapping memory orientation, and maintaining the web over time. Think of it as an alien intelligence that lives in your notes, finds patterns you didn't see, and builds a living map of everything you know.
 
-The **landing page** is built and polished. What we're building right now is the **chat UI** — the conversation interface where users interact with the AI agent. Its job is to feel like talking to an alien intelligence that's already weaving your knowledge.
+The **landing page** is shipped. **Current focus is the chat UI** at `/home` — conversation, sidebar, prompt shell, streaming, and agent tools. The chat should feel like talking to an alien intelligence that's already weaving your knowledge.
+
+**Not in live chat UI:** the in-prompt multiple-choice / morphing “ask user question” widget was removed from production `prompt-input` and parked under `src/deprecated/ask-user-question-widget/` for a future redesign.
 
 ## The story
 
@@ -182,22 +184,24 @@ These are things a new engineer might not guess. They must be followed:
 - **Restrained rounded corners.** We use `--radius: 0.55rem` globally. Do not use fully rounded pill shapes.
 - **Mascot is cute and 3D.** The mascot features a visor, antenna, and articulated legs. It is a glossy 3D vector loaded from `mascot-3d.svg`.
 - **Gold/Amber Accents.** Gold/Amber (`#c9952a`) is reserved strictly for the focus ring (`--ring`) and the main Landing Page CTA button. Chat UI components and loaders should use the default lavender/white styling.
-- **Pixel Art Icons.** Do not use `lucide-react` or standard smooth vector icons in the Chat UI. Always use the `PixelArtSvg` component with `pixelarticons` path data to maintain the alien aesthetic.
+- **Pixel Art Icons.** Do not use `lucide-react` or standard smooth vector icons in the Chat UI. Always use `DotMatrixIcon` from `@/components/dotmatrix/icons` (pixel-art registry) to maintain the alien aesthetic.
 - **Text is never pure white.** `#ded4f0` or warm off-white `#e8e4df` for primary text, `#7a7685` for secondary, `#4a4658` for dim.
 - **All design decisions live in `brief.md`.** Read it before making any visual or structural change. That file is the constitution.
 - **Dynamic Mascot Loading.** The 3D robot spider is loaded dynamically as an SVG from the public folder (`mascot-3d.svg`), and animated using GSAP targeting specific internal IDs (`#Antenna`, `#Visor section`, `#Left 1st front leg`, `#Right leg2`, etc.).
 
 ## Short-term goal
 
-Build the **landing page** — the front door of Spy. Ship every component needed to tell the story to a first-time visitor: the spider, the knowledge graph backdrop, the tagline, the CTA, the "how it works" section. All components have been extracted from a monolithic page into atomic files. We're now iterating on their design quality via Penpot before polishing the code.
+**Ship and refine the chat workspace** at `/home`: conversation stream, sidebar (recents/search/settings), chat-only prompt shell (header attachments, body, textarea, footer tools), model/web controls, and agent streaming.
 
-The landing page exists to make someone believe Spy is real. The actual product (the knowledge management workspace) comes after.
+Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
+
+**Prompt input:** production `src/components/chat/ai-elements/prompt-input.tsx` is a **chat-only** shell. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
 
 ## Long-term vision
 
 Spy becomes a full application — a workspace where users actually throw their knowledge at the agent and watch it weave. The knowledge graph stops being a decorative backdrop and becomes a living, navigable interface. The spider becomes an interactive presence — responding to user activity, surfacing connections, maintaining the web in real time.
 
-But right now, we're building the door. Make it good enough that people want to walk through.
+Right now the door is open; the work is making the chat workspace feel like walking into the web.
 
 ## Current architecture
 
@@ -233,6 +237,10 @@ src/
 │   │   └── loader.css
 │   └── brand/
 │       └── logos/            — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
+├── deprecated/               — Not production routes; do not wire into / or /home without intent
+│   ├── ask-user-question-widget/ — Snapshot of old prompt-input morph + widget-layout tokens
+│   ├── ui-prototypes/        — Lab page + interactive question variants (archived)
+│   └── (older mascot experiments if present)
 ├── contexts/
 │   └── ChatContext.tsx       — Shared state provider for Chat UI (useChat wrapper)
 ├── hooks/
@@ -240,11 +248,15 @@ src/
 ├── lib/
 │   ├── falkor.ts             — Native FalkorDB graph connection & Cypher queries
 │   └── utils.ts              — cn() helper for Tailwind class merging
+├── prompts/
+│   └── system-prompt.ts      — Agent system prompt export
 └── types/
     ├── chat.ts               — Type declarations for ChatContextValue
     ├── graph-schema.ts       — Zod Schemas for Memory Nodes & Edges
     └── index.ts              — Main TypeScript module definitions entrypoint
 ```
+
+**Note:** `prompt-input.tsx` under `chat/ai-elements` is chat-only (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/toolset.ts` without a live morph UI.
 
 ## Design files
 
@@ -276,10 +288,10 @@ src/
 
 ## Getting started
 
-1. Read **`brief.md`** — it's the design constitution
-2. Run `npm run dev` — starts on `localhost:3000`
-3. Landing page at `/`, chat UI at `/home`
-4. Open Penpot — all components have design references on the "Spy" canvas
-5. Components follow a pattern: `interface Props { className?: string }` and accept Tailwind overrides
-6. CTA button owns its own interaction state (GSAP animation + response text)
-7. The mascot (`mascot-3d.svg`) is loaded dynamically and animated with GSAP targeting internal SVG IDs. Do not use Canvas or `<img>` tags for the mascot.
+1. Read **`brief.md`** — design constitution
+2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat)
+3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
+4. Open Penpot — design references on the "Spy" canvas
+5. Prefer domain imports: `@/components/chat/...`, `@/components/dotmatrix/icons`, `@/components/ui/...`
+6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
+7. Do not resurrect deprecated ask-user-question morph into production without a redesign task
