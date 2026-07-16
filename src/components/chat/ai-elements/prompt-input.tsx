@@ -255,13 +255,20 @@ export const PromptInputProvider = ({
   // ----- shared cascade-exit state (single source for Body + Textarea)
   const [isCascadeExiting, setIsCascadeExiting] = useState(false);
   const [prevAskData, setPrevAskData] = useState(askUserQuestionData);
-  // Last non-null payload for exit duration (prevAskData is already null when exit starts)
-  const lastAskMetaRef = useRef({ n: 0, allowCustom: false });
+  // Last non-null payload for exit duration (prevAskData is already null when exit starts).
+  // Adjust during render when ask payload is present — not in an effect (react-hooks/set-state-in-effect).
+  const [lastAskMeta, setLastAskMeta] = useState({ n: 0, allowCustom: false });
   if (askUserQuestionData) {
-    lastAskMetaRef.current = {
+    const next = {
       n: askUserQuestionData.options.length,
       allowCustom: !!askUserQuestionData.allowCustomInput,
     };
+    if (
+      next.n !== lastAskMeta.n ||
+      next.allowCustom !== lastAskMeta.allowCustom
+    ) {
+      setLastAskMeta(next);
+    }
   }
 
   if (askUserQuestionData !== prevAskData) {
@@ -275,7 +282,7 @@ export const PromptInputProvider = ({
 
   useEffect(() => {
     if (!isCascadeExiting) return;
-    const { n, allowCustom } = lastAskMetaRef.current;
+    const { n, allowCustom } = lastAskMeta;
     // Hold through last content exit AND layout spring settle (avoids mid-spring retarget snap)
     const contentMs =
       ((allowCustom ? MORPH_MOVE_MS : 0) + n * MORPH_STAGGER + MORPH_MOVE_MS) *
@@ -284,7 +291,7 @@ export const PromptInputProvider = ({
     const s = contentMs + layoutMs;
     const t = window.setTimeout(() => setIsCascadeExiting(false), s);
     return () => window.clearTimeout(t);
-  }, [isCascadeExiting]);
+  }, [isCascadeExiting, lastAskMeta]);
 
   // ----- attachments state (global when wrapped)
   const [attachmentFiles, setAttachmentFiles] = useState<
@@ -907,14 +914,22 @@ export const PromptInput = ({
     [usingProvider, controller, files, onSubmit, clear]
   );
 
-  const { 
-    onDrag, onDragStart, onDragEnd, 
-    onAnimationStart, onAnimationEnd, onAnimationIteration,
-    ...restProps 
+  // Strip motion-incompatible DOM drag/animation handlers from rest spread
+  const {
+    onDrag: _,
+    onDragStart: __,
+    onDragEnd: ___,
+    onAnimationStart: ____,
+    onAnimationEnd: _____,
+    onAnimationIteration: ______,
+    ...restProps
   } = props;
-
-  // Render with or without local provider
-  const isWidgetMode = usingProvider ? !!controller?.askUserQuestionData : false;
+  void _;
+  void __;
+  void ___;
+  void ____;
+  void _____;
+  void ______;
 
   const inner = (
     <>
@@ -933,7 +948,7 @@ export const PromptInput = ({
         transition={MORPH_LAYOUT}
         className={cn("w-full", className)}
         onSubmit={handleSubmit}
-        ref={formRef as any}
+        ref={formRef as RefObject<HTMLFormElement>}
         {...restProps}
       >
         <MotionInputGroup 
@@ -993,26 +1008,42 @@ export const PromptInputBody = ({
   children,
   ...props
 }: PromptInputBodyProps) => {
-  const { 
-    onDrag, onDragStart, onDragEnd, 
-    onAnimationStart, onAnimationEnd, onAnimationIteration,
-    ...restProps 
+  const {
+    onDrag: _d,
+    onDragStart: _ds,
+    onDragEnd: _de,
+    onAnimationStart: _as,
+    onAnimationEnd: _ae,
+    onAnimationIteration: _ai,
+    ...restProps
   } = props;
+  void _d;
+  void _ds;
+  void _de;
+  void _as;
+  void _ae;
+  void _ai;
   const controller = useOptionalPromptInputController();
   const askData = controller?.askUserQuestionData;
   const isWidgetMode = !!askData;
 
-  // Remember cascade meta after askData clears so exit hold / siblings stay coherent
-  const cascadeMetaRef = useRef({ n: 0, allowCustom: false });
+  // Remember cascade meta after askData clears (adjust state during render when props change)
+  const [cascadeMeta, setCascadeMeta] = useState({ n: 0, allowCustom: false });
   if (askData) {
-    cascadeMetaRef.current = {
+    const next = {
       n: askData.options.length,
       allowCustom: askData.allowCustomInput,
     };
+    if (
+      next.n !== cascadeMeta.n ||
+      next.allowCustom !== cascadeMeta.allowCustom
+    ) {
+      setCascadeMeta(next);
+    }
   }
 
-  const n = askData ? askData.options.length : cascadeMetaRef.current.n;
-  const allowCustom = askData ? askData.allowCustomInput : cascadeMetaRef.current.allowCustom;
+  const n = askData ? askData.options.length : cascadeMeta.n;
+  const allowCustom = askData ? askData.allowCustomInput : cascadeMeta.allowCustom;
 
   // LIFO: custom last-in / first-out. Options reverse after the custom beat.
   const optionExitDelay = allowCustom ? MORPH_MOVE_MS : 0;
@@ -1315,38 +1346,41 @@ export const PromptInputTextarea = ({
   const handleCompositionEnd = useCallback(() => setIsComposing(false), []);
   const handleCompositionStart = useCallback(() => setIsComposing(true), []);
 
-  const [val, setVal] = useState(() => (controller ? controller.textInput.value : (props.value || props.defaultValue || "")));
-  useEffect(() => {
-    if (controller) {
-      setVal(controller.textInput.value);
-    }
-  }, [controller, controller?.textInput.value]);
+  // Single source of truth: controller, controlled props, or local uncontrolled state.
+  // No effect to mirror React props/state into React state (set-state-in-effect).
+  const [uncontrolledVal, setUncontrolledVal] = useState(
+    () => String(props.defaultValue ?? props.value ?? ""),
+  );
+  const textValue = controller
+    ? controller.textInput.value
+    : props.value !== undefined
+      ? String(props.value)
+      : uncontrolledVal;
 
-  useEffect(() => {
-    if (!controller && props.value !== undefined) {
-      setVal(props.value as string);
-    }
-  }, [props.value, controller]);
-
-  const handleTextareaChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
-    setVal(e.currentTarget.value);
-    if (controller) {
-      controller.textInput.setInput(e.currentTarget.value);
-    }
-    onChange?.(e);
-  }, [controller, onChange]);
+  const handleTextareaChange = useCallback(
+    (e: ChangeEvent<HTMLTextAreaElement>) => {
+      const next = e.currentTarget.value;
+      if (controller) {
+        controller.textInput.setInput(next);
+      } else if (props.value === undefined) {
+        setUncontrolledVal(next);
+      }
+      onChange?.(e);
+    },
+    [controller, onChange, props.value],
+  );
 
   const controlledProps = controller
-    ? {
-        value: controller.textInput.value,
-      }
-    : {};
+    ? { value: controller.textInput.value }
+    : props.value !== undefined
+      ? { value: String(props.value) }
+      : { value: uncontrolledVal };
 
   // Stay compact until full cascade settle — not only when custom input was on
   const isCompact = isWidgetMode || isCascadeExiting;
 
   const showCustomPlaceholder = isWidgetMode && allowCustom;
-  const isEmpty = !val;
+  const isEmpty = !textValue;
 
   // Placeholder sits inside the field column (after pencil+ROW_GAP siblings). Do not
   // add BADGE+ROW_GAP again — that double-offsets. Chat: align to PAD_X content inset.
@@ -1436,25 +1470,33 @@ export const PromptInputHeader = ({
   const askData = controller?.askUserQuestionData;
   const isCascadeExiting = controller?.isCascadeExiting ?? false;
 
-  // Remember last cascade length so header exit delay stays correct after askData clears.
+  // Remember last cascade length / question after askData clears.
   // Hooks must run unconditionally (before any early return) — Rules of Hooks.
-  const cascadeRef = useRef({ n: 0, allowCustom: false });
-  const lastQuestionRef = useRef("");
+  const [cascadeMeta, setCascadeMeta] = useState({ n: 0, allowCustom: false });
+  const [lastQuestion, setLastQuestion] = useState("");
   if (askData) {
-    cascadeRef.current = {
+    const next = {
       n: askData.options.length,
       allowCustom: askData.allowCustomInput,
     };
-    lastQuestionRef.current = askData.question;
+    if (
+      next.n !== cascadeMeta.n ||
+      next.allowCustom !== cascadeMeta.allowCustom
+    ) {
+      setCascadeMeta(next);
+    }
+    if (askData.question !== lastQuestion) {
+      setLastQuestion(askData.question);
+    }
   }
-  const { n, allowCustom } = cascadeRef.current;
+  const { n, allowCustom } = cascadeMeta;
   const customOffset = allowCustom ? MORPH_MOVE_MS : 0;
   const headerExitDelay = customOffset + n * MORPH_STAGGER;
 
   // Presence follows askData so AnimatePresence gets a true exit when it clears.
   // Keep header *mounted* during isCascadeExiting so exit is not skipped by return null.
   const showQuestion = !!askData;
-  const questionText = askData?.question ?? lastQuestionRef.current;
+  const questionText = askData?.question ?? lastQuestion;
 
   // Empty header only after cascade settles (not mid-exit)
   if (
@@ -1535,14 +1577,20 @@ export const PromptInputFooter = ({
   const askData = controller?.askUserQuestionData;
 
   // Remember last cascade length so footer return delay stays correct after askData clears
-  const cascadeRef = useRef({ n: 0, allowCustom: false });
+  const [cascadeMeta, setCascadeMeta] = useState({ n: 0, allowCustom: false });
   if (askData) {
-    cascadeRef.current = {
+    const next = {
       n: askData.options.length,
       allowCustom: askData.allowCustomInput,
     };
+    if (
+      next.n !== cascadeMeta.n ||
+      next.allowCustom !== cascadeMeta.allowCustom
+    ) {
+      setCascadeMeta(next);
+    }
   }
-  const { n, allowCustom } = cascadeRef.current;
+  const { n, allowCustom } = cascadeMeta;
   const isCascadeExiting = controller?.isCascadeExiting ?? false;
   // Widget + custom: keep footer. Chat: only after cascade so footer height doesn't fight collapse
   const showFooter = askData
