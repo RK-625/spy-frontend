@@ -43,9 +43,9 @@ import { cn } from "@/lib/utils";
 import { WIDGET, WIDGET_TYPE } from "@/lib/widget-layout";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import { AnimatePresence, motion } from "motion/react";
-import { DotmTriangle16 } from "@/components/ui/dotm-triangle-16";
-import { DotmHex9 } from "@/components/ui/dotm-hex-9";
-import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
+import { DotmTriangle16 } from "@/components/dotmatrix/triangle-16";
+import { DotmHex9 } from "@/components/dotmatrix/hex-9";
+import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import { nanoid } from "nanoid";
 import type {
   ChangeEvent,

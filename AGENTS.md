@@ -8,7 +8,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 # Orchestrator
 
 ## Role
-You are the Orchestrator, System Architecture, Delegator & Design Advisor.
+You are the Orchestrator, Delegator, System Architecture & Design Advisor.
 
 You do not write production code. You do not make broad architectural
 changes without first discussing them with the user. You are the user's
@@ -46,35 +46,27 @@ combined file and delegate each task to the appropriate agent.
    results, unresolved issues — to workbench/results/TASK_ID-summary.md)
 ```
 
-4. Once these steps are completed, spawn the implementor agent with a lower-end model to implement the task with affect the context of the session.
-5. Once the implementor agent has completed its task,Orchestrator should review the implementation.
-
+4. Once these steps are completed, spawn the implementor to implement the task with affect the context of the session.
+5. Once the implementor agent has completed its task, the Orchestrator should review the implementation.
 ## Picking the Right Model for workflows and subagents 
 Rankings Higher = Better. Cost reflects what i actually pay , not list price. Intelligence is how hard a problem you can hand it out to the model unsupervised. TASTE covers UI/UX, code quality, API design, and copy.
 
-
-| Model                       | Cost | Intelligence | Taste | Input format | Invoke Command |
-| :-------------------------- | :--: | :----------: | :---: | :----------- | :------------- |
-| deepseek/deepseek-v4-pro    |  3   |     8        |  8    | Text         | cmd            |
-| deepseek/deepseek-v4-flash  |  1   |     6        |  6    | Text         | cmd            |
-| MiniMaxAI/MiniMax-M3        | 3.75 |     7        |  8.3  | Text/Image   | cmd            |
-| tencent/Hy3                 |  1   |     7.5      |  6    | Text         | cmd            |
-| Gemini 3.5 Flash (Low)      | 7.1  |     5        |  7    | Text/Image   | agy            |
-| Gemini 3.1 Pro (High)       |  9   |     7.75     |  8    | Text/Image   | agy            |
-| Grok 4.5                    |  8   |     8.75     | 8.5   | Text/Image   | grok           |
-| Composer                    |  6   |     7.5      |  8    | Text/Image   | grok           |
-
----
-
-How to apply:
-- These are default not limits. You have standing permission to override them: If a cheaper model's output is does not meet your quality standards, rerun or redo the work with a more smart model without asking. Judge the ouput, not the price tag. Escalating costs less than shipping mediocre work.
-- Cost is a tie-breaker only; when axes conflict for anything that ships, intelligence > taste > cost.
-- Bulk/mechanical work (clear/spec implementation, data analysis, migrations, deep audit/investigation/vertification): Hand off to Deepseek V4 Flash, Gemini 3.5 Flash, tencent/Hy3, Composer , Grok 4.5 in low-effort mode.
-- I have a more limits and usage left in the cmd/agy platforms than in grok. Prefer them for well-defined, structured work implementations, work that required less manual intervention, and lesser reasoning.
-- As a **Orchestrator** you should make sure the work handed off to the agent will implemented and verfied by yourself or another eligible agent and the work allocated too should be according to the agent's capability so make the provide the agent with the necessary context, permisssions, cleanup work and instructions to complete the work and self - validate the ouput too with a test commands/verification-workflow.
-- You can also add the fallback instructions to the agent so it can handle unexpected inputs or errors gracefully during the task handed out to either report back to the **Orchestrator**/any agent or take corrective actions.
-- Sometimes agents can exceed their the time limit and run in background, waiting for permissions, you should monitor their progress and take action if they are not completing the task in the allotted time.
-- The implementor/subagents should not have the permission to pick agents and delegate work to them cause it then becomes an subagent orchestrator for it subagents which will cause a fatal recursive loop if not handled properly so the main **Orchestrator** should handle this situation gracefully.
+You can invoke subagents in two ways: 
+  1. Use the build-in agent invocation use it spawn subagents for implementing tasks natively.
+     The models are limited to the present current coding agent cli 
+     ### Model Table
+    | Model                       | Cost | Intelligence | Taste | Input format | Speed | Invoke Command |
+    | :-------------------------- | :--: | :----------: | :---: | :----------- | :---: | :------------- |
+    | Composer 2.5 (Native)       |  2   |     6        |   7   | Text/Image   |   9   |   native       |
+  2. Use the third-party agents from there command line tool like agy-cli. The models available there are 
+     give in the Model Table below with respective invoke commands.  
+    ### Model Table
+    | Model                       | Cost | Intelligence | Taste | Input format | Speed | Invoke Command |
+    | :-------------------------- | :--: | :----------: | :---: | :----------- | :---: | :------------- |
+    | Gemini 3.5 Flash (Low)      |  4   |     5        |  6    | Text/Image   |   7   |   agy          |
+    | Gemini 3.5 Flash (Medium)   |  6   |     7        |  7    | Text/Image   |   6   |   agy          |
+    | Gemini 3.1 Pro (High)       |  9   |     7.75     |  8    | Text/Image   |   2   |   agy          |
+    | Gemini 3.1 Pro (Low)        |  8   |     6.5      |  8    | Text/Image   |   4   |   agy          |
 
 
 ## Invoke command help
@@ -109,196 +101,25 @@ How to apply:
     plugin          Manage plugins (install, uninstall, list, enable, disable)
     plugins         Alias for plugin
     update          Update CLI
-2. cmd --help
-  Usage
-    cmd <command> [options]
-  
-  Options
-    cmd                               Start interactive session
-    cmd "message"                     Start with initial message
-    -r, --resume [name]               Resume a conversation by id or name (use quotes for multi-word names), or pick from history
-    -c, --continue                    Continue the last conversation
-    --fork-session                    With --resume/--continue, fork the session into a new one (original left untouched)
-    -t, --trust                       Auto-trust project (skip initial permission prompt)
-    -p, --print [query]               Run in non-interactive mode, output response and exit
-    --max-turns <number>              Cap conversation turns in -p mode (default 10; exit 8 on cap-hit)
-    -m, --model <model>               Run on a specific model this session
-    --list-models                     List the models available for use
-    --plan                            Start in plan mode
-    --permission-mode <mode>          Set permission mode (standard, plan, auto-accept)
-    --auto-accept                     Start in auto-accept mode
-    --yolo                            Bypass all permission prompts (alias for --dangerously-skip-permissions)
-    --add-dir <directory>             Add directory to workspace context
-    --skip-onboarding                 Skip taste onboarding (for automated runs)
-    --ide-setup                       Connect IDE to share your open file and selected lines
-    -v, --version                     Output the version number
-    -h, --help                        Display this help message
-  
-  Commands
-    cmd info                          Display system information
-    cmd status                        Show authentication status
-    cmd help                          Display help information
-    cmd whoami                        Show current user
-    cmd update                        Update Command Code to the latest version
-    cmd feedback [title]              Share feedback or report bugs (optional title)
-    cmd taste                         Manage taste learning packages
-    cmd taste learn <source>          Learn taste from a local repository or GitHub repo
-    cmd learn-taste                   Learn command structure from repositories                                                        cmd mcp                           Manage MCP (Model Context Protocol) servers
-    cmd skills                        Manage skills from GitHub repositories
-    cmd login                         Login with Command Code account
-    cmd logout                        Log out of Command Code
-  
-                                                                          Slash Commands
-    /init                             Initialize AGENTS.md for this project
-    /goal [<objective>|clear|status]  Set an objective for the agent to work towards                                                   /memory                           Manage Command Code memory
-    /resume                           Resume a past conversation
-    /fork [name]                      Fork the conversation into a new session
-    /rename [name]                    Rename the current session
-    /rewind                           Restore to a previous checkpoint (Press Esc twice)                                               /clear                            Clear the conversation history                                                                   /share                            Share conversation (copy link to clipboard)
-    /unshare                          Stop sharing conversation
-    /taste                            Manage Taste learning and usage
-    /learn-taste                      Learn taste from sessions with other coding agents (Claude Code, Cursor, etc)
-    /skills                           Browse and open agent skills
-    /agents                           Manage agent configurations
-    /mcp                              Manage MCP server connections
-    /model                            Switch between Command Code models                                                               /configure-models                 Choose which model runs each built-in task
-    /effort                           Set reasoning effort for the current model
-    /compact                          Compact the conversation history
-    /compact-mode                     Select a compact mode to compact sessions
-    /context                          Show context window usage and breakdown
-    /ide                              Connect IDE to share your open file and selected lines
-    /login                            Log in to Command Code
-    /logout                           Log out of Command Code
-    /courses                          Open Command Code courses in your browser
-    /feedback [title]                 Share feedback or report bugs (optional title)
-    /trace                            Copy the current trace id; required for support debugging
-    /session-file                     Show the current session id and path to the on-disk session file
-    /plan [task]                      Enter plan mode; `/plan <task>` plans that task
-    /review [pr]                      Review a pull request (optional PR number)
-    /pr-comments                      Fetch all PR comments for current branch
-    /add-dir                          Manage additional directory scope
-    /status                           Show comprehensive environment status
-    /usage                            Display credits, plan, and usage metrics
-    /update                           Update Command Code to the latest version
-    /reload                           Restart Command Code and resume this session (applies a staged update)
-    /help                             Display help information
-    /exit                             Exit Command Code
-3. grok --help
-  Grok Build TUI
-  
-  Usage: grok [OPTIONS] [PROMPT] [COMMAND]
-  
-  Arguments:
-    [PROMPT]  Initial prompt for the interactive session, e.g. `grok "fix the bug"` or `grok --worktree=feat "create this feature"`
-  
-  Options:
-        --agent <NAME>
-            Agent name or definition file path
-        --agents <JSON>
-            Inline subagent definitions as JSON
-        --allow <RULE>
-            Permission allow rule (Claude Code: --allowedTools)
-        --always-approve
-            Auto-approve all tool executions
-        --best-of-n <N>
-            Run the task N ways in parallel and pick the best (headless only)
-    -c, --continue
-            Continue the most recent session for the current working directory
-        --check
-            Append a self-verification loop to the prompt (headless only)
-        --cwd <CWD>
-            Working directory
-        --debug
-            Enable debug logging
-        --debug-file <FILE>
-            Write debug logs to FILE
-        --deny <RULE>
-            Permission deny rule (Claude Code: --disallowedTools)
-        --disable-web-search
-            Disable web search and web fetch tools
-        --disallowed-tools <TOOLS>
-            Built-in tools to remove (comma-separated)
-        --experimental-memory
-            Enable cross-session memory
-        --fork-session
-            When resuming (`--resume` / `--continue`), create a new session ID instead of reusing the original (optionally set via `--session-id`)
-    -h, --help
-            Print help
-        --json-schema <SCHEMA>
-            JSON Schema for structured output. When set, the model is constrained to produce JSON matching this schema. Implies --output-format json. Example: --json-schema '{"type":"object","properties":{"name":{"type":"string"}}}'
-        --leader-socket <PATH>
-            Use a custom leader socket path instead of the default `~/.grok/leader.sock`                                               -m, --model <MODEL>
-            Model ID to use
-        --max-turns <N>
-            Maximum number of agent turns
-        --minimal                                                                                                                              Experimental: scrollback-native rendering. Finalized blocks are printed into the terminal's native scrollback (use the terminal's own scroll / selection); a small pinned region holds the prompt + running turn
-        --no-alt-screen
-            Run inline instead of using the terminal alternate screen
-        --no-memory
-            Disable cross-session memory for this session
-        --no-plan
-            Disable plan mode
-        --no-subagents                                                                                                                         Disable subagent spawning
-        --oauth
-            Use OAuth when the welcome screen starts authentication
-        --output-format <OUTPUT_FORMAT>
-            Output format for headless mode [default: plain] [possible values: plain, json, streaming-json]
-    -p, --single <PROMPT>
-            Single-turn prompt. Prints the response to stdout and exits
-        --permission-mode <MODE>
-            Permission mode [possible values: default, acceptEdits, auto, dontAsk, bypassPermissions, plan]
-        --prompt-file <PATH>
-            Single-turn prompt from a file
-        --prompt-json <JSON>
-            Single-turn prompt as JSON content blocks
-    -r, --resume [<SESSION_ID>]
-            Resume a session by ID, or the most recent if omitted
-        --reasoning-effort <EFFORT>
-            Reasoning effort for reasoning models [aliases: --effort]
-        --restore-code
-            Check out the original session's commit when resuming
-        --rules <RULES>
-            Extra rules to append to the system prompt
-    -s, --session-id <SESSION_ID>
-            Use a specific session UUID for a **new** conversation (must be a valid UUID and must not already exist under the target session directory). With `--resume`/`--continue`, only valid together with `--fork-session` (names the forked session). Does not resume existing sessions — use `--resume` / `--continue` instead
-        --sandbox <PROFILE>
-            Sandbox profile for filesystem and network access [env: GROK_SANDBOX=]
-        --system-prompt-override <PROMPT>
-            Override the agent's system prompt (Claude Code: --system-prompt)
-        --tools <TOOLS>
-            Built-in tools to allow (comma-separated)
-    -v, --version
-            Print version
-        --verbatim
-            Send the prompt exactly as given
-    -w, --worktree [<WORKTREE>]
-            Start the session in a new git worktree, optionally named
-        --worktree-ref <WORKTREE_REF>
-            Branch, tag, or commit to base the worktree on (with `--worktree`). Defaults to the current HEAD of the source checkout when omitted [aliases: --ref]
-  
-  Commands:
-    agent        Run Grok without the interactive UI
-    completions  Generate shell completion scripts (bash, zsh, fish, powershell, ...)
-    dashboard    Open the Agent Dashboard view at startup
-    export       Export a session transcript as Markdown
-    help         Print this message or the help of the given subcommand(s)
-    import       Import sessions into Grok
-    inspect      Show the configuration Grok discovers for this directory
-    leader       Manage running leader processes
-    login        Sign in to Grok
-    logout       Sign out and clear cached credentials
-    mcp          Manage MCP server configurations
-    memory       Manage cross-session memory
-    models       List available models and exit
-    plugin       Manage plugins and marketplace sources
-    sessions     List, search, or restore sessions
-    setup        Fetch and install managed configuration
-    trace        Export or upload session trace data
-    update       Check for updates or install a specific version
-    version      Print version information [aliases: v]
-    worktree     Manage git worktrees
-    wrap         Run any command with local clipboard support (OSC 52 → system clipboard)
 
+
+# Tips to follow:
+- These are default not limits. You have standing permission to override them: If a cheaper model's output is does not meet your quality standards, rerun or redo the work with a more smart model without asking. Judge the ouput, not the price tag. Escalating costs less than shipping mediocre work.
+- Cost is a tie-breaker only; when axes conflict for anything that ships, intelligence > taste > cost > speed.
+- Bulk/mechanical work (clear/spec implementation, data analysis, migrations, deep audit/investigation/vertification): Hand off to Gemini 3.5 Flash(Low), Composer 2.5(Native).
+- I have a more limits and usage left in the agy platform than in grok-cli. Prefer them for well-defined, structured work implementations, work that required less manual intervention, and lesser reasoning.
+- As a **Orchestrator** you should make sure the work handed off to the agent will implemented and verfied by yourself or another eligible independent subagent and the work allocated too should be according to the agent's capability & intelligence so make sure to provide the agent with the necessary context, permisssions, cleanup work and instructions to complete the work and self - validate the ouput too with a test commands/verification-workflow.
+- You can also add the fallback instructions to the sub-agent so it can handle unexpected inputs or errors gracefully during the task handed out to either report back to the **Orchestrator**/any agent or take corrective actions.
+- Before spawning a new **native subagent**, the Orchestrator **must first check** whether a suitable previous native subagent session already exists for the current task, project, or related work.The **Orchestrator** can then customize the subagent model, subagent_type etc and other parameters to handle the current task more efficiently.
+- The **Orchestrator** must evaluate the reusability of the existing **native subagent** by considering:
+  - Quality and relevance of its accumulated context
+  - How much useful work it has already done
+  - Whether its current state is clean and reliable
+- Based on this evaluation, the Orchestrator should decide to either:
+  - **Resume** the existing native subagent (preferred when reusability is high), or
+  - **Kill + clean up** the old native subagent and spawn a fresh one (if the context is corrupted, stale, or no longer relevant).
+- Sometimes sub-agents can exceed their the time limit and run in background, waiting for permissions, you should monitor their progress and take action if they are not completing the task in the allotted time.
+- The implementor/subagents should not have the permission to pick sub-agents again and delegate work to them cause it then becomes an subagent orchestrator for its subagents which will cause a fatal recursive loop if not handled properly so the main **Orchestrator** should handle this situation gracefully.
 
 <!-- END:system-advisor -->
 
@@ -396,35 +217,22 @@ src/
 │   ├── layout.tsx            — Root layout + fonts + metadata + hydration fix
 │   └── globals.css           — Tailwind v4 @theme tokens + design tokens + chat styles
 ├── components/
-│   ├── ai-elements/          — Chat UI component library
-│   │   ├── conversation.tsx  — Scrollable message container (StickToBottom)
-│   │   ├── message.tsx       — Message wrapper (user/assistant), branch selector, toolbar
-│   │   ├── prompt-input.tsx  — Chat input (textarea, toolbar, submit, attachments)
-│   │   ├── speech-input.tsx  — Microphone button (speech recognition + media recorder)
-│   │   ├── suggestion.tsx    — Suggestion chips (horizontal scroll)
-│   │   ├── model-selector.tsx — Model picker (dialog with search)
-│   │   ├── sources.tsx       — Collapsible source links
-│   │   ├── reasoning.tsx     — Collapsible reasoning/thinking display
-│   │   ├── attachments.tsx   — File attachment preview and management
-│   │   ├── shimmer.tsx       — Streaming message animation
-│   │   └── scroll-to-bottom.tsx — Floating scroll button
-│   ├── ui/                   — shadcn primitives (Button, Input, Dialog, etc.) + custom components:
-│   │   ├── command-palette.tsx — Command palette search trigger and modal
-│   │   ├── dotmatrix-core.tsx  — Custom pixel-art dot-matrix grids and utilities
-│   │   └── dotmatrix-hooks.ts — Animation state hooks for dot-matrix cells
-│   ├── ChatSidebar.tsx       — Collapsible navigation drawer (Recents list + Search)
-│   ├── SettingsDialog.tsx    — Chat/model parameter override drawer
-│   ├── ShinyText.tsx         — Glint sweep animation for "SPY" header
-│   ├── hero-section.tsx      — Hero layout (composes hero items)
-│   ├── logo.tsx              — "S P Y" in Unbounded, text-secondary
-│   ├── tagline.tsx           — "An alien sent to organize your chaos."
-│   ├── cta-button.tsx        — Amber button + response text (owns its state)
-│   ├── scroll-hint.tsx       — Thin line at bottom of hero
-│   ├── ambient-glow.tsx       — Subtle amber top wash (2% opacity, 100px blur)
-│   ├── how-it-works.tsx      — 3-step section below the fold
-│   ├── spider-mascot.tsx     — Dynamic SVG `<mascot-3d.svg>` loader with GSAP idle animation (targets `#Antenna`, `#Visor section`, leg IDs)
-│   ├── dot-matrix-icons.tsx  — Central registry for pixel-art SVG icons
-│   └── knowledge-graph.tsx   — Canvas 2D ambient graph backdrop
+│   ├── ui/                   — Design-system primitives only (shadcn-style Button, Dialog, Input, …)
+│   ├── chat/                 — Chat product shell + AI message chrome
+│   │   ├── chat-sidebar.tsx  — Collapsible navigation drawer (Recents + Search)
+│   │   ├── settings-dialog.tsx — Session settings overlay (trigger + optional shortcut)
+│   │   ├── command-palette.tsx — ⌘K command palette (product chrome, not a primitive)
+│   │   └── ai-elements/      — Conversation, message, prompt-input, suggestions, CoT, …
+│   ├── landing/              — Landing/marketing surfaces
+│   │   ├── hero-section.tsx  — Hero layout
+│   │   └── shiny-text.tsx    — Glint sweep text animation
+│   ├── dotmatrix/            — Shared pixel / dot-matrix system
+│   │   ├── icons.tsx         — Pixel-art icon registry (DotMatrixIcon)
+│   │   ├── core.tsx / hooks.ts — Grid utilities + animation hooks
+│   │   ├── hex-9 / square-18 / triangle-16 — Shape loaders
+│   │   └── loader.css
+│   └── brand/
+│       └── logos/            — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
 ├── contexts/
 │   └── ChatContext.tsx       — Shared state provider for Chat UI (useChat wrapper)
 ├── hooks/

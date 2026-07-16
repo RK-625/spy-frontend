@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DotmTriangle16 } from "@/components/ui/dotm-triangle-16";
+import { DotmTriangle16 } from "@/components/dotmatrix/triangle-16";
 import { AnimatePresence, motion } from "motion/react";
 import type { ComponentProps } from "react";
 import { useCallback } from "react";

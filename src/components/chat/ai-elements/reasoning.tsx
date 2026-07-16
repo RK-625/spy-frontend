@@ -11,7 +11,7 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
-import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import type { ComponentProps, ReactNode } from "react";
 import {
   createContext,

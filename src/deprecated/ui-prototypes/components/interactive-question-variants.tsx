@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
-import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import { WIDGET, WIDGET_TYPE } from "@/lib/widget-layout";
 
 export interface InteractiveQuestionProps {

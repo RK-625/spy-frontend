@@ -2,11 +2,11 @@
 
 import { useMemo } from "react";
 
-import { DotMatrixBase } from "@/components/ui/dotmatrix-core";
-import { useDotMatrixPhases } from "@/components/ui/dotmatrix-hooks";
-import { useCyclePhase } from "@/components/ui/dotmatrix-hooks";
-import { usePrefersReducedMotion } from "@/components/ui/dotmatrix-hooks";
-import type { DotAnimationResolver, DotMatrixCommonProps } from "@/components/ui/dotmatrix-core";
+import { DotMatrixBase } from "@/components/dotmatrix/core";
+import { useDotMatrixPhases } from "@/components/dotmatrix/hooks";
+import { useCyclePhase } from "@/components/dotmatrix/hooks";
+import { usePrefersReducedMotion } from "@/components/dotmatrix/hooks";
+import type { DotAnimationResolver, DotMatrixCommonProps } from "@/components/dotmatrix/core";
 
 export type DotmSquare18Props = DotMatrixCommonProps;
 

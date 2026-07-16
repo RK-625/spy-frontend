@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DotMatrixPhase } from "./dotmatrix-core";
+import type { DotMatrixPhase } from "./core";
 export function usePrefersReducedMotion(): boolean {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   useEffect(() => {

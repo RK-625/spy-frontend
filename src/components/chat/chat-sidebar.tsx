@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { CommandPalette } from "@/components/ui/command-palette";
-import { SettingsDialog } from "@/components/chat/SettingsDialog";
+import { CommandPalette } from "@/components/chat/command-palette";
+import { SettingsDialog } from "@/components/chat/settings-dialog";
 import { useChatContext } from "@/contexts/ChatContext";
 import { cn } from "@/lib/utils";
-import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 
 type SidebarMode = "icon" | "full";
 const STORAGE_KEY = "spy-sidebar-mode";

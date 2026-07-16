@@ -16,8 +16,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
-import type { DotMatrixIconName } from "@/components/chat/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import type { DotMatrixIconName } from "@/components/dotmatrix/icons";
 import { Shimmer } from "./shimmer";
 
 // ─── Context ──────────────────────────────────────────────────────────────────

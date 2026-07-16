@@ -1,8 +1,8 @@
-import { AnthropicWhite } from "@/components/ui/svgs/anthropicWhite";
-import { Deepseek } from "@/components/ui/svgs/deepseek";
-import { Google } from "@/components/ui/svgs/google";
-import { Openai } from "@/components/ui/svgs/openai";
-import { OpenaiDark } from "@/components/ui/svgs/openaiDark";
+import { AnthropicWhite } from "@/components/brand/logos/anthropic-white";
+import { Deepseek } from "@/components/brand/logos/deepseek";
+import { Google } from "@/components/brand/logos/google";
+import { Openai } from "@/components/brand/logos/openai";
+import { OpenaiDark } from "@/components/brand/logos/openai-dark";
 
 export interface AIModel {
   chef: string;

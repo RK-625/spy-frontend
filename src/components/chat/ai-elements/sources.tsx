@@ -6,7 +6,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import type { ComponentProps } from "react";
 
 export type SourcesProps = ComponentProps<"div">;

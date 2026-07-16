@@ -5,7 +5,7 @@ import {
   InteractiveQuestionVariantA,
   InteractiveQuestionVariantB,
   InteractiveQuestionVariantC,
-} from "@/components/ui-prototypes/interactive-question-variants";
+} from "@/deprecated/ui-prototypes/components/interactive-question-variants";
 import {
   PromptInput,
   PromptInputBody,
@@ -17,7 +17,7 @@ import {
   PromptInputTools,
   PromptInputProvider,
 } from "@/components/chat/ai-elements/prompt-input";
-import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import { SpeechInput } from "@/components/chat/ai-elements/speech-input";
 
 export default function UIPrototypesPage() {

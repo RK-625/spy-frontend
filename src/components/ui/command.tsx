@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
-import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons"
+import { DotMatrixIcon } from "@/components/dotmatrix/icons"
 
 import { cn } from "@/lib/utils"
 import {

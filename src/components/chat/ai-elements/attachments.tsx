@@ -6,7 +6,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { DotMatrixIcon, type DotMatrixIconName } from "@/components/chat/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon, type DotMatrixIconName } from "@/components/dotmatrix/icons";
 import { cn } from "@/lib/utils";
 import type { FileUIPart, SourceDocumentUIPart } from "ai";
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";

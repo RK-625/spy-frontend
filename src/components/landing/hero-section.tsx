@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useScramble } from "use-scramble";
-import ShinyText from "../ui/ShinyText";
+import ShinyText from "./shiny-text";
 
 const PHASE_1 = "KNOWLEDGE UNSTRUCTURED IS JUST NOISE !!!";
 const PHASE_2 = "MANAGE THE CHAOS";

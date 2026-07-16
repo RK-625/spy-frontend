@@ -2,16 +2,16 @@
 
 import type { CSSProperties } from "react";
 
-import { cx } from "@/components/ui/dotmatrix-core";
-import { resolveDmxColorTokens } from "@/components/ui/dotmatrix-core";
-import { styleOpacity, stylePx } from "@/components/ui/dotmatrix-core";
-import { remapOpacityToTriplet } from "@/components/ui/dotmatrix-core";
-import { dmxBloomHaloSpreadClass, dmxBloomRootActive, dmxDotBloomParts } from "@/components/ui/dotmatrix-core";
-import { getPatternIndexes } from "@/components/ui/dotmatrix-core";
-import { useDotMatrixPhases } from "@/components/ui/dotmatrix-hooks";
-import { useCyclePhase } from "@/components/ui/dotmatrix-hooks";
-import { usePrefersReducedMotion } from "@/components/ui/dotmatrix-hooks";
-import type { DotMatrixCommonProps } from "@/components/ui/dotmatrix-core";
+import { cx } from "@/components/dotmatrix/core";
+import { resolveDmxColorTokens } from "@/components/dotmatrix/core";
+import { styleOpacity, stylePx } from "@/components/dotmatrix/core";
+import { remapOpacityToTriplet } from "@/components/dotmatrix/core";
+import { dmxBloomHaloSpreadClass, dmxBloomRootActive, dmxDotBloomParts } from "@/components/dotmatrix/core";
+import { getPatternIndexes } from "@/components/dotmatrix/core";
+import { useDotMatrixPhases } from "@/components/dotmatrix/hooks";
+import { useCyclePhase } from "@/components/dotmatrix/hooks";
+import { usePrefersReducedMotion } from "@/components/dotmatrix/hooks";
+import type { DotMatrixCommonProps } from "@/components/dotmatrix/core";
 
 export type DotmHex9Props = DotMatrixCommonProps;
 

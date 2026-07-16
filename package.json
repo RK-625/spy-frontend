@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify:widget-cleanup": "node scripts/verify-widget-cleanup.mjs",
+    "verify:components-structure": "node scripts/verify-components-structure.mjs",
+    "verify:reorg-scope": "node scripts/verify-reorg-scope.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.92",
@@ -64,14 +67,14 @@
     "use-stick-to-bottom": "^1.1.6"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.184.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
-    "tailwindcss": "^4",
+    "tailwindcss": "^4.3.2",
     "typescript": "^5"
   }
 }

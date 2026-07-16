@@ -16,10 +16,10 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
-import { Openai } from "@/components/ui/svgs/openai";
-import { AnthropicWhite } from "@/components/ui/svgs/anthropicWhite";
-import { Google } from "@/components/ui/svgs/google";
-import { Deepseek } from "@/components/ui/svgs/deepseek";
+import { Openai } from "@/components/brand/logos/openai";
+import { AnthropicWhite } from "@/components/brand/logos/anthropic-white";
+import { Google } from "@/components/brand/logos/google";
+import { Deepseek } from "@/components/brand/logos/deepseek";
 
 
 export type ModelSelectorProps = ComponentProps<typeof Popover>;

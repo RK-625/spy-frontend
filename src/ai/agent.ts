@@ -6,6 +6,7 @@ import {
 } from "ai";
 import { toolSet } from "./toolset";
 import { modelConfig } from "./modelstore";
+import { systemPrompt } from "@/prompts/system-prompt";
 
 export async function runAgent({
   messages,

@@ -68,9 +68,9 @@ import {
 import type { FileUIPart, SourceUrlUIPart } from "ai";
 
 import { cn } from "@/lib/utils";
-import { DotMatrixIcon } from "@/components/chat/ai-elements/dot-matrix-icons";
+import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import { useCallback, useMemo } from "react";
-import { ChatSidebar } from "@/components/chat/ChatSidebar";
+import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { models, chefs } from "@/types/models";
@@ -618,7 +618,7 @@ const Example = () => {
 };
 
 import dynamic from "next/dynamic";
-import ShinyText from "@/components/ui/ShinyText";
+import ShinyText from "@/components/landing/shiny-text";
 
 const ShaderGradientCanvas = dynamic(
   () =>
