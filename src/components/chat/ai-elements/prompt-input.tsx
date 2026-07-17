@@ -1,15 +1,6 @@
 "use client";
 
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -33,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Spinner } from "@/components/ui/spinner";
 import {
   Tooltip,
   TooltipContent,
@@ -45,6 +35,13 @@ import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import { DotmTriangle16 } from "@/components/dotmatrix/triangle-16";
 import { DotmHex9 } from "@/components/dotmatrix/hex-9";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import {
+  convertBlobUrlToDataUrl,
+  filesToFileUIParts,
+  filterIncomingFiles,
+  revokeFileUrls,
+  type AttachmentError,
+} from "@/components/chat/ai-elements/prompt-input-files";
 import { nanoid } from "nanoid";
 import type {
   ChangeEvent,
@@ -74,101 +71,42 @@ import {
 // Helpers
 // ============================================================================
 
-const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    // FileReader uses callback-based API, wrapping in Promise is necessary
-    // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onloadend = () => resolve(reader.result as string);
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
-};
-
-const captureScreenshot = async (): Promise<File | null> => {
-  if (
-    typeof navigator === "undefined" ||
-    !navigator.mediaDevices?.getDisplayMedia
-  ) {
-    return null;
-  }
-
-  let stream: MediaStream | null = null;
-  const video = document.createElement("video");
-  video.muted = true;
-  video.playsInline = true;
-
-  try {
-    stream = await navigator.mediaDevices.getDisplayMedia({
-      audio: false,
-      video: true,
-    });
-
-    video.srcObject = stream;
-
-    // Video element uses callback-based API, wrapping in Promise is necessary
-    // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
-    await new Promise<void>((resolve, reject) => {
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      video.onloadedmetadata = () => resolve();
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      video.onerror = () => reject(new Error("Failed to load screen stream"));
-    });
-
-    await video.play();
-
-    const width = video.videoWidth;
-    const height = video.videoHeight;
-    if (!width || !height) {
-      return null;
+/** Attach dragover/drop listeners that forward FileList to onFiles. */
+function attachFileDrop(
+  target: Document | HTMLElement,
+  onFiles: (files: FileList) => void
+): () => void {
+  const onDragOver = (e: Event) => {
+    const de = e as DragEvent;
+    if (de.dataTransfer?.types?.includes("Files")) {
+      de.preventDefault();
     }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return null;
+  };
+  const onDrop = (e: Event) => {
+    const de = e as DragEvent;
+    if (de.dataTransfer?.types?.includes("Files")) {
+      de.preventDefault();
     }
-
-    context.drawImage(video, 0, 0, width, height);
-    // canvas.toBlob uses callback-based API, wrapping in Promise is necessary
-    // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/png");
-    });
-    if (!blob) {
-      return null;
+    if (de.dataTransfer?.files && de.dataTransfer.files.length > 0) {
+      onFiles(de.dataTransfer.files);
     }
+  };
+  target.addEventListener("dragover", onDragOver);
+  target.addEventListener("drop", onDrop);
+  return () => {
+    target.removeEventListener("dragover", onDragOver);
+    target.removeEventListener("drop", onDrop);
+  };
+}
 
-    const timestamp = new Date()
-      .toISOString()
-      .replaceAll(/[:.]/g, "-")
-      .replace("T", "_")
-      .replace("Z", "");
-
-    return new File([blob], `screenshot-${timestamp}.png`, {
-      lastModified: Date.now(),
-      type: "image/png",
-    });
-  } finally {
-    if (stream) {
-      for (const track of stream.getTracks()) {
-        track.stop();
-      }
-    }
-    video.pause();
-    video.srcObject = null;
-  }
-};
+const MOTION_DOM_PROP_KEYS = [
+  "onDrag",
+  "onDragStart",
+  "onDragEnd",
+  "onAnimationStart",
+  "onAnimationEnd",
+  "onAnimationIteration",
+] as const;
 
 // ============================================================================
 // Provider Context & Types
@@ -248,6 +186,7 @@ export const PromptInputProvider = ({
         return;
       }
 
+      // Provider path: maxFiles cap only (accept/size validated by PromptInput when present)
       setAttachmentFiles((prev) => {
         const capacity =
           typeof maxFiles === "number"
@@ -257,16 +196,7 @@ export const PromptInputProvider = ({
           typeof capacity === "number"
             ? incoming.slice(0, capacity)
             : incoming;
-        return [
-          ...prev,
-          ...capped.map((file) => ({
-            filename: file.name,
-            id: nanoid(),
-            mediaType: file.type,
-            type: "file" as const,
-            url: URL.createObjectURL(file),
-          })),
-        ];
+        return [...prev, ...filesToFileUIParts(capped)];
       });
     },
     [maxFiles]
@@ -275,8 +205,8 @@ export const PromptInputProvider = ({
   const remove = useCallback((id: string) => {
     setAttachmentFiles((prev) => {
       const found = prev.find((f) => f.id === id);
-      if (found?.url) {
-        URL.revokeObjectURL(found.url);
+      if (found) {
+        revokeFileUrls([found]);
       }
       return prev.filter((f) => f.id !== id);
     });
@@ -284,11 +214,7 @@ export const PromptInputProvider = ({
 
   const clear = useCallback(() => {
     setAttachmentFiles((prev) => {
-      for (const f of prev) {
-        if (f.url) {
-          URL.revokeObjectURL(f.url);
-        }
-      }
+      revokeFileUrls(prev);
       return [];
     });
   }, []);
@@ -303,11 +229,7 @@ export const PromptInputProvider = ({
   // Cleanup blob URLs on unmount to prevent memory leaks
   useEffect(
     () => () => {
-      for (const f of attachmentsRef.current) {
-        if (f.url) {
-          URL.revokeObjectURL(f.url);
-        }
-      }
+      revokeFileUrls(attachmentsRef.current);
     },
     []
   );
@@ -418,13 +340,6 @@ export const PromptInputActionAddAttachments = ({
   );
 };
 
-export type PromptInputActionAddScreenshotProps = ComponentProps<
-  typeof DropdownMenuItem
-> & {
-  label?: string;
-};
-
-
 export interface PromptInputMessage {
   text: string;
   files: FileUIPart[];
@@ -439,16 +354,11 @@ export type PromptInputProps = Omit<
   multiple?: boolean;
   // When true, accepts drops anywhere on document. Default false (opt-in).
   globalDrop?: boolean;
-  // Render a hidden input with given name and keep it in sync for native form posts. Default false.
-  syncHiddenInput?: boolean;
   // Minimal constraints
   maxFiles?: number;
   // bytes
   maxFileSize?: number;
-  onError?: (err: {
-    code: "max_files" | "max_file_size" | "accept";
-    message: string;
-  }) => void;
+  onError?: (err: AttachmentError) => void;
   onSubmit: (
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>
@@ -460,7 +370,6 @@ export const PromptInput = ({
   accept,
   multiple,
   globalDrop,
-  syncHiddenInput,
   maxFiles,
   maxFileSize,
   onError,
@@ -496,86 +405,31 @@ export const PromptInput = ({
     inputRef.current?.click();
   }, []);
 
-  const matchesAccept = useCallback(
-    (f: File) => {
-      if (!accept || accept.trim() === "") {
-        return true;
-      }
-
-      const patterns = accept
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-
-      return patterns.some((pattern) => {
-        if (pattern.endsWith("/*")) {
-          // e.g: image/* -> image/
-          const prefix = pattern.slice(0, -1);
-          return f.type.startsWith(prefix);
-        }
-        return f.type === pattern;
-      });
-    },
-    [accept]
-  );
-
   const addLocal = useCallback(
     (fileList: File[] | FileList) => {
-      const incoming = [...fileList];
-      const accepted = incoming.filter((f) => matchesAccept(f));
-      if (incoming.length && accepted.length === 0) {
-        onError?.({
-          code: "accept",
-          message: "No files match the accepted types.",
-        });
-        return;
-      }
-      const withinSize = (f: File) =>
-        maxFileSize ? f.size <= maxFileSize : true;
-      const sized = accepted.filter(withinSize);
-      if (accepted.length > 0 && sized.length === 0) {
-        onError?.({
-          code: "max_file_size",
-          message: "All files exceed the maximum size.",
-        });
-        return;
-      }
-
       setItems((prev) => {
-        const capacity =
-          typeof maxFiles === "number"
-            ? Math.max(0, maxFiles - prev.length)
-            : undefined;
-        const capped =
-          typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-        if (typeof capacity === "number" && sized.length > capacity) {
-          onError?.({
-            code: "max_files",
-            message: "Too many files. Some were not added.",
-          });
+        const capped = filterIncomingFiles(fileList, {
+          accept,
+          maxFileSize,
+          maxFiles,
+          currentCount: prev.length,
+          onError,
+        });
+        if (capped.length === 0) {
+          return prev;
         }
-        const next: (FileUIPart & { id: string })[] = [];
-        for (const file of capped) {
-          next.push({
-            filename: file.name,
-            id: nanoid(),
-            mediaType: file.type,
-            type: "file",
-            url: URL.createObjectURL(file),
-          });
-        }
-        return [...prev, ...next];
+        return [...prev, ...filesToFileUIParts(capped)];
       });
     },
-    [matchesAccept, maxFiles, maxFileSize, onError]
+    [accept, maxFiles, maxFileSize, onError]
   );
 
   const removeLocal = useCallback(
     (id: string) =>
       setItems((prev) => {
         const found = prev.find((file) => file.id === id);
-        if (found?.url) {
-          URL.revokeObjectURL(found.url);
+        if (found) {
+          revokeFileUrls([found]);
         }
         return prev.filter((file) => file.id !== id);
       }),
@@ -585,45 +439,18 @@ export const PromptInput = ({
   // Wrapper that validates files before calling provider's add
   const addWithProviderValidation = useCallback(
     (fileList: File[] | FileList) => {
-      const incoming = [...fileList];
-      const accepted = incoming.filter((f) => matchesAccept(f));
-      if (incoming.length && accepted.length === 0) {
-        onError?.({
-          code: "accept",
-          message: "No files match the accepted types.",
-        });
-        return;
-      }
-      const withinSize = (f: File) =>
-        maxFileSize ? f.size <= maxFileSize : true;
-      const sized = accepted.filter(withinSize);
-      if (accepted.length > 0 && sized.length === 0) {
-        onError?.({
-          code: "max_file_size",
-          message: "All files exceed the maximum size.",
-        });
-        return;
-      }
-
-      const currentCount = files.length;
-      const capacity =
-        typeof maxFiles === "number"
-          ? Math.max(0, maxFiles - currentCount)
-          : undefined;
-      const capped =
-        typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-      if (typeof capacity === "number" && sized.length > capacity) {
-        onError?.({
-          code: "max_files",
-          message: "Too many files. Some were not added.",
-        });
-      }
-
+      const capped = filterIncomingFiles(fileList, {
+        accept,
+        maxFileSize,
+        maxFiles,
+        currentCount: files.length,
+        onError,
+      });
       if (capped.length > 0) {
         controller?.attachments.add(capped);
       }
     },
-    [matchesAccept, maxFileSize, maxFiles, onError, files.length, controller]
+    [accept, maxFileSize, maxFiles, onError, files.length, controller]
   );
 
   const clearAttachments = useCallback(
@@ -631,11 +458,7 @@ export const PromptInput = ({
       usingProvider
         ? controller?.attachments.clear()
         : setItems((prev) => {
-            for (const file of prev) {
-              if (file.url) {
-                URL.revokeObjectURL(file.url);
-              }
-            }
+            revokeFileUrls(prev);
             return [];
           }),
     [usingProvider, controller]
@@ -665,80 +488,22 @@ export const PromptInput = ({
     controller.__registerFileInput(inputRef, () => inputRef.current?.click());
   }, [usingProvider, controller]);
 
-  // Note: File input cannot be programmatically set for security reasons
-  // The syncHiddenInput prop is no longer functional
+  // Attach drop handlers on form (default) or document (globalDrop opt-in)
   useEffect(() => {
-    if (syncHiddenInput && inputRef.current && files.length === 0) {
-      inputRef.current.value = "";
+    if (globalDrop) {
+      return attachFileDrop(document, add);
     }
-  }, [files, syncHiddenInput]);
-
-  // Attach drop handlers on nearest form and document (opt-in)
-  useEffect(() => {
     const form = formRef.current;
     if (!form) {
       return;
     }
-    if (globalDrop) {
-      // when global drop is on, let the document-level handler own drops
-      return;
-    }
-
-    const onDragOver = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
-      }
-    };
-    const onDrop = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
-      }
-      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        add(e.dataTransfer.files);
-      }
-    };
-    form.addEventListener("dragover", onDragOver);
-    form.addEventListener("drop", onDrop);
-    return () => {
-      form.removeEventListener("dragover", onDragOver);
-      form.removeEventListener("drop", onDrop);
-    };
-  }, [add, globalDrop]);
-
-  useEffect(() => {
-    if (!globalDrop) {
-      return;
-    }
-
-    const onDragOver = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
-      }
-    };
-    const onDrop = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
-      }
-      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        add(e.dataTransfer.files);
-      }
-    };
-    document.addEventListener("dragover", onDragOver);
-    document.addEventListener("drop", onDrop);
-    return () => {
-      document.removeEventListener("dragover", onDragOver);
-      document.removeEventListener("drop", onDrop);
-    };
+    return attachFileDrop(form, add);
   }, [add, globalDrop]);
 
   useEffect(
     () => () => {
       if (!usingProvider) {
-        for (const f of filesRef.current) {
-          if (f.url) {
-            URL.revokeObjectURL(f.url);
-          }
-        }
+        revokeFileUrls(filesRef.current);
       }
     },
     [usingProvider]
@@ -760,7 +525,7 @@ export const PromptInput = ({
       add,
       clear: clearAttachments,
       fileInputRef: inputRef,
-      files: files.map((item) => ({ ...item, id: item.id })),
+      files,
       openFileDialog,
       remove,
     }),
@@ -847,21 +612,10 @@ export const PromptInput = ({
   );
 
   // Strip motion-incompatible DOM drag/animation handlers from rest spread
-  const {
-    onDrag: _,
-    onDragStart: __,
-    onDragEnd: ___,
-    onAnimationStart: ____,
-    onAnimationEnd: _____,
-    onAnimationIteration: ______,
-    ...restProps
-  } = props;
-  void _;
-  void __;
-  void ___;
-  void ____;
-  void _____;
-  void ______;
+  const restProps = { ...props };
+  for (const key of MOTION_DOM_PROP_KEYS) {
+    delete restProps[key];
+  }
 
   const inner = (
     <>
@@ -1217,8 +971,7 @@ export const PromptInputActionMenuItem = ({
   <DropdownMenuItem className={cn(className)} {...props} />
 );
 
-// Note: Actions that perform side-effects (like opening a file dialog)
-// are provided in opt-in modules (e.g., prompt-input-attachments).
+// Side-effect actions (e.g. opening a file dialog): PromptInputActionAddAttachments above.
 
 export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
   status?: ChatStatus;
@@ -1395,13 +1148,3 @@ export const PromptInputTab = ({
   className,
   ...props
 }: PromptInputTabProps) => <div className={cn(className)} {...props} />;
-
-export type PromptInputCommandProps = ComponentProps<typeof Command>;
-export type PromptInputCommandInputProps = ComponentProps<typeof CommandInput>;
-export type PromptInputCommandListProps = ComponentProps<typeof CommandList>;
-export type PromptInputCommandEmptyProps = ComponentProps<typeof CommandEmpty>;
-export type PromptInputCommandGroupProps = ComponentProps<typeof CommandGroup>;
-export type PromptInputCommandItemProps = ComponentProps<typeof CommandItem>;
-export type PromptInputCommandSeparatorProps = ComponentProps<
-  typeof CommandSeparator
->;
