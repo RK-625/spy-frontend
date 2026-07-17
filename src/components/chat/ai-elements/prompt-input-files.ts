@@ -1,3 +1,13 @@
+/**
+ * Pure helpers for the prompt-input attachment pipeline.
+ * No JSX, no React state — only utilities that can be unit-tested in isolation.
+ *
+ * The string `PROMPT_INPUT_ACCEPT` below is the single source of truth for the
+ * product allowlist used by the chat prompt at /home (and any future docs surface).
+ * Pass it to <PromptInput accept={PROMPT_INPUT_ACCEPT} /> — validation runs on
+ * add (filterIncomingFiles), so the <input accept="…"> attribute stays consistent
+ * with what we actually accept in code.
+ */
 import type { FileUIPart } from "ai";
 import { nanoid } from "nanoid";
 
@@ -5,6 +15,13 @@ export type AttachmentError = {
   code: "max_files" | "max_file_size" | "accept";
   message: string;
 };
+
+/**
+ * Product allowlist: images plus common docs/code. Edit here, not at call sites.
+ * Used by <PromptInput accept={PROMPT_INPUT_ACCEPT} /> in src/app/home/page.tsx.
+ */
+export const PROMPT_INPUT_ACCEPT =
+  "image/*,.pdf,.txt,.md,.json,.ts,.tsx,.js,.jsx";
 
 export function matchesAccept(file: File, accept?: string): boolean {
   if (!accept || accept.trim() === "") {
@@ -16,12 +33,19 @@ export function matchesAccept(file: File, accept?: string): boolean {
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const lowerName = file.name.toLowerCase();
+
   return patterns.some((pattern) => {
+    // 1) type wildcard, e.g. image/*
     if (pattern.endsWith("/*")) {
-      // e.g: image/* -> image/
-      const prefix = pattern.slice(0, -1);
+      const prefix = pattern.slice(0, -1); // "image/"
       return file.type.startsWith(prefix);
     }
+    // 2) extension, e.g. .pdf, .ts
+    if (pattern.startsWith(".")) {
+      return lowerName.endsWith(pattern.toLowerCase());
+    }
+    // 3) exact MIME, e.g. application/pdf
     return file.type === pattern;
   });
 }

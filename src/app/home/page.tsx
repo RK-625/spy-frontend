@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Attachment,
-  AttachmentPreview,
-  AttachmentRemove,
-  Attachments,
-} from "@/components/chat/ai-elements/attachments";
+import dynamic from "next/dynamic";
 import {
   Conversation,
   ConversationContent,
@@ -13,12 +8,6 @@ import {
 } from "@/components/chat/ai-elements/conversation";
 import {
   Message,
-  MessageBranch,
-  MessageBranchContent,
-  MessageBranchNext,
-  MessageBranchPage,
-  MessageBranchPrevious,
-  MessageBranchSelector,
   MessageContent,
   MessageResponse,
 } from "@/components/chat/ai-elements/message";
@@ -34,7 +23,7 @@ import {
   ModelSelectorName,
   ModelSelectorTrigger,
 } from "@/components/chat/ai-elements/model-selector";
-import type { PromptInputMessage } from "@/components/chat/ai-elements/prompt-input";
+import { PromptInputAttachments } from "@/components/chat/ai-elements/prompt-input-attachments";
 import {
   PromptInput,
   PromptInputBody,
@@ -44,9 +33,10 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  PROMPT_INPUT_ACCEPT,
   usePromptInputAttachments,
   PromptInputProvider,
-  useOptionalPromptInputController,
+  useOptionalPromptInputControllerContext,
 } from "@/components/chat/ai-elements/prompt-input";
 import {
   ChainOfThought,
@@ -65,7 +55,7 @@ import {
   Suggestion,
   Suggestions,
 } from "@/components/chat/ai-elements/suggestion";
-import type { FileUIPart, SourceUrlUIPart } from "ai";
+import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
 import { cn } from "@/lib/utils";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
@@ -74,6 +64,29 @@ import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { models, chefs } from "@/types/models";
+import ShinyText from "@/components/landing/shiny-text";
+
+/** Mirrors src/ai/toolset.ts webSearch input/output for UI parts */
+type SpyUITools = {
+  webSearch: {
+    input: { query: string };
+    output: {
+      results?: Array<{ title?: string; url: string; text?: string }>;
+      error?: string;
+    };
+  };
+};
+
+type WebSearchToolPart = Extract<
+  ToolUIPart<SpyUITools>,
+  { type: "tool-webSearch" }
+>;
+
+function isWebSearchToolPart(
+  part: UIMessage["parts"][number],
+): part is WebSearchToolPart {
+  return part.type === "tool-webSearch";
+}
 
 const suggestions = [
   "What are the latest trends in AI?",
@@ -85,52 +98,6 @@ const suggestions = [
   "What is the difference between SQL and NoSQL?",
   "Explain cloud computing basics",
 ];
-
-const AttachmentItem = ({
-  attachment,
-  onRemove,
-}: {
-  attachment: FileUIPart & { id: string };
-  onRemove: (id: string) => void;
-}) => {
-  const handleRemove = useCallback(() => {
-    onRemove(attachment.id);
-  }, [onRemove, attachment.id]);
-
-  return (
-    <Attachment data={attachment} onRemove={handleRemove}>
-      <AttachmentPreview />
-      <AttachmentRemove />
-    </Attachment>
-  );
-};
-
-const PromptInputAttachmentsDisplay = () => {
-  const attachments = usePromptInputAttachments();
-
-  const handleRemove = useCallback(
-    (id: string) => {
-      attachments.remove(id);
-    },
-    [attachments],
-  );
-
-  if (attachments.files.length === 0) {
-    return null;
-  }
-
-  return (
-    <Attachments variant="inline">
-      {attachments.files.map((attachment) => (
-        <AttachmentItem
-          attachment={attachment}
-          key={attachment.id}
-          onRemove={handleRemove}
-        />
-      ))}
-    </Attachments>
-  );
-};
 
 const SuggestionItem = ({
   suggestion,
@@ -196,7 +163,7 @@ const EmptyState = () => (
   </div>
 );
 
-const Example = () => {
+const ChatWorkspace = () => {
   const {
     model,
     setModel,
@@ -211,12 +178,11 @@ const Example = () => {
     messages,
     toggleWebSearch,
     error,
-    sendMessage,
     stop,
     handleSubmit,
   } = useChatContext();
 
-  const controller = useOptionalPromptInputController();
+  const controller = useOptionalPromptInputControllerContext();
   const attachments = usePromptInputAttachments();
 
   const selectedModelData = useMemo(
@@ -227,17 +193,9 @@ const Example = () => {
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
       if (status !== "ready") return;
-      sendMessage(
-        {
-          role: "user",
-          parts: [{ type: "text", text: suggestion }],
-        },
-        {
-          body: { model, useWebSearch },
-        },
-      );
+      void handleSubmit({ text: suggestion, files: [] });
     },
-    [sendMessage, status, model, useWebSearch],
+    [handleSubmit, status],
   );
 
   const handleTranscriptionChange = useCallback(
@@ -278,10 +236,6 @@ const Example = () => {
     [controller?.textInput.value, attachments.files.length, status],
   );
 
-  const handleStop = useCallback(() => {
-    stop();
-  }, [stop]);
-
   return (
     <div className="relative flex size-full flex-col divide-y overflow-hidden">
       <Conversation className="chat-fade-bottom" aria-live="polite">
@@ -296,138 +250,133 @@ const Example = () => {
             <EmptyState />
           ) : (
             messages.map((message, messageIndex) => (
-              <MessageBranch defaultBranch={0} key={message.id}>
-                <MessageBranchContent>
-                  <Message
-                    from={message.role === "user" ? "user" : "assistant"}
-                    key={message.id}
-                  >
-                    <div>
-                      {/* 1. Chain of Thought — groups ALL reasoning steps + tool calls into one timeline */}
-                      {(() => {
-                        const thoughtParts = message.parts.filter(
-                          (p) =>
-                            p.type === "reasoning" ||
-                            p.type === "tool-webSearch",
-                        );
+              <Message
+                from={message.role === "user" ? "user" : "assistant"}
+                key={message.id}
+              >
+                <div>
+                  {/* 1. Chain of Thought — groups ALL reasoning steps + tool calls into one timeline */}
+                  {(() => {
+                    const thoughtParts = message.parts.filter(
+                      (p) =>
+                        p.type === "reasoning" || isWebSearchToolPart(p),
+                    );
 
-                        if (thoughtParts.length === 0) return null;
+                    if (thoughtParts.length === 0) return null;
 
-                        return (
-                          <ChainOfThought
-                            isStreaming={
-                              (status === "submitted" ||
-                                status === "streaming") &&
-                              messageIndex === messages.length - 1
-                            }
-                            className="!bg-transparent !border-transparent !backdrop-blur-none shadow-none"
-                            style={{ "--color-muted-foreground": "#9a8cc0", "--color-background": "#ffffff" } as React.CSSProperties}
-                          >
-                            {thoughtParts.map((part, index) => {
-                              if (part.type === "reasoning") {
-                                const preview = part.text
-                                  ? part.text
-                                      .trim()
-                                      .slice(0, 120)
-                                      .replace(/\n/g, " ") +
-                                    (part.text.length > 120 ? "…" : "")
-                                  : "Thinking…";
-                                return (
-                                  <ChainOfThoughtStep
-                                    key={`reasoning-${index}`}
-                                    icon="bulb"
-                                    label={preview}
-                                    status="complete"
-                                  />
-                                );
-                              } else if (part.type === "tool-webSearch") {
-                                if (
-                                  (part as { state?: string }).state !==
-                                  "output-available"
-                                )
-                                  return null;
-                                const partAsAny = part as {
-                                  input?: { query?: string };
-                                  output?: {
-                                    results?: Array<{
-                                      title?: string;
-                                      url: string;
-                                    }>;
-                                  };
-                                };
-                                const query =
-                                  partAsAny.input?.query ?? "Web search";
-                                const results = partAsAny.output?.results ?? [];
-
-                                return (
-                                  <ChainOfThoughtStep
-                                    key={`search-${index}`}
-                                    icon="globe"
-                                    label={query}
-                                    status="complete"
-                                  >
-                                    <ChainOfThoughtSearchResults>
-                                      {results.slice(0, 6).map((r, ri) => (
-                                        <ChainOfThoughtSearchResult
-                                          key={ri}
-                                          href={r.url}
-                                        />
-                                      ))}
-                                    </ChainOfThoughtSearchResults>
-                                  </ChainOfThoughtStep>
-                                );
-                              }
-                            })}
-                            {/* Done indicator — shown when message is complete (has text) */}
-                            {message.parts.some((p) => p.type === "text") && (
-                              <ChainOfThoughtStep
-                                icon="check"
-                                label={"Done"}
-                                status="complete"
-                                isLast={true}
-                              />
-                            )}
-                          </ChainOfThought>
-                        );
-                      })()}
-
-                      {/* 2. Sources from native source-url parts works only for google gemini (e.g. Google grounding) */}
-                      {(() => {
-                        const sources = message.parts.filter(
-                          (p): p is SourceUrlUIPart => p.type === "source-url",
-                        );
-                        if (sources.length === 0) return null;
-                        return (
-                          <Sources>
-                            <SourcesTrigger count={sources.length} />
-                            <SourcesContent>
-                              {sources.map((src, index) => (
-                                <Source
-                                  key={index}
-                                  href={src.url}
-                                  title={src.title || "Source"}
-                                />
-                              ))}
-                            </SourcesContent>
-                          </Sources>
-                        );
-                      })()}
-
-                      {/* 3. Text parts last */}
-                      {message.parts.map((part, index) => {
-                        if (part.type === "text") {
-                          return (
-                            <MessageContent key={index}>
-                              <MessageResponse>{part.text}</MessageResponse>
-                            </MessageContent>
-                          );
+                    return (
+                      <ChainOfThought
+                        isStreaming={
+                          (status === "submitted" ||
+                            status === "streaming") &&
+                          messageIndex === messages.length - 1
                         }
-                        return null;
-                      })}
-                    </div>
-                  </Message>
-                </MessageBranchContent>
-              </MessageBranch>
+                        className="!bg-transparent !border-transparent !backdrop-blur-none shadow-none"
+                        style={
+                          {
+                            "--color-muted-foreground": "#9a8cc0",
+                            "--color-background": "#ffffff",
+                          } as React.CSSProperties
+                        }
+                      >
+                        {thoughtParts.map((part, index) => {
+                          if (part.type === "reasoning") {
+                            const preview = part.text
+                              ? part.text
+                                  .trim()
+                                  .slice(0, 120)
+                                  .replace(/\n/g, " ") +
+                                (part.text.length > 120 ? "…" : "")
+                              : "Thinking…";
+                            return (
+                              <ChainOfThoughtStep
+                                key={`reasoning-${index}`}
+                                icon="bulb"
+                                label={preview}
+                                status="complete"
+                              />
+                            );
+                          }
+                          if (isWebSearchToolPart(part)) {
+                            if (part.state !== "output-available") {
+                              return null;
+                            }
+                            const query = part.input.query ?? "Web search";
+                            const results =
+                              part.output.error != null
+                                ? []
+                                : (part.output.results ?? []);
+
+                            return (
+                              <ChainOfThoughtStep
+                                key={`search-${index}`}
+                                icon="globe"
+                                label={query}
+                                status="complete"
+                              >
+                                {results.length > 0 ? (
+                                  <ChainOfThoughtSearchResults>
+                                    {results.slice(0, 6).map((r, ri) => (
+                                      <ChainOfThoughtSearchResult
+                                        key={ri}
+                                        href={r.url}
+                                      />
+                                    ))}
+                                  </ChainOfThoughtSearchResults>
+                                ) : null}
+                              </ChainOfThoughtStep>
+                            );
+                          }
+                          return null;
+                        })}
+                        {/* Done indicator — shown when message is complete (has text) */}
+                        {message.parts.some((p) => p.type === "text") && (
+                          <ChainOfThoughtStep
+                            icon="check"
+                            label={"Done"}
+                            status="complete"
+                            isLast={true}
+                          />
+                        )}
+                      </ChainOfThought>
+                    );
+                  })()}
+
+                  {/* 2. Sources from native source-url parts works only for google gemini (e.g. Google grounding) */}
+                  {(() => {
+                    const sources = message.parts.filter(
+                      (p): p is SourceUrlUIPart => p.type === "source-url",
+                    );
+                    if (sources.length === 0) return null;
+                    return (
+                      <Sources>
+                        <SourcesTrigger count={sources.length} />
+                        <SourcesContent>
+                          {sources.map((src, index) => (
+                            <Source
+                              key={index}
+                              href={src.url}
+                              title={src.title || "Source"}
+                            />
+                          ))}
+                        </SourcesContent>
+                      </Sources>
+                    );
+                  })()}
+
+                  {/* 3. Text parts last */}
+                  {message.parts.map((part, index) => {
+                    if (part.type === "text") {
+                      return (
+                        <MessageContent key={index}>
+                          <MessageResponse>{part.text}</MessageResponse>
+                        </MessageContent>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              </Message>
             ))
           )}
         </ConversationContent>
@@ -450,12 +399,12 @@ const Example = () => {
               globalDrop
               multiple
               onSubmit={handleSubmit}
-              accept="image/*,.pdf,.txt,.md,.json,.ts,.tsx,.js,.jsx"
+              accept={PROMPT_INPUT_ACCEPT}
               maxFiles={5}
               maxFileSize={10 * 1024 * 1024}
             >
               <PromptInputHeader>
-                <PromptInputAttachmentsDisplay />
+                <PromptInputAttachments />
               </PromptInputHeader>
               <PromptInputBody>
                 <PromptInputTextarea
@@ -605,7 +554,7 @@ const Example = () => {
                   )}
                   variant={!isSubmitDisabled ? "default" : "ghost"}
                   disabled={isSubmitDisabled}
-                  onStop={handleStop}
+                  onStop={stop}
                   status={status}
                 />
               </PromptInputFooter>
@@ -616,9 +565,6 @@ const Example = () => {
     </div>
   );
 };
-
-import dynamic from "next/dynamic";
-import ShinyText from "@/components/landing/shiny-text";
 
 const ShaderGradientCanvas = dynamic(
   () =>
@@ -697,7 +643,7 @@ export default function HomePage() {
                 </span>
               </header>
               <PromptInputProvider>
-                <Example />
+                <ChatWorkspace />
               </PromptInputProvider>
             </div>
           </div>

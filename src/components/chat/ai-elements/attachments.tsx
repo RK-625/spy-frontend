@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * Presentational attachment primitives: Attachments, Attachment, AttachmentPreview,
+ * AttachmentInfo, AttachmentRemove, AttachmentHoverCard*, AttachmentEmpty.
+ *
+ * No attachment state here — these are pure UI chips driven by a context that the
+ * shell (PromptInput / PromptInputProvider) provides. They never reach into the
+ * attachments store directly. Bind to live state via prompt-input-attachments.tsx.
+ */
+
 import { Button } from "@/components/ui/button";
 import {
   HoverCard,

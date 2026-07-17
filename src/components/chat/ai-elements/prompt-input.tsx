@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * PromptInput shell: owns attachment + text state, form, submit, and provider.
+ * Pure UI wrappers (Select / HoverCard / Tabs primitives) live in
+ * ./prompt-input-controls and are re-exported below so existing imports work.
+ * Pure attachment helpers (filterIncomingFiles, PROMPT_INPUT_ACCEPT, …) live in
+ * ./prompt-input-files. Presentational chips live in ./attachments. The bridge
+ * strip that wires this state into those chips lives in ./prompt-input-attachments.
+ */
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,23 +16,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -39,6 +36,7 @@ import {
   convertBlobUrlToDataUrl,
   filesToFileUIParts,
   filterIncomingFiles,
+  PROMPT_INPUT_ACCEPT,
   revokeFileUrls,
   type AttachmentError,
 } from "@/components/chat/ai-elements/prompt-input-files";
@@ -66,6 +64,10 @@ import {
   useRef,
   useState,
 } from "react";
+
+// Re-export product allowlist so call sites can import from the shell:
+// `import { PROMPT_INPUT_ACCEPT } from "@/components/chat/ai-elements/prompt-input"`.
+export { PROMPT_INPUT_ACCEPT };
 
 // ============================================================================
 // Helpers
@@ -148,19 +150,20 @@ const ProviderAttachmentsContext = createContext<AttachmentsValue | null>(
 );
 
 /** Optional: returns null when outside PromptInputProvider. */
-export const useOptionalPromptInputController = () =>
+export const useOptionalPromptInputControllerContext = () =>
   useContext(PromptInputControllerContext);
 
 /** Required: throws when outside PromptInputProvider. */
-export const usePromptInputController = (): PromptInputControllerValue => {
-  const controller = useContext(PromptInputControllerContext);
-  if (!controller) {
-    throw new Error(
-      "usePromptInputController must be used within a PromptInputProvider"
-    );
-  }
-  return controller;
-};
+export const usePromptInputControllerContext =
+  (): PromptInputControllerValue => {
+    const controller = useContext(PromptInputControllerContext);
+    if (!controller) {
+      throw new Error(
+        "usePromptInputControllerContext must be used within a PromptInputProvider"
+      );
+    }
+    return controller;
+  };
 
 export const useOptionalProviderAttachments = () =>
   useContext(ProviderAttachmentsContext);
@@ -405,7 +408,7 @@ export const PromptInput = ({
   ...props
 }: PromptInputProps) => {
   // Try to use a provider controller if present
-  const controller = useOptionalPromptInputController();
+  const controller = useOptionalPromptInputControllerContext();
   const usingProvider = !!controller;
 
   // Refs
@@ -710,7 +713,7 @@ export const PromptInputTextarea = ({
   placeholder = "What would you like to know?",
   ...props
 }: PromptInputTextareaProps) => {
-  const controller = useOptionalPromptInputController();
+  const controller = useOptionalPromptInputControllerContext();
   const attachments = usePromptInputAttachments();
   const [isComposing, setIsComposing] = useState(false);
 
@@ -1082,98 +1085,29 @@ export const PromptInputSubmit = ({
   );
 };
 
-export type PromptInputSelectProps = ComponentProps<typeof Select>;
-
-export const PromptInputSelect = (props: PromptInputSelectProps) => (
-  <Select {...props} />
-);
-
-export type PromptInputSelectTriggerProps = ComponentProps<
-  typeof SelectTrigger
->;
-
-export const PromptInputSelectTrigger = ({
-  className,
-  ...props
-}: PromptInputSelectTriggerProps) => (
-  <SelectTrigger
-    className={cn(
-      "border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors",
-      "hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground",
-      className
-    )}
-    {...props}
-  />
-);
-
-export type PromptInputSelectContentProps = ComponentProps<
-  typeof SelectContent
->;
-
-export const PromptInputSelectContent = ({
-  className,
-  ...props
-}: PromptInputSelectContentProps) => (
-  <SelectContent className={cn(className)} {...props} />
-);
-
-export type PromptInputSelectItemProps = ComponentProps<typeof SelectItem>;
-
-export const PromptInputSelectItem = ({
-  className,
-  ...props
-}: PromptInputSelectItemProps) => (
-  <SelectItem className={cn(className)} {...props} />
-);
-
-export type PromptInputSelectValueProps = ComponentProps<typeof SelectValue>;
-
-export const PromptInputSelectValue = ({
-  className,
-  ...props
-}: PromptInputSelectValueProps) => (
-  <SelectValue className={cn(className)} {...props} />
-);
-
-export type PromptInputHoverCardProps = ComponentProps<typeof HoverCard>;
-
-export const PromptInputHoverCard = ({
-  openDelay = 0,
-  closeDelay = 0,
-  ...props
-}: PromptInputHoverCardProps) => (
-  <HoverCard closeDelay={closeDelay} openDelay={openDelay} {...props} />
-);
-
-export type PromptInputHoverCardTriggerProps = ComponentProps<
-  typeof HoverCardTrigger
->;
-
-export const PromptInputHoverCardTrigger = (
-  props: PromptInputHoverCardTriggerProps
-) => <HoverCardTrigger {...props} />;
-
-export type PromptInputHoverCardContentProps = ComponentProps<
-  typeof HoverCardContent
->;
-
-export const PromptInputHoverCardContent = ({
-  align = "start",
-  ...props
-}: PromptInputHoverCardContentProps) => (
-  <HoverCardContent align={align} {...props} />
-);
-
-export type PromptInputTabsListProps = HTMLAttributes<HTMLDivElement>;
-
-export const PromptInputTabsList = ({
-  className,
-  ...props
-}: PromptInputTabsListProps) => <div className={cn(className)} {...props} />;
-
-export type PromptInputTabProps = HTMLAttributes<HTMLDivElement>;
-
-export const PromptInputTab = ({
-  className,
-  ...props
-}: PromptInputTabProps) => <div className={cn(className)} {...props} />;
+// Re-export pure UI wrappers (Select / HoverCard / Tabs primitives) from
+// ./prompt-input-controls so existing imports keep working.
+export {
+  PromptInputHoverCard,
+  PromptInputHoverCardContent,
+  PromptInputHoverCardTrigger,
+  PromptInputSelect,
+  PromptInputSelectContent,
+  PromptInputSelectItem,
+  PromptInputSelectTrigger,
+  PromptInputSelectValue,
+  PromptInputTab,
+  PromptInputTabsList,
+} from "./prompt-input-controls";
+export type {
+  PromptInputHoverCardContentProps,
+  PromptInputHoverCardProps,
+  PromptInputHoverCardTriggerProps,
+  PromptInputSelectContentProps,
+  PromptInputSelectItemProps,
+  PromptInputSelectProps,
+  PromptInputSelectTriggerProps,
+  PromptInputSelectValueProps,
+  PromptInputTabProps,
+  PromptInputTabsListProps,
+} from "./prompt-input-controls";
