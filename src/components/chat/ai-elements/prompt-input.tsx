@@ -112,7 +112,8 @@ const MOTION_DOM_PROP_KEYS = [
 // Provider Context & Types
 // ============================================================================
 
-export interface AttachmentsContext {
+/** Attachment store API (context value shape, not a React context). */
+export interface AttachmentsValue {
   files: (FileUIPart & { id: string })[];
   add: (files: File[] | FileList) => void;
   remove: (id: string) => void;
@@ -121,34 +122,45 @@ export interface AttachmentsContext {
   fileInputRef: RefObject<HTMLInputElement | null>;
 }
 
-export interface TextInputContext {
+/** Text field store API (context value shape, not a React context). */
+export interface TextInputValue {
   value: string;
-  setInput: (v: string) => void;
+  setValue: (v: string) => void;
   clear: () => void;
 }
 
-export interface PromptInputControllerProps {
-  textInput: TextInputContext;
-  attachments: AttachmentsContext;
-  /** INTERNAL: Allows PromptInput to register its file textInput + "open" callback */
+/** Lifted controller state exposed by PromptInputProvider. */
+export interface PromptInputControllerValue {
+  textInput: TextInputValue;
+  attachments: AttachmentsValue;
+  /** INTERNAL: Allows PromptInput to register its file input + "open" callback */
   __registerFileInput: (
     ref: RefObject<HTMLInputElement | null>,
     open: () => void
   ) => void;
 }
 
-const PromptInputController = createContext<PromptInputControllerProps | null>(
-  null
-);
-const ProviderAttachmentsContext = createContext<AttachmentsContext | null>(
+const PromptInputControllerContext =
+  createContext<PromptInputControllerValue | null>(null);
+
+const ProviderAttachmentsContext = createContext<AttachmentsValue | null>(
   null
 );
 
-
-// Optional variants (do NOT throw). Useful for dual-mode components.
+/** Optional: returns null when outside PromptInputProvider. */
 export const useOptionalPromptInputController = () =>
-  useContext(PromptInputController);
+  useContext(PromptInputControllerContext);
 
+/** Required: throws when outside PromptInputProvider. */
+export const usePromptInputController = (): PromptInputControllerValue => {
+  const controller = useContext(PromptInputControllerContext);
+  if (!controller) {
+    throw new Error(
+      "usePromptInputController must be used within a PromptInputProvider"
+    );
+  }
+  return controller;
+};
 
 export const useOptionalProviderAttachments = () =>
   useContext(ProviderAttachmentsContext);
@@ -238,7 +250,7 @@ export const PromptInputProvider = ({
     openRef.current?.();
   }, []);
 
-  const attachments = useMemo<AttachmentsContext>(
+  const attachments = useMemo<AttachmentsValue>(
     () => ({
       add,
       clear,
@@ -258,13 +270,13 @@ export const PromptInputProvider = ({
     []
   );
 
-  const controller = useMemo<PromptInputControllerProps>(
+  const controller = useMemo<PromptInputControllerValue>(
     () => ({
       __registerFileInput,
       attachments,
       textInput: {
         clear: clearInput,
-        setInput: setTextInput,
+        setValue: setTextInput,
         value: textInput,
       },
     }),
@@ -272,11 +284,11 @@ export const PromptInputProvider = ({
   );
 
   return (
-    <PromptInputController.Provider value={controller}>
+    <PromptInputControllerContext.Provider value={controller}>
       <ProviderAttachmentsContext.Provider value={attachments}>
         {children}
       </ProviderAttachmentsContext.Provider>
-    </PromptInputController.Provider>
+    </PromptInputControllerContext.Provider>
   );
 };
 
@@ -284,33 +296,48 @@ export const PromptInputProvider = ({
 // Component Context & Hooks
 // ============================================================================
 
-const LocalAttachmentsContext = createContext<AttachmentsContext | null>(null);
+const LocalAttachmentsContext = createContext<AttachmentsValue | null>(null);
 
-export const usePromptInputAttachments = () => {
+export const usePromptInputAttachments = (): AttachmentsValue => {
   // Prefer local context (inside PromptInput) as it has validation, fall back to provider
   const provider = useOptionalProviderAttachments();
   const local = useContext(LocalAttachmentsContext);
-  const context = local ?? provider;
-  if (!context) {
+  const value = local ?? provider;
+  if (!value) {
     throw new Error(
       "usePromptInputAttachments must be used within a PromptInput or PromptInputProvider"
     );
   }
-  return context;
+  return value;
 };
 
 // ============================================================================
 // Referenced Sources (Local to PromptInput)
 // ============================================================================
 
-export interface ReferencedSourcesContext {
+/** Referenced-sources store API (context value shape, not a React context). */
+export interface ReferencedSourcesValue {
   sources: (SourceDocumentUIPart & { id: string })[];
   add: (incoming: SourceDocumentUIPart[] | SourceDocumentUIPart) => void;
   remove: (id: string) => void;
   clear: () => void;
 }
 
-export const LocalReferencedSourcesContext = createContext<ReferencedSourcesContext | null>(null);
+const LocalReferencedSourcesContext =
+  createContext<ReferencedSourcesValue | null>(null);
+
+export const useOptionalPromptInputReferencedSources = () =>
+  useContext(LocalReferencedSourcesContext);
+
+export const usePromptInputReferencedSources = (): ReferencedSourcesValue => {
+  const value = useContext(LocalReferencedSourcesContext);
+  if (!value) {
+    throw new Error(
+      "usePromptInputReferencedSources must be used within a PromptInput"
+    );
+  }
+  return value;
+};
 
 
 export type PromptInputActionAddAttachmentsProps = ComponentProps<
@@ -386,8 +413,10 @@ export const PromptInput = ({
   const formRef = useRef<HTMLFormElement | null>(null);
 
   // ----- Local attachments (only used when no provider)
-  const [items, setItems] = useState<(FileUIPart & { id: string })[]>([]);
-  const files = usingProvider ? controller.attachments.files : items;
+  const [localFiles, setLocalFiles] = useState<(FileUIPart & { id: string })[]>(
+    []
+  );
+  const files = usingProvider ? controller.attachments.files : localFiles;
 
   // ----- Local referenced sources (always local to PromptInput)
   const [referencedSources, setReferencedSources] = useState<
@@ -407,7 +436,7 @@ export const PromptInput = ({
 
   const addLocal = useCallback(
     (fileList: File[] | FileList) => {
-      setItems((prev) => {
+      setLocalFiles((prev) => {
         const capped = filterIncomingFiles(fileList, {
           accept,
           maxFileSize,
@@ -426,7 +455,7 @@ export const PromptInput = ({
 
   const removeLocal = useCallback(
     (id: string) =>
-      setItems((prev) => {
+      setLocalFiles((prev) => {
         const found = prev.find((file) => file.id === id);
         if (found) {
           revokeFileUrls([found]);
@@ -457,7 +486,7 @@ export const PromptInput = ({
     () =>
       usingProvider
         ? controller?.attachments.clear()
-        : setItems((prev) => {
+        : setLocalFiles((prev) => {
             revokeFileUrls(prev);
             return [];
           }),
@@ -520,7 +549,7 @@ export const PromptInput = ({
     [add]
   );
 
-  const attachmentsCtx = useMemo<AttachmentsContext>(
+  const attachmentsValue = useMemo<AttachmentsValue>(
     () => ({
       add,
       clear: clearAttachments,
@@ -532,7 +561,7 @@ export const PromptInput = ({
     [files, add, remove, clearAttachments, openFileDialog]
   );
 
-  const refsCtx = useMemo<ReferencedSourcesContext>(
+  const referencedSourcesValue = useMemo<ReferencedSourcesValue>(
     () => ({
       add: (incoming: SourceDocumentUIPart[] | SourceDocumentUIPart) => {
         const array = Array.isArray(incoming) ? incoming : [incoming];
@@ -643,14 +672,14 @@ export const PromptInput = ({
   );
 
   const withReferencedSources = (
-    <LocalReferencedSourcesContext.Provider value={refsCtx}>
+    <LocalReferencedSourcesContext.Provider value={referencedSourcesValue}>
       {inner}
     </LocalReferencedSourcesContext.Provider>
   );
 
   // Always provide LocalAttachmentsContext so children get validated add function
   return (
-    <LocalAttachmentsContext.Provider value={attachmentsCtx}>
+    <LocalAttachmentsContext.Provider value={attachmentsValue}>
       {withReferencedSources}
     </LocalAttachmentsContext.Provider>
   );
@@ -770,7 +799,7 @@ export const PromptInputTextarea = ({
     (e: ChangeEvent<HTMLTextAreaElement>) => {
       const next = e.currentTarget.value;
       if (controller) {
-        controller.textInput.setInput(next);
+        controller.textInput.setValue(next);
       } else if (props.value === undefined) {
         setUncontrolledVal(next);
       }

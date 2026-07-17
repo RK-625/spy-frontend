@@ -243,7 +243,7 @@ const Example = () => {
   const handleTranscriptionChange = useCallback(
     (transcript: string) => {
       if (controller) {
-        controller.textInput.setInput(
+        controller.textInput.setValue(
           controller.textInput.value
             ? `${controller.textInput.value} ${transcript}`
             : transcript,
@@ -256,7 +256,7 @@ const Example = () => {
   const handleTextChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       if (controller) {
-        controller.textInput.setInput(event.target.value);
+        controller.textInput.setValue(event.target.value);
       }
     },
     [controller],

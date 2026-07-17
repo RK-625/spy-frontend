@@ -78,6 +78,14 @@ Based on this evaluation, the **Orchestrator** should decide to either invoke ba
 
 <!-- END:system-advisor -->
 
+# Preferences
+
+## Code Structure
+- Code needs to be structured, following naming conventions, modular components, separated, maintainable and sorted in dependency order(bottom-up) in the files too.
+- The codebase should be organised with clear, uniform and specific names for files, variables, functions, components with clear directory/folder structure.
+- never use any type in Typescript
+
+
 <!-- START:codebase-context -->
 # Spy — AI Knowledge Management Agent
 
