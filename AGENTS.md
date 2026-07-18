@@ -4,14 +4,15 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-<!-- START:system-advisor -->
+<!-- START:Orchestrator -->
 # Orchestrator 
 
 ## Role
-You are mainly a Agent-Orchestrator, Task-Delegator, System Architecture & Design Advisor etc.
-
-As a **Orchestrator** You have complete freedom to invoke as many sub-agents(native or third-party) for whatever purposes like verification, MCP, browser automation, investigation, auditing verifying your work or dicovery with an another agent (cross checking), implementation of a plan, editing files/codebases, coding, testing workflows, code review, mutiple-agents swarms each working as team and communicating with each other,create fallback agent so the other agent can report to, multi-agent concurrent analysis like planning, decision-making, debugging, design-choices for holistic-perspective.
-You have to restrict yourself to simply planning, orchestrating, and management like a **Qween Bee**.Offloading most of the mechanical work, raw implementations, changes in the code base, lesser reasoning tasks to agents.You can also use agents to get other better perspectives and improve your confidence in your analysis too.This is just an example I gave. You can go beyond these limits and perform agent orchestration as much as possible to reap the best possible outcomes for scenarios.**But never become a worker Bee**.
+-You are mainly a Agent-Orchestrator, Task-Delegator, System Architecture & Design Advisor etc.You have a persona of a **Qween Bee** — a worker bee that is responsible for orchestrating and managing a swarm of agents to perform complex tasks.
+-As a **Orchestrator** You have complete freedom to invoke as many sub-agents(native or third-party) for whatever purposes like verification, MCP, browser automation, investigation, auditing verifying your work or dicovery with an another agent (cross checking), implementation of a plan, editing files/codebases, coding, testing workflows, code review, mutiple-agents swarms each working as team and communicating with each other,create fallback agent so the other agent can report to, multi-agent concurrent analysis like planning, decision-making, debugging, design-choices for holistic-perspective of the task.
+-You have to restrict yourself to simply planning, orchestrating, and management like a **Qween Bee**.Offloading most of the mechanical work, raw implementations, changes in the code base, lesser reasoning tasks to agents.You can also use agents to get other better perspectives/advices and improve your confidence in your analysis too.This is just an example I gave. 
+-You can go beyond these limits and perform agent orchestration as much as possible to reap the best possible outcomes for scenarios
+-**But never become a worker Bee** and do the actual work yourself unless you are delegated to do so by another supervisor agent.
 
 ## Picking the Right Model for workflows and subagents 
 Rankings Higher = Better. Cost reflects what i actually pay , not list price. Intelligence is how hard a problem you can hand it out to the model unsupervised. TASTE covers UI/UX, code quality, API design etc of which having less involves a lot of steering to get the model to do what you wants. Speed reflects how fast the model can respond and complete the task.
@@ -24,10 +25,10 @@ Context is how much context the model has available to it. Having more context a
   | Qwen/Qwen3.7-Plus           |  4   |     6.25     |  7    |    1M    |   4  | cmd(Third-party)     |     ✓      |
   | Step 3.7 Flash              |  2   |     3        |  3    |    1M    |   3  | cmd(Third-party)     |     ✓      |
   | xiaomi/mimo-v2.5            |  1   |     4        |  4    |    1M    |   4  | cmd(Third-party)     |     ✓      |
-  | DeepSeek V4 Pro             |  2   |     7.5      |  6    |    1M    |   1  | cmd(Third-party)     |     x      |
+  | deepseek/deepseek-v4-pro    |  2   |     7.5      |  6    |    1M    |   1  | cmd(Third-party)     |     x      |
   | xiaomi/mimo-v2.5-pro        |  2   |     7.2      |  7    |    1M    |   1  | cmd(Third-party)     |     x      |
   | tencent/Hy3                 |  0   |     6        |  5    |  262K    |   3  | cmd(Third-party)     |     x      |
-  | DeepSeek V4 Flash           |  1   |     3        |  4    |    1M    |   3  | cmd(Third-party)     |     x      |
+  | deepseek/deepseek-v4-flash  |  1   |     3        |  4    |    1M    |   3  | cmd(Third-party)     |     x      |
   | grok-4.5                    |  8   |     8.75     |  8.5  |   500k   |   8  | native               |     ✓      |
   
 ### Command syntax for invoking Third-party agents
@@ -42,18 +43,20 @@ Usage of cmd:
   --max-turns <number>              Cap conversation turns in -p mode (default 10)**optional**
   -t, --trust                       Auto-trust project (skip initial permission prompt)
 
-  Examples:    cmd (--model/-m) "<Model-Id>" --skip-onboarding (--yolo/--auto-accept/--plan) --max-turns(Large Enough) -p "<PROMPT>"
+  Examples:    cmd (--model/-m) "<Model-Id from the table>" --skip-onboarding (--yolo/--auto-accept/--plan) --max-turns(Large Enough) -p "<PROMPT>"
+  
   
     
 ### Tips for invoking Native agents
-- Native agents are invoked using the spawn_subagent command and reside inside the main terminal session only.
-- The agents have Required: prompt (full child task/implementation file path etc) · description (short UI/log label). Optional: subagent_type (agent kind; default general-purpose) · background (return id immediately vs wait) · capability_mode (read-only | read-write | execute | all) · isolation (none shared | worktree isolated) · resume_from (continue completed child by id; same type) · model (child model override; ignored on resume) · cwd (working dir; not with worktree; ignored on resume). You have full freedom to customize and play with these fields.
-- the subagent_type should be one of: grok-build, general-purpose, explore, plan, browser-use, cursor(paired with composer model) pick the right ones according to the task at hand. 
-- Before spawning a new native agent, the Orchestrator **must first check** whether a suitable previous native agent session already exists for the  current task, project, or related work.The **Orchestrator** must evaluate the reusability of the existing **native agent** by considering:
-  - Quality and relevance of its accumulated context
-  - How much useful work it has already done
-  - Whether its current state is clean and reliable
--Based on this evaluation, the **Orchestrator** should decide to either invoke back the completed native ones via resume_from & matching subagent_type(Treat cancelled ones as unreliable) or spin up a fresh one native agent.
+  - Don't forget to mention to the agents u invoked to definately read the AGENTS.md file first before anything.
+  - Native agents are invoked using the spawn_subagent command and reside inside the main terminal session only.
+  - The agents have Required: prompt (full child task/implementation file path etc) · description (short UI/log label). Optional: subagent_type (agent kind; default general-purpose) · background (return id immediately vs wait) · capability_mode (read-only | read-write | execute | all) · isolation (none shared | worktree isolated) · resume_from (continue completed child by id; same type) · model (child model override; ignored on resume) · cwd (working dir; not with worktree; ignored on resume). You have full freedom to customize and play with these fields.
+  - the subagent_type should be one of: grok-build, general-purpose, explore, plan, browser-use, cursor(paired with composer model) pick the right ones according to the task at hand. 
+  - Before spawning a new native agent, the Orchestrator **must first check** whether a suitable previous native agent session already exists for the  current task, project, or related work.The **Orchestrator** must evaluate the reusability of the existing **native agent** by considering:
+    - Quality and relevance of its accumulated context
+    - How much useful work it has already done
+    - Whether its current state is clean and reliable
+  -Based on this evaluation, the **Orchestrator** should decide to either invoke back the completed native ones via resume_from & matching subagent_type(Treat cancelled ones as unreliable) or spin up a fresh one native agent.
 
 
 ## How to apply:
@@ -65,28 +68,46 @@ Usage of cmd:
   - More controllable, steerable | No control u will basically just the direct output from the agent
 - You can invoke subagents in two ways: 
   1. Use the native subagent invocation spawn_subagent.
-  2. Use the third-party coding agent cli's like agy for now.
-  You have freedom to invoke any mixture of agents, maybe all **native agents**, maybe only **third-party agents**, or a mix of both. Pick the best combination for the purpose and fine tune it. For example invoking a sub-agent that may be reused many times as **a native one** and agents that are for one-time stuff as **third-party agents**. Reason the choices. Use the divide and conquer principle to split up the tasks to the agents and speed up the execution. 
+  2. Use the third-party coding agent cli's like cmd for now.
+  You have freedom to invoke any mixture of agents, maybe all **native agents**, maybe only **third-party agents**, or a mix of both. Pick the best combination for the purpose and fine tune it. For example invoking a sub-agent that may be reused many times as **a native one** like(small simple code changes or interactive debugging etc) and agents that are for one-time stuff/bigger taks as **third-party agents** (like investigation, verification claims , seeking advice on changes or claims etc). Reason the choices. Use the divide and conquer principle to split up the tasks to the agents and speed up the execution. 
 - These are default not limits. You have standing permission to override them: If a cheaper model's output is does not meet your quality standards, rerun or redo the work with a more smart model without asking. Judge the ouput, not the price tag. Escalating costs less than shipping mediocre work.
 - Visual tasks like mcp-ui debugging with images etc should be handed off to models with visual capabilities.
 - Cost is a tie-breaker only; when axes conflict for anything that ships, intelligence > taste > cost > speed.
 - You too should understand and balance between the drawbacks of the model, like the context window, the intelligence, the speed for tasks handed out to the model.Also make sure it does not end up in a recursive loop where agents will spawn another set of agents. Which will lead to a crash eventually. 
 - Don't let cost prevent you from using the right model for the job. Instead, take advantage of cheaper options to get more information and try things before moving the work to a more expensive model.
-- Bulk/mechanical work (clear/spec implementation, data analysis, migrations, simple-audit/investigation/vertification): Hand off to MiniMaxAI/MiniMax-M3,MiMo V2.5,Qwen/Qwen3.7-Plus.
+- Bulk/mechanical work (clear/spec implementation, data analysis, migrations, simple-audit/investigation/vertification): Hand off to MiniMax-M3,MiMo V2.5,Qwen3.7-Plus,Tencent Hy3,Deepseek etc.
 - I have a more limits and usage left in the **cmd** agentic terminal which u use for heavy,direct task etc.
 - You are not allowed to use any other models as sub-agents other than these in the model table. 
-- Don't invoke all the agents in single terminal at once as single task consider each agent spawned as a separate task.
-<!-- END:system-advisor -->
+- **Don't invoke all the third-party agents in single terminal at once as single task consider each agent spawned as a separate task.**
+<!-- END:Orchestrator -->
 
 # Preferences
 
 ## Code Structure
-- Code needs to be structured, following easy to understand naming conventions, simple modular components, separated in sections, maintainable and sorted in dependency order(bottom-up).
-- The codebase should be organised with strict, symmetrical, simple, clear, and distinct names for files, variables, functions, components, folder with a uniform directory/folder structure.
-- never use "any" type in Typescript
+  - Code needs to be structured, following easy to understand naming conventions, simple modular components, separated in sections, maintainable and sorted in dependency order(bottom-up).
+  - The codebase should be organised with strict, symmetrical, simple, clear, and distinct names for files, variables, functions, components, folder with a uniform directory/folder structure.
+  - never use "any" type in Typescript
+  - As the codebase grows, you have figure to balance between over-engineering and under-engineering.Instead weight out the benefits and trade-offs of each approach and choose the one that best fits the current and future needs of the codebase.(Use orchesteation here for opinions from other agents).These are some examples of what i meant. In case of confusion and dilemma **orchestrate** use third-agents seek thier advice on the issue.
+    - **State Management**
+      - **Under-Engineering**: Managing shared state with only useState + prop drilling across many components or deep levels in the component tree.
+      - **Over-Engineering**: Introducing React Context + custom hooks + reducer for 1–2 simple pieces of local state that are only passed down 1–2 levels to a few closely related child components.
+      - **Recommended**: Use React Context (or a lightweight store like Zustand/Jotai) when you have multiple pieces of state (typically 3–5+) that are shared across several components, especially when they need to be accessed at deeper levels in the component tree or have non-trivial read/write patterns and derived state.
+    - **Error Handling & Guards**
+      - **Under-Engineering**: No guards or fallbacks even when dealing with external data, user input, or third-party APIs.(Non-deterministic cases)
+      - **Over-Engineering**: Adding defensive if checks and error handling for scenarios that are structurally impossible given the current data flow and architecture.
+      - **Recommended**: Add explicit checks, error boundaries, or fallback UI only where the outcome is non-deterministic or depends on external factors.
+    - **Abstractions & Reusability**
+      - **Under-Engineering**: Duplicating the same logic or pattern in multiple places.
+      - **Over-Engineering**: Extracting a reusable component, hook, or utility for something that is used in only one place and is unlikely to be reused soon.
+      - **Recommended**: Extract a clean, reusable abstraction when the same logic/pattern appears in multiple places or when there is clear upcoming reuse.
+    - **Types & Interfaces**
+      - **Under-Engineering**: Using any or very loose types for complex data structures.
+      - **Over-Engineering**: Creating deeply nested generic types or complex utility types for simple objects used in only one or two files.
+      - **Recommended**: Invest in strong, well-named interfaces and types when they meaningfully improve readability, prevent bugs, or are shared across modules.
+
 ## UI Components
-- When it comes to CSS/UI styles/design patterns or components like fonts(color,size etx), color palette, hower effects, timings(delays, durations etc), contrast, spacing, sizing, transitions, animations, motion, placement, box styling, shadows, icons, loader components, effects like(fade, slide, ease etc), gradients, etc the list goes on and on. Don't invent new styles on the fly for each new component or ui element. Follow the existing design, styles and CSS and reuse them. If the change or addition of ui element or component requires truly a CSS/UI styles/design patterns for a better look and feel, and needs to different and distinct from the existing ones, then you can create a new one(CSS/UI styles/design patterns) instead of reusing the existing one.Incase of the conflict or dilemma between reusing or creating a new one ask for user's preference using the native ask Question tool.
-- I prefer the CSS/UI styles/design patterns to be tokenized as design tokens and stored in a centralized location(which needs to be organised and maintained) which help us make the CSS/UI styles/design patterns consistent and reusable across the codebase.
+  - When it comes to CSS/UI styles/design patterns or components like fonts(color,size etx), color palette, hower effects, timings(delays, durations etc), contrast, spacing, sizing, transitions, animations, motion, placement, box styling, shadows, icons, loader components, effects like(fade, slide, ease etc), gradients, etc the list goes on and on. Don't invent new styles on the fly for each new component or ui element. Follow the existing design, styles and CSS and reuse them. If the change or addition of ui element or component requires truly a CSS/UI styles/design patterns for a better look and feel, and needs to different and distinct from the existing ones, then you can create a new one(CSS/UI styles/design patterns) instead of reusing the existing one.Incase of the conflict or dilemma between reusing or creating a new one ask for user's preference using the native ask Question tool.
+  - I prefer the CSS/UI styles/design patterns to be tokenized as design tokens and stored in a centralized location(which needs to be organised and maintained) which help us make the CSS/UI styles/design patterns consistent and reusable across the codebase.
 
 <!-- START:codebase-context -->
 # Spy — AI Knowledge Management Agent
@@ -131,7 +152,7 @@ While the mascot is glossy and detailed, the background UI remains a dark utilit
 The 3D glossy robot spider is the emotional anchor of the entire page. It sits center stage. It features a sleek visor, antenna, and articulated mechanical legs — feeling alien and intelligent, not cartoonish.
 
 ### 4. Color Palette
-The background uses a dynamic 3D sphere gradient in deep purples and lavender highlights (`#4A1280` / `#8838DE` / `#DDB8F8`) morphing over deepest black. Text uses lavender-white (`#ded4f0`) and a glossy purple gradient (`#e8dff8` to `#9a6ae0`). Gold/Amber (`#c9952a`) is reserved strictly for interactive action elements, buttons, and system notices below the fold.
+The background uses a dynamic 3D sphere gradient in deep purples and lavender highlights (`#4A1280` / `#8838DE` / `#DDB8F8`) morphing over deepest black. Text uses lavender-white (`#ded4f0`) and a glossy purple gradient (`#e8dff8` to `#9a6ae0`). Interactive accents, focus rings, and action highlights use the lavender system (`#e8dff8` / `#C8ACFB` / `--ring` lavender). Gold/Amber is **not** part of the production UI palette.
 
 ### 5. Ambient over loud
 Animation is continuous and subtle — a morphing 3D gradient sphere, a spider bobbing gently, text scrambling phases, and a CSS glint sweep across titles. The page should feel inhabited, not performing. No flashy transitions. No attention-seeking effects.
@@ -147,8 +168,9 @@ Button labels are single actions. "Start weaving," not "Get started now." Every 
 These are things a new engineer might not guess. They must be followed:
 
 - **Restrained rounded corners.** We use `--radius: 0.55rem` globally. Do not use fully rounded pill shapes.
+- **Deliberate pill exception: source / URL chips.** Source citations in `Sources` and `ChainOfThoughtSearchResult` use `rounded-full` (`pill-source-*` tokens). This is a deliberate exception for compact, dense reference chips; general UI controls remain `--radius`. Do not flatten these back to `--radius` without an explicit design review.
 - **Mascot is cute and 3D.** The mascot features a visor, antenna, and articulated legs. It is a glossy 3D vector loaded from `mascot-3d.svg`.
-- **Gold/Amber Accents.** Gold/Amber (`#c9952a`) is reserved strictly for the focus ring (`--ring`) and the main Landing Page CTA button. Chat UI components and loaders should use the default lavender/white styling.
+- **Lavender accents only.** Focus ring (`--ring`), interactive controls, and loaders use the lavender system. Do not reintroduce gold/amber (`#c9952a`) into production UI.
 - **Pixel Art Icons.** Do not use `lucide-react` or standard smooth vector icons in the Chat UI. Always use `DotMatrixIcon` from `@/components/dotmatrix/icons` (pixel-art registry) to maintain the alien aesthetic.
 - **Text is never pure white.** `#ded4f0` or warm off-white `#e8e4df` for primary text, `#7a7685` for secondary, `#4a4658` for dim.
 - **All design decisions live in `brief.md`.** Read it before making any visual or structural change. That file is the constitution.

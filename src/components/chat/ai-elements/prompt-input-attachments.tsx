@@ -1,37 +1,17 @@
 "use client";
 
-/**
- * Prompt-shell attachment strip: binds usePromptInputAttachments() to the
- * presentational Attachment primitive. Each item is rendered with the smart
- * default chip (preview + info + overlay-remove). Compound escapes are
- * available by importing Attachments/Attachment directly from attachments.tsx.
- *
- * Lives next to the compound prompt API (not route pages). Presentational chips
- * remain in attachments.tsx.
- */
-
-import {
-  Attachment,
-  Attachments,
-  type AttachmentsProps,
-} from "@/components/chat/ai-elements/attachments";
+import { AttachmentChip } from "@/components/chat/ai-elements/attachments";
 import { usePromptInputAttachments } from "@/components/chat/ai-elements/prompt-input";
-import type { ComponentProps } from "react";
+import { cn } from "@/lib/utils";
+import type { HTMLAttributes } from "react";
 
-export type PromptInputAttachmentsProps = Omit<
-  ComponentProps<typeof Attachments>,
-  "children" | "variant"
-> & {
-  /** Layout variant for the chip strip. Default: inline (header strip). */
-  variant?: AttachmentsProps["variant"];
-};
+export type PromptInputAttachmentsProps = HTMLAttributes<HTMLDivElement>;
 
 /**
- * Renders current prompt draft attachments inside PromptInput / Provider.
- * Returns null when empty so PromptInputHeader can collapse.
+ * Renders current prompt draft attachments as an inline horizontal chip strip.
+ * Returns null when empty so the prompt header can collapse cleanly.
  */
 export const PromptInputAttachments = ({
-  variant = "inline",
   className,
   ...props
 }: PromptInputAttachmentsProps) => {
@@ -42,14 +22,14 @@ export const PromptInputAttachments = ({
   }
 
   return (
-    <Attachments variant={variant} className={className} {...props}>
+    <div className={cn("flex items-start flex-wrap gap-2", className)} {...props}>
       {attachments.files.map((attachment) => (
-        <Attachment
+        <AttachmentChip
           data={attachment}
           key={attachment.id}
           onRemove={() => attachments.remove(attachment.id)}
         />
       ))}
-    </Attachments>
+    </div>
   );
 };

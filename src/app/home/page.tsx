@@ -113,11 +113,11 @@ const SuggestionItem = ({
   return (
     <Suggestion
       className="rounded-[var(--radius)] font-[family-name:var(--font-body)] text-[0.75rem] font-medium tracking-wide
-                 text-[#9a8cc0] border-[rgba(200,172,251,0.1)] bg-[rgba(14,7,32,0.5)]
-                 hover:border-[rgba(232,223,248,0.2)] hover:bg-[rgba(232,223,248,0.06)]
+                 text-[#9a8cc0] border-[var(--border-default)] bg-[var(--surface-elevated)]/50
+                 hover:border-[var(--accent-border)] hover:bg-[var(--accent-decoration)]/20
                  hover:text-[#f0eaff]
-                 data-[state=selected]:border-[rgba(232,223,248,0.2)]
-                 data-[state=selected]:bg-[rgba(232,223,248,0.06)]
+                 data-[state=selected]:border-[var(--accent-border)]
+                 data-[state=selected]:bg-[var(--accent-decoration)]/20
                  transition-all duration-200"
       onClick={handleClick}
       suggestion={suggestion}
@@ -423,12 +423,12 @@ const ChatWorkspace = () => {
                       content: "Add photos or files",
                       side: "top",
                     }}
-                    className="text-text-primary hover:bg-[rgba(200,172,251,0.08)]"
+                    className="text-text-primary hover:bg-[var(--surface-hover)]"
                   >
                     <DotMatrixIcon name="plus" size={16} />
                   </PromptInputButton>
                   <SpeechInput
-                    className="shrink-0 text-text-primary hover:bg-[rgba(200,172,251,0.08)]"
+                    className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)]"
                     onTranscriptionChange={handleTranscriptionChange}
                     size="icon-sm"
                     variant="ghost"
@@ -449,8 +449,8 @@ const ChatWorkspace = () => {
                     className={cn(
                       "transition-colors",
                       useWebSearch
-                        ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-white"
-                        : "text-text-primary hover:bg-[rgba(200,172,251,0.08)]",
+                        ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-[var(--accent-hover)]"
+                        : "text-text-primary hover:bg-[var(--surface-hover)]",
                     )}
                   >
                     <DotMatrixIcon name="globe" size={16} />
@@ -462,7 +462,7 @@ const ChatWorkspace = () => {
                     <ModelSelectorTrigger asChild>
                       <PromptInputButton
                         data-model-trigger
-                        className="shrink-0 text-text-primary hover:bg-[rgba(200,172,251,0.08)] flex items-center gap-1.5"
+                        className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center gap-1.5"
                         variant="ghost"
                         aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
                       >
@@ -510,7 +510,7 @@ const ChatWorkspace = () => {
                         <ModelSelectorTrigger asChild>
                           <PromptInputButton
                             data-model-trigger
-                            className="shrink-0 text-text-primary hover:bg-[rgba(200,172,251,0.08)] flex items-center justify-center px-2"
+                            className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center justify-center px-2"
                             variant="ghost"
                             aria-label="Select mode"
                           >
@@ -549,8 +549,8 @@ const ChatWorkspace = () => {
                   className={cn(
                     "!size-8 !rounded-[var(--radius)] transition-colors duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] disabled:!opacity-100",
                     !isSubmitDisabled
-                      ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-white"
-                      : "text-text-primary hover:bg-[rgba(200,172,251,0.08)]",
+                      ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-[var(--accent-hover)]"
+                      : "text-text-primary hover:bg-[var(--surface-hover)]",
                   )}
                   variant={!isSubmitDisabled ? "default" : "ghost"}
                   disabled={isSubmitDisabled}
@@ -630,7 +630,7 @@ export default function HomePage() {
           {/* Main chat area */}
           <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
             <div className="flex h-full w-full max-w-4xl flex-col bg-[#150c28]/80 backdrop-blur-sm">
-              <header className="relative flex items-center gap-3 border-b border-[#d0b8f5]/10 px-6 py-4">
+              <header className="relative flex items-center gap-3 border-b border-[var(--border-subtle)] px-6 py-4">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C8ACFB]/15 to-transparent" />
                 <ShinyText
                   className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"

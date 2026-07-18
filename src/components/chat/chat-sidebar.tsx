@@ -46,10 +46,10 @@ function SidebarItem({
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         !isPrimary &&
           !active &&
-          "text-text-primary hover:bg-[rgba(200,172,251,0.08)]",
-        active && !isPrimary && "bg-[rgba(200,172,251,0.12)] text-text-primary",
+          "text-text-primary hover:bg-[var(--surface-hover)]",
+        active && !isPrimary && "bg-[var(--surface-focus)] text-text-primary",
         isPrimary &&
-          "text-text-primary font-medium text-[0.8125rem] hover:bg-[rgba(200,172,251,0.08)]",
+          "text-text-primary font-medium text-[0.8125rem] hover:bg-[var(--surface-hover)]",
       )}
     >
       <span className="flex-shrink-0">
@@ -67,7 +67,7 @@ function SidebarItem({
       >
         <span className="text-[0.8125rem]">{label}</span>
         {shortcut && (
-          <kbd className="ml-auto rounded border border-[rgba(200,172,251,0.15)] bg-[rgba(200,172,251,0.05)] px-1.5 py-0.5 font-mono text-[10px] text-[#7a7685]">
+          <kbd className="ml-auto rounded border border-[var(--border-default)] bg-[var(--surface-subtle)] px-1.5 py-0.5 font-mono text-[10px] text-[#7a7685]">
             {shortcut}
           </kbd>
         )}
@@ -153,7 +153,7 @@ export function ChatSidebar() {
         initial={false}
         animate={{ width: currentWidth }}
         transition={SPRING}
-        className="relative z-20 flex h-full flex-shrink-0 flex-col border-r border-[rgba(200,172,251,0.08)] bg-[#0a0516]/85 backdrop-blur-md"
+        className="relative z-20 flex h-full flex-shrink-0 flex-col border-r border-[var(--border-subtle)] bg-[var(--surface-elevated)]/85 backdrop-blur-md"
         aria-label="Conversation navigation"
       >
         {/* Top: expand/collapse toggle — centered when collapsed, right when expanded */}
@@ -167,7 +167,7 @@ export function ChatSidebar() {
             onClick={handleToggleMode}
             className={cn(
               "flex size-10 items-center justify-center rounded-[var(--radius)] transition-all duration-200 outline-none",
-              "text-text-primary hover:bg-[rgba(200,172,251,0.08)]",
+              "text-text-primary hover:bg-[var(--surface-hover)]",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             )}
             aria-label={isFull ? "Collapse to icons" : "Expand sidebar"}
@@ -180,7 +180,7 @@ export function ChatSidebar() {
           </button>
         </div>
 
-        <div className="mx-2 mt-3 h-px bg-[rgba(200,172,251,0.08)]" />
+        <div className="mx-2 mt-3 h-px bg-[var(--border-subtle)]" />
 
         {/* Action items */}
         <div className="flex flex-col gap-1 p-2">
@@ -227,7 +227,7 @@ export function ChatSidebar() {
             <span className="font-[family-name:var(--font-terminal)] text-[0.8125rem] font-medium uppercase tracking-[0.2em] text-[#7a7685]">
               Recents
             </span>
-            <div className="h-px flex-1 bg-[rgba(200,172,251,0.08)]" />
+            <div className="h-px flex-1 bg-[var(--border-subtle)]" />
           </div>
           <div className="flex flex-1 items-center justify-center px-4">
             <span className="text-sm text-[#7a7685]">No conversations yet</span>
@@ -235,7 +235,7 @@ export function ChatSidebar() {
         </motion.div>
 
         {/* Footer: Settings */}
-        <div className="border-t border-[rgba(200,172,251,0.08)] p-2">
+        <div className="border-t border-[var(--border-subtle)] p-2">
           <SidebarItem
             icon={(props) => <DotMatrixIcon name="settings" {...props} />}
             label="Settings"

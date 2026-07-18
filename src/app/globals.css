@@ -15,8 +15,11 @@
   --color-accent: #e8dff8;
   --color-accent-hover: #f0eaff;
 
-  --color-border-subtle: rgba(200, 195, 184, 0.08);
-  --color-border-strong: rgba(200, 195, 184, 0.15);
+  --color-surface-chat: #150c28;
+  --color-surface-elevated: #0a0516;
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
 
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
@@ -153,6 +156,21 @@
   --list-marker: rgba(200, 172, 251, 0.40);
   --glow-line: rgba(200, 172, 251, 0.30);
 
+  /* Chat surface tokens */
+  --surface-chat: #150c28;
+  --surface-elevated: #0a0516;
+
+  /* Pill tokens — source / URL chips (pill-shaped by design) */
+  --pill-source-bg: rgba(200, 172, 251, 0.06);
+  --pill-source-border: rgba(200, 172, 251, 0.12);
+  --pill-source-text: #9a8cc0;
+  --pill-source-text-hover: #e8dff8;
+  --pill-source-border-hover: rgba(200, 172, 251, 0.25);
+
+  /* Pill tokens — status / step count chips */
+  --pill-status-bg: rgba(200, 172, 251, 0.12);
+  --pill-status-text: #C8ACFB;
+
   /* ── shadcn/ui tokens ── */
   --background: #060610;
   --foreground: #e8e4df;
@@ -172,7 +190,7 @@
   --destructive-foreground: #e8e4df;
   --border: rgba(208, 184, 245, 0.15);
   --input: rgba(208, 184, 245, 0.15);
-  --ring: #c9952a;
+  --ring: rgba(200, 172, 251, 0.40);
   --radius: 0.55rem;
   --sidebar: #060610;
   --sidebar-foreground: #e8e4df;
@@ -180,7 +198,7 @@
   --sidebar-primary-foreground: #060610;
   --sidebar-accent: #11111a;
   --sidebar-accent-foreground: #e8dff8;
-  --sidebar-border: rgba(200, 195, 184, 0.15);
+  --sidebar-border: rgba(200, 172, 251, 0.15);
   --sidebar-ring: #e8dff8;
 }
 
@@ -236,7 +254,7 @@
   --destructive-foreground: #e8e4df;
   --border: rgba(208, 184, 245, 0.15);
   --input: rgba(208, 184, 245, 0.15);
-  --ring: #c9952a;
+  --ring: rgba(200, 172, 251, 0.40);
   --radius: 0.55rem;
   --sidebar: #060610;
   --sidebar-foreground: #e8e4df;
@@ -244,7 +262,7 @@
   --sidebar-primary-foreground: #060610;
   --sidebar-accent: #11111a;
   --sidebar-accent-foreground: #e8dff8;
-  --sidebar-border: rgba(200, 195, 184, 0.15);
+  --sidebar-border: rgba(200, 172, 251, 0.15);
   --sidebar-ring: #e8dff8;
 }
 
@@ -255,8 +273,8 @@
 /* ── Global minimal scrollbar — thin, fades naturally ── */
 *::-webkit-scrollbar { width: 2px; height: 2px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 0; }
-* { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.15) transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(200, 172, 251, 0.15); border-radius: 0; }
+* { scrollbar-width: thin; scrollbar-color: rgba(200, 172, 251, 0.15) transparent; }
 
 /* ── Conversation scrollbar — always visible, faint ── */
 [role="log"] *::-webkit-scrollbar,
@@ -265,12 +283,12 @@
 }
 [role="log"] *::-webkit-scrollbar-thumb,
 [role="log"]::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(200, 172, 251, 0.15);
   min-height: 40px;
 }
 [role="log"] *,
 [role="log"] {
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  scrollbar-color: rgba(200, 172, 251, 0.15) transparent;
   scrollbar-width: thin;
 }
 
@@ -533,7 +551,7 @@
 
 [data-streamdown="table-wrapper"] .absolute.top-full button:hover {
   background: rgba(200, 172, 251, 0.12) !important;
-  color: #fff !important;
+  color: #f0eaff !important;
 }
 
 /* ── Code: inline and pre ── */
@@ -677,11 +695,6 @@
   height: 2rem;
   min-height: 2rem;
   max-height: 2rem;
-}
-
-/* Redefine global focus ring for the workspace route to use lavender outline */
-.workspace-root {
-  --ring: rgba(200, 172, 251, 0.40);
 }
 
 /* ── Assistant Message Accent — removed, clean block now ── */

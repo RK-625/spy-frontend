@@ -22,7 +22,7 @@ export function SettingsDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
-        className="max-w-md border-[rgba(200,172,251,0.12)] bg-[#0a0516]/95 backdrop-blur-md"
+        className="max-w-md border-[var(--border-medium)] bg-[var(--surface-elevated)]/95 backdrop-blur-md"
         showCloseButton
       >
         <DialogHeader>
@@ -35,14 +35,14 @@ export function SettingsDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-3 text-sm">
-          <div className="rounded-[var(--radius)] border border-[rgba(200,172,251,0.08)] bg-[rgba(10,5,22,0.5)] p-3">
+          <div className="rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-3">
             <div className="mb-1 text-[0.7rem] tracking-wider text-[#7a7685] uppercase">
               Model
             </div>
             <div className="font-mono text-[#e8dff8]">{model}</div>
           </div>
 
-          <div className="rounded-[var(--radius)] border border-[rgba(200,172,251,0.08)] bg-[rgba(10,5,22,0.5)] p-3">
+          <div className="rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-3">
             <div className="mb-1 text-[0.7rem] tracking-wider text-[#7a7685] uppercase">
               Status
             </div>
@@ -60,7 +60,7 @@ export function SettingsDialog({
             </div>
           </div>
 
-          <div className="rounded-[var(--radius)] border border-[rgba(200,172,251,0.08)] bg-[rgba(10,5,22,0.5)] p-3">
+          <div className="rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-3">
             <div className="mb-1 text-[0.7rem] tracking-wider text-[#7a7685] uppercase">
               Messages
             </div>

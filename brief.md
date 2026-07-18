@@ -95,7 +95,7 @@ Do NOT look like:
 
 **Color rules:**
 - Background is dark purple/lavender, transitioning to deepest black
-- Interactive accents in the Chat UI use glossy lavender-white (`#e8dff8`), while focus rings and the Landing Page CTA use Gold/Amber (`#c9952a`).
+- Interactive accents, focus rings, and CTAs use glossy lavender-white (`#e8dff8` / `#C8ACFB`). Gold/Amber is not used in production UI.
 - Text is never pure `#fff` — always warm off-white or lavender-tinted
 - Borders use `rgba(200, 172, 251, 0.08)` at 1px — barely visible, structural
 
@@ -113,7 +113,7 @@ Do NOT look like:
 - **Spacing scale:** 4px base. Components use 4/8/12/16/24/32px multiples
 - **Border radius:** `--radius: 0.55rem` (8.8px) — applied globally via CSS token
 - **Input wrapper:** `0.825rem` (13.2px) — slightly larger for the elevated input area
-- **No pill shapes** — radius is present but restrained, never fully rounded
+- **No pill shapes** — radius is present but restrained, never fully rounded. **Exception:** source / URL citation chips in `Sources` and `ChainOfThoughtSearchResult` use `rounded-full` (`--pill-source-*` tokens). This is a deliberate exception for compact reference chips and must not be flattened to `--radius` without design review.
 
 ### Motion
 

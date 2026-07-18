@@ -1,7 +1,6 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Command, Monitor, Moon, Search, Sun, X } from "lucide-react";
 
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 
@@ -122,9 +121,7 @@ function SearchShortcutBadge({
     <KbdGroup className={cn("shrink-0", className)}>
       {isMac ? (
         <>
-          <Kbd className="px-1">
-            <Command className="size-3" />
-          </Kbd>
+          <Kbd className="px-1.5 font-mono">{"\u2318"}</Kbd>
           <Kbd>{shortcutKey.toUpperCase()}</Kbd>
         </>
       ) : (
@@ -280,19 +277,25 @@ function CommandPalette({
         ? [
             {
               label: "Light Mode",
-              icon: Sun,
+              icon: (props: { className?: string }) => (
+                <DotMatrixIcon name="sun" size={16} className={props.className} />
+              ),
               action: () => setTheme("light"),
               keywords: ["light", "bright", "white", "day"],
             },
             {
               label: "Dark Mode",
-              icon: Moon,
+              icon: (props: { className?: string }) => (
+                <DotMatrixIcon name="moon" size={16} className={props.className} />
+              ),
               action: () => setTheme("dark"),
               keywords: ["dark", "night", "black"],
             },
             {
               label: "System Theme",
-              icon: Monitor,
+              icon: (props: { className?: string }) => (
+                <DotMatrixIcon name="monitor" size={16} className={props.className} />
+              ),
               action: () => setTheme("system"),
               keywords: ["system", "auto", "os", "default"],
             },
@@ -494,7 +497,11 @@ function CommandPalette({
             </DialogPrimitive.Description>
 
             <div className="flex shrink-0 items-center gap-3 border-border/70 border-b px-4 py-3">
-              <Search className="size-4 shrink-0 text-muted-foreground" />
+              <DotMatrixIcon
+                name="search"
+                size={16}
+                className="shrink-0 text-muted-foreground"
+              />
               <input
                 autoCapitalize="off"
                 autoCorrect="off"
@@ -520,7 +527,7 @@ function CommandPalette({
                   className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   type="button"
                 >
-                  <X className="size-4" />
+                  <DotMatrixIcon name="x" size={16} />
                 </button>
               </DialogPrimitive.Close>
             </div>

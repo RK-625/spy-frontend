@@ -1666,7 +1666,7 @@ const ChainOfThoughtHeader = memo(
           {displayText}
         </Shimmer>
         {stepCount !== undefined && stepCount > 0 && (
-          <span className="rounded-full bg-[rgba(200,172,251,0.12)] px-2 py-0.5 font-[family-name:var(--font-terminal)] text-[0.6rem] text-[#C8ACFB] tracking-widest">
+          <span className="rounded-full bg-[var(--pill-status-bg)] px-2 py-0.5 font-[family-name:var(--font-terminal)] text-[0.6rem] text-[var(--pill-status-text)] tracking-widest">
             {stepCount} steps
           </span>
         )}
@@ -1761,7 +1761,7 @@ export const ChainOfThoughtStep = memo(
         <div
           className={cn(
             "relative z-10 mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full",
-            "border border-[rgba(200,172,251,0.15)] bg-[rgba(14,7,32,0.8)]",
+            "border border-[var(--border-default)] bg-[var(--surface-elevated)]/80",
             stepIconColors[status],
           )}
         >
@@ -1828,9 +1828,9 @@ export const ChainOfThoughtSearchResult = memo(
         rel="noreferrer"
         className={cn(
           "flex items-center gap-1.5 rounded-full px-2.5 py-1",
-          "border border-[rgba(200,172,251,0.12)] bg-[rgba(200,172,251,0.06)]",
-          "font-[family-name:var(--font-body)] text-[0.65rem] text-[#9a8cc0]",
-          "transition-colors hover:border-[rgba(200,172,251,0.25)] hover:text-[#e8dff8]",
+          "border border-[var(--pill-source-border)] bg-[var(--pill-source-bg)]",
+          "font-[family-name:var(--font-body)] text-[0.65rem] text-[var(--pill-source-text)]",
+          "transition-colors hover:border-[var(--pill-source-border-hover)] hover:text-[var(--pill-source-text-hover)]",
           className,
         )}
         {...props}
