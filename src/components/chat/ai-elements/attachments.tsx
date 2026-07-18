@@ -2,23 +2,28 @@
 
 /**
  * Presentational attachment primitives: Attachments, Attachment, AttachmentPreview,
- * AttachmentInfo, AttachmentRemove, AttachmentHoverCard*, AttachmentEmpty.
+ * AttachmentInfo, AttachmentRemove, AttachmentEmpty.
+ *
+ * <Attachment> defaults to a smart chip: Preview + Info (non-grid) + Remove
+ * (overlay on hover/focus for grid/inline). Pass `children` to override
+ * entirely — never combined with the default. No click-preview or dialog;
+ * remove is the only affordance until a later PR.
  *
  * No attachment state here — these are pure UI chips driven by a context that the
- * shell (PromptInput / PromptInputProvider) provides. They never reach into the
- * attachments store directly. Bind to live state via prompt-input-attachments.tsx.
+ * shell (PromptInput / PromptInputProvider) provides. Bind to live state via
+ * prompt-input-attachments.tsx.
  */
 
 import { Button } from "@/components/ui/button";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
 import { DotMatrixIcon, type DotMatrixIconName } from "@/components/dotmatrix/icons";
 import { cn } from "@/lib/utils";
 import type { FileUIPart, SourceDocumentUIPart } from "ai";
-import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
+import type {
+  ComponentProps,
+  HTMLAttributes,
+  MouseEvent,
+  ReactNode,
+} from "react";
 import { createContext, useCallback, useContext, useMemo } from "react";
 
 // ============================================================================
@@ -47,7 +52,7 @@ const mediaCategoryIcons: Record<
   document: { name: "book", className: "size-4" },
   image: { name: "square", className: "size-4" },
   source: { name: "globe", className: "size-4" },
-  unknown: { name: "settings", className: "size-4" },
+  unknown: { name: "book", className: "size-4" },
   video: { name: "arrowUp", className: "size-4" },
 };
 
@@ -207,13 +212,13 @@ export const Attachment = ({
     <AttachmentContext.Provider value={contextValue}>
       <div
         className={cn(
-          "group relative",
-          variant === "grid" && "size-24 overflow-hidden ",
+          "group relative overflow-hidden rounded-[var(--radius)]",
+          variant === "grid" && "size-24",
           variant === "inline" && [
-            "flex h-8 cursor-pointer select-none items-center gap-1.5",
-            " border border-border px-1.5",
-            "font-medium text-sm transition-all",
-            "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+            "flex h-8 max-w-[12rem] select-none items-center gap-1.5",
+            "border border-border py-0 pl-1.5 pr-6",
+            "font-medium text-sm text-foreground transition-colors",
+            "hover:bg-accent/50",
           ],
           variant === "list" && [
             "flex w-full items-center gap-3 border p-3",
@@ -223,7 +228,13 @@ export const Attachment = ({
         )}
         {...props}
       >
-        {children}
+        {children ?? (
+          <>
+            <AttachmentPreview />
+            <AttachmentInfo />
+            <AttachmentRemove />
+          </>
+        )}
       </div>
     </AttachmentContext.Provider>
   );
@@ -243,8 +254,6 @@ export const AttachmentPreview = ({
   ...props
 }: AttachmentPreviewProps) => {
   const { data, mediaCategory, variant } = useAttachmentContext();
-
-  const iconSize = variant === "inline" ? "size-3" : "size-4";
 
   const renderIcon = (entry: { name: DotMatrixIconName; className: string }) => (
     <DotMatrixIcon
@@ -316,7 +325,7 @@ export const AttachmentInfo = ({
 };
 
 // ============================================================================
-// AttachmentRemove - Remove button
+// AttachmentRemove - Remove button (overlay on hover/focus for grid/inline)
 // ============================================================================
 
 export type AttachmentRemoveProps = ComponentProps<typeof Button> & {
@@ -332,7 +341,7 @@ export const AttachmentRemove = ({
   const { onRemove, variant } = useAttachmentContext();
 
   const handleClick = useCallback(
-    (e: React.MouseEvent) => {
+    (e: MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
       onRemove?.();
     },
@@ -350,13 +359,19 @@ export const AttachmentRemove = ({
         variant === "grid" && [
           "absolute top-2 right-2 size-6 p-0",
           "bg-background/80 backdrop-blur-sm",
-          "opacity-0 transition-opacity group-hover:opacity-100",
+          "opacity-0 transition-opacity",
+          "group-hover:opacity-100 group-focus-within:opacity-100",
+          "focus-visible:opacity-100",
           "hover:bg-background",
           "[&>svg]:size-3",
         ],
         variant === "inline" && [
-          "size-5 p-0",
-          "opacity-0 transition-opacity group-hover:opacity-100",
+          "absolute top-1/2 right-1 size-4 -translate-y-1/2 p-0",
+          "bg-background/80 backdrop-blur-sm",
+          "opacity-0 transition-opacity",
+          "group-hover:opacity-100 group-focus-within:opacity-100",
+          "focus-visible:opacity-100",
+          "hover:bg-background",
           "[&>svg]:size-2.5",
         ],
         variant === "list" && ["size-8 shrink-0 p-0", "[&>svg]:size-4"],
@@ -372,44 +387,6 @@ export const AttachmentRemove = ({
     </Button>
   );
 };
-
-// ============================================================================
-// AttachmentHoverCard - Hover preview
-// ============================================================================
-
-export type AttachmentHoverCardProps = ComponentProps<typeof HoverCard>;
-
-export const AttachmentHoverCard = ({
-  openDelay = 0,
-  closeDelay = 0,
-  ...props
-}: AttachmentHoverCardProps) => (
-  <HoverCard closeDelay={closeDelay} openDelay={openDelay} {...props} />
-);
-
-export type AttachmentHoverCardTriggerProps = ComponentProps<
-  typeof HoverCardTrigger
->;
-
-export const AttachmentHoverCardTrigger = (
-  props: AttachmentHoverCardTriggerProps
-) => <HoverCardTrigger {...props} />;
-
-export type AttachmentHoverCardContentProps = ComponentProps<
-  typeof HoverCardContent
->;
-
-export const AttachmentHoverCardContent = ({
-  align = "start",
-  className,
-  ...props
-}: AttachmentHoverCardContentProps) => (
-  <HoverCardContent
-    align={align}
-    className={cn("w-auto p-2", className)}
-    {...props}
-  />
-);
 
 // ============================================================================
 // AttachmentEmpty - Empty state

@@ -26,7 +26,7 @@ Context is how much context the model has available to it. Having more context a
   | xiaomi/mimo-v2.5            |  1   |     4        |  4    |    1M    |   4  | cmd(Third-party)     |     ✓      |
   | DeepSeek V4 Pro             |  2   |     7.5      |  6    |    1M    |   1  | cmd(Third-party)     |     x      |
   | xiaomi/mimo-v2.5-pro        |  2   |     7.2      |  7    |    1M    |   1  | cmd(Third-party)     |     x      |
-  | Tencent Hy3(Free)           |  0   |     6        |  5    |  262K    |   3  | cmd(Third-party)     |     x      |
+  | tencent/Hy3                 |  0   |     6        |  5    |  262K    |   3  | cmd(Third-party)     |     x      |
   | DeepSeek V4 Flash           |  1   |     3        |  4    |    1M    |   3  | cmd(Third-party)     |     x      |
   | grok-4.5                    |  8   |     8.75     |  8.5  |   500k   |   8  | native               |     ✓      |
   
@@ -53,7 +53,7 @@ Usage of cmd:
   - Quality and relevance of its accumulated context
   - How much useful work it has already done
   - Whether its current state is clean and reliable
-Based on this evaluation, the **Orchestrator** should decide to either invoke back the completed native ones via resume_from & matching subagent_type(Treat cancelled ones as unreliable) or spin up a fresh one native agent.
+-Based on this evaluation, the **Orchestrator** should decide to either invoke back the completed native ones via resume_from & matching subagent_type(Treat cancelled ones as unreliable) or spin up a fresh one native agent.
 
 
 ## How to apply:
@@ -75,16 +75,18 @@ Based on this evaluation, the **Orchestrator** should decide to either invoke ba
 - Bulk/mechanical work (clear/spec implementation, data analysis, migrations, simple-audit/investigation/vertification): Hand off to MiniMaxAI/MiniMax-M3,MiMo V2.5,Qwen/Qwen3.7-Plus.
 - I have a more limits and usage left in the **cmd** agentic terminal which u use for heavy,direct task etc.
 - You are not allowed to use any other models as sub-agents other than these in the model table. 
-
+- Don't invoke all the agents in single terminal at once as single task consider each agent spawned as a separate task.
 <!-- END:system-advisor -->
 
 # Preferences
 
 ## Code Structure
-- Code needs to be structured, following naming conventions, modular components, separated, maintainable and sorted in dependency order(bottom-up) in the files too.
-- The codebase should be organised with strict, symmetrical, simple, clear, uniform and specific names for files, variables, functions, components , folder with a clear directory/folder structure.
-- never use any type in Typescript
-
+- Code needs to be structured, following easy to understand naming conventions, simple modular components, separated in sections, maintainable and sorted in dependency order(bottom-up).
+- The codebase should be organised with strict, symmetrical, simple, clear, and distinct names for files, variables, functions, components, folder with a uniform directory/folder structure.
+- never use "any" type in Typescript
+## UI Components
+- When it comes to CSS/UI styles/design patterns or components like fonts(color,size etx), color palette, hower effects, timings(delays, durations etc), contrast, spacing, sizing, transitions, animations, motion, placement, box styling, shadows, icons, loader components, effects like(fade, slide, ease etc), gradients, etc the list goes on and on. Don't invent new styles on the fly for each new component or ui element. Follow the existing design, styles and CSS and reuse them. If the change or addition of ui element or component requires truly a CSS/UI styles/design patterns for a better look and feel, and needs to different and distinct from the existing ones, then you can create a new one(CSS/UI styles/design patterns) instead of reusing the existing one.Incase of the conflict or dilemma between reusing or creating a new one ask for user's preference using the native ask Question tool.
+- I prefer the CSS/UI styles/design patterns to be tokenized as design tokens and stored in a centralized location(which needs to be organised and maintained) which help us make the CSS/UI styles/design patterns consistent and reusable across the codebase.
 
 <!-- START:codebase-context -->
 # Spy — AI Knowledge Management Agent

@@ -2,41 +2,21 @@
 
 /**
  * Prompt-shell attachment strip: binds usePromptInputAttachments() to the
- * presentational Attachments primitives. Lives next to the compound prompt API
- * (not route pages). Presentational chips remain in attachments.tsx.
+ * presentational Attachment primitive. Each item is rendered with the smart
+ * default chip (preview + info + overlay-remove). Compound escapes are
+ * available by importing Attachments/Attachment directly from attachments.tsx.
+ *
+ * Lives next to the compound prompt API (not route pages). Presentational chips
+ * remain in attachments.tsx.
  */
 
 import {
   Attachment,
-  AttachmentPreview,
-  AttachmentRemove,
   Attachments,
   type AttachmentsProps,
 } from "@/components/chat/ai-elements/attachments";
 import { usePromptInputAttachments } from "@/components/chat/ai-elements/prompt-input";
-import type { FileUIPart } from "ai";
-import { useCallback, type ComponentProps } from "react";
-
-type PromptAttachment = FileUIPart & { id: string };
-
-const PromptInputAttachmentItem = ({
-  attachment,
-  onRemove,
-}: {
-  attachment: PromptAttachment;
-  onRemove: (id: string) => void;
-}) => {
-  const handleRemove = useCallback(() => {
-    onRemove(attachment.id);
-  }, [onRemove, attachment.id]);
-
-  return (
-    <Attachment data={attachment} onRemove={handleRemove}>
-      <AttachmentPreview />
-      <AttachmentRemove />
-    </Attachment>
-  );
-};
+import type { ComponentProps } from "react";
 
 export type PromptInputAttachmentsProps = Omit<
   ComponentProps<typeof Attachments>,
@@ -57,13 +37,6 @@ export const PromptInputAttachments = ({
 }: PromptInputAttachmentsProps) => {
   const attachments = usePromptInputAttachments();
 
-  const handleRemove = useCallback(
-    (id: string) => {
-      attachments.remove(id);
-    },
-    [attachments],
-  );
-
   if (attachments.files.length === 0) {
     return null;
   }
@@ -71,10 +44,10 @@ export const PromptInputAttachments = ({
   return (
     <Attachments variant={variant} className={className} {...props}>
       {attachments.files.map((attachment) => (
-        <PromptInputAttachmentItem
-          attachment={attachment}
+        <Attachment
+          data={attachment}
           key={attachment.id}
-          onRemove={handleRemove}
+          onRemove={() => attachments.remove(attachment.id)}
         />
       ))}
     </Attachments>
