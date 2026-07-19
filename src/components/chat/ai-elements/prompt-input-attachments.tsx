@@ -14,11 +14,15 @@ export type PromptInputAttachmentsProps = HTMLAttributes<HTMLDivElement>;
  * Collapsible attachment strip.
  *
  * Height uses measured pixels (never height:"auto" alone on collapse).
- * On last-file remove we freeze the last good measured height — with
- * popLayout the exiting chip leaves flow immediately, so re-reading
- * scrollHeight would snap to padding-only before height→0.
+ * On last-file remove we freeze the current contentHeight state (last good
+ * measure) — with popLayout the exiting chip leaves flow immediately, so
+ * re-reading scrollHeight would snap to padding-only before height→0.
  *
  * Mid-list removes keep measuring (neighbors slide via layout="position").
+ *
+ * Open/freeze follows hasFiles via render-time state adjust (not setState in
+ * effect). contentHeight is not rewritten on empty — it already holds the
+ * last good px. Refs for async RO / onExitComplete sync in layout effects only.
  */
 export const PromptInputAttachments = ({
   className,
@@ -29,43 +33,41 @@ export const PromptInputAttachments = ({
 
   const hasFiles = attachments.files.length > 0;
 
-  const [isOpen, setIsOpen] = useState(hasFiles);
-  const [contentHeight, setContentHeight] = useState(0);
-  const [heightFrozen, setHeightFrozen] = useState(false);
-
   const contentRef = useRef<HTMLDivElement>(null);
-  // Latest files for onExitComplete race guard (avoid effect re-runs).
   const filesRef = useRef(attachments.files);
-  filesRef.current = attachments.files;
-  const heightFrozenRef = useRef(heightFrozen);
-  heightFrozenRef.current = heightFrozen;
-  // Last good measured height while chips were in-flow (not padding-only).
-  const previousContentHeightRef = useRef(0);
+  const heightFrozenRef = useRef(false);
   const roRafRef = useRef<number | null>(null);
 
-  const commitContentHeight = (height: number) => {
-    previousContentHeightRef.current = height;
-    setContentHeight(height);
-  };
+  const [contentHeight, setContentHeight] = useState(0);
+  const [heightFrozen, setHeightFrozen] = useState(false);
+  /** Keep strip expanded after last remove until exit animation finishes. */
+  const [holdOpen, setHoldOpen] = useState(false);
+  const [prevHasFiles, setPrevHasFiles] = useState(hasFiles);
 
-  // Open immediately when files appear; freeze last good height when last
-  // file is removed so popLayout exit cannot snap strip to padding-only.
-  useLayoutEffect(() => {
+  // Adjust open/freeze when file presence flips — during render, not in an effect.
+  // contentHeight is left alone on empty: it still holds the last good measure.
+  if (hasFiles !== prevHasFiles) {
+    setPrevHasFiles(hasFiles);
     if (hasFiles) {
       setHeightFrozen(false);
-      setIsOpen(true);
-      const el = contentRef.current;
-      if (el) {
-        commitContentHeight(el.scrollHeight);
-      }
-      return;
+      setHoldOpen(false);
+    } else {
+      // Freeze only — never remeasure under popLayout (padding-only snap).
+      setHeightFrozen(true);
+      setHoldOpen(true);
     }
+  }
 
-    // files.length === 0: do NOT remeasure — popLayout already removed the
-    // chip from flow; scrollHeight would be padding-only and cause a snap.
-    setContentHeight(previousContentHeightRef.current);
-    setHeightFrozen(true);
-  }, [hasFiles]);
+  const isOpen = hasFiles || holdOpen;
+
+  // Sync callback refs after commit — never assign ref.current during render.
+  useLayoutEffect(() => {
+    filesRef.current = attachments.files;
+  }, [attachments.files]);
+
+  useLayoutEffect(() => {
+    heightFrozenRef.current = heightFrozen;
+  }, [heightFrozen]);
 
   // Measure while open and not frozen (ResizeObserver tracks chip enter/wrap).
   useLayoutEffect(() => {
@@ -74,17 +76,19 @@ export const PromptInputAttachments = ({
     const el = contentRef.current;
     if (!el) return;
 
-    commitContentHeight(el.scrollHeight);
+    setContentHeight(el.scrollHeight);
 
     const ro = new ResizeObserver(() => {
       if (heightFrozenRef.current) return;
+      if (filesRef.current.length === 0) return;
       if (roRafRef.current !== null) return;
       roRafRef.current = requestAnimationFrame(() => {
         roRafRef.current = null;
         if (heightFrozenRef.current) return;
+        if (filesRef.current.length === 0) return;
         const node = contentRef.current;
         if (node) {
-          commitContentHeight(node.scrollHeight);
+          setContentHeight(node.scrollHeight);
         }
       });
     });
@@ -138,10 +142,10 @@ export const PromptInputAttachments = ({
           onExitComplete={() => {
             // Race guard: only collapse if no new files arrived during exit.
             if (filesRef.current.length === 0) {
-              setIsOpen(false);
+              setHoldOpen(false);
             } else {
               setHeightFrozen(false);
-              setIsOpen(true);
+              setHoldOpen(false);
             }
           }}
         >
