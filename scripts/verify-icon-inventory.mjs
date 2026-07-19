@@ -122,15 +122,23 @@ assert(
   "sidebar collapse is size-8 box + panel glyph 20"
 );
 
-// SidebarItem bare glyph 16 (glyph-inline)
+// SidebarItem: control-toolbar 32 box + glyph 20 (size-8 on icon span, not outer button)
 assert(
-  sidebar.includes("<Icon size={16} />") ||
-    sidebar.includes(`<Icon size={ICON_GLYPH.inline} />`),
-  "SidebarItem renders Icon size={16} bare (glyph-inline)"
+  sidebar.includes("flex size-8 shrink-0 items-center justify-center") &&
+    (sidebar.includes("<Icon size={ICON_GLYPH.toolbar} />") ||
+      sidebar.includes("<Icon size={20} />")),
+  "SidebarItem icon wrapper size-8 + glyph toolbar 20"
 );
 assert(
-  !/SidebarItem[\s\S]{0,400}size-8/.test(sidebar),
-  "SidebarItem definition region is not a size-8 square chrome pattern"
+  !/function SidebarItem[\s\S]{0,500}className=\{cn\(\s*"[^"]*size-8/.test(
+    sidebar
+  ),
+  "SidebarItem outer button is not a size-8 square (w-full row)"
+);
+assert(
+  !/function SidebarItem[\s\S]{0,500}\bgap-2\b/.test(sidebar) &&
+    !/function SidebarItem[\s\S]{0,500}\bpx-3\b/.test(sidebar),
+  "SidebarItem button has no gap-2 / px-3 (shell owns horizontal padding)"
 );
 
 // ── Attachment remove badge 18/14 ───────────────────────────────────
