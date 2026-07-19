@@ -7,6 +7,48 @@
  * Pass it to <PromptInput accept={PROMPT_INPUT_ACCEPT} /> — validation runs on
  * add (filterIncomingFiles), so the <input accept="…"> attribute stays consistent
  * with what we actually accept in code.
+ *
+ * ## Why a file is rejected (e.g. HTML drag-and-drop)
+ * Both the file picker `accept` attribute and runtime `matchesAccept()` share this
+ * allowlist. If a type is missing here, the OS picker may hide it and drag-drop
+ * will fail with `code: "accept"` / "No files match the accepted types."
+ *
+ * ## Allowlist (accepted today)
+ * | Pattern | Meaning |
+ * |---------|---------|
+ * | `image/*` | All image MIME types (png, jpeg, webp, gif, svg-as-image when browser reports image/*, …) |
+ * | `.pdf` | PDF documents |
+ * | `.txt` | Plain text |
+ * | `.md` | Markdown notes |
+ * | `.json` | Structured JSON |
+ * | `.ts` `.tsx` `.js` `.jsx` | Common web/TS source |
+ * | `.html` `.htm` | Web pages, notes exports, email HTML |
+ * | `.csv` `.tsv` | Spreadsheet dumps, tables |
+ * | `.py` | Python source |
+ * | `.yaml` `.yml` | YAML config / frontmatter |
+ * | `.css` | Stylesheets |
+ * | `.xml` | Data / feeds |
+ * | `.sql` | SQL queries / dumps |
+ * | `.log` | Debug / log dumps |
+ * | `.toml` | TOML config |
+ * | `.go` | Go source |
+ * | `.rs` | Rust source |
+ * | `.docx` `.xlsx` `.pptx` | Office documents (binary; agent may parse them if the model/provider supports that file type — still valid for user dump-into-chat) |
+ *
+ * Caps at call site (`/home`): `maxFiles={5}`, `maxFileSize={10 * 1024 * 1024}` (10MB).
+ *
+ * ## Formats explicitly excluded (intentional)
+ *
+ * | Format | Reason |
+ * |--------|--------|
+ * | `video/*` `audio/*` | Media notes — not in product scope |
+ * | `.zip` `.tar` `.gz` | Archives — security / size risk |
+ * | `.rtf` | Low value + awkward parsing |
+ * | `.odt` | OpenDocument — low demand, binary |
+ * | `.env` secrets files | **Never** add; secret leakage |
+ *
+ * When expanding: edit `PROMPT_INPUT_ACCEPT` only (and this table). Keep picker
+ * `accept` and `filterIncomingFiles` in lockstep via this single constant.
  */
 import type { FileUIPart } from "ai";
 import { nanoid } from "nanoid";
@@ -17,11 +59,13 @@ export type AttachmentError = {
 };
 
 /**
- * Product allowlist: images plus common docs/code. Edit here, not at call sites.
+ * Product allowlist: images, docs, code, structured data. Edit here, not at call sites.
  * Used by <PromptInput accept={PROMPT_INPUT_ACCEPT} /> in src/app/home/page.tsx.
+ *
+ * Full rationale per format in the module header above.
  */
 export const PROMPT_INPUT_ACCEPT =
-  "image/*,.pdf,.txt,.md,.json,.ts,.tsx,.js,.jsx";
+  "image/*,.pdf,.txt,.md,.json,.ts,.tsx,.js,.jsx,.html,.htm,.csv,.tsv,.py,.yaml,.yml,.css,.xml,.sql,.log,.toml,.go,.rs,.docx,.xlsx,.pptx";
 
 export function matchesAccept(file: File, accept?: string): boolean {
   if (!accept || accept.trim() === "") {
