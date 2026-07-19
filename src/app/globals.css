@@ -192,6 +192,13 @@
   --input: rgba(208, 184, 245, 0.15);
   --ring: rgba(200, 172, 251, 0.40);
   --radius: 0.55rem;
+  /* Icon control tokens — densified 3-role system (Plan B) */
+  --control-toolbar-box: 32px;
+  --control-toolbar-glyph: 20px;
+  --control-badge-box: 18px;
+  --control-badge-glyph: 14px;
+  --glyph-inline-size: 16px;
+  --radius-badge: calc(var(--radius) * 0.45);
   --sidebar: #060610;
   --sidebar-foreground: #e8e4df;
   --sidebar-primary: #e8dff8;

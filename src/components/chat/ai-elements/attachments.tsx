@@ -2,6 +2,7 @@
 
 import { DotMatrixIcon, type DotMatrixIconName } from "@/components/dotmatrix/icons";
 import { cn } from "@/lib/utils";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
 import type { FileUIPart, SourceDocumentUIPart } from "ai";
 import type { HTMLAttributes } from "react";
 import { useCallback } from "react";
@@ -139,7 +140,7 @@ export const AttachmentChip = ({
             "absolute -top-1 -right-1 z-10",
             "inline-flex size-[18px] items-center justify-center p-0",
             // Tighter than --radius so a ~18px control stays rectangular.
-            "rounded-[calc(var(--radius)*0.45)]",
+            "rounded-[var(--radius-badge)]",
             "bg-background/85 text-muted-foreground backdrop-blur-sm",
             "ring-1 ring-[var(--border-subtle)]",
             "opacity-0 transition-opacity duration-150",
@@ -154,7 +155,7 @@ export const AttachmentChip = ({
           }}
           type="button"
         >
-          <DotMatrixIcon name="x" size={10} className="text-current" />
+          <DotMatrixIcon name="x" size={ICON_GLYPH.badge} className="text-current" />
           <span className="sr-only">Remove</span>
         </button>
       )}

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
 
 import { DotmSquare18 } from "@/components/dotmatrix/square-18";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
@@ -382,7 +383,7 @@ export const SpeechInput = ({
               className="flex items-center justify-center"
             >
               <DotmSquare18
-                size={16}
+                size={ICON_GLYPH.toolbar}
                 dotSize={2}
                 color="currentColor"
                 animated={isSpeaking}
@@ -397,7 +398,7 @@ export const SpeechInput = ({
               transition={{ duration: 0.15, ease: "easeOut" }}
               className="flex items-center justify-center"
             >
-              <DotMatrixIcon name="mic" size={16} />
+              <DotMatrixIcon name="mic" size={ICON_GLYPH.toolbar} />
             </motion.div>
           )}
         </AnimatePresence>

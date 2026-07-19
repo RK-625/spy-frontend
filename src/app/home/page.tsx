@@ -59,6 +59,7 @@ import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
 import { cn } from "@/lib/utils";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { useCallback, useMemo } from "react";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
@@ -143,7 +144,7 @@ const ModelItem = ({
       <ModelSelectorLogo icon={m.icon} />
       <ModelSelectorName>{m.name}</ModelSelectorName>
       {isSelected ? (
-        <DotMatrixIcon name="check" size={10} className="ml-auto" />
+        <DotMatrixIcon name="check" size={ICON_GLYPH.badge} className="ml-auto" />
       ) : (
         <div className="ml-auto size-2.5" />
       )}
@@ -425,7 +426,7 @@ const ChatWorkspace = () => {
                     }}
                     className="text-text-primary hover:bg-[var(--surface-hover)]"
                   >
-                    <DotMatrixIcon name="plus" size={16} />
+                    <DotMatrixIcon name="plus" size={ICON_GLYPH.toolbar} />
                   </PromptInputButton>
                   <SpeechInput
                     className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)]"
@@ -453,7 +454,7 @@ const ChatWorkspace = () => {
                         : "text-text-primary hover:bg-[var(--surface-hover)]",
                     )}
                   >
-                    <DotMatrixIcon name="globe" size={16} />
+                    <DotMatrixIcon name="globe" size={ICON_GLYPH.toolbar} />
                   </PromptInputButton>
                   <ModelSelector
                     onOpenChange={setModelSelectorOpen}
@@ -469,7 +470,7 @@ const ChatWorkspace = () => {
                         {selectedModelData ? (
                           <selectedModelData.icon className="size-3 shrink-0" />
                         ) : (
-                          <DotMatrixIcon name="settings" size={16} />
+                          <DotMatrixIcon name="settings" size={ICON_GLYPH.toolbar} />
                         )}
                         {selectedModelData ? (
                           <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide">
@@ -534,7 +535,7 @@ const ChatWorkspace = () => {
                                 {mode === m && (
                                   <DotMatrixIcon
                                     name="check"
-                                    size={14}
+                                    size={ICON_GLYPH.badge}
                                     className="ml-auto opacity-50"
                                   />
                                 )}

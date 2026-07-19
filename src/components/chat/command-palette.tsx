@@ -10,6 +10,7 @@ import { useTheme } from "next-themes";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
 
 const QUERY_SPLIT_REGEX = /\s+/;
 
@@ -527,7 +528,7 @@ function CommandPalette({
                   className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   type="button"
                 >
-                  <DotMatrixIcon name="x" size={16} />
+                  <DotMatrixIcon name="x" size={ICON_GLYPH.toolbar} />
                 </button>
               </DialogPrimitive.Close>
             </div>

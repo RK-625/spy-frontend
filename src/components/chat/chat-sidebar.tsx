@@ -6,6 +6,7 @@ import { CommandPalette } from "@/components/chat/command-palette";
 import { SettingsDialog } from "@/components/chat/settings-dialog";
 import { useChatContext } from "@/contexts/ChatContext";
 import { cn } from "@/lib/utils";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 
 type SidebarMode = "icon" | "full";
@@ -166,16 +167,16 @@ export function ChatSidebar() {
           <button
             onClick={handleToggleMode}
             className={cn(
-              "flex size-10 items-center justify-center rounded-[var(--radius)] transition-all duration-200 outline-none",
+              "flex size-8 items-center justify-center rounded-[var(--radius)] transition-all duration-200 outline-none",
               "text-text-primary hover:bg-[var(--surface-hover)]",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             )}
             aria-label={isFull ? "Collapse to icons" : "Expand sidebar"}
           >
             {isFull ? (
-              <DotMatrixIcon name="panelLeftClose" size={16} />
+              <DotMatrixIcon name="panelLeftClose" size={ICON_GLYPH.toolbar} />
             ) : (
-              <DotMatrixIcon name="panelLeftOpen" size={16} />
+              <DotMatrixIcon name="panelLeftOpen" size={ICON_GLYPH.toolbar} />
             )}
           </button>
         </div>

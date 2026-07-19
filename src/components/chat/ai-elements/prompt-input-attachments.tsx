@@ -13,16 +13,18 @@ export type PromptInputAttachmentsProps = HTMLAttributes<HTMLDivElement>;
 /**
  * Collapsible attachment strip.
  *
- * Height uses measured pixels (never height:"auto" alone on collapse).
- * On last-file remove we freeze the current contentHeight state (last good
- * measure) — with popLayout the exiting chip leaves flow immediately, so
- * re-reading scrollHeight would snap to padding-only before height→0.
+ * Chip motion is sequential under AnimatePresence mode="sync":
+ * exit plays fully while the chip stays in flow (opacity + y), then unmount
+ * frees the slot and remaining chips layout-slide (layout="position").
  *
- * Mid-list removes keep measuring (neighbors slide via layout="position").
+ * Height uses measured pixels (never height:"auto" alone on collapse).
+ * On last-file remove we holdOpen + freeze contentHeight (last good measure)
+ * until onExitComplete, then height→0 — avoids collapsing mid-exit.
+ *
+ * Mid-list removes keep measuring; RO remeasures after unmount/reflow.
  *
  * Open/freeze follows hasFiles via render-time state adjust (not setState in
- * effect). contentHeight is not rewritten on empty — it already holds the
- * last good px. Refs for async RO / onExitComplete sync in layout effects only.
+ * effect). Refs for async RO / onExitComplete sync in layout effects only.
  */
 export const PromptInputAttachments = ({
   className,
@@ -52,7 +54,7 @@ export const PromptInputAttachments = ({
       setHeightFrozen(false);
       setHoldOpen(false);
     } else {
-      // Freeze only — never remeasure under popLayout (padding-only snap).
+      // Freeze only — keep last measured height through exit, then collapse.
       setHeightFrozen(true);
       setHoldOpen(true);
     }
@@ -118,7 +120,7 @@ export const PromptInputAttachments = ({
 
   const chipExitTransition = reduced
     ? { duration: 0 }
-    : { duration: 0.15, ease: "easeIn" as const };
+    : { duration: 0.2, ease: "easeIn" as const };
 
   return (
     <motion.div
@@ -138,7 +140,7 @@ export const PromptInputAttachments = ({
       >
         <AnimatePresence
           initial={false}
-          mode="popLayout"
+          mode="sync"
           onExitComplete={() => {
             // Race guard: only collapse if no new files arrived during exit.
             if (filesRef.current.length === 0) {

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { DotmTriangle16 } from "@/components/dotmatrix/triangle-16";
 import { AnimatePresence, motion } from "motion/react";
 import type { ComponentProps } from "react";
@@ -69,7 +70,7 @@ export const ConversationScrollButton = ({
             {...props}
           >
             <DotmTriangle16
-              size={16}
+              size={ICON_GLYPH.toolbar}
               dotSize={2}
               dotShape="square"
               color="currentColor"

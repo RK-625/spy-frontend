@@ -27,6 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { AnimatePresence, motion } from "motion/react";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import { DotmTriangle16 } from "@/components/dotmatrix/triangle-16";
@@ -977,7 +978,7 @@ export const PromptInputActionMenuTrigger = ({
   <DropdownMenuTrigger asChild>
     <PromptInputButton className={className} {...props}>
       {children ?? (
-        <DotMatrixIcon name="plus" size={16} />
+        <DotMatrixIcon name="plus" size={ICON_GLYPH.toolbar} />
       )}
     </PromptInputButton>
   </DropdownMenuTrigger>
@@ -1025,7 +1026,7 @@ export const PromptInputSubmit = ({
   const iconKey = status || "ready";
   let Icon = (
     <DotmTriangle16
-      size={16}
+      size={ICON_GLYPH.toolbar}
       dotSize={2}
       dotShape="square"
       color="currentColor"
@@ -1036,7 +1037,7 @@ export const PromptInputSubmit = ({
   if (status === "streaming") {
     Icon = (
       <DotmHex9
-        size={16}
+        size={ICON_GLYPH.toolbar}
         dotSize={2.5}
         dotShape="square"
         color="currentColor"
