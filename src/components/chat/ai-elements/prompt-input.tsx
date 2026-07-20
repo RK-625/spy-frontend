@@ -774,6 +774,9 @@ export const PromptInputBody = ({
   const options = pendingAsk?.options ?? [];
   const showQuestion = isWidgetMode && questionText.length > 0;
   const showOptions = isWidgetMode && options.length > 0;
+  // Options-only when custom write-in is disallowed.
+  const showTextarea =
+    pendingAsk == null || pendingAsk.allowCustomInput;
 
   return (
     /* Body owns H gutter (tokens --prompt-body-px/py); leaves have no horizontal pad. */
@@ -824,8 +827,8 @@ export const PromptInputBody = ({
             </div>
           </div>
         ) : null}
-        {/* Textarea tree always last, always mounted */}
-        {children}
+        {/* Textarea last when shown; omitted for forced-choice pending asks. */}
+        {showTextarea ? children : null}
       </div>
     </div>
   );

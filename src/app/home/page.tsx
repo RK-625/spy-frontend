@@ -206,6 +206,8 @@ const ChatWorkspace = () => {
   const submitAskOrChat = useCallback(
     (message: PromptInputMessage) => {
       if (status !== "ready") return;
+      // Forced choice: only option chips may answer.
+      if (pendingAsk != null && !pendingAsk.allowCustomInput) return;
       const answer = message.text?.trim() ?? "";
       if (pendingAsk != null && answer.length > 0) {
         void handleSubmit({
@@ -278,9 +280,15 @@ const ChatWorkspace = () => {
   const isSubmitDisabled = useMemo(
     () =>
       status === "ready" &&
-      !controller?.textInput.value.trim() &&
-      attachments.files.length === 0,
-    [controller?.textInput.value, attachments.files.length, status],
+      ((pendingAsk != null && !pendingAsk.allowCustomInput) ||
+        (!controller?.textInput.value.trim() &&
+          attachments.files.length === 0)),
+    [
+      controller?.textInput.value,
+      attachments.files.length,
+      status,
+      pendingAsk,
+    ],
   );
 
   return (
