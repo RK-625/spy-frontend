@@ -37,6 +37,8 @@ import {
   usePromptInputAttachments,
   PromptInputProvider,
   useOptionalPromptInputControllerContext,
+  type PromptInputMessage,
+  type PromptInputWidgetOption,
 } from "@/components/chat/ai-elements/prompt-input";
 import {
   ChainOfThought,
@@ -58,6 +60,10 @@ import {
 import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
 import { cn } from "@/lib/utils";
+import {
+  formatAskUserQuestionAnswer,
+  getPendingAskUserQuestion,
+} from "@/lib/ask-user-question";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { useCallback, useMemo } from "react";
@@ -114,9 +120,9 @@ const SuggestionItem = ({
   return (
     <Suggestion
       className="rounded-[var(--radius)] font-[family-name:var(--font-body)] text-[0.75rem] font-medium tracking-wide
-                 text-[#9a8cc0] border-[var(--border-default)] bg-[var(--surface-elevated)]/50
+                 text-lavender-muted border-[var(--border-default)] bg-[var(--surface-elevated)]/50
                  hover:border-[var(--accent-border)] hover:bg-[var(--accent-decoration)]/20
-                 hover:text-[#f0eaff]
+                 hover:text-accent-hover
                  data-[state=selected]:border-[var(--accent-border)]
                  data-[state=selected]:bg-[var(--accent-decoration)]/20
                  transition-all duration-200"
@@ -154,10 +160,10 @@ const ModelItem = ({
 
 const EmptyState = () => (
   <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-12 text-center">
-    <div className="text-[#C8ACFB]/40 font-[family-name:var(--font-terminal)] text-2xl">
+    <div className="text-lavender/40 font-[family-name:var(--font-terminal)] text-2xl">
       _
     </div>
-    <p className="max-w-sm text-sm text-[#7a7685]">
+    <p className="max-w-sm text-sm text-text-secondary">
       Ask Spy anything. Throw it a question, a mess, a half-formed idea — and
       watch the web start to weave.
     </p>
@@ -186,9 +192,49 @@ const ChatWorkspace = () => {
   const controller = useOptionalPromptInputControllerContext();
   const attachments = usePromptInputAttachments();
 
+  const pendingAsk = useMemo(
+    () => getPendingAskUserQuestion(messages),
+    [messages],
+  );
+
   const selectedModelData = useMemo(
     () => models.find((m) => m.id === model),
     [model],
+  );
+
+  /** Chat submit; when a pending ask is open, wrap text as Q:/A:. */
+  const submitAskOrChat = useCallback(
+    (message: PromptInputMessage) => {
+      if (status !== "ready") return;
+      const answer = message.text?.trim() ?? "";
+      if (pendingAsk != null && answer.length > 0) {
+        void handleSubmit({
+          text: formatAskUserQuestionAnswer({
+            question: pendingAsk.question,
+            answer,
+          }),
+          files: message.files,
+        });
+        return;
+      }
+      void handleSubmit(message);
+    },
+    [handleSubmit, pendingAsk, status],
+  );
+
+  /** Option label → Q/A user message (same path as form submit). */
+  const handleWidgetOptionSelect = useCallback(
+    (option: PromptInputWidgetOption) => {
+      if (status !== "ready" || pendingAsk == null) return;
+      void handleSubmit({
+        text: formatAskUserQuestionAnswer({
+          question: pendingAsk.question,
+          answer: option.label,
+        }),
+        files: [],
+      });
+    },
+    [handleSubmit, pendingAsk, status],
   );
 
   const handleSuggestionClick = useCallback(
@@ -275,7 +321,7 @@ const ChatWorkspace = () => {
                         className="!bg-transparent !border-transparent !backdrop-blur-none shadow-none"
                         style={
                           {
-                            "--color-muted-foreground": "#9a8cc0",
+                            "--color-muted-foreground": "var(--lavender-muted)",
                             "--color-background": "#ffffff",
                           } as React.CSSProperties
                         }
@@ -399,7 +445,7 @@ const ChatWorkspace = () => {
             <PromptInput
               globalDrop
               multiple
-              onSubmit={handleSubmit}
+              onSubmit={submitAskOrChat}
               accept={PROMPT_INPUT_ACCEPT}
               maxFiles={5}
               maxFileSize={10 * 1024 * 1024}
@@ -407,7 +453,10 @@ const ChatWorkspace = () => {
               <PromptInputHeader>
                 <PromptInputAttachments />
               </PromptInputHeader>
-              <PromptInputBody>
+              <PromptInputBody
+                pendingAsk={pendingAsk}
+                onOptionSelect={handleWidgetOptionSelect}
+              >
                 <PromptInputTextarea
                   onChange={handleTextChange}
                   value={controller?.textInput.value || ""}
@@ -450,7 +499,7 @@ const ChatWorkspace = () => {
                     className={cn(
                       "transition-colors",
                       useWebSearch
-                        ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-[var(--accent-hover)]"
+                        ? "bg-primary text-accent-ink hover:bg-accent-hover"
                         : "text-text-primary hover:bg-[var(--surface-hover)]",
                     )}
                   >
@@ -550,7 +599,7 @@ const ChatWorkspace = () => {
                   className={cn(
                     "!size-8 !rounded-[var(--radius)] transition-colors duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] disabled:!opacity-100",
                     !isSubmitDisabled
-                      ? "bg-[#e8dff8] text-[#0a0a0c] hover:bg-[var(--accent-hover)]"
+                      ? "bg-primary text-accent-ink hover:bg-accent-hover"
                       : "text-text-primary hover:bg-[var(--surface-hover)]",
                   )}
                   variant={!isSubmitDisabled ? "default" : "ghost"}
@@ -584,8 +633,8 @@ const ShaderGradient = dynamic(
 
 export default function HomePage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#150c28] workspace-root">
-      <div className="fixed inset-0 z-50 bg-[#150c28] pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
+    <div className="relative min-h-screen overflow-hidden bg-surface-chat workspace-root">
+      <div className="fixed inset-0 z-50 bg-surface-chat pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
 
       <div className="fixed inset-0 -z-10">
         <ShaderGradientCanvas>
@@ -596,6 +645,7 @@ export default function HomePage() {
             cDistance={1.5}
             cPolarAngle={140}
             cameraZoom={10}
+            /* Hex must match :root --shader-color-* (canvas can't resolve CSS vars) */
             color1="#4A1280"
             color2="#8838DE"
             color3="#DDB8F8"
@@ -622,7 +672,7 @@ export default function HomePage() {
         </ShaderGradientCanvas>
       </div>
 
-      <div className="fixed inset-0 z-0 bg-[#150c28]/50 pointer-events-none" />
+      <div className="fixed inset-0 z-0 bg-[var(--surface-chat-veil)] pointer-events-none" />
 
       <div className="relative z-10 flex h-screen w-full">
         {/* Sidebar — sibling to main chat area, but shares chat context */}
@@ -630,16 +680,16 @@ export default function HomePage() {
           <ChatSidebar />
           {/* Main chat area */}
           <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
-            <div className="flex h-full w-full max-w-4xl flex-col bg-[#150c28]/80 backdrop-blur-sm">
+            <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
               <header className="relative flex items-center gap-3 border-b border-[var(--border-subtle)] px-6 py-4">
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C8ACFB]/15 to-transparent" />
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-lavender/15 to-transparent" />
                 <ShinyText
                   className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"
                   spread={120}
                 >
                   SPY
                 </ShinyText>
-                <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-[#C8ACFB]">
+                <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-lavender">
                   WEAVING SIGNAL
                 </span>
               </header>

@@ -60,7 +60,7 @@ export const ConversationScrollButton = ({
           <Button
             className={cn(
               "!size-8 !rounded-[var(--radius)] transition-colors duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
-              "bg-[#e8dff8] text-[#0a0a0c] hover:bg-[var(--accent-hover)]",
+              "bg-primary text-accent-ink hover:bg-accent-hover",
               className
             )}
             onClick={handleScrollToBottom}

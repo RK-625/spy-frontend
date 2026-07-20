@@ -1652,7 +1652,7 @@ const ChainOfThoughtHeader = memo(
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "group flex w-full items-center gap-2 text-sm transition-colors",
-          "text-[#9a8cc0] hover:text-[#e8dff8]",
+          "text-lavender-muted hover:text-primary",
           className,
         )}
       >
@@ -1726,15 +1726,15 @@ export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
 };
 
 const stepIconColors: Record<ChainOfThoughtStepStatus, string> = {
-  active: "text-[#C8ACFB]",
-  complete: "text-[#7a7685]",
-  pending: "text-[#4a4658]",
+  active: "text-lavender",
+  complete: "text-text-secondary",
+  pending: "text-text-dim",
 };
 
 const stepLabelColors: Record<ChainOfThoughtStepStatus, string> = {
-  active: "text-[#e8dff8]",
-  complete: "text-[#9a8cc0]",
-  pending: "text-[#4a4658]",
+  active: "text-primary",
+  complete: "text-lavender-muted",
+  pending: "text-text-dim",
 };
 
 export const ChainOfThoughtStep = memo(
@@ -1784,7 +1784,7 @@ export const ChainOfThoughtStep = memo(
           {label}
         </div>
         {description && (
-          <div className="text-[0.7rem] text-[#4a4658]">{description}</div>
+          <div className="text-[0.7rem] text-text-dim">{description}</div>
         )}
         {children}
       </div>

@@ -10,7 +10,8 @@
     "verify:widget-cleanup": "node scripts/verify-widget-cleanup.mjs",
     "verify:components-structure": "node scripts/verify-components-structure.mjs",
     "verify:reorg-scope": "node scripts/verify-reorg-scope.mjs",
-    "verify:icon-inventory": "node scripts/verify-icon-inventory.mjs"
+    "verify:icon-inventory": "node scripts/verify-icon-inventory.mjs",
+    "verify:pending-ask": "node scripts/verify-pending-ask.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.92",

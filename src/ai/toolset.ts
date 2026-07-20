@@ -1,6 +1,11 @@
 import { tool, Tool } from "ai";
 import { z } from "zod";
 import Exa from "exa-js";
+import { askUserQuestionInputSchema } from "@/ai/schemas/ask-user-question";
+
+export type { AskUserQuestionInput } from "@/ai/schemas/ask-user-question";
+export { askUserQuestionInputSchema } from "@/ai/schemas/ask-user-question";
+
 const exa = new Exa(process.env.EXA_API_KEY);
 const webSearch: Tool = tool({
   description:
@@ -27,20 +32,11 @@ const webSearch: Tool = tool({
     }
   },
 });
+
 const askUserQuestion: Tool = tool({
   description:
-    "Ask the user a multiple-choice question to resolve ambiguity or request a decision. Do not use this for open-ended chat.",
-  inputSchema: z.object({
-    question: z.string().describe("The question text."),
-    options: z
-      .array(z.string())
-      .min(2)
-      .max(5)
-      .describe("Options for the user to choose from."),
-    allowCustomInput: z
-      .boolean()
-      .describe("Whether to allow a write-in response."),
-  }),
+    "Resolve ambiguity or force a decision with a multiple-choice question (2–5 options). Set allowCustomInput true only when a write-in is reasonable. Do not use for open-ended chat.",
+  inputSchema: askUserQuestionInputSchema,
 });
 
 export const toolSet: Record<string, Tool> = {

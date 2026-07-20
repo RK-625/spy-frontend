@@ -19,7 +19,12 @@ export async function runAgent({
   useWebSearch: boolean;
   mode?: string;
 }) {
-  const modelMessages = await convertToModelMessages(messages);
+  // Client-side tools (e.g. askUserQuestion) may be input-available with no
+  // tool result; the user answers as a normal chat message. Drop incomplete
+  // tool calls so they do not poison model history.
+  const modelMessages = await convertToModelMessages(messages, {
+    ignoreIncompleteToolCalls: true,
+  });
   const { webSearch, ...toolsWithoutSearch } = toolSet;
   const { model: resolvedModel, providerOptions: resolvedProviderOptions } =
     modelConfig({ model, mode });

@@ -27,6 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import type { PendingAskUserQuestion } from "@/lib/ask-user-question";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { AnimatePresence, motion } from "motion/react";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
@@ -61,6 +62,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -689,16 +691,142 @@ export const PromptInput = ({
   );
 };
 
-export type PromptInputBodyProps = HTMLAttributes<HTMLDivElement>;
+export type PromptInputWidgetOption = PendingAskUserQuestion["options"][number];
+export type PromptInputWidgetResponse = [
+  {
+    question: PendingAskUserQuestion["question"];
+    response: PendingAskUserQuestion["options"][number];
+  }
+];
+
+export type PromptInputQuestionProps = {
+  id: string;
+  children: string;
+};
+
+/**
+ * Widget-mode question header — leaf only; no card/border/bg.
+ * Body owns H gutter (`--prompt-body-px/py`); leaves have no horizontal pad.
+ */
+export function PromptInputQuestion({
+  id,
+  children,
+}: PromptInputQuestionProps) {
+  return (
+    <p
+      id={id}
+      data-slot="prompt-input-question"
+      className="w-full min-w-0 text-left text-base font-semibold leading-snug text-text-primary line-clamp-2"
+    >
+      {children}
+    </p>
+  );
+}
+
+export type PromptInputOptionProps = {
+  option: PromptInputWidgetOption;
+  onSelect?: (option: PromptInputWidgetOption) => void;
+};
+
+/**
+ * Widget-mode option chip — leaf only; listbox shell stays on Body.
+ * Body owns H gutter; leaves have no horizontal pad.
+ */
+export function PromptInputOption({
+  option,
+  onSelect,
+}: PromptInputOptionProps) {
+  return (
+    <button
+      type="button"
+      role="option"
+      data-slot="prompt-input-option"
+      className={cn(
+        "w-full min-h-8 rounded-[var(--radius)] py-2 text-left text-sm text-text-primary",
+        "transition-colors outline-none",
+        "hover:bg-[var(--surface-hover)]",
+        "focus-visible:ring-2 focus-visible:ring-ring",
+      )}
+      onClick={() => {
+        onSelect?.(option);
+      }}
+    >
+      {option.label}
+    </button>
+  );
+}
+
+export type PromptInputBodyProps = HTMLAttributes<HTMLDivElement> & {
+  pendingAsk?: PendingAskUserQuestion | null;
+  onOptionSelect?: (option: PromptInputWidgetOption) => void;
+};
 
 export const PromptInputBody = ({
   className,
   children,
+  pendingAsk = null,
+  onOptionSelect,
   ...props
 }: PromptInputBodyProps) => {
+  const questionId = useId();
+  const isWidgetMode = pendingAsk != null;
+  const questionText = pendingAsk?.question.trim() ?? "";
+  const options = pendingAsk?.options ?? [];
+  const showQuestion = isWidgetMode && questionText.length > 0;
+  const showOptions = isWidgetMode && options.length > 0;
+
   return (
-    <div className={cn("contents", className)} {...props}>
-      {children}
+    /* Body owns H gutter (tokens --prompt-body-px/py); leaves have no horizontal pad. */
+    <div
+      className={cn(
+        "flex w-full min-w-0 px-prompt-body-x py-prompt-body-y",
+        className,
+      )}
+      {...props}
+    >
+      {/* Thin shell: layout only (`flex-col gap-2` when widget) — no pad.
+          Widget column aligns at Body content edge. */}
+      <div
+        className={cn(
+          "w-full min-w-0",
+          isWidgetMode && "flex flex-col gap-2",
+        )}
+      >
+        {showQuestion ? (
+          <PromptInputQuestion id={questionId}>
+            {questionText}
+          </PromptInputQuestion>
+        ) : null}
+        {showOptions ? (
+          <div
+            className={cn(
+              "grid transition-[grid-template-rows] duration-200 ease-out",
+              isWidgetMode ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+            )}
+            data-slot="prompt-input-options"
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div
+                className="flex flex-col gap-1"
+                role="listbox"
+                {...(showQuestion
+                  ? { "aria-labelledby": questionId }
+                  : { "aria-label": "Options" })}
+              >
+                {options.map((option) => (
+                  <PromptInputOption
+                    key={option.id}
+                    option={option}
+                    onSelect={onOptionSelect}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {/* Textarea tree always last, always mounted */}
+        {children}
+      </div>
     </div>
   );
 };
@@ -822,11 +950,14 @@ export const PromptInputTextarea = ({
   const { style: propsStyle, ...restTextareaProps } = props;
 
   return (
-    <div className="relative flex-grow min-w-0 flex items-center">
+    <div className="relative flex w-full min-w-0 flex-grow">
       <InputGroupTextarea
         className={cn(
-          "field-sizing-content max-h-48 min-h-16 overflow-x-hidden w-full resize-none px-2.5 py-2",
-          "text-sm text-text-primary placeholder:text-text-secondary",
+          // Body owns H gutter; leaves have no horizontal pad.
+          // min-h / py-0 beat ui/textarea min-h-16 + InputGroupTextarea py-2.
+          "field-sizing-content max-h-48 w-full resize-none overflow-x-hidden !px-0 !py-0",
+          "min-h-[var(--prompt-textarea-min-h)] !min-h-[var(--prompt-textarea-min-h)]",
+          "text-sm leading-5 text-text-primary placeholder:text-text-secondary",
           className
         )}
         style={propsStyle}

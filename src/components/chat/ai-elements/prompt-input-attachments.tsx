@@ -136,7 +136,7 @@ export const PromptInputAttachments = ({
       */}
       <div
         ref={contentRef}
-        className={cn("flex flex-wrap gap-2 px-2.5 py-2")}
+        className={cn("flex flex-wrap gap-2 px-prompt-body-x py-prompt-body-y")}
       >
         <AnimatePresence
           initial={false}

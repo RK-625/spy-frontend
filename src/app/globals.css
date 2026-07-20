@@ -17,9 +17,17 @@
 
   --color-surface-chat: #150c28;
   --color-surface-elevated: #0a0516;
+  --color-surface-input: var(--surface-input);
+  --color-lavender: var(--lavender);
+  --color-lavender-muted: var(--lavender-muted);
+  --color-accent-ink: var(--accent-ink);
 
   --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
+
+  /* Prompt shell spacing scale (use as px-prompt-body-x / py-prompt-body-y) */
+  --spacing-prompt-body-x: var(--prompt-body-px);
+  --spacing-prompt-body-y: var(--prompt-body-py);
 
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
@@ -145,7 +153,7 @@
 
   /* Code tokens */
   --code-inline-border: rgba(200, 172, 251, 0.06);
-  --code-surface: rgba(10, 5, 22, 0.8);
+  --code-surface: color-mix(in srgb, var(--surface-elevated) 80%, transparent);
 
   /* Accent tokens — (#e8dff8) at various opacities */
   --accent-selection: rgba(232, 223, 248, 0.15);
@@ -159,17 +167,41 @@
   /* Chat surface tokens */
   --surface-chat: #150c28;
   --surface-elevated: #0a0516;
+  /* Frosted input / elevated panels on chat surface */
+  --surface-input: rgba(10, 5, 22, 0.65);
+  --surface-input-strong: rgba(10, 5, 22, 0.85);
+  --surface-input-opaque: rgba(10, 5, 22, 0.95);
+  --surface-chat-veil: rgba(21, 12, 40, 0.5);
+  --surface-chat-panel: rgba(21, 12, 40, 0.8);
+  --shadow-elevated: rgba(0, 0, 0, 0.3);
+
+  /* Lavender scale (solid) */
+  --lavender: #c8acfb;
+  --lavender-muted: #9a8cc0;
+  /* Ink on solid light accent buttons */
+  --accent-ink: #0a0a0c;
+
+  /* Shader gradient sphere (workspace backdrop) */
+  --shader-color-1: #4a1280;
+  --shader-color-2: #8838de;
+  --shader-color-3: #ddb8f8;
+
+  /* Prompt input body gutter + textarea floor */
+  --prompt-body-px: 0.625rem; /* 10px — was Tailwind px-2.5 */
+  --prompt-body-py: 0.5rem; /* 8px — was Tailwind py-2 */
+  --prompt-textarea-min-h: 1.25rem; /* 20px — was min-h-5 */
+  --prompt-input-radius: 0.825rem;
 
   /* Pill tokens — source / URL chips (pill-shaped by design) */
   --pill-source-bg: rgba(200, 172, 251, 0.06);
   --pill-source-border: rgba(200, 172, 251, 0.12);
-  --pill-source-text: #9a8cc0;
+  --pill-source-text: var(--lavender-muted);
   --pill-source-text-hover: #e8dff8;
   --pill-source-border-hover: rgba(200, 172, 251, 0.25);
 
   /* Pill tokens — status / step count chips */
   --pill-status-bg: rgba(200, 172, 251, 0.12);
-  --pill-status-text: #C8ACFB;
+  --pill-status-text: var(--lavender);
 
   /* ── shadcn/ui tokens ── */
   --background: #060610;
@@ -353,9 +385,9 @@
 
 /* ── Input Elevation ── */
 .chat-input-wrap {
-  border-radius: 0.825rem;
+  border-radius: var(--prompt-input-radius);
   border: 1px solid var(--border-subtle);
-  background: rgba(10, 5, 22, 0.65);
+  background: var(--surface-input);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transition: border-color 0.35s ease, box-shadow 0.35s ease;
@@ -365,7 +397,7 @@
   box-shadow:
     0 0 0 1px var(--focus-glow),
     0 0 40px var(--border-faint),
-    0 8px 40px rgba(0, 0, 0, 0.3);
+    0 8px 40px var(--shadow-elevated);
 }
 .chat-input-wrap:focus-within .chat-input-glow {
   opacity: 1;
@@ -452,7 +484,7 @@
   margin: 0.5em 0 !important;
 }
 [data-streamdown="code-block"] {
-  background: rgba(10, 5, 22, 0.65);
+  background: var(--surface-input);
   border: 1px solid rgba(200, 172, 251, 0.08);
   border-radius: 0.825rem;
   padding: 0;
@@ -542,7 +574,7 @@
 
 /* Table Copy Dropdown Menu */
 [data-streamdown="table-wrapper"] .absolute.top-full {
-  background: rgba(10, 5, 22, 0.95) !important;
+  background: var(--surface-input-opaque) !important;
   border: 1px solid rgba(200, 172, 251, 0.15) !important;
   backdrop-filter: blur(12px) !important;
   border-radius: var(--radius) !important;
@@ -612,7 +644,7 @@
 }
 /* ── Streamdown Table Overrides ── */
 [data-streamdown="table-wrapper"] {
-  background: rgba(10, 5, 22, 0.65) !important;
+  background: var(--surface-input) !important;
   border: 1px solid rgba(200, 172, 251, 0.08) !important;
   border-radius: 0.825rem !important;
   padding: 0.5rem !important;
@@ -749,7 +781,7 @@
 
 /* ── Scroll-to-bottom button ── */
 [data-slot="scroll-button"] {
-  background: rgba(10, 5, 22, 0.85) !important;
+  background: var(--surface-input-strong) !important;
   border: 1px solid var(--border-medium) !important;
   border-radius: var(--radius) !important;
   backdrop-filter: blur(8px);
@@ -762,7 +794,7 @@
 
 /* ── Streamdown Mermaid Overrides ── */
 [data-streamdown="mermaid-block"] {
-  background: rgba(10, 5, 22, 0.65) !important;
+  background: var(--surface-input) !important;
   border: 1px solid rgba(200, 172, 251, 0.08) !important;
   border-radius: 0.825rem !important;
   padding: 0 !important;
@@ -875,14 +907,14 @@
 }
 
 [data-streamdown="mermaid"] svg .edgeLabel rect {
-  fill: rgba(10, 5, 22, 0.95) !important;
+  fill: var(--surface-input-opaque) !important;
 }
 
 [data-streamdown="mermaid"] svg .labelBkg,
 [data-streamdown="mermaid"] svg .edgeLabel rect,
 [data-streamdown="mermaid"] svg .edgeLabel {
-  fill: rgba(10, 5, 22, 0.95) !important;
-  background-color: rgba(10, 5, 22, 0.95) !important;
+  fill: var(--surface-input-opaque) !important;
+  background-color: var(--surface-input-opaque) !important;
   stroke: rgba(200, 172, 251, 0.15) !important;
   rx: 4px !important;
   ry: 4px !important;
