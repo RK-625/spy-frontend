@@ -729,7 +729,7 @@ export type PromptInputOptionProps = {
 };
 
 /**
- * Widget-mode option chip — leaf only; listbox shell stays on Body.
+ * Widget-mode option chip — leaf only; group shell stays on Body.
  * Body owns H gutter; leaves have no horizontal pad.
  */
 export function PromptInputOption({
@@ -739,7 +739,6 @@ export function PromptInputOption({
   return (
     <button
       type="button"
-      role="option"
       data-slot="prompt-input-option"
       className={cn(
         "w-full min-h-8 rounded-[var(--radius)] py-2 text-left text-sm text-text-primary",
@@ -802,29 +801,20 @@ export const PromptInputBody = ({
         ) : null}
         {showOptions ? (
           <div
-            className={cn(
-              "grid transition-[grid-template-rows] duration-200 ease-out",
-              isWidgetMode ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-            )}
+            className="flex flex-col gap-1"
             data-slot="prompt-input-options"
+            role="group"
+            {...(showQuestion
+              ? { "aria-labelledby": questionId }
+              : { "aria-label": "Options" })}
           >
-            <div className="min-h-0 overflow-hidden">
-              <div
-                className="flex flex-col gap-1"
-                role="listbox"
-                {...(showQuestion
-                  ? { "aria-labelledby": questionId }
-                  : { "aria-label": "Options" })}
-              >
-                {options.map((option) => (
-                  <PromptInputOption
-                    key={option.id}
-                    option={option}
-                    onSelect={onOptionSelect}
-                  />
-                ))}
-              </div>
-            </div>
+            {options.map((option) => (
+              <PromptInputOption
+                key={option.id}
+                option={option}
+                onSelect={onOptionSelect}
+              />
+            ))}
           </div>
         ) : null}
         {/* Textarea last when shown; omitted for forced-choice pending asks. */}
