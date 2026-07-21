@@ -26,7 +26,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
     | xiaomi/mimo-v2.5            |  1   |     4        |  4    |    1M    |   4  | cmd(Third-party)     |     ✓      |
     | deepseek/deepseek-v4-pro    |  2   |     7.5      |  6    |    1M    |   1  | cmd(Third-party)     |     x      |
     | xiaomi/mimo-v2.5-pro        |  2   |     7.2      |  7    |    1M    |   1  | cmd(Third-party)     |     x      |
-    | tencent/Hy3                 |  0   |     6        |  5    |  262K    |   3  | cmd(Third-party)     |     x      |
     | deepseek/deepseek-v4-flash  |  1   |     3        |  4    |    1M    |   3  | cmd(Third-party)     |     x      |
     | grok-4.5                    |  8   |     8.75     |  8.5  |   500k   |   8  | native               |     ✓      |
     
@@ -90,7 +89,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
   - Cost is a tie-breaker only; when axes conflict for anything that ships, intelligence > taste > cost > speed.
   -Max delegation depth = 1. Every agent you spawn (native or third-party) is a leaf node — it must not spawn further sub-agents. State this explicitly in every child agent's prompt. Only the Orchestrator spawns.
   -Weigh each model's context window, intelligence, and speed against the task before handing it off — don't pick on one axis alone. 
-  - Bulk/mechanical work (clear/spec implementation, cross-verification, data analysis, migrations, simple-audit/investigation/vertification): Hand off to MiniMax-M3,MiMo V2.5,Qwen3.7-Plus,Tencent Hy3,Deepseek etc.
+  - Bulk/mechanical work (clear/spec implementation, cross-verification, data analysis, migrations, simple-audit/investigation/vertification): Hand off to MiniMax-M3,MiMo V2.5,Qwen3.7-Plus,Deepseek etc.
   
   - I have a more limits and usage left in the **cmd** agentic terminal which u use for heavy,direct task etc.
   - You are not allowed to use any other models as sub-agents other than these in the model table. 

@@ -6,7 +6,13 @@ import { askUserQuestionInputSchema } from "@/ai/schemas/ask-user-question";
 export type { AskUserQuestionInput } from "@/ai/schemas/ask-user-question";
 export { askUserQuestionInputSchema } from "@/ai/schemas/ask-user-question";
 
-const exa = new Exa(process.env.EXA_API_KEY);
+/** Lazy Exa client — never construct at module load (missing key must not kill chat). */
+function getExaClient(): Exa | null {
+  const key = process.env.EXA_API_KEY;
+  if (key == null || key.trim() === "") return null;
+  return new Exa(key);
+}
+
 const webSearch: Tool = tool({
   description:
     "Search the web for up-to-date information, news, details, and facts.",
@@ -15,6 +21,10 @@ const webSearch: Tool = tool({
   }),
   execute: async ({ query }) => {
     try {
+      const exa = getExaClient();
+      if (exa == null) {
+        return { error: "Web search is unavailable: EXA_API_KEY is not set." };
+      }
       const response = await exa.search(query, {
         numResults: 5,
         contents: { text: { maxCharacters: 5000 } },

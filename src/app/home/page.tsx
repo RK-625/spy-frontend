@@ -202,18 +202,19 @@ const ChatWorkspace = () => {
     [model],
   );
 
-  /** Chat submit; when a pending ask is open, wrap text as Q:/A:. */
+  /** Chat submit; when a pending ask is open, wrap text (or file-only) as Q:/A:. */
   const submitAskOrChat = useCallback(
     (message: PromptInputMessage) => {
       if (status !== "ready") return;
       // Forced choice: only option chips may answer.
       if (pendingAsk != null && !pendingAsk.allowCustomInput) return;
       const answer = message.text?.trim() ?? "";
-      if (pendingAsk != null && answer.length > 0) {
+      const hasFiles = (message.files?.length ?? 0) > 0;
+      if (pendingAsk != null && (answer.length > 0 || hasFiles)) {
         void handleSubmit({
           text: formatAskUserQuestionAnswer({
             question: pendingAsk.question,
-            answer,
+            answer: answer.length > 0 ? answer : "(attachment)",
           }),
           files: message.files,
         });
