@@ -11,6 +11,7 @@ const unbounded = Unbounded({
 });
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const interBody = Inter({subsets:['latin'],variable:'--font-body'});
 
 const vt323 = VT323({
   variable: "--font-terminal",
@@ -33,7 +34,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn(unbounded.variable, vt323.variable, "font-sans", inter.variable)}
+      className={cn(unbounded.variable, vt323.variable, "font-sans", inter.variable, interBody.variable, "dark")}
       suppressHydrationWarning
     >
       <body className="min-h-screen flex flex-col bg-background text-text-primary font-sans">

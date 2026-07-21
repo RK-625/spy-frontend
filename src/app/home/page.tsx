@@ -1,27 +1,16 @@
 "use client";
 
-import {
-  Attachment,
-  AttachmentPreview,
-  AttachmentRemove,
-  Attachments,
-} from "@/components/ai-elements/attachments";
+import dynamic from "next/dynamic";
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from "@/components/ai-elements/conversation";
+} from "@/components/chat/ai-elements/conversation";
 import {
   Message,
-  MessageBranch,
-  MessageBranchContent,
-  MessageBranchNext,
-  MessageBranchPage,
-  MessageBranchPrevious,
-  MessageBranchSelector,
   MessageContent,
   MessageResponse,
-} from "@/components/ai-elements/message";
+} from "@/components/chat/ai-elements/message";
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -31,17 +20,12 @@ import {
   ModelSelectorItem,
   ModelSelectorList,
   ModelSelectorLogo,
-  ModelSelectorLogoGroup,
   ModelSelectorName,
   ModelSelectorTrigger,
-} from "@/components/ai-elements/model-selector";
-import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+} from "@/components/chat/ai-elements/model-selector";
+import { PromptInputAttachments } from "@/components/chat/ai-elements/prompt-input-attachments";
 import {
   PromptInput,
-  PromptInputActionAddAttachments,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuTrigger,
   PromptInputBody,
   PromptInputButton,
   PromptInputFooter,
@@ -49,271 +33,67 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  PROMPT_INPUT_ACCEPT,
   usePromptInputAttachments,
-} from "@/components/ai-elements/prompt-input";
+  PromptInputProvider,
+  useOptionalPromptInputControllerContext,
+  type PromptInputMessage,
+  type PromptInputWidgetOption,
+} from "@/components/chat/ai-elements/prompt-input";
 import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
+  ChainOfThought,
+  ChainOfThoughtStep,
+  ChainOfThoughtSearchResults,
+  ChainOfThoughtSearchResult,
+} from "@/components/chat/ai-elements/chain-of-thought";
 import {
-  Source,
   Sources,
+  Source,
   SourcesContent,
   SourcesTrigger,
-} from "@/components/ai-elements/sources";
-import { SpeechInput } from "@/components/ai-elements/speech-input";
-import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
-import type { FileUIPart, ToolUIPart } from "ai";
-import { CheckIcon, GlobeIcon } from "lucide-react";
-import { nanoid } from "nanoid";
-import { useCallback, useMemo, useState } from "react";
-import { toast } from "sonner";
+} from "@/components/chat/ai-elements/sources";
+import { SpeechInput } from "@/components/chat/ai-elements/speech-input";
+import {
+  Suggestion,
+  Suggestions,
+} from "@/components/chat/ai-elements/suggestion";
+import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
-interface MessageType {
-  key: string;
-  from: "user" | "assistant";
-  sources?: { href: string; title: string }[];
-  versions: {
-    id: string;
-    content: string;
-  }[];
-  reasoning?: {
-    content: string;
-    duration: number;
+import { cn } from "@/lib/utils";
+import {
+  formatAskUserQuestionAnswer,
+  getPendingAskUserQuestion,
+} from "@/lib/ask-user-question";
+import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
+import { useCallback, useMemo } from "react";
+import { ChatSidebar } from "@/components/chat/chat-sidebar";
+import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { models, chefs } from "@/types/models";
+import ShinyText from "@/components/landing/shiny-text";
+
+/** Mirrors src/ai/toolset.ts webSearch input/output for UI parts */
+type SpyUITools = {
+  webSearch: {
+    input: { query: string };
+    output: {
+      results?: Array<{ title?: string; url: string; text?: string }>;
+      error?: string;
+    };
   };
-  tools?: {
-    name: string;
-    description: string;
-    status: ToolUIPart["state"];
-    parameters: Record<string, unknown>;
-    result: string | undefined;
-    error: string | undefined;
-  }[];
-}
-
-const initialMessages: MessageType[] = [
-  {
-    from: "user",
-    key: nanoid(),
-    versions: [
-      {
-        content: "Can you explain how to use React hooks effectively?",
-        id: nanoid(),
-      },
-    ],
-  },
-  {
-    from: "assistant",
-    key: nanoid(),
-    sources: [
-      {
-        href: "https://react.dev/reference/react",
-        title: "React Documentation",
-      },
-      {
-        href: "https://react.dev/reference/react-dom",
-        title: "React DOM Documentation",
-      },
-    ],
-    tools: [
-      {
-        description: "Searching React documentation",
-        error: undefined,
-        name: "mcp",
-        parameters: {
-          query: "React hooks best practices",
-          source: "react.dev",
-        },
-        result: `{
-  "query": "React hooks best practices",
-  "results": [
-    {
-      "title": "Rules of Hooks",
-      "url": "https://react.dev/warnings/invalid-hook-call-warning",
-      "snippet": "Hooks must be called at the top level of your React function components or custom hooks. Don't call hooks inside loops, conditions, or nested functions."
-    },
-    {
-      "title": "useState Hook",
-      "url": "https://react.dev/reference/react/useState",
-      "snippet": "useState is a React Hook that lets you add state to your function components. It returns an array with two values: the current state and a function to update it."
-    },
-    {
-      "title": "useEffect Hook",
-      "url": "https://react.dev/reference/react/useEffect",
-      "snippet": "useEffect lets you synchronize a component with external systems. It runs after render and can be used to perform side effects like data fetching."
-    }
-  ]
-}`,
-        status: "input-available",
-      },
-    ],
-    versions: [
-      {
-        content: `# React Hooks Best Practices
-
-React hooks are a powerful feature that let you use state and other React features without writing classes. Here are some tips for using them effectively:
-
-## Rules of Hooks
-
-1. **Only call hooks at the top level** of your component or custom hooks
-2. **Don't call hooks inside loops, conditions, or nested functions**
-
-## Common Hooks
-
-- **useState**: For local component state
-- **useEffect**: For side effects like data fetching
-- **useContext**: For consuming context
-- **useReducer**: For complex state logic
-- **useCallback**: For memoizing functions
-- **useMemo**: For memoizing values
-
-## Example of useState and useEffect
-
-\`\`\`jsx
-function ProfilePage({ userId }) {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    // This runs after render and when userId changes
-    fetchUser(userId).then(userData => {
-      setUser(userData);
-    });
-  }, [userId]);
-
-  return user ? <Profile user={user} /> : <Loading />;
-}
-\`\`\`
-
-Would you like me to explain any specific hook in more detail?`,
-        id: nanoid(),
-      },
-    ],
-  },
-  {
-    from: "user",
-    key: nanoid(),
-    versions: [
-      {
-        content:
-          "Yes, could you explain useCallback and useMemo in more detail? When should I use one over the other?",
-        id: nanoid(),
-      },
-      {
-        content:
-          "I'm particularly interested in understanding the performance implications of useCallback and useMemo. Could you break down when each is most appropriate?",
-        id: nanoid(),
-      },
-      {
-        content:
-          "Thanks for the overview! Could you dive deeper into the specific use cases where useCallback and useMemo make the biggest difference in React applications?",
-        id: nanoid(),
-      },
-    ],
-  },
-  {
-    from: "assistant",
-    key: nanoid(),
-    reasoning: {
-      content: `The user is asking for a detailed explanation of useCallback and useMemo. I should provide a clear and concise explanation of each hook's purpose and how they differ.
-
-The useCallback hook is used to memoize functions to prevent unnecessary re-renders of child components that receive functions as props.
-
-The useMemo hook is used to memoize values to avoid expensive recalculations on every render.
-
-Both hooks help with performance optimization, but they serve different purposes.`,
-      duration: 10,
-    },
-    versions: [
-      {
-        content: `## useCallback vs useMemo
-
-Both hooks help with performance optimization, but they serve different purposes:
-
-### useCallback
-
-\`useCallback\` memoizes **functions** to prevent unnecessary re-renders of child components that receive functions as props.
-
-\`\`\`jsx
-// Without useCallback - a new function is created on every render
-const handleClick = () => {
-  console.log(count);
 };
 
-// With useCallback - the function is only recreated when dependencies change
-const handleClick = useCallback(() => {
-  console.log(count);
-}, [count]);
-\`\`\`
+type WebSearchToolPart = Extract<
+  ToolUIPart<SpyUITools>,
+  { type: "tool-webSearch" }
+>;
 
-### useMemo
-
-\`useMemo\` memoizes **values** to avoid expensive recalculations on every render.
-
-\`\`\`jsx
-// Without useMemo - expensive calculation runs on every render
-const sortedList = expensiveSort(items);
-
-// With useMemo - calculation only runs when items change
-const sortedList = useMemo(() => expensiveSort(items), [items]);
-\`\`\`
-
-### When to use which?
-
-- Use **useCallback** when:
-  - Passing callbacks to optimized child components that rely on reference equality
-  - Working with event handlers that you pass to child components
-
-- Use **useMemo** when:
-  - You have computationally expensive calculations
-  - You want to avoid recreating objects that are used as dependencies for other hooks
-
-### Performance Note
-
-Don't overuse these hooks! They come with their own overhead. Only use them when you have identified a genuine performance issue.`,
-        id: nanoid(),
-      },
-    ],
-  },
-];
-
-const models = [
-  {
-    chef: "OpenAI",
-    chefSlug: "openai",
-    id: "gpt-4o",
-    name: "GPT-4o",
-    providers: ["openai", "azure"],
-  },
-  {
-    chef: "OpenAI",
-    chefSlug: "openai",
-    id: "gpt-4o-mini",
-    name: "GPT-4o Mini",
-    providers: ["openai", "azure"],
-  },
-  {
-    chef: "Anthropic",
-    chefSlug: "anthropic",
-    id: "claude-opus-4-20250514",
-    name: "Claude 4 Opus",
-    providers: ["anthropic", "azure", "google", "amazon-bedrock"],
-  },
-  {
-    chef: "Anthropic",
-    chefSlug: "anthropic",
-    id: "claude-sonnet-4-20250514",
-    name: "Claude 4 Sonnet",
-    providers: ["anthropic", "azure", "google", "amazon-bedrock"],
-  },
-  {
-    chef: "Google",
-    chefSlug: "google",
-    id: "gemini-2.0-flash-exp",
-    name: "Gemini 2.0 Flash",
-    providers: ["google"],
-  },
-];
+function isWebSearchToolPart(
+  part: UIMessage["parts"][number],
+): part is WebSearchToolPart {
+  return part.type === "tool-webSearch";
+}
 
 const suggestions = [
   "What are the latest trends in AI?",
@@ -325,68 +105,6 @@ const suggestions = [
   "What is the difference between SQL and NoSQL?",
   "Explain cloud computing basics",
 ];
-
-const mockResponses = [
-  "That's a great question! Let me help you understand this concept better. The key thing to remember is that proper implementation requires careful consideration of the underlying principles and best practices in the field.",
-  "I'd be happy to explain this topic in detail. From my understanding, there are several important factors to consider when approaching this problem. Let me break it down step by step for you.",
-  "This is an interesting topic that comes up frequently. The solution typically involves understanding the core concepts and applying them in the right context. Here's what I recommend...",
-  "Great choice of topic! This is something that many developers encounter. The approach I'd suggest is to start with the fundamentals and then build up to more complex scenarios.",
-  "That's definitely worth exploring. From what I can see, the best way to handle this is to consider both the theoretical aspects and practical implementation details.",
-];
-
-const delay = (ms: number): Promise<void> =>
-  // eslint-disable-next-line promise/avoid-new -- setTimeout requires a new Promise
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
-const chefs = ["OpenAI", "Anthropic", "Google"];
-
-const AttachmentItem = ({
-  attachment,
-  onRemove,
-}: {
-  attachment: FileUIPart & { id: string };
-  onRemove: (id: string) => void;
-}) => {
-  const handleRemove = useCallback(() => {
-    onRemove(attachment.id);
-  }, [onRemove, attachment.id]);
-
-  return (
-    <Attachment data={attachment} onRemove={handleRemove}>
-      <AttachmentPreview />
-      <AttachmentRemove />
-    </Attachment>
-  );
-};
-
-const PromptInputAttachmentsDisplay = () => {
-  const attachments = usePromptInputAttachments();
-
-  const handleRemove = useCallback(
-    (id: string) => {
-      attachments.remove(id);
-    },
-    [attachments]
-  );
-
-  if (attachments.files.length === 0) {
-    return null;
-  }
-
-  return (
-    <Attachments variant="inline">
-      {attachments.files.map((attachment) => (
-        <AttachmentItem
-          attachment={attachment}
-          key={attachment.id}
-          onRemove={handleRemove}
-        />
-      ))}
-    </Attachments>
-  );
-};
 
 const SuggestionItem = ({
   suggestion,
@@ -402,11 +120,11 @@ const SuggestionItem = ({
   return (
     <Suggestion
       className="rounded-[var(--radius)] font-[family-name:var(--font-body)] text-[0.75rem] font-medium tracking-wide
-                 text-[#9a8cc0] border-[rgba(200,172,251,0.1)] bg-[rgba(14,7,32,0.5)]
-                 hover:border-[rgba(232,223,248,0.2)] hover:bg-[rgba(232,223,248,0.06)]
-                 hover:text-[#f0eaff]
-                 data-[state=selected]:border-[rgba(232,223,248,0.2)]
-                 data-[state=selected]:bg-[rgba(232,223,248,0.06)]
+                 text-lavender-muted border-[var(--border-default)] bg-[var(--surface-elevated)]/50
+                 hover:border-[var(--accent-border)] hover:bg-[var(--accent-decoration)]/20
+                 hover:text-accent-hover
+                 data-[state=selected]:border-[var(--accent-border)]
+                 data-[state=selected]:bg-[var(--accent-decoration)]/20
                  transition-all duration-200"
       onClick={handleClick}
       suggestion={suggestion}
@@ -428,227 +146,299 @@ const ModelItem = ({
   }, [onSelect, m.id]);
 
   return (
-    <ModelSelectorItem onSelect={handleSelect} value={m.id}>
-      <ModelSelectorLogo provider={m.chefSlug} />
+    <ModelSelectorItem onSelect={handleSelect} value={m.name}>
+      <ModelSelectorLogo icon={m.icon} />
       <ModelSelectorName>{m.name}</ModelSelectorName>
-      <ModelSelectorLogoGroup>
-        {m.providers.map((provider) => (
-          <ModelSelectorLogo key={provider} provider={provider} />
-        ))}
-      </ModelSelectorLogoGroup>
       {isSelected ? (
-        <CheckIcon className="ml-auto size-4" />
+        <DotMatrixIcon name="check" size={ICON_GLYPH.badge} className="ml-auto" />
       ) : (
-        <div className="ml-auto size-4" />
+        <div className="ml-auto size-2.5" />
       )}
     </ModelSelectorItem>
   );
 };
 
-const Example = () => {
-  const [model, setModel] = useState<string>(models[0].id);
-  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-  const [text, setText] = useState<string>("");
-  const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
-  const [status, setStatus] = useState<
-    "submitted" | "streaming" | "ready" | "error"
-  >("ready");
-  const [messages, setMessages] = useState<MessageType[]>(initialMessages);
-  const [, setStreamingMessageId] = useState<string | null>(null);
+const EmptyState = () => (
+  <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+    <div className="text-lavender/40 font-[family-name:var(--font-terminal)] text-2xl">
+      _
+    </div>
+    <p className="max-w-sm text-sm text-text-secondary">
+      Ask Spy anything. Throw it a question, a mess, a half-formed idea — and
+      watch the web start to weave.
+    </p>
+  </div>
+);
+
+const ChatWorkspace = () => {
+  const {
+    model,
+    setModel,
+    mode,
+    setMode,
+    modelSelectorOpen,
+    setModelSelectorOpen,
+    modeSelectorOpen,
+    setModeSelectorOpen,
+    useWebSearch,
+    status,
+    messages,
+    toggleWebSearch,
+    error,
+    stop,
+    handleSubmit,
+  } = useChatContext();
+
+  const controller = useOptionalPromptInputControllerContext();
+  const attachments = usePromptInputAttachments();
+
+  const pendingAsk = useMemo(
+    () => getPendingAskUserQuestion(messages),
+    [messages],
+  );
 
   const selectedModelData = useMemo(
     () => models.find((m) => m.id === model),
-    [model]
+    [model],
   );
 
-  const updateMessageContent = useCallback(
-    (messageId: string, newContent: string) => {
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.versions.some((v) => v.id === messageId)) {
-            return {
-              ...msg,
-              versions: msg.versions.map((v) =>
-                v.id === messageId ? { ...v, content: newContent } : v
-              ),
-            };
-          }
-          return msg;
-        })
-      );
-    },
-    []
-  );
-
-  const streamResponse = useCallback(
-    async (messageId: string, content: string) => {
-      setStatus("streaming");
-      setStreamingMessageId(messageId);
-
-      const words = content.split(" ");
-      let currentContent = "";
-
-      for (const [i, word] of words.entries()) {
-        currentContent += (i > 0 ? " " : "") + word;
-        updateMessageContent(messageId, currentContent);
-        await delay(Math.random() * 100 + 50);
-      }
-
-      setStatus("ready");
-      setStreamingMessageId(null);
-    },
-    [updateMessageContent]
-  );
-
-  const addUserMessage = useCallback(
-    (content: string) => {
-      const userMessage: MessageType = {
-        from: "user",
-        key: `user-${Date.now()}`,
-        versions: [
-          {
-            content,
-            id: `user-${Date.now()}`,
-          },
-        ],
-      };
-
-      setMessages((prev) => [...prev, userMessage]);
-
-      setTimeout(() => {
-        const assistantMessageId = `assistant-${Date.now()}`;
-        const randomResponse =
-          mockResponses[Math.floor(Math.random() * mockResponses.length)];
-
-        const assistantMessage: MessageType = {
-          from: "assistant",
-          key: `assistant-${Date.now()}`,
-          versions: [
-            {
-              content: "",
-              id: assistantMessageId,
-            },
-          ],
-        };
-
-        setMessages((prev) => [...prev, assistantMessage]);
-        streamResponse(assistantMessageId, randomResponse);
-      }, 500);
-    },
-    [streamResponse]
-  );
-
-  const handleSubmit = useCallback(
+  /** Chat submit; when a pending ask is open, wrap text (or file-only) as Q:/A:. */
+  const submitAskOrChat = useCallback(
     (message: PromptInputMessage) => {
-      const hasText = Boolean(message.text);
-      const hasAttachments = Boolean(message.files?.length);
-
-      if (!(hasText || hasAttachments)) {
+      if (status !== "ready") return;
+      // Forced choice: only option chips may answer.
+      if (pendingAsk != null && !pendingAsk.allowCustomInput) return;
+      const answer = message.text?.trim() ?? "";
+      const hasFiles = (message.files?.length ?? 0) > 0;
+      if (pendingAsk != null && (answer.length > 0 || hasFiles)) {
+        void handleSubmit({
+          text: formatAskUserQuestionAnswer({
+            question: pendingAsk.question,
+            answer: answer.length > 0 ? answer : "(attachment)",
+          }),
+          files: message.files,
+        });
         return;
       }
-
-      setStatus("submitted");
-
-      if (message.files?.length) {
-        toast.success("Files attached", {
-          description: `${message.files.length} file(s) attached to message`,
-        });
-      }
-
-      addUserMessage(message.text || "Sent with attachments");
-      setText("");
+      void handleSubmit(message);
     },
-    [addUserMessage]
+    [handleSubmit, pendingAsk, status],
+  );
+
+  /** Option label → Q/A user message (same path as form submit). */
+  const handleWidgetOptionSelect = useCallback(
+    (option: PromptInputWidgetOption) => {
+      if (status !== "ready" || pendingAsk == null) return;
+      void handleSubmit({
+        text: formatAskUserQuestionAnswer({
+          question: pendingAsk.question,
+          answer: option.label,
+        }),
+        files: [],
+      });
+    },
+    [handleSubmit, pendingAsk, status],
   );
 
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
-      setStatus("submitted");
-      addUserMessage(suggestion);
+      if (status !== "ready") return;
+      void handleSubmit({ text: suggestion, files: [] });
     },
-    [addUserMessage]
+    [handleSubmit, status],
   );
 
-  const handleTranscriptionChange = useCallback((transcript: string) => {
-    setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
-  }, []);
+  const handleTranscriptionChange = useCallback(
+    (transcript: string) => {
+      if (controller) {
+        controller.textInput.setValue(
+          controller.textInput.value
+            ? `${controller.textInput.value} ${transcript}`
+            : transcript,
+        );
+      }
+    },
+    [controller],
+  );
 
   const handleTextChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setText(event.target.value);
+      if (controller) {
+        controller.textInput.setValue(event.target.value);
+      }
     },
-    []
+    [controller],
   );
 
-  const toggleWebSearch = useCallback(() => {
-    setUseWebSearch((prev) => !prev);
-  }, []);
-
-  const handleModelSelect = useCallback((modelId: string) => {
-    setModel(modelId);
-    setModelSelectorOpen(false);
-  }, []);
+  const handleModelSelect = useCallback(
+    (modelId: string) => {
+      setModel(modelId);
+      setModelSelectorOpen(false);
+    },
+    [setModel, setModelSelectorOpen],
+  );
 
   const isSubmitDisabled = useMemo(
-    () => !(text.trim() || status) || status === "streaming",
-    [text, status]
+    () =>
+      status === "ready" &&
+      ((pendingAsk != null && !pendingAsk.allowCustomInput) ||
+        (!controller?.textInput.value.trim() &&
+          attachments.files.length === 0)),
+    [
+      controller?.textInput.value,
+      attachments.files.length,
+      status,
+      pendingAsk,
+    ],
   );
 
   return (
     <div className="relative flex size-full flex-col divide-y overflow-hidden">
-      <Conversation className="chat-fade-bottom">
-        <ConversationContent>
-          {messages.map(({ versions, ...message }) => (
-            <MessageBranch defaultBranch={0} key={message.key}>
-              <MessageBranchContent>
-                {versions.map((version) => (
-                  <Message
-                    from={message.from}
-                    key={`${message.key}-${version.id}`}
-                  >
-                    <div>
-                      {message.sources?.length && (
-                        <Sources>
-                          <SourcesTrigger count={message.sources.length} />
-                          <SourcesContent>
-                            {message.sources.map((source) => (
-                              <Source
-                                href={source.href}
-                                key={source.href}
-                                title={source.title}
+      <Conversation className="chat-fade-bottom" aria-live="polite">
+        <ConversationContent aria-label="Conversation messages">
+          {error && (
+            <div className="mb-4 flex items-center gap-3 rounded-[var(--radius)] border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              <span className="text-red-400">⚠</span>
+              <span className="flex-1">{error.message}</span>
+            </div>
+          )}
+          {messages.length === 0 ? (
+            <EmptyState />
+          ) : (
+            messages.map((message, messageIndex) => (
+              <Message
+                from={message.role === "user" ? "user" : "assistant"}
+                key={message.id}
+              >
+                <div>
+                  {/* 1. Chain of Thought — groups ALL reasoning steps + tool calls into one timeline */}
+                  {(() => {
+                    const thoughtParts = message.parts.filter(
+                      (p) =>
+                        p.type === "reasoning" || isWebSearchToolPart(p),
+                    );
+
+                    if (thoughtParts.length === 0) return null;
+
+                    return (
+                      <ChainOfThought
+                        isStreaming={
+                          (status === "submitted" ||
+                            status === "streaming") &&
+                          messageIndex === messages.length - 1
+                        }
+                        className="!bg-transparent !border-transparent !backdrop-blur-none shadow-none"
+                        style={
+                          {
+                            "--color-muted-foreground": "var(--lavender-muted)",
+                            "--color-background": "#ffffff",
+                          } as React.CSSProperties
+                        }
+                      >
+                        {thoughtParts.map((part, index) => {
+                          if (part.type === "reasoning") {
+                            const preview = part.text
+                              ? part.text
+                                  .trim()
+                                  .slice(0, 120)
+                                  .replace(/\n/g, " ") +
+                                (part.text.length > 120 ? "…" : "")
+                              : "Thinking…";
+                            return (
+                              <ChainOfThoughtStep
+                                key={`reasoning-${index}`}
+                                icon="bulb"
+                                label={preview}
+                                status="complete"
                               />
-                            ))}
-                          </SourcesContent>
-                        </Sources>
-                      )}
-                      {message.reasoning && (
-                        <Reasoning duration={message.reasoning.duration}>
-                          <ReasoningTrigger />
-                          <ReasoningContent>
-                            {message.reasoning.content}
-                          </ReasoningContent>
-                        </Reasoning>
-                      )}
-                      <MessageContent>
-                        <MessageResponse>{version.content}</MessageResponse>
-                      </MessageContent>
-                    </div>
-                  </Message>
-                ))}
-              </MessageBranchContent>
-              {versions.length > 1 && (
-                <MessageBranchSelector>
-                  <MessageBranchPrevious />
-                  <MessageBranchPage />
-                  <MessageBranchNext />
-                </MessageBranchSelector>
-              )}
-            </MessageBranch>
-          ))}
+                            );
+                          }
+                          if (isWebSearchToolPart(part)) {
+                            if (part.state !== "output-available") {
+                              return null;
+                            }
+                            const query = part.input.query ?? "Web search";
+                            const results =
+                              part.output.error != null
+                                ? []
+                                : (part.output.results ?? []);
+
+                            return (
+                              <ChainOfThoughtStep
+                                key={`search-${index}`}
+                                icon="globe"
+                                label={query}
+                                status="complete"
+                              >
+                                {results.length > 0 ? (
+                                  <ChainOfThoughtSearchResults>
+                                    {results.slice(0, 6).map((r, ri) => (
+                                      <ChainOfThoughtSearchResult
+                                        key={ri}
+                                        href={r.url}
+                                      />
+                                    ))}
+                                  </ChainOfThoughtSearchResults>
+                                ) : null}
+                              </ChainOfThoughtStep>
+                            );
+                          }
+                          return null;
+                        })}
+                        {/* Done indicator — shown when message is complete (has text) */}
+                        {message.parts.some((p) => p.type === "text") && (
+                          <ChainOfThoughtStep
+                            icon="check"
+                            label={"Done"}
+                            status="complete"
+                            isLast={true}
+                          />
+                        )}
+                      </ChainOfThought>
+                    );
+                  })()}
+
+                  {/* 2. Sources from native source-url parts works only for google gemini (e.g. Google grounding) */}
+                  {(() => {
+                    const sources = message.parts.filter(
+                      (p): p is SourceUrlUIPart => p.type === "source-url",
+                    );
+                    if (sources.length === 0) return null;
+                    return (
+                      <Sources>
+                        <SourcesTrigger count={sources.length} />
+                        <SourcesContent>
+                          {sources.map((src, index) => (
+                            <Source
+                              key={index}
+                              href={src.url}
+                              title={src.title || "Source"}
+                            />
+                          ))}
+                        </SourcesContent>
+                      </Sources>
+                    );
+                  })()}
+
+                  {/* 3. Text parts last */}
+                  {message.parts.map((part, index) => {
+                    if (part.type === "text") {
+                      return (
+                        <MessageContent key={index}>
+                          <MessageResponse>{part.text}</MessageResponse>
+                        </MessageContent>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              </Message>
+            ))
+          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="grid shrink-0 gap-3 pt-4">
+      <div className="flex shrink-0 flex-col gap-3 pt-4">
         <Suggestions className="px-4">
           {suggestions.map((suggestion) => (
             <SuggestionItem
@@ -660,78 +450,174 @@ const Example = () => {
         </Suggestions>
         <div className="w-full px-4 pb-4 pt-1">
           <div className="chat-input-wrap relative">
-          <div className="chat-input-glow" />
-          <PromptInput globalDrop multiple onSubmit={handleSubmit}>
-            <PromptInputHeader>
-              <PromptInputAttachmentsDisplay />
-            </PromptInputHeader>
-            <PromptInputBody>
-              <PromptInputTextarea onChange={handleTextChange} value={text} />
-            </PromptInputBody>
-            <PromptInputFooter>
-              <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)]">
-                <PromptInputActionMenu>
-                  <PromptInputActionMenuTrigger />
-                  <PromptInputActionMenuContent>
-                    <PromptInputActionAddAttachments />
-                  </PromptInputActionMenuContent>
-                </PromptInputActionMenu>
-                <SpeechInput
-                  className="shrink-0"
-                  onTranscriptionChange={handleTranscriptionChange}
-                  size="icon-sm"
-                  variant="ghost"
+            <div className="chat-input-glow" />
+            <PromptInput
+              globalDrop
+              multiple
+              onSubmit={submitAskOrChat}
+              accept={PROMPT_INPUT_ACCEPT}
+              maxFiles={5}
+              maxFileSize={10 * 1024 * 1024}
+            >
+              <PromptInputHeader>
+                <PromptInputAttachments />
+              </PromptInputHeader>
+              <PromptInputBody
+                pendingAsk={pendingAsk}
+                onOptionSelect={handleWidgetOptionSelect}
+              >
+                <PromptInputTextarea
+                  onChange={handleTextChange}
+                  value={controller?.textInput.value || ""}
                 />
-                <PromptInputButton
-                  onClick={toggleWebSearch}
-                  size="icon-sm"
-                  variant={useWebSearch ? "default" : "ghost"}
-                >
-                  <GlobeIcon size={16} />
-                </PromptInputButton>
-                <ModelSelector
-                  onOpenChange={setModelSelectorOpen}
-                  open={modelSelectorOpen}
-                >
-                  <ModelSelectorTrigger asChild>
-                    <PromptInputButton className="bg-[#0e0720]/60 border border-[#C8ACFB]/10 hover:bg-[#0e0720]/80 hover:border-[#C8ACFB]/20">
-                      {selectedModelData?.chefSlug && (
-                        <ModelSelectorLogo
-                          provider={selectedModelData.chefSlug}
-                        />
-                      )}
-                      {selectedModelData?.name && (
-                        <ModelSelectorName>
-                          {selectedModelData.name}
-                        </ModelSelectorName>
-                      )}
-                    </PromptInputButton>
-                  </ModelSelectorTrigger>
-                  <ModelSelectorContent>
-                    <ModelSelectorInput placeholder="Search models..." />
-                    <ModelSelectorList>
-                      <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                      {chefs.map((chef) => (
-                        <ModelSelectorGroup heading={chef} key={chef}>
-                          {models
-                            .filter((m) => m.chef === chef)
-                            .map((m) => (
-                              <ModelItem
-                                isSelected={model === m.id}
-                                key={m.id}
-                                m={m}
-                                onSelect={handleModelSelect}
-                              />
+              </PromptInputBody>
+              <PromptInputFooter>
+                <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)] [&_button[data-model-trigger]]:!w-auto [&_button[data-model-trigger]]:!px-2">
+                  <PromptInputButton
+                    onClick={attachments.openFileDialog}
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="Add photos or files"
+                    tooltip={{
+                      content: "Add photos or files",
+                      side: "top",
+                    }}
+                    className="text-text-primary hover:bg-[var(--surface-hover)]"
+                  >
+                    <DotMatrixIcon name="plus" size={ICON_GLYPH.toolbar} />
+                  </PromptInputButton>
+                  <SpeechInput
+                    className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)]"
+                    onTranscriptionChange={handleTranscriptionChange}
+                    size="icon-sm"
+                    variant="ghost"
+                  />
+                  <PromptInputButton
+                    onClick={toggleWebSearch}
+                    size="icon-sm"
+                    variant={useWebSearch ? "default" : "ghost"}
+                    aria-label={
+                      useWebSearch ? "Disable web search" : "Enable web search"
+                    }
+                    tooltip={{
+                      content: useWebSearch
+                        ? "Disable web search"
+                        : "Enable web search",
+                      side: "top",
+                    }}
+                    className={cn(
+                      "transition-colors",
+                      useWebSearch
+                        ? "bg-primary text-accent-ink hover:bg-accent-hover"
+                        : "text-text-primary hover:bg-[var(--surface-hover)]",
+                    )}
+                  >
+                    <DotMatrixIcon name="globe" size={ICON_GLYPH.toolbar} />
+                  </PromptInputButton>
+                  <ModelSelector
+                    onOpenChange={setModelSelectorOpen}
+                    open={modelSelectorOpen}
+                  >
+                    <ModelSelectorTrigger asChild>
+                      <PromptInputButton
+                        data-model-trigger
+                        className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center gap-1.5"
+                        variant="ghost"
+                        aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
+                      >
+                        {selectedModelData ? (
+                          <selectedModelData.icon className="size-3 shrink-0" />
+                        ) : (
+                          <DotMatrixIcon name="settings" size={ICON_GLYPH.toolbar} />
+                        )}
+                        {selectedModelData ? (
+                          <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide">
+                            {selectedModelData.name}
+                          </span>
+                        ) : null}
+                      </PromptInputButton>
+                    </ModelSelectorTrigger>
+                    <ModelSelectorContent>
+                      <ModelSelectorInput placeholder="Search models..." />
+                      <ModelSelectorList>
+                        <ModelSelectorEmpty>
+                          No models found.
+                        </ModelSelectorEmpty>
+                        {chefs.map((chef) => (
+                          <ModelSelectorGroup heading={chef} key={chef}>
+                            {models
+                              .filter((m) => m.chef === chef)
+                              .map((m) => (
+                                <ModelItem
+                                  isSelected={model === m.id}
+                                  key={m.id}
+                                  m={m}
+                                  onSelect={handleModelSelect}
+                                />
+                              ))}
+                          </ModelSelectorGroup>
+                        ))}
+                      </ModelSelectorList>
+                    </ModelSelectorContent>
+                  </ModelSelector>
+                  {selectedModelData?.mode &&
+                    selectedModelData.mode.length > 0 && (
+                      <ModelSelector
+                        onOpenChange={setModeSelectorOpen}
+                        open={modeSelectorOpen}
+                      >
+                        <ModelSelectorTrigger asChild>
+                          <PromptInputButton
+                            data-model-trigger
+                            className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center justify-center px-2"
+                            variant="ghost"
+                            aria-label="Select mode"
+                          >
+                            <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide capitalize">
+                              {mode}
+                            </span>
+                          </PromptInputButton>
+                        </ModelSelectorTrigger>
+                        <ModelSelectorContent className="w-auto">
+                          <ModelSelectorList>
+                            {selectedModelData.mode.map((m) => (
+                              <ModelSelectorItem
+                                key={m}
+                                value={m}
+                                onSelect={(val) => {
+                                  setMode(val);
+                                  setModeSelectorOpen(false);
+                                }}
+                              >
+                                <span className="capitalize">{m}</span>
+                                {mode === m && (
+                                  <DotMatrixIcon
+                                    name="check"
+                                    size={ICON_GLYPH.badge}
+                                    className="ml-auto opacity-50"
+                                  />
+                                )}
+                              </ModelSelectorItem>
                             ))}
-                        </ModelSelectorGroup>
-                      ))}
-                    </ModelSelectorList>
-                  </ModelSelectorContent>
-                </ModelSelector>
-              </PromptInputTools>
-              <PromptInputSubmit disabled={isSubmitDisabled} status={status} />
-            </PromptInputFooter>
-          </PromptInput>
+                          </ModelSelectorList>
+                        </ModelSelectorContent>
+                      </ModelSelector>
+                    )}
+                </PromptInputTools>
+                <PromptInputSubmit
+                  className={cn(
+                    "!size-8 !rounded-[var(--radius)] transition-colors duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] disabled:!opacity-100",
+                    !isSubmitDisabled
+                      ? "bg-primary text-accent-ink hover:bg-accent-hover"
+                      : "text-text-primary hover:bg-[var(--surface-hover)]",
+                  )}
+                  variant={!isSubmitDisabled ? "default" : "ghost"}
+                  disabled={isSubmitDisabled}
+                  onStop={stop}
+                  status={status}
+                />
+              </PromptInputFooter>
+            </PromptInput>
           </div>
         </div>
       </div>
@@ -739,22 +625,25 @@ const Example = () => {
   );
 };
 
-import dynamic from "next/dynamic";
-import ShinyText from "@/components/ShinyText";
-
 const ShaderGradientCanvas = dynamic(
-  () => import("@shadergradient/react").then((mod) => ({ default: mod.ShaderGradientCanvas })),
-  { ssr: false }
+  () =>
+    import("@shadergradient/react").then((mod) => ({
+      default: mod.ShaderGradientCanvas,
+    })),
+  { ssr: false },
 );
 const ShaderGradient = dynamic(
-  () => import("@shadergradient/react").then((mod) => ({ default: mod.ShaderGradient })),
-  { ssr: false }
+  () =>
+    import("@shadergradient/react").then((mod) => ({
+      default: mod.ShaderGradient,
+    })),
+  { ssr: false },
 );
 
 export default function HomePage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#150c28]">
-      <div className="fixed inset-0 z-50 bg-[#150c28] pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
+    <div className="relative min-h-screen overflow-hidden bg-surface-chat workspace-root">
+      <div className="fixed inset-0 z-50 bg-surface-chat pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
 
       <div className="fixed inset-0 -z-10">
         <ShaderGradientCanvas>
@@ -765,6 +654,7 @@ export default function HomePage() {
             cDistance={1.5}
             cPolarAngle={140}
             cameraZoom={10}
+            /* Hex must match :root --shader-color-* (canvas can't resolve CSS vars) */
             color1="#4A1280"
             color2="#8838DE"
             color3="#DDB8F8"
@@ -791,25 +681,43 @@ export default function HomePage() {
         </ShaderGradientCanvas>
       </div>
 
-      <div className="fixed inset-0 z-0 bg-[#150c28]/50 pointer-events-none" />
+      <div className="fixed inset-0 z-0 bg-[var(--surface-chat-veil)] pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col items-center">
-        <div className="mx-auto flex h-screen w-full max-w-4xl flex-col bg-[#150c28]/80 backdrop-blur-sm">
-          <header className="relative flex items-center gap-3 border-b border-[#d0b8f5]/10 px-6 py-4">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C8ACFB]/15 to-transparent" />
-            <ShinyText
-              className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"
-              spread={120}
-            >
-              SPY
-            </ShinyText>
-            <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-[#C8ACFB]">
-              WEAVING SIGNAL
-            </span>
-          </header>
-          <Example />
-        </div>
+      <div className="relative z-10 flex h-screen w-full">
+        {/* Sidebar — sibling to main chat area, but shares chat context */}
+        <ChatProviderWrapper>
+          <ChatSidebar />
+          {/* Main chat area */}
+          <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
+            <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
+              <header className="relative flex items-center gap-3 border-b border-[var(--border-subtle)] px-6 py-4">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-lavender/15 to-transparent" />
+                <ShinyText
+                  className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"
+                  spread={120}
+                >
+                  SPY
+                </ShinyText>
+                <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-lavender">
+                  WEAVING SIGNAL
+                </span>
+              </header>
+              <PromptInputProvider>
+                <ChatWorkspace />
+              </PromptInputProvider>
+            </div>
+          </div>
+        </ChatProviderWrapper>
       </div>
     </div>
+  );
+}
+
+// Wrap sidebar + chat area in a single ChatProvider so they share state
+function ChatProviderWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <ChatProvider>{children}</ChatProvider>
+    </TooltipProvider>
   );
 }

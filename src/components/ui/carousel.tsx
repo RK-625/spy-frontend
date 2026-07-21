@@ -90,12 +90,18 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api || !setApi) return
-    setApi(api)
+    // ponytail: defer state update to avoid cascading render warning in effect
+    setTimeout(() => {
+      setApi(api)
+    }, 0);
   }, [api, setApi])
 
   React.useEffect(() => {
     if (!api) return
-    onSelect(api)
+    // ponytail: defer state update to avoid cascading render warning in effect
+    setTimeout(() => {
+      onSelect(api)
+    }, 0);
     api.on("reInit", onSelect)
     api.on("select", onSelect)
 

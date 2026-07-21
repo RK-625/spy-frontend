@@ -15,8 +15,19 @@
   --color-accent: #e8dff8;
   --color-accent-hover: #f0eaff;
 
-  --color-border-subtle: rgba(200, 195, 184, 0.08);
-  --color-border-strong: rgba(200, 195, 184, 0.15);
+  --color-surface-chat: #150c28;
+  --color-surface-elevated: #0a0516;
+  --color-surface-input: var(--surface-input);
+  --color-lavender: var(--lavender);
+  --color-lavender-muted: var(--lavender-muted);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+
+  /* Prompt shell spacing scale (use as px-prompt-body-x / py-prompt-body-y) */
+  --spacing-prompt-body-x: var(--prompt-body-px);
+  --spacing-prompt-body-y: var(--prompt-body-py);
 
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
@@ -82,7 +93,7 @@
   }
 
   ::selection {
-    background: rgba(232, 223, 248, 0.15);
+    background: var(--accent-selection);
     color: var(--color-text-primary);
   }
   html {
@@ -120,6 +131,79 @@
 }
 
 :root {
+  /* ── Design Tokens ── */
+
+  /* Typography */
+  --font-code: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+
+  /* Border tokens — lavender (#C8ACFB) at various opacities */
+  --border-faint: rgba(200, 172, 251, 0.05);
+  --border-subtle: rgba(200, 172, 251, 0.08);
+  --border-default: rgba(200, 172, 251, 0.10);
+  --border-medium: rgba(200, 172, 251, 0.12);
+  --border-strong: rgba(200, 172, 251, 0.15);
+
+  /* Surface tokens — lavender backgrounds */
+  --surface-subtle: rgba(200, 172, 251, 0.04);
+  --surface-hover: rgba(200, 172, 251, 0.08);
+  --surface-focus: rgba(200, 172, 251, 0.20);
+
+  /* Focus tokens */
+  --focus-glow: rgba(200, 172, 251, 0.03);
+
+  /* Code tokens */
+  --code-inline-border: rgba(200, 172, 251, 0.06);
+  --code-surface: color-mix(in srgb, var(--surface-elevated) 80%, transparent);
+
+  /* Accent tokens — (#e8dff8) at various opacities */
+  --accent-selection: rgba(232, 223, 248, 0.15);
+  --accent-decoration: rgba(232, 223, 248, 0.25);
+  --accent-border: rgba(232, 223, 248, 0.30);
+
+  /* Semantic tokens */
+  --list-marker: rgba(200, 172, 251, 0.40);
+  --glow-line: rgba(200, 172, 251, 0.30);
+
+  /* Chat surface tokens */
+  --surface-chat: #150c28;
+  --surface-elevated: #0a0516;
+  /* Frosted input / elevated panels on chat surface */
+  --surface-input: rgba(10, 5, 22, 0.65);
+  --surface-input-strong: rgba(10, 5, 22, 0.85);
+  --surface-input-opaque: rgba(10, 5, 22, 0.95);
+  --surface-chat-veil: rgba(21, 12, 40, 0.5);
+  --surface-chat-panel: rgba(21, 12, 40, 0.8);
+  --shadow-elevated: rgba(0, 0, 0, 0.3);
+
+  /* Lavender scale (solid) */
+  --lavender: #c8acfb;
+  --lavender-muted: #9a8cc0;
+  /* Ink on solid light accent buttons */
+  --accent-ink: #0a0a0c;
+
+  /* Shader gradient sphere (workspace backdrop) */
+  --shader-color-1: #4a1280;
+  --shader-color-2: #8838de;
+  --shader-color-3: #ddb8f8;
+
+  /* Prompt input body gutter + textarea floor */
+  --prompt-body-px: 0.625rem; /* 10px — was Tailwind px-2.5 */
+  --prompt-body-py: 0.5rem; /* 8px — was Tailwind py-2 */
+  --prompt-textarea-min-h: 1.25rem; /* 20px — was min-h-5 */
+  --prompt-input-radius: 0.825rem;
+
+  /* Pill tokens — source / URL chips (pill-shaped by design) */
+  --pill-source-bg: rgba(200, 172, 251, 0.06);
+  --pill-source-border: rgba(200, 172, 251, 0.12);
+  --pill-source-text: var(--lavender-muted);
+  --pill-source-text-hover: #e8dff8;
+  --pill-source-border-hover: rgba(200, 172, 251, 0.25);
+
+  /* Pill tokens — status / step count chips */
+  --pill-status-bg: rgba(200, 172, 251, 0.12);
+  --pill-status-text: var(--lavender);
+
+  /* ── shadcn/ui tokens ── */
   --background: #060610;
   --foreground: #e8e4df;
   --card: #100a1e;
@@ -138,15 +222,22 @@
   --destructive-foreground: #e8e4df;
   --border: rgba(208, 184, 245, 0.15);
   --input: rgba(208, 184, 245, 0.15);
-  --ring: #e8dff8;
+  --ring: rgba(200, 172, 251, 0.40);
   --radius: 0.55rem;
+  /* Icon control tokens — densified 3-role system (Plan B) */
+  --control-toolbar-box: 32px;
+  --control-toolbar-glyph: 20px;
+  --control-badge-box: 18px;
+  --control-badge-glyph: 14px;
+  --glyph-inline-size: 16px;
+  --radius-badge: calc(var(--radius) * 0.45);
   --sidebar: #060610;
   --sidebar-foreground: #e8e4df;
   --sidebar-primary: #e8dff8;
   --sidebar-primary-foreground: #060610;
   --sidebar-accent: #11111a;
   --sidebar-accent-foreground: #e8dff8;
-  --sidebar-border: rgba(200, 195, 184, 0.15);
+  --sidebar-border: rgba(200, 172, 251, 0.15);
   --sidebar-ring: #e8dff8;
 }
 
@@ -202,7 +293,7 @@
   --destructive-foreground: #e8e4df;
   --border: rgba(208, 184, 245, 0.15);
   --input: rgba(208, 184, 245, 0.15);
-  --ring: #e8dff8;
+  --ring: rgba(200, 172, 251, 0.40);
   --radius: 0.55rem;
   --sidebar: #060610;
   --sidebar-foreground: #e8e4df;
@@ -210,7 +301,7 @@
   --sidebar-primary-foreground: #060610;
   --sidebar-accent: #11111a;
   --sidebar-accent-foreground: #e8dff8;
-  --sidebar-border: rgba(200, 195, 184, 0.15);
+  --sidebar-border: rgba(200, 172, 251, 0.15);
   --sidebar-ring: #e8dff8;
 }
 
@@ -221,8 +312,8 @@
 /* ── Global minimal scrollbar — thin, fades naturally ── */
 *::-webkit-scrollbar { width: 2px; height: 2px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 0; }
-* { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.15) transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(200, 172, 251, 0.15); border-radius: 0; }
+* { scrollbar-width: thin; scrollbar-color: rgba(200, 172, 251, 0.15) transparent; }
 
 /* ── Conversation scrollbar — always visible, faint ── */
 [role="log"] *::-webkit-scrollbar,
@@ -231,12 +322,12 @@
 }
 [role="log"] *::-webkit-scrollbar-thumb,
 [role="log"]::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(200, 172, 251, 0.15);
   min-height: 40px;
 }
 [role="log"] *,
 [role="log"] {
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  scrollbar-color: rgba(200, 172, 251, 0.15) transparent;
   scrollbar-width: thin;
 }
 
@@ -247,7 +338,7 @@
 
 /* ── Divider (between messages and input section) ── */
 .divide-y > :not(:first-child) {
-  border-top: 1px solid rgba(200, 172, 251, 0.08);
+  border-top: 1px solid var(--border-subtle);
   background: transparent !important;
 }
 
@@ -258,21 +349,21 @@
   gap: 0.4rem;
   padding: 0.3rem 0.6rem;
   border-radius: var(--radius);
-  background: rgba(200, 172, 251, 0.04);
-  border: 1px solid rgba(200, 172, 251, 0.08);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
   font-size: 0.75rem;
   color: #C8ACFB;
   transition: background 0.2s, border-color 0.2s;
   cursor: pointer;
 }
 [data-slot="collapsible-trigger"]:hover {
-  background: rgba(200, 172, 251, 0.08);
-  border-color: rgba(200, 172, 251, 0.15);
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
 }
-[data-slot="collapsible-trigger"] svg:last-child {
+[data-slot="collapsible-trigger"] > :last-child {
   transition: rotate 0.25s ease;
 }
-[data-slot="collapsible-trigger"][data-state="open"] svg:last-child {
+[data-state="open"][data-slot="collapsible-trigger"] > :last-child {
   rotate: 180deg;
 }
 
@@ -294,19 +385,19 @@
 
 /* ── Input Elevation ── */
 .chat-input-wrap {
-  border-radius: 0.825rem;
-  border: 1px solid rgba(200, 172, 251, 0.08);
-  background: rgba(10, 5, 22, 0.65);
+  border-radius: var(--prompt-input-radius);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-input);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transition: border-color 0.35s ease, box-shadow 0.35s ease;
 }
 .chat-input-wrap:focus-within {
-  border-color: rgba(200, 172, 251, 0.2);
+  border-color: var(--surface-focus);
   box-shadow:
-    0 0 0 1px rgba(200, 172, 251, 0.03),
-    0 0 40px rgba(200, 172, 251, 0.05),
-    0 8px 40px rgba(0, 0, 0, 0.3);
+    0 0 0 1px var(--focus-glow),
+    0 0 40px var(--border-faint),
+    0 8px 40px var(--shadow-elevated);
 }
 .chat-input-wrap:focus-within .chat-input-glow {
   opacity: 1;
@@ -317,7 +408,7 @@
   left: 20%;
   right: 20%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(200, 172, 251, 0.3), transparent);
+  background: linear-gradient(90deg, transparent, var(--glow-line), transparent);
   opacity: 0;
   transition: opacity 0.35s ease;
   pointer-events: none;
@@ -385,7 +476,7 @@
   line-height: 1.65;
 }
 .group.is-assistant li::marker {
-  color: rgba(200, 172, 251, 0.4);
+  color: var(--list-marker);
 }
 
 /* ── Code Blocks — single clean container ── */
@@ -393,11 +484,12 @@
   margin: 0.5em 0 !important;
 }
 [data-streamdown="code-block"] {
-  background: rgba(10, 5, 22, 0.8);
+  background: var(--surface-input);
   border: 1px solid rgba(200, 172, 251, 0.08);
-  border-radius: var(--radius);
+  border-radius: 0.825rem;
   padding: 0;
   position: relative;
+  overflow: hidden;
 }
 [data-streamdown="code-block"]:hover [data-streamdown="code-block-actions"] {
   opacity: 1;
@@ -433,43 +525,82 @@
 
 [data-streamdown="code-block-body"] pre code {
   background: transparent;
-  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-family: var(--font-code);
   font-size: 0.78rem;
   line-height: 1.6;
 }
 
-[data-streamdown="code-block-actions"] {
+[data-streamdown$="actions"] {
   position: absolute;
   top: 0.4rem;
   right: 0.4rem;
-  background: rgba(10, 5, 22, 0.9);
-  border: 1px solid rgba(200, 172, 251, 0.1);
-  border-radius: var(--radius);
-  padding: 0.15rem;
-  backdrop-filter: blur(8px);
+  background: transparent;
+  border: none;
+  padding: 0;
+  backdrop-filter: none;
   opacity: 0;
   transition: opacity 0.2s ease;
   z-index: 2;
 }
 
-[data-streamdown="code-block-actions"] button {
-  border-radius: var(--radius);
+[data-streamdown="code-block-copy-button"],
+[data-streamdown="table-wrapper"] > div:first-child > div.relative > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: var(--radius) !important;
+  background: transparent !important;
+  border: none !important;
+  color: #ded4f0 !important;
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
-/* Hide download button, keep copy */
-[data-streamdown="code-block-actions"] button[data-action="download"],
-[data-streamdown="code-block-actions"] button:first-child:not([data-action="copy"]):not([aria-label*="Copy"]) {
-  display: none !important;
+[data-streamdown="code-block-copy-button"]:hover,
+[data-streamdown="table-wrapper"] > div:first-child > div.relative > button:hover {
+  background: rgba(200, 172, 251, 0.08) !important;
+  color: #f0eaff !important;
+}
+
+[data-streamdown="code-block-copy-button"] svg,
+[data-streamdown="table-wrapper"] > div:first-child > div.relative > button svg {
+  width: 16px !important;
+  height: 16px !important;
+  stroke-width: 2.5px !important;
+  shape-rendering: crispEdges !important;
+}
+
+/* Table Copy Dropdown Menu */
+[data-streamdown="table-wrapper"] .absolute.top-full {
+  background: var(--surface-input-opaque) !important;
+  border: 1px solid rgba(200, 172, 251, 0.15) !important;
+  backdrop-filter: blur(12px) !important;
+  border-radius: var(--radius) !important;
+  padding: 0.25rem !important;
+}
+
+[data-streamdown="table-wrapper"] .absolute.top-full button {
+  color: #ded4f0 !important;
+  background: transparent !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+  padding: 0.35rem 0.5rem !important;
+}
+
+[data-streamdown="table-wrapper"] .absolute.top-full button:hover {
+  background: rgba(200, 172, 251, 0.12) !important;
+  color: #f0eaff !important;
 }
 
 /* ── Code: inline and pre ── */
 .group.is-assistant code:not(pre code) {
-  background: rgba(200, 172, 251, 0.08);
+  background: var(--surface-hover);
   color: #C8ACFB;
   padding: 0.12em 0.45em;
   font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   font-size: 0.85em;
-  border: 1px solid rgba(200, 172, 251, 0.06);
+  border: 1px solid var(--code-inline-border);
 }
 .group.is-assistant pre {
   background: transparent;
@@ -490,7 +621,7 @@
 
 /* ── Markdown: Misc ── */
 .group.is-assistant blockquote {
-  border-left: 2px solid rgba(232, 223, 248, 0.3);
+  border-left: 2px solid var(--accent-border);
   padding: 0.3em 0 0.3em 1em;
   margin: 0.5em 0;
   color: #7a7685;
@@ -499,7 +630,7 @@
   color: #e8dff8;
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: rgba(232, 223, 248, 0.25);
+  text-decoration-color: var(--accent-decoration);
   transition: color 0.2s, text-decoration-color 0.2s;
 }
 .group.is-assistant a:hover {
@@ -508,25 +639,82 @@
 }
 .group.is-assistant hr {
   border: none;
-  border-top: 1px solid rgba(200, 172, 251, 0.08);
+  border-top: 1px solid var(--border-subtle);
   margin: 0.8em 0;
 }
-.group.is-assistant table {
+/* ── Streamdown Table Overrides ── */
+[data-streamdown="table-wrapper"] {
+  background: var(--surface-input) !important;
+  border: 1px solid rgba(200, 172, 251, 0.08) !important;
+  border-radius: 0.825rem !important;
+  padding: 0.5rem !important;
+  margin: 0.75em 0 !important;
+  position: relative !important;
+}
+
+[data-streamdown="table-wrapper"] > div:first-child {
+  position: absolute !important;
+  top: 0.75rem !important;
+  right: 0.75rem !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+[data-streamdown="table-wrapper"]:hover > div:first-child {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+[data-streamdown="table-wrapper"] > div.border-collapse {
+  background: transparent !important;
+  border: 1px solid rgba(200, 172, 251, 0.08) !important;
+  border-radius: 0.5rem !important;
+  margin-top: 0 !important;
+}
+
+[data-streamdown="table"] {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.5em 0;
+  margin: 0 !important;
   font-size: 0.85em;
 }
-.group.is-assistant th {
-  text-align: left;
-  padding: 0.4em 0.8em;
-  border-bottom: 1px solid rgba(200, 172, 251, 0.12);
-  color: #C8ACFB;
-  font-weight: 500;
+
+[data-streamdown="table-header"] {
+  background: rgba(200, 172, 251, 0.05) !important;
 }
-.group.is-assistant td {
-  padding: 0.4em 0.8em;
-  border-bottom: 1px solid rgba(200, 172, 251, 0.05);
+
+[data-streamdown="table-header-cell"] {
+  color: #C8ACFB !important;
+  font-weight: 500 !important;
+  text-align: left;
+  padding: 0.6rem 0.8rem !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(200, 172, 251, 0.1) !important;
+}
+
+[data-streamdown="table-cell"] {
+  color: #ded4f0 !important;
+  padding: 0.6rem 0.8rem !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(200, 172, 251, 0.05) !important;
+}
+
+[data-streamdown="table-row"]:last-child [data-streamdown="table-cell"] {
+  border-bottom: none !important;
+}
+
+[data-streamdown="table-row"]:hover {
+  background: rgba(200, 172, 251, 0.03) !important;
+}
+
+/* Disable Streamdown's ugly default divide-y borders */
+[data-streamdown="table-body"].divide-y > :not([hidden]) ~ :not([hidden]),
+[data-streamdown="table"].divide-y > :not([hidden]) ~ :not([hidden]) {
+  border-top-width: 0 !important;
 }
 
 /* ── User Bubble Enhancement ── */
@@ -535,13 +723,12 @@
 }
 .group.is-user [class*="bg-secondary"] {
   background: linear-gradient(135deg, rgba(30, 21, 64, 0.95), rgba(26, 16, 56, 0.85)) !important;
-  border: 1px solid rgba(200, 172, 251, 0.08);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   max-width: 70%;
   margin-left: auto;
 }
 
-/* ── Toolbar Buttons — consistent radius + height ── */
 .chat-input-wrap [data-slot="button"] {
   border-radius: var(--radius);
   height: 2rem;
@@ -555,15 +742,19 @@
 
 /* ── Selection ── */
 .group.is-assistant ::selection {
-  background: rgba(200, 172, 251, 0.2);
+  background: var(--surface-focus);
   color: #e8e4df;
 }
 .group.is-user ::selection {
-  background: rgba(232, 223, 248, 0.15);
+  background: var(--accent-selection);
   color: #e8e4df;
 }
 
 /* ── Conversation Bottom Fade ── */
+.chat-fade-bottom {
+  overflow: hidden;
+}
+
 .chat-fade-bottom::after {
   content: "";
   position: absolute;
@@ -576,15 +767,164 @@
   z-index: 5;
 }
 
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Scroll-to-bottom button ── */
 [data-slot="scroll-button"] {
-  background: rgba(10, 5, 22, 0.85) !important;
-  border: 1px solid rgba(200, 172, 251, 0.12) !important;
+  background: var(--surface-input-strong) !important;
+  border: 1px solid var(--border-medium) !important;
   border-radius: var(--radius) !important;
   backdrop-filter: blur(8px);
 }
 
 /* ── Toolbar Refinement ── */
-.chat-input-wrap [data-slot="input-group-addon"] {
-  border-top: 1px solid rgba(200, 172, 251, 0.05) !important;
+.chat-input-wrap [data-prompt-footer] {
+  border-top: 1px solid var(--border-faint) !important;
+}
+
+/* ── Streamdown Mermaid Overrides ── */
+[data-streamdown="mermaid-block"] {
+  background: var(--surface-input) !important;
+  border: 1px solid rgba(200, 172, 251, 0.08) !important;
+  border-radius: 0.825rem !important;
+  padding: 0 !important;
+  position: relative !important;
+  overflow: hidden !important;
+  gap: 0 !important;
+}
+
+/* Float the "mermaid" label */
+[data-streamdown="mermaid-block"] > div:first-child {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.75rem;
+  padding: 0;
+  background: transparent;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+}
+
+/* Strip the default inner border/background and push diagram down */
+[data-streamdown="mermaid-block"] > div.rounded-md.border {
+  background: transparent !important;
+  border: none !important;
+  margin-top: 2rem !important;
+}
+
+/* Prevent diagram relative container from collapsing */
+[data-streamdown="mermaid"] > div.relative {
+  display: block !important;
+  position: relative !important;
+  height: auto !important;
+  min-height: 200px !important;
+}
+
+/* Strip the sticky wrapper spacing */
+[data-streamdown="mermaid-block"] > div.sticky {
+  position: absolute !important;
+  top: 0.4rem !important;
+  right: 0.4rem !important;
+  margin: 0 !important;
+  height: auto !important;
+  z-index: 10;
+}
+
+/* Restyle the action bar container */
+[data-streamdown="mermaid-block-actions"] {
+  background: transparent !important;
+  border: none !important;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+[data-streamdown="mermaid-block"]:hover [data-streamdown="mermaid-block-actions"] {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Style the buttons exactly like the code-block copy button */
+[data-streamdown="mermaid-block-actions"] button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: var(--radius) !important;
+  background: transparent !important;
+  border: none !important;
+  color: #ded4f0 !important;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+[data-streamdown="mermaid-block-actions"] button:hover {
+  background: rgba(200, 172, 251, 0.08) !important;
+  color: #f0eaff !important;
+}
+
+
+
+/* ── Retheme Mermaid SVG Elements for Spy Dark Theme ── */
+[data-streamdown="mermaid"] svg .node rect,
+[data-streamdown="mermaid"] svg .node circle,
+[data-streamdown="mermaid"] svg .node ellipse,
+[data-streamdown="mermaid"] svg .node polygon,
+[data-streamdown="mermaid"] svg .node path {
+  fill: rgba(18, 10, 36, 0.9) !important;
+  stroke: rgba(200, 172, 251, 0.25) !important;
+  stroke-width: 1.5px !important;
+}
+
+[data-streamdown="mermaid"] svg .node .label,
+[data-streamdown="mermaid"] svg .node .label text,
+[data-streamdown="mermaid"] svg .node .label span,
+[data-streamdown="mermaid"] svg .node .label p {
+  color: #e8e4df !important;
+  fill: #e8e4df !important;
+}
+
+[data-streamdown="mermaid"] svg .edgePath .path {
+  stroke: rgba(200, 172, 251, 0.35) !important;
+  stroke-width: 1.5px !important;
+}
+
+[data-streamdown="mermaid"] svg .marker,
+[data-streamdown="mermaid"] svg .arrowheadPath {
+  fill: rgba(200, 172, 251, 0.35) !important;
+  stroke: rgba(200, 172, 251, 0.35) !important;
+}
+
+[data-streamdown="mermaid"] svg .edgeLabel rect {
+  fill: var(--surface-input-opaque) !important;
+}
+
+[data-streamdown="mermaid"] svg .labelBkg,
+[data-streamdown="mermaid"] svg .edgeLabel rect,
+[data-streamdown="mermaid"] svg .edgeLabel {
+  fill: var(--surface-input-opaque) !important;
+  background-color: var(--surface-input-opaque) !important;
+  stroke: rgba(200, 172, 251, 0.15) !important;
+  rx: 4px !important;
+  ry: 4px !important;
+  border-radius: 4px !important;
+  color: #C8ACFB !important;
+}
+
+[data-streamdown="mermaid"] svg .edgeLabel span,
+[data-streamdown="mermaid"] svg .edgeLabel p,
+[data-streamdown="mermaid"] svg .edgeLabel div {
+  color: #C8ACFB !important;
+  background-color: transparent !important;
 }

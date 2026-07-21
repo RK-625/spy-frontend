@@ -2,11 +2,11 @@
 
 ## Register
 
-**Brand** (landing page, marketing). The workspace/app will be **Product** register when built.
+**Brand** (landing page, marketing) + **Product** (chat UI). The workspace/app is Product register.
 
 ## Name
 
-**Spy** — always capitalized, always the full name. No abbreviation. The landing page hero's final reveal uses the customized title **SYPDER**.
+**Spy** — always capitalized, always the full name. No abbreviation.
 
 ## Category
 
@@ -24,13 +24,15 @@ Spy is an agent-first knowledge base. Unlike Obsidian or Notion, you don't organ
 
 The landing page's job: make the visitor believe this agent is real, alive, and worth trying.
 
+The chat UI's job: be a clean, distraction-free conversation surface where the agent's intelligence is the focus.
+
 ## Artifact
 
 **3D Gradient Sphere Backdrop** — A dynamic, morphing 3D gradient sphere that represents the active, alien, processing intelligence of Spy. It runs full-screen behind the hero as an ambient backdrop. The knowledge graph is built by the agent and shown inside the application itself.
 
 ## Evidence
 
-The morphing 3D sphere gradient and the multi-phased terminal scramble sequence ("KNOWLEDGE UNSTRUCTURED IS JUST NOISE !!!" -> "MANAGE THE CHAOS" -> "MEET SYPDER") demonstrate the product's core value: turning raw, messy information into structured, intelligent form.
+The morphing 3D sphere gradient and the multi-phased terminal scramble sequence demonstrate the product's core value: turning raw, messy information into structured, intelligent form.
 
 ## Voice
 
@@ -48,112 +50,165 @@ Do NOT look like:
 - Generic AI startup landing pages (dark bg + cyan neon + centered hero)
 - Terminal/developer tool aesthetics (monospace, green-on-black)
 - Corporate SaaS (navy, rounded cards, "trusted by" logos)
-- Cartoonish mascots, big eyes, cute characters — the robot spider has a visor and insectoid eyes, not a cute face
+- Cartoonish mascots, big eyes, cute characters
 - Any product that could swap its name and still work
+- ChatGPT/Claude generic chat layouts — Spy's chat should feel distinctly alien
 
 ## Design principles
 
-1. **Complex 3D Glossy Aesthetics** — The mascot is a highly detailed 3D glossy robot spider loaded from `mascot-3d.svg`. It uses smooth curves, gradients, and metallic purple/lavender reflections to feel alien, sleek, and full of personality. The page itself has no rounded corners or decorative flourishes — the spider and the background shader gradient are the complex visuals, everything else recedes.
+1. **Complex 3D Glossy Aesthetics** — The mascot is a highly detailed 3D glossy robot spider. The background shader gradient is the complex visual; everything else recedes.
 
-2. **Dark utility register** — Sparse layout, high contrast where it matters, low contrast everywhere else. The page is a tool introduction, not a carnival. Information should feel measured and precise.
+2. **Dark utility register** — Sparse layout, high contrast where it matters, low contrast everywhere else.
 
-3. **Alien Intelligence is the Backdrop** — The morphing 3D gradient sphere is a visual metaphor for the agent's mind, running full-screen behind the hero. It is covered by a slow startup dissolve to hold focus during initial load.
+3. **Distinctive over safe** — Unbounded and VT323 over Inter for headings. Deep glossy purple/lavender over typical startup dark/cyan templates.
 
-4. **Distinctive over safe** — Choose the unexpected option. Unbounded and VT323 over Inter for headings. A deep, glossy purple/lavender gradient and lavender-white theme over the typical startup dark/cyan templates.
+4. **Ambient over loud** — Continuous subtle animation over flashy effects. The page should feel inhabited, not performing.
 
-5. **Ambient over loud** — Continuous subtle animation (3D sphere morph, spider bob, visor ticker scroll, text scramble sequence, glint sweep) over flashy effects. The page should feel inhabited, not performing.
+5. **One verb per action** — "Start weaving", not "Get started now". Every word earns its place.
 
-6. **One verb per action** — "Start weaving", not "Get started now". Every word earns its place.
+6. **Consistency is king** — Every component follows the same design tokens. Same radius, same spacing scale, same color roles. No orphan treatments.
 
 ## Visual foundation
 
 ### Color
 
-The palette is restrained and uses deep purple, lavender, and monochrome tones.
-
 **Surface & Background:**
 - `#060610` — deepest black, page background base
-- `@shadergradient/react` 3D Sphere colors:
-  - `#4A1280` — dark purple body
-  - `#8838DE` — mid purple surface tone
-  - `#DDB8F8` — lavender highlight
+- `#150c28` — dark purple, chat page background
+- ShaderGradient 3D Sphere: `#4A1280` / `#8838DE` / `#DDB8F8`
 
-**UI Text & Accents:**
-- `#ded4f0` — lavender-white for primary and scramble text
-- `#7a7685` — muted secondary text
-- `#4a4658` — dim metadata
-- Glossy gradient for **SYPDER**:
-  - `#e8dff8` (0%) to `#d0b8f5` (30%) to `#b992f0` (60%) to `#9a6ae0` (100%), with a radial glint sweep
-  - Drop shadow offset: `#1e0c50` block shadows
-- Gold/Amber (`#c9952a` / `#e0ad3a`) — reserved for interactive action elements, buttons, and system notices below the fold.
+**UI Text & Accents (unified lavender-white system):**
+- `#e8dff8` — primary accent (submit button, focus rings, links, interactive highlights)
+- `#f0eaff` — hover accent (brighter variant)
+- `#ded4f0` — primary text (headings, strong)
+- `#e8e4df` — body text (warm off-white)
+- `#C8ACFB` — secondary text (inline code, triggers, muted labels)
+- `#9a8cc0` — dim text (suggestion chips, branch selector)
+- `#7a7685` — muted text (blockquote, metadata)
+- `#4a4658` — dimmest text
+
+**Surfaces:**
+- `rgba(10, 5, 22, 0.8)` — code blocks, elevated containers
+- `rgba(14, 7, 32, 0.5)` — suggestion chips, toolbar bg
+- `rgba(200, 172, 251, 0.08)` — borders, dividers
+- `rgba(200, 172, 251, 0.04)` — trigger backgrounds
 
 **Color rules:**
-- The background is built on a dark purple/lavender gradient, transitioning into deepest black.
-- Main title text uses lavender-white and glossy purple gradients, never pure #fff.
-- Focus rings and interactive buttons use the gold/amber accent for strong call-outs.
+- Background is dark purple/lavender, transitioning to deepest black
+- Interactive accents, focus rings, and CTAs use glossy lavender-white (`#e8dff8` / `#C8ACFB`). Gold/Amber is not used in production UI.
+- Text is never pure `#fff` — always warm off-white or lavender-tinted
+- Borders use `rgba(200, 172, 251, 0.08)` at 1px — barely visible, structural
 
 ### Typography
 
-* **Display:** Unbounded (400, 500, 600, 700) — headings, logo, section titles
-* **Terminal:** VT323 / custom monospace — scramble text, visor text, tech indicators
-* **Body:** Inter (400, 500) — tagline, descriptions, UI text
-* Light on dark needs compensation: heavier weights, more line-height, trace of letter-spacing
-* Sentence case everywhere
-* Micro scale for UI: 0.65rem for step numbers, 0.7rem for logo, 0.75rem for CTA
+- **Display:** Unbounded (400, 500, 600, 700) — headings, section titles
+- **Terminal:** VT323 — scramble text, visor text, tech indicators, logo
+- **Body:** Inter (400, 500) — tagline, descriptions, UI text, suggestion chips
+- **Code:** `ui-monospace, Cascadia Code, Source Code Pro, Menlo, Consolas` — code blocks, inline code
+- Light on dark needs compensation: heavier weights, more line-height, trace of letter-spacing
+- Sentence case everywhere
 
-### Motion & Interactivity
+### Spacing & Radius
 
-* **Black Overlay Dissolve:** Starts at 0.8s, runs a 2.5s linear fade-out (`dissolve-out`) to cover shader compilation. Scramble text starts after this overlay is fully dissolved.
-* **Three-Phase Scramble:** Scramble text runs using `use-scramble` (speed 0.35, tick 2, step 1, scramble 2, range [65, 125]):
-  * Phase 1: `"KNOWLEDGE UNSTRUCTURED IS JUST NOISE !!!"`
-  * Phase 2: `"MANAGE THE CHAOS"` (triggers after 1s pause)
-  * Phase 3: `"MEET"` (lavender-white) + `"SYPDER"` (glossy purple gradient)
-* **Highlight Sweep:** 200ms after Phase 3 resolves, a CSS `::after` radial white-gold glint sweep (`coin-glint` animation) cycles across `"SYPDER"`.
-* **Spider idle (SpiderMascot):** Continuous GSAP tweens — body float (translateY, 2.5s sine.inOut, yoyo), leg twitches (rotation via svgOrigin from hip joints, staggered per leg), pedipalp micro-movement. No frame cycling.
-* **Reduced motion:** Respect `prefers-reduced-motion`
+- **Spacing scale:** 4px base. Components use 4/8/12/16/24/32px multiples
+- **Border radius:** `--radius: 0.55rem` (8.8px) — applied globally via CSS token
+- **Input wrapper:** `0.825rem` (13.2px) — slightly larger for the elevated input area
+- **No pill shapes** — radius is present but restrained, never fully rounded. **Exception:** source / URL citation chips in `Sources` and `ChainOfThoughtSearchResult` use `rounded-full` (`--pill-source-*` tokens). This is a deliberate exception for compact reference chips and must not be flattened to `--radius` without design review.
 
-## Composition
+### Motion
 
-* **Hero:** Employs a three-phase text reveal scramble sequence. Underneath a dissolving startup overlay, the morphing 3D gradient sphere provides depth. The spider mascot, logo, tagline, and CTA are orchestrated below or integrated within this central viewport.
-* **Scroll hint:** Thin line at bottom of hero suggesting more content below.
-* **Ambient top glow:** Subtle amber/violet wash at the top of the page, nearly invisible (2% opacity, 100px blur).
+- **Collapsible open:** 0.25s ease-out, opacity 0→1, translateY -4→0, max-height 0→500px
+- **Collapsible close:** 0.25s ease-in, opacity 1→0, translateY 0→-4px, max-height 500→0
+- **Chevron rotation:** 0.25s ease via CSS `rotate` property (not `transform`)
+- **Input focus glow:** 0.35s ease border-color + box-shadow
+- **Suggestion hover:** all 0.2s
+- **Scroll fade:** 48px gradient at bottom of conversation area
+- **Dissolve overlay:** 2.5s linear fade-out on page load
+
+## Chat UI Design System
+
+### Layout
+
+- **Viewport-locked:** `h-screen` container, header top / messages scroll / input bottom
+- **Max width:** `max-w-4xl` (896px), centered
+- **Background:** `bg-[#150c28]/80 backdrop-blur-sm` over ShaderGradient
+
+### Message Bubbles
+
+- **User:** Right-aligned, `max-width: 70%`, gradient bg (`rgba(30,21,64,0.95)` → `rgba(26,16,56,0.85)`), 1px lavender border, `var(--radius)` corners, `px-4 py-3`
+- **Assistant:** Left-aligned, full width, no bg, clean markdown typography
+
+### Code Blocks
+
+- **Single container** (no nested windows): outer `rgba(10,5,22,0.8)` bg, 1px border, `var(--radius)` corners
+- **Header:** language label (top-left), copy button (top-right, visible on hover only)
+- **Font:** `ui-monospace` stack at 0.78rem, line-height 1.6
+- **Line numbers:** 13px, right-aligned, `rgba(200,172,251,0.50)` color
+
+### Input Area
+
+- **Elevated wrapper:** `0.825rem` radius, `rgba(10,5,22,0.65)` bg, `blur(16px)` backdrop, 1px border
+- **Focus state:** border `rgba(200,172,251,0.2)`, glow shadow, top gradient line
+- **Toolbar:** all buttons `size-8` (32×32), `var(--radius)` corners, ghost variant
+- **Submit/Stop:** `bg-primary` (`#e8dff8`), `text-primary-foreground` (`#150c28`), ArrowUp icon. The button never fades out or disables during generation. It stays fully opaque and instantly morphs into a universal Stop button (Square icon) when weaving/streaming.
+- **Chat-only shell:** Live `prompt-input` is conversation chrome (attachments header, textarea, tools, submit). There is **no** in-prompt multiple-choice / morphing “ask user question” widget in production; that experiment is deprecated under `src/deprecated/ask-user-question-widget/` pending redesign.
+
+### Suggestion Chips
+
+- Horizontal scroll, no visible scrollbar, `px-4` padding
+- `var(--radius)` corners, Inter 0.75rem medium, `text-[#9a8cc0]`
+- Border `rgba(200,172,251,0.1)`, bg `rgba(14,7,32,0.5)`
+- Hover: border `rgba(232,223,248,0.2)`, bg `rgba(232,223,248,0.06)`, text `#f0eaff`
+
+### Collapsible Triggers (Sources / Reasoning)
+
+- `inline-flex`, `var(--radius)` corners, `rgba(200,172,251,0.04)` bg
+- 1px border `rgba(200,172,251,0.08)`, hover: `0.08` bg, `0.15` border
+- DotMatrix icon (book/cpu) + text + chevron, 0.75rem font
+- Chevron rotates 180° on open via CSS `rotate` property
+
+### Scrollbar
+
+- Conversation: 4px wide, `rgba(255,255,255,0.15)` thumb, `min-height: 40px`, `scrollbar-gutter: stable`
+- Global: 2px wide, same thumb color
 
 ## Component rules
 
-### Buttons
-* Amber/gold background with dark text
-* Hover: lighter amber, smooth transition
-* Focus: 2px amber outline with 4px offset
-* No border-radius (all components are sharp-edged)
-* One verb per button label
+### Icons
+- **Dot Matrix System:** Strictly use `DotMatrixIcon` from `@/components/dotmatrix/icons` for all UI icons. Never use smooth vector icons like `lucide-react`.
+- **Alien Aesthetic:** Icons are rendered as pixel-art grids to reinforce the alien/terminal theme.
 
-### Spider mascot (SpiderMascot)
-* Rendered using a complex, 3D-style glossy vector SVG (`mascot-3d.svg`) loaded dynamically
-* Colors: Deep glossy purples and lavender tones with metallic reflections
-* Animation: SVG is loaded dynamically from `/mascot-3d.svg`, and GSAP targets internal grouped IDs (`#Antenna`, `#Visor section`, `#Left 1st front leg`, `#Right leg2`, `#Right back leg`, etc.) for physics-based animations — floating, antenna twitch, visor scan, leg micro-movements
-* Mascot feels alien, intelligent, and highly detailed — completely distinct from the geometric minimalist UI behind it
-* Always centered, always the visual anchor
+### Buttons
+- Lavender-white (`#e8dff8`) background for primary actions
+- Ghost variant for toolbar buttons
+- `var(--radius)` corners, `size-8` (32×32) for toolbar
+- One verb per button label
+
+### Spider mascot
+- 3D glossy vector SVG loaded dynamically
+- GSAP animation targeting internal group IDs
+- Always centered, always the visual anchor on landing page
 
 ### Shader Backdrop
-* Canvas-rendered using `@shadergradient/react` for smooth 3D noise deformation
-* Shifting purple/lavender/deep violet hues
-* Runs full-screen, fixed position, z-index -10 behind all content
+- Canvas-rendered 3D noise deformation
+- Purple/lavender/deep violet hues
+- Full-screen, fixed position, z-index -10
 
 ## Tech stack
 
-- **Framework:** Next.js 16 App Router
-- **Styling:** Tailwind CSS v4 with CSS variables
-- **Mascot:** Dynamic SVG (`mascot-3d.svg`) loaded dynamically, animated with GSAP targeting internal group IDs for physics-based motion
-- **Backdrop:** ShaderGradient 3D canvas (`@shadergradient/react` sphere)
+- **Framework:** Next.js 16 App Router (Turbopack)
+- **Styling:** Tailwind CSS v4 with CSS custom properties
+- **Chat UI:** local `components/chat/ai-elements` on shadcn-style `components/ui` primitives
+- **AI / API:** Vercel AI SDK + streaming chat route (`/api/chat`); FalkorDB for graph/memory where wired
+- **Mascot:** Dynamic SVG + GSAP
+- **Backdrop:** ShaderGradient 3D canvas
 - **Fonts:** Google Fonts (Unbounded + Inter + VT323) via next/font
-- **No client state management** needed for v1
-
 
 ## Constraints
 
 - Desktop only for v1 (no responsive/mobile yet)
 - No sound
-- No backend/API calls — pure frontend
-- No external runtime dependencies beyond React, Next.js, GSAP
-- Build produces static export (prerendered)
-- No rounded corners anywhere (design language is sharp-edged)
+- Product is a real Next.js app with API routes (not a pure static marketing demo). Design work should still avoid inventing new backend contracts without product intent.
+- Graph edges (when using memory graph): `PART_OF` and `RELATES_TO` only — see `AGENTS.md`
+- Node.js runtime for FalkorDB-touching routes (not Edge)
+- Restrained rounded corners only (`--radius`)

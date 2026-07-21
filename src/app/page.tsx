@@ -1,17 +1,23 @@
-'use client'
+"use client";
 
-import dynamic from "next/dynamic"
+import dynamic from "next/dynamic";
 
 const ShaderGradientCanvas = dynamic(
-  () => import("@shadergradient/react").then((mod) => ({ default: mod.ShaderGradientCanvas })),
-  { ssr: false }
-)
+  () =>
+    import("@shadergradient/react").then((mod) => ({
+      default: mod.ShaderGradientCanvas,
+    })),
+  { ssr: false },
+);
 const ShaderGradient = dynamic(
-  () => import("@shadergradient/react").then((mod) => ({ default: mod.ShaderGradient })),
-  { ssr: false }
-)
+  () =>
+    import("@shadergradient/react").then((mod) => ({
+      default: mod.ShaderGradient,
+    })),
+  { ssr: false },
+);
 
-import HeroSection from "@/components/hero-section"
+import HeroSection from "@/components/landing/hero-section";
 
 export default function Home() {
   return (
@@ -65,5 +71,5 @@ export default function Home() {
         <HeroSection />
       </div>
     </div>
-  )
+  );
 }

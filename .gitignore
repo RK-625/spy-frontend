@@ -14,7 +14,10 @@
 /.antigravitycli
 /.codegraph
 /.kiro
-/.cursor
+/.learning
+/.kirograph
+/workbench
+todo
 
 # testing
 /coverage
