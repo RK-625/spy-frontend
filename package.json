@@ -11,7 +11,9 @@
     "verify:components-structure": "node scripts/verify-components-structure.mjs",
     "verify:reorg-scope": "node scripts/verify-reorg-scope.mjs",
     "verify:icon-inventory": "node scripts/verify-icon-inventory.mjs",
-    "verify:pending-ask": "node scripts/verify-pending-ask.mjs"
+    "verify:pending-ask": "node scripts/verify-pending-ask.mjs",
+    "verify:rtc-camera": "npx tsx scripts/verify-rtc-camera.mjs",
+    "verify:mock-layout": "npx tsx scripts/verify-mock-layout.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.92",
@@ -43,6 +45,8 @@
     "embla-carousel-react": "^8.6.0",
     "exa-js": "^2.16.0",
     "falkordb": "^6.6.2",
+    "graphology": "^0.26.0",
+    "graphology-layout-forceatlas2": "^0.10.1",
     "gsap": "^3.12.7",
     "lucide-react": "^1.20.0",
     "media-chrome": "^4.19.2",
@@ -51,6 +55,7 @@
     "next": "16.2.6",
     "next-themes": "^0.4.6",
     "pixelarticons": "^2.1.2",
+    "pixi.js": "^8.19.0",
     "radix-ui": "^1.5.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
