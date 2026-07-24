@@ -6,7 +6,6 @@ import {
   createLayoutLoop,
   createPixiRenderer,
   createRtcCamera,
-  type EdgeVisualStyle,
 } from "@/lib/graph";
 
 type HudState = {
@@ -24,19 +23,15 @@ function formatHudNumber(n: number): string {
 }
 
 /**
- * Full-viewport graph host: RTC camera + layout + Pixi + edge style A/B demo.
+ * Full-viewport graph host: RTC camera + layout + Pixi DotStream edges.
  */
 export function GraphCanvas() {
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
-  const rendererRef = useRef<ReturnType<typeof createPixiRenderer> | null>(
-    null
-  );
   const [hud, setHud] = useState<HudState>({
     camX: 0,
     camY: 0,
     zoom: 1,
   });
-  const [edgeStyle, setEdgeStyle] = useState<EdgeVisualStyle>("dot-matrix");
 
   useEffect(() => {
     const canvasHost = canvasHostRef.current;
@@ -52,10 +47,8 @@ export function GraphCanvas() {
 
     const renderer = createPixiRenderer({
       background: 0x0a0a0c,
-      edgeVisualStyle: edgeStyle,
     });
     renderer.setCamera(camera);
-    rendererRef.current = renderer;
 
     let hudFrameId: number | null = null;
 
@@ -150,7 +143,6 @@ export function GraphCanvas() {
 
     return () => {
       isCanvasDisposed = true;
-      rendererRef.current = null;
       layoutLoop.stop();
       if (hudFrameId !== null) cancelAnimationFrame(hudFrameId);
       resizeObserver.disconnect();
@@ -161,15 +153,7 @@ export function GraphCanvas() {
       canvasHost.removeEventListener("wheel", handleWheel);
       renderer.destroy();
     };
-    // Mount once; edge style applied via setEdgeVisualStyle below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- demo host lifecycle
   }, []);
-
-  useEffect(() => {
-    const renderer = rendererRef.current;
-    if (!renderer) return;
-    renderer.setEdgeVisualStyle(edgeStyle);
-  }, [edgeStyle]);
 
   return (
     <div
@@ -186,7 +170,7 @@ export function GraphCanvas() {
         className="pointer-events-none absolute left-3 top-3 z-10 max-w-[min(100%,24rem)] font-mono text-[12px] leading-relaxed tracking-wide"
         style={{ fontFamily: "var(--font-vt323), ui-monospace, monospace" }}
       >
-        <div className="text-[#ded4f0]">Spy graph — edge style demo</div>
+        <div className="text-[#ded4f0]">Spy graph</div>
         <div className="mt-0.5 text-[#7a7685]">
           camX {formatHudNumber(hud.camX)} · camY {formatHudNumber(hud.camY)}
         </div>
@@ -194,47 +178,6 @@ export function GraphCanvas() {
           zoom {formatHudNumber(hud.zoom)}
         </div>
         <div className="mt-2 text-[#4a4658]">drag pan · wheel zoom</div>
-      </div>
-
-      {/* A/B picker — product chrome, lavender utility */}
-      <div className="pointer-events-auto absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-2">
-        <div className="text-[11px] text-[#7a7685]">
-          Pick edge language (PART_OF firm · RELATES soft)
-        </div>
-        <div
-          className="flex overflow-hidden border border-[rgba(200,172,251,0.2)] bg-[rgba(10,5,22,0.85)] backdrop-blur-md"
-          style={{ borderRadius: "var(--radius)" }}
-          role="group"
-          aria-label="Edge visual style"
-        >
-          <button
-            type="button"
-            onClick={() => setEdgeStyle("pixel-strip")}
-            className={`px-4 py-2 text-[12px] transition-colors ${
-              edgeStyle === "pixel-strip"
-                ? "bg-[rgba(200,172,251,0.18)] text-[#e8dff8]"
-                : "text-[#7a7685] hover:text-[#ded4f0]"
-            }`}
-          >
-            A · Squares → dots
-          </button>
-          <button
-            type="button"
-            onClick={() => setEdgeStyle("dot-matrix")}
-            className={`border-l border-[rgba(200,172,251,0.15)] px-4 py-2 text-[12px] transition-colors ${
-              edgeStyle === "dot-matrix"
-                ? "bg-[rgba(200,172,251,0.18)] text-[#e8dff8]"
-                : "text-[#7a7685] hover:text-[#ded4f0]"
-            }`}
-          >
-            B · Dot stream
-          </button>
-        </div>
-        <div className="max-w-sm text-center text-[10px] leading-snug text-[#4a4658]">
-          {edgeStyle === "pixel-strip"
-            ? "A: squares mid-edge · dissolve to continuous dots at the rim"
-            : "B: continuous diverging dots · flare + densify into the socket"}
-        </div>
       </div>
     </div>
   );
