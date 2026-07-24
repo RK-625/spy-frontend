@@ -1,16 +1,11 @@
 /**
  * Screen-space directed edges for Pixi Graphics.
  *
- * Single-pass continuous diverging stream (both firm/soft, pixel-strip /
- * dot-matrix): one cartesian sampler along the edge from hairline gap at
- * start to hairline gap at end. Near each node the field flares laterally,
- * densifies, grows dot radius, and fans outer laterals slightly closer to
- * the rim — a soft crescent socket with no polar terminal, no dual paint,
- * and no multi-cell black moat.
- *
- * pixel-strip: oriented squares mid-edge while near < dissolve threshold;
- * dissolves into dots near the join (same positions).
- * dot-matrix: dots only, full morph.
+ * DotStream: single-pass continuous diverging dots along the edge from
+ * hairline gap at start to hairline gap at end. Near each node the field
+ * flares laterally, densifies, grows dot radius, and fans outer laterals
+ * slightly closer to the rim — a soft crescent socket with no polar
+ * terminal, no dual paint, and no multi-cell black moat.
  *
  * Direction of flow is left to future pulse animation across the cleft.
  */
@@ -27,22 +22,17 @@ import {
   EDGE_DOT_MORPH_ZONE_CELL_MULT,
   EDGE_DOT_MORPH_ZONE_NODE_FRAC,
   EDGE_DOT_RADIUS_GROW,
-  EDGE_PIXEL_DISSOLVE_NEAR,
   EDGE_SYNAPSE_GAP_FRAC,
   EDGE_SYNAPSE_GAP_MIN,
-  PIXEL_FILL_FRAC,
   edgeStripLayout,
 } from "./graph-scale";
 
 export type ScreenPoint = { x: number; y: number };
 
-export type EdgeVisualStyle = "pixel-strip" | "dot-matrix";
-
 export type DrawEdgeOptions = {
   color: number;
   alpha?: number;
   density?: "firm" | "soft";
-  visual: EdgeVisualStyle;
   band: number;
   /** Start node (screen). */
   fromCenter: ScreenPoint;
@@ -85,32 +75,6 @@ function unitAlong(
   return { ux: dx / length, uy: dy / length, length };
 }
 
-function fillOrientedSquare(
-  graphics: Graphics,
-  cx: number,
-  cy: number,
-  half: number,
-  ux: number,
-  uy: number,
-  color: number,
-  alpha: number
-): void {
-  const px = -uy;
-  const py = ux;
-  const corners: Array<[number, number]> = [
-    [-half, -half],
-    [half, -half],
-    [half, half],
-    [-half, half],
-  ];
-  const pts: number[] = [];
-  for (const [lx, ly] of corners) {
-    pts.push(cx + ux * lx + px * ly, cy + uy * lx + py * ly);
-  }
-  graphics.poly(pts);
-  graphics.fill({ color, alpha });
-}
-
 function fillDot(
   graphics: Graphics,
   cx: number,
@@ -147,7 +111,7 @@ function morphZone(band: number, cell: number, nodeR: number): number {
 }
 
 /**
- * Single-pass continuous diverging stream along the edge attachments.
+ * Single-pass continuous diverging DotStream along the edge attachments.
  *
  * Morph (s along edge, L = length):
  *   dFromAlong = s, dToAlong = L - s
@@ -168,7 +132,6 @@ function sampleDivergingStream(
   color: number,
   alpha: number,
   density: "firm" | "soft",
-  visual: EdgeVisualStyle,
   fromCenter: ScreenPoint,
   fromRadius: number,
   toCenter: ScreenPoint,
@@ -207,10 +170,9 @@ function sampleDivergingStream(
   const sSample1 = Math.min(L, s1 + maxFan);
   if (!(sSample1 >= sSample0)) return;
 
-  const squareHalf = cell * PIXEL_FILL_FRAC;
   // Floor step so densest region still advances
   const minStep = Math.max(
-    cell * DOT_STEP_FRAC / (1 + EDGE_DOT_DENSIFY_GAIN) * 0.5,
+    (cell * DOT_STEP_FRAC) / (1 + EDGE_DOT_DENSIFY_GAIN) * 0.5,
     0.05
   );
 
@@ -242,9 +204,6 @@ function sampleDivergingStream(
     const tAlong = L > 1e-6 ? s / L : 0.5;
     const baseAlpha =
       density === "soft" ? alpha * (0.55 + 0.35 * tAlong) : alpha;
-
-    const useSquares =
-      visual === "pixel-strip" && near < EDGE_PIXEL_DISSOLVE_NEAR;
 
     const latDenom = Math.max(latMax, 1);
     const stepIndex = Math.floor(s / localStep);
@@ -281,20 +240,7 @@ function sampleDivergingStream(
       const distTo = Math.hypot(cx - toCenter.x, cy - toCenter.y);
       if (distTo < toRadius + gapTo) continue;
 
-      if (useSquares) {
-        fillOrientedSquare(
-          graphics,
-          cx,
-          cy,
-          squareHalf,
-          ux,
-          uy,
-          color,
-          baseAlpha
-        );
-      } else {
-        fillDot(graphics, cx, cy, localR, color, baseAlpha);
-      }
+      fillDot(graphics, cx, cy, localR, color, baseAlpha);
     }
 
     s += localStep;
@@ -302,7 +248,7 @@ function sampleDivergingStream(
 }
 
 /**
- * Full edge: one continuous diverging stream (no polar pads, no dual pass).
+ * Full edge: one continuous diverging DotStream (no polar pads, no dual pass).
  */
 function drawEdgeBody(
   graphics: Graphics,
@@ -312,7 +258,6 @@ function drawEdgeBody(
   color: number,
   alpha: number,
   density: "firm" | "soft",
-  visual: EdgeVisualStyle,
   fromCenter: ScreenPoint,
   fromRadius: number,
   toCenter: ScreenPoint,
@@ -326,7 +271,6 @@ function drawEdgeBody(
     color,
     alpha,
     density,
-    visual,
     fromCenter,
     fromRadius,
     toCenter,
@@ -357,7 +301,6 @@ export function drawEdge(
     options.color,
     alpha,
     density,
-    options.visual,
     options.fromCenter,
     options.fromRadius,
     options.toCenter,

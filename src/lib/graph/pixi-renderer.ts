@@ -6,20 +6,15 @@
  * - Project world → screen via RtcCamera each frame, then place graphics in
  *   screen space.
  *
- * Edge visuals: A/B via setEdgeVisualStyle (pixel-strip | dot-matrix).
- * Default is continuous diverging dot stream; pixel-strip dissolves to dots
- * near rims. Scale: graph-scale (shared zoom for nodes, cell, band).
+ * Edges: DotStream only (continuous diverging dots). Scale: graph-scale
+ * (shared zoom for nodes, cell, band).
  */
 
 import { Application, Container, Graphics } from "pixi.js";
 
 import type { RtcCamera } from "@/lib/graph/rtc-camera";
 import type { GraphData } from "@/lib/graph/graph-data";
-import {
-  drawEdge,
-  insetSegment,
-  type EdgeVisualStyle,
-} from "@/lib/graph/draw-arrow";
+import { drawEdge, insetSegment } from "@/lib/graph/draw-arrow";
 import {
   NODE_DRAW_MIN_PX,
   edgeBandWidth,
@@ -47,15 +42,11 @@ export type PixiRendererHandle = {
   destroy: () => void;
   setGraphData: (graphData: GraphData) => void;
   setCamera: (camera: RtcCamera) => void;
-  /** A/B edge visual demo — redraws if mounted. */
-  setEdgeVisualStyle: (style: EdgeVisualStyle) => void;
-  getEdgeVisualStyle: () => EdgeVisualStyle;
   render: () => void;
 };
 
 export type CreatePixiRendererOptions = {
   background?: number;
-  edgeVisualStyle?: EdgeVisualStyle;
 };
 
 export function createPixiRenderer(
@@ -69,7 +60,6 @@ export function createPixiRenderer(
   let root: Container | null = null;
   let graphData: GraphData | null = null;
   let camera: RtcCamera | null = null;
-  let edgeVisual: EdgeVisualStyle = options.edgeVisualStyle ?? "dot-matrix";
   let isMounted = false;
   let isDestroyed = false;
 
@@ -119,7 +109,6 @@ export function createPixiRenderer(
           color: GRAPH_EDGE_PART_OF,
           alpha: GRAPH_EDGE_PART_OF_ALPHA,
           density: "firm",
-          visual: edgeVisual,
           band,
           fromCenter: screenTarget,
           fromRadius: radiusTarget,
@@ -139,7 +128,6 @@ export function createPixiRenderer(
           color: GRAPH_EDGE_RELATES,
           alpha: GRAPH_EDGE_RELATES_ALPHA,
           density: "soft",
-          visual: edgeVisual,
           band,
           fromCenter: screenSource,
           fromRadius: radiusSource,
@@ -224,17 +212,6 @@ export function createPixiRenderer(
 
     setCamera(nextCamera: RtcCamera): void {
       camera = nextCamera;
-    },
-
-    setEdgeVisualStyle(style: EdgeVisualStyle): void {
-      edgeVisual = style;
-      if (isMounted && !isDestroyed) {
-        drawFrame();
-      }
-    },
-
-    getEdgeVisualStyle(): EdgeVisualStyle {
-      return edgeVisual;
     },
 
     render(): void {

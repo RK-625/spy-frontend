@@ -11,6 +11,8 @@
  * Rank factor:
  *   PART_OF  → parent rank only (data target)
  *   RELATES  → min(source.rank, target.rank)
+ *
+ * Edge language is DotStream only (continuous diverging dots).
  */
 
 // ---------------------------------------------------------------------------
@@ -33,7 +35,7 @@ export const EDGE_BASE_BAND = 2.268;
 
 /**
  * Reference grain at zoom 1 (node ring / legacy helpers).
- * A/B strips use edgeStripLayout: cell = band / cols.
+ * DotStream uses edgeStripLayout: cell = band / cols.
  */
 export const EDGE_BASE_CELL = 0.85;
 
@@ -44,11 +46,7 @@ export const EDGE_COLS_SOFT = 7;
 /** RELATES_TO band quieter than PART_OF at the same rank factor. */
 export const EDGE_RELATES_WIDTH_SCALE = 0.75;
 
-/** Pixel-strip fill / step fractions (air between squares). */
-export const PIXEL_FILL_FRAC = 0.34;
-export const PIXEL_STEP_FRAC = 1.06;
-
-/** Dot-matrix radius / step fractions (air between dots). */
+/** DotStream radius / step fractions (air between dots). */
 export const DOT_RADIUS_FRAC = 0.32;
 export const DOT_STEP_FRAC = 1.05;
 
@@ -66,7 +64,7 @@ export const EDGE_SYNAPSE_GAP_MIN = 1.0;
 export const EDGE_SYNAPSE_GAP_FRAC = 0.04;
 
 // ---------------------------------------------------------------------------
-// Continuous diverging edge stream (single-pass cartesian morph)
+// Continuous diverging DotStream (single-pass cartesian morph)
 // ---------------------------------------------------------------------------
 
 /** Lateral half-band growth at node rims: widen = 1 + near * gain (~2.2×). */
@@ -92,12 +90,6 @@ export const EDGE_DOT_MORPH_ZONE_NODE_FRAC = 0.45;
  * crescent socket without a second polar paint pass.
  */
 export const EDGE_DOT_AXIAL_FAN = 1.2;
-
-/**
- * pixel-strip → dots dissolve threshold on the continuous stream.
- * Squares only while near < this; at/above, same positions draw as dots.
- */
-export const EDGE_PIXEL_DISSOLVE_NEAR = 0.55;
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -150,7 +142,7 @@ export function edgeBandWidth(
 }
 
 /**
- * Reference grain (linear). Prefer edgeStripLayout for A/B draw paths so
+ * Reference grain (linear). Prefer edgeStripLayout for DotStream so
  * column density matches band thickness.
  */
 export function edgeCellSize(zoom: number): number {
@@ -170,7 +162,7 @@ export function edgeColumnCount(
 }
 
 /**
- * Layout for pixel/dot strips: denser cols in the given band → smaller cells.
+ * Layout for DotStream: denser cols in the given band → smaller cells.
  * Drawn lateral span ≈ (cols - 1) * cell ≈ band.
  */
 export function edgeStripLayout(
