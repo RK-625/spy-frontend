@@ -19,8 +19,6 @@ export {
   type GraphLinkType,
 } from "@/lib/graph/graph-data";
 
-export { assignRanks } from "@/lib/graph/hierarchy";
-
 export {
   createLayoutLoop,
   LAYOUT_SIMULATION_ENABLED,
@@ -31,6 +29,14 @@ export {
 
 export {
   createPixiRenderer,
+  nodeScreenRadius,
+  edgeScreenWidth,
   type CreatePixiRendererOptions,
   type PixiRendererHandle,
 } from "@/lib/graph/pixi-renderer";
+
+export {
+  drawArrow,
+  insetSegment,
+  type DrawArrowOptions,
+} from "@/lib/graph/draw-arrow";
