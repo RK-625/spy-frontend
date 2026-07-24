@@ -16,7 +16,10 @@ export {
   type GraphNode,
   type GraphEdge,
   type GraphData,
+  type GraphLinkType,
 } from "@/lib/graph/graph-data";
+
+export { assignRanks } from "@/lib/graph/hierarchy";
 
 export {
   createLayoutLoop,

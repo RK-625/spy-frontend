@@ -13,7 +13,8 @@
     "verify:icon-inventory": "node scripts/verify-icon-inventory.mjs",
     "verify:pending-ask": "node scripts/verify-pending-ask.mjs",
     "verify:rtc-camera": "npx tsx scripts/verify-rtc-camera.mjs",
-    "verify:mock-layout": "npx tsx scripts/verify-mock-layout.mjs"
+    "verify:mock-layout": "npx tsx scripts/verify-mock-layout.mjs",
+    "verify:hierarchy": "npx tsx scripts/verify-hierarchy.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.92",
