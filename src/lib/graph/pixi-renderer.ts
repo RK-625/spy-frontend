@@ -9,8 +9,7 @@
  * Viewport size is owned by GraphCanvas (initial setViewport + ResizeObserver).
  * Pixi uses resizeTo: host only for canvas/buffer size.
  *
- * Edges: directed arrows via draw-arrow (PART_OF solid, RELATES_TO dashed).
- * Width scales with zoom; stroke safety floor 0.25 only.
+ * Edges: PART_OF solid + pixel head; RELATES_TO dots + pixel head (thinner).
  */
 
 import { Application, Container, Graphics } from "pixi.js";
@@ -18,14 +17,20 @@ import { Application, Container, Graphics } from "pixi.js";
 import type { RtcCamera } from "@/lib/graph/rtc-camera";
 import type { GraphData } from "@/lib/graph/graph-data";
 import { drawArrow, insetSegment } from "@/lib/graph/draw-arrow";
-
-const BACKGROUND_COLOR = 0x0a0a0c;
-/** PART_OF hierarchy edges — muted purple-gray. */
-const EDGE_PART_OF_COLOR = 0x5a5470;
-/** RELATES_TO associative edges — slightly dimmer secondary text gray. */
-const EDGE_RELATES_TO_COLOR = 0x7a7685;
-/** Lavender node fill (brief palette). */
-const NODE_FILL = 0xc8acfb;
+import {
+  GRAPH_BG,
+  GRAPH_DOT_PITCH,
+  GRAPH_EDGE_PART_OF,
+  GRAPH_EDGE_PART_OF_ALPHA,
+  GRAPH_EDGE_RELATES,
+  GRAPH_EDGE_RELATES_ALPHA,
+  GRAPH_EDGE_RELATES_WIDTH_SCALE,
+  GRAPH_NODE_FILL,
+  GRAPH_NODE_FILL_ALPHA,
+  GRAPH_NODE_RING,
+  GRAPH_NODE_RING_ALPHA,
+  GRAPH_NODE_RING_WIDTH,
+} from "@/lib/graph/graph-style";
 
 /**
  * Independent node sizing: each radius depends ONLY on that node's stored
@@ -89,7 +94,7 @@ export type CreatePixiRendererOptions = {
 export function createPixiRenderer(
   options: CreatePixiRendererOptions = {}
 ): PixiRendererHandle {
-  const background = options.background ?? BACKGROUND_COLOR;
+  const background = options.background ?? GRAPH_BG;
 
   let app: Application | null = null;
   let edgeLayer: Graphics | null = null;
@@ -112,9 +117,11 @@ export function createPixiRenderer(
 
     const nodesById = new Map(graphData.nodes.map((n) => [n.id, n]));
     const zoom = camera.zoom;
-    const strokeWidth = edgeScreenWidth(zoom);
+    const baseWidth = edgeScreenWidth(zoom);
+    const relatesWidth = baseWidth * GRAPH_EDGE_RELATES_WIDTH_SCALE;
+    const dotPitch = Math.max(GRAPH_DOT_PITCH, baseWidth * 3.5);
 
-    // Edges — directed arrows in screen space (inset to node rims)
+    // Edges — directed, inset to node rims (nodeLayer draws on top)
     for (const edge of graphData.edges) {
       const src = nodesById.get(edge.source);
       const tgt = nodesById.get(edge.target);
@@ -141,12 +148,14 @@ export function createPixiRenderer(
         );
         if (!segment) continue;
         drawArrow(edges, segment.start, segment.end, {
-          width: strokeWidth,
-          color: EDGE_PART_OF_COLOR,
-          alpha: 0.55,
+          width: baseWidth,
+          color: GRAPH_EDGE_PART_OF,
+          alpha: GRAPH_EDGE_PART_OF_ALPHA,
+          shaft: "solid",
+          headStyle: "pixel",
         });
       } else {
-        // RELATES_TO: dashed + arrow along stored source → target
+        // RELATES_TO: thinner dots + pixel head, source → target
         const segment = insetSegment(
           screenSource,
           screenTarget,
@@ -155,22 +164,31 @@ export function createPixiRenderer(
         );
         if (!segment) continue;
         drawArrow(edges, segment.start, segment.end, {
-          width: strokeWidth,
-          color: EDGE_RELATES_TO_COLOR,
-          alpha: 0.45,
-          dashed: true,
+          width: relatesWidth,
+          color: GRAPH_EDGE_RELATES,
+          alpha: GRAPH_EDGE_RELATES_ALPHA,
+          shaft: "dots",
+          headStyle: "pixel",
+          dotPitch,
+          dotRadius: Math.max(0.65, relatesWidth * 0.55),
         });
       }
     }
 
-    // Nodes — screen-space circles: rank × linear zoom (not stage.scale)
+    // Nodes — lavender fill + thin ring (chat-border kinship); no labels
     for (const node of graphData.nodes) {
       const screenPoint = camera.worldToScreen({ x: node.x, y: node.y });
       if (!Number.isFinite(screenPoint.x) || !Number.isFinite(screenPoint.y)) continue;
       const radius = nodeScreenRadius(node.rank, zoom);
       if (!Number.isFinite(radius) || radius < NODE_DRAW_MIN_PX) continue;
       nodes.circle(screenPoint.x, screenPoint.y, radius);
-      nodes.fill({ color: NODE_FILL, alpha: 0.95 });
+      nodes.fill({ color: GRAPH_NODE_FILL, alpha: GRAPH_NODE_FILL_ALPHA });
+      nodes.circle(screenPoint.x, screenPoint.y, radius);
+      nodes.stroke({
+        width: GRAPH_NODE_RING_WIDTH,
+        color: GRAPH_NODE_RING,
+        alpha: GRAPH_NODE_RING_ALPHA,
+      });
     }
   }
 
