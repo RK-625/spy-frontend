@@ -105,6 +105,21 @@ async function main() {
     "insetSegment null when too short"
   );
 
+  // --- RELATES_TO width scale token ---
+  const styleUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/graph-style.ts")
+  ).href;
+  const style = await import(styleUrl);
+  assert(
+    style.GRAPH_EDGE_RELATES_WIDTH_SCALE === 0.75,
+    `RELATES width scale 0.75 (got ${style.GRAPH_EDGE_RELATES_WIDTH_SCALE})`
+  );
+  const relatesW = e1 * style.GRAPH_EDGE_RELATES_WIDTH_SCALE;
+  assert(
+    Math.abs(relatesW - 0.75) < 1e-9,
+    `relates width at zoom1 = 0.75 (got ${relatesW})`
+  );
+
   if (failed > 0) {
     console.error(`\n${failed} check(s) failed`);
     process.exit(1);
