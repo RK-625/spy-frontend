@@ -6,8 +6,10 @@
  * - Project world → screen via RtcCamera each frame, then place graphics in
  *   screen space.
  *
- * Edges: DotStream only (continuous diverging dots). Scale: graph-scale
- * (shared zoom for nodes, cell, band).
+ * Single layer: one Graphics (`graphLayer`) draws DotStream edges then node
+ * fills/rings (edges first so nodes paint on top within the same Graphics).
+ * Scale: graph-scale (shared zoom for nodes, cell, band). Camera remains
+ * outside Pixi.
  */
 
 import { Application, Container, Graphics } from "pixi.js";
@@ -51,8 +53,8 @@ export function createPixiRenderer(
   const background = options.background ?? GRAPH_BG;
 
   let app: Application | null = null;
-  let edgeLayer: Graphics | null = null;
-  let nodeLayer: Graphics | null = null;
+  /** One Graphics for DotStream edges + node fills/rings (edges then nodes). */
+  let graphLayer: Graphics | null = null;
   let root: Container | null = null;
   let graphData: GraphData | null = null;
   let camera: RtcCamera | null = null;
@@ -60,19 +62,18 @@ export function createPixiRenderer(
   let isDestroyed = false;
 
   function drawFrame(): void {
-    if (!isMounted || isDestroyed || !edgeLayer || !nodeLayer || !camera || !graphData) {
+    if (!isMounted || isDestroyed || !graphLayer || !camera || !graphData) {
       return;
     }
 
-    const edges = edgeLayer;
-    const nodes = nodeLayer;
-    edges.clear();
-    nodes.clear();
+    const g = graphLayer;
+    g.clear();
 
     const nodesById = new Map(graphData.nodes.map((n) => [n.id, n]));
     const zoom = camera.zoom;
     const ringWidth = nodeRingWidth(zoom);
 
+    // Edges first — nodes draw after so fills/rings sit on top of streams.
     for (const edge of graphData.edges) {
       const src = nodesById.get(edge.source);
       const tgt = nodesById.get(edge.target);
@@ -101,7 +102,7 @@ export function createPixiRenderer(
         );
         if (!segment) continue;
         const band = edgeBandWidth(zoom, "part_of", sourceRank, targetRank);
-        drawEdge(edges, segment.start, segment.end, {
+        drawEdge(g, segment.start, segment.end, {
           color: GRAPH_EDGE_PART_OF,
           alpha: GRAPH_EDGE_PART_OF_ALPHA,
           density: "firm",
@@ -120,7 +121,7 @@ export function createPixiRenderer(
         );
         if (!segment) continue;
         const band = edgeBandWidth(zoom, "relates", sourceRank, targetRank);
-        drawEdge(edges, segment.start, segment.end, {
+        drawEdge(g, segment.start, segment.end, {
           color: GRAPH_EDGE_RELATES,
           alpha: GRAPH_EDGE_RELATES_ALPHA,
           density: "soft",
@@ -133,6 +134,7 @@ export function createPixiRenderer(
       }
     }
 
+    // Nodes second — paint on top of edge streams within the same Graphics.
     for (const node of graphData.nodes) {
       const screenPoint = camera.worldToScreen({ x: node.x, y: node.y });
       if (!Number.isFinite(screenPoint.x) || !Number.isFinite(screenPoint.y)) {
@@ -140,10 +142,10 @@ export function createPixiRenderer(
       }
       const radius = nodeScreenRadius(node.rank, zoom);
       if (!Number.isFinite(radius) || radius < NODE_DRAW_MIN_PX) continue;
-      nodes.circle(screenPoint.x, screenPoint.y, radius);
-      nodes.fill({ color: GRAPH_NODE_FILL, alpha: GRAPH_NODE_FILL_ALPHA });
-      nodes.circle(screenPoint.x, screenPoint.y, radius);
-      nodes.stroke({
+      g.circle(screenPoint.x, screenPoint.y, radius);
+      g.fill({ color: GRAPH_NODE_FILL, alpha: GRAPH_NODE_FILL_ALPHA });
+      g.circle(screenPoint.x, screenPoint.y, radius);
+      g.stroke({
         width: ringWidth,
         color: GRAPH_NODE_RING,
         alpha: GRAPH_NODE_RING_ALPHA,
@@ -176,11 +178,10 @@ export function createPixiRenderer(
       app = application;
       host.appendChild(application.canvas);
 
+      // stage → root → graphLayer (single Graphics; future overlays under root)
       root = new Container();
-      edgeLayer = new Graphics();
-      nodeLayer = new Graphics();
-      root.addChild(edgeLayer);
-      root.addChild(nodeLayer);
+      graphLayer = new Graphics();
+      root.addChild(graphLayer);
       application.stage.addChild(root);
 
       isMounted = true;
@@ -195,8 +196,7 @@ export function createPixiRenderer(
         app = null;
       }
 
-      edgeLayer = null;
-      nodeLayer = null;
+      graphLayer = null;
       root = null;
       graphData = null;
       camera = null;
