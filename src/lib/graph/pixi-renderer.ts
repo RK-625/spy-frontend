@@ -8,32 +8,62 @@
  *
  * Viewport size is owned by GraphCanvas (initial setViewport + ResizeObserver).
  * Pixi uses resizeTo: host only for canvas/buffer size.
+ *
+ * Edges: directed arrows via draw-arrow (PART_OF solid, RELATES_TO dashed).
+ * Width scales with zoom; stroke safety floor 0.25 only.
  */
 
 import { Application, Container, Graphics } from "pixi.js";
 
 import type { RtcCamera } from "@/lib/graph/rtc-camera";
 import type { GraphData } from "@/lib/graph/graph-data";
+import { drawArrow, insetSegment } from "@/lib/graph/draw-arrow";
 
 const BACKGROUND_COLOR = 0x0a0a0c;
-const EDGE_COLOR = 0x5a5470;
+/** PART_OF hierarchy edges — muted purple-gray. */
+const EDGE_PART_OF_COLOR = 0x5a5470;
+/** RELATES_TO associative edges — slightly dimmer secondary text gray. */
+const EDGE_RELATES_TO_COLOR = 0x7a7685;
 /** Lavender node fill (brief palette). */
 const NODE_FILL = 0xc8acfb;
 
 /**
- * Node screen radius from hierarchy rank only (not camera zoom, not mass).
- * r = clamp(BASE_PX * (DECAY ** rank), MIN_PX, MAX_PX)
+ * Independent node sizing: each radius depends ONLY on that node's stored
+ * rank and current camera.zoom. Neighbors, degree, mass, density do not affect
+ * size. Same zoom scales everyone; Q keeps relative hierarchy.
+ *
+ * r = BASE * (Q ** rank) * |zoom|
+ *   BASE = root px at zoom 1; Q = parent→child size ratio
+ *   Pure linear zoom — no floor, no shared MAX, no soft-K.
  */
 const NODE_BASE_PX = 8;
-const NODE_RANK_DECAY = 0.75;
-const NODE_MIN_PX = 2;
-const NODE_MAX_PX = 18;
-const EDGE_WIDTH = 1;
+/** Each +1 rank multiplies size by Q (hierarchy chain). */
+const NODE_RANK_Q = 0.8;
+/** Skip drawing nodes smaller than this (subpixel cull; formula itself has no MIN). */
+const NODE_DRAW_MIN_PX = 0.25;
+const EDGE_BASE_PX = 1;
+/** Stroke safety only — keeps Pixi from zero-width strokes; not a hierarchy floor. */
+const EDGE_STROKE_MIN_PX = 0.25;
 
-function radiusForRank(rank: number | undefined): number {
+/**
+ * Pure screen-pixel radius for a node given stored rank and camera zoom.
+ * No floor/ceiling so deep hierarchy ratios stay true at all zooms.
+ */
+export function nodeScreenRadius(
+  rank: number | undefined,
+  zoom: number
+): number {
   const depth = rank ?? 0;
-  const raw = NODE_BASE_PX * NODE_RANK_DECAY ** depth;
-  return Math.min(NODE_MAX_PX, Math.max(NODE_MIN_PX, raw));
+  const z = Number.isFinite(zoom) && zoom !== 0 ? Math.abs(zoom) : 1;
+  return NODE_BASE_PX * NODE_RANK_Q ** depth * z;
+}
+
+/**
+ * Edge stroke width from zoom (linear). Safety floor only for stroke stability.
+ */
+export function edgeScreenWidth(zoom: number): number {
+  const z = Number.isFinite(zoom) && zoom !== 0 ? Math.abs(zoom) : 1;
+  return Math.max(EDGE_STROKE_MIN_PX, EDGE_BASE_PX * z);
 }
 
 export type PixiRendererHandle = {
@@ -70,7 +100,6 @@ export function createPixiRenderer(
   let isMounted = false;
   let isDestroyed = false;
 
-  // Draws the nodes and the edges in the edges and nodes Graphics
   function drawFrame(): void {
     if (!isMounted || isDestroyed || !edgeLayer || !nodeLayer || !camera || !graphData) {
       return;
@@ -82,26 +111,65 @@ export function createPixiRenderer(
     nodes.clear();
 
     const nodesById = new Map(graphData.nodes.map((n) => [n.id, n]));
+    const zoom = camera.zoom;
+    const strokeWidth = edgeScreenWidth(zoom);
 
-    // Edges — screen-space segments
+    // Edges — directed arrows in screen space (inset to node rims)
     for (const edge of graphData.edges) {
       const src = nodesById.get(edge.source);
       const tgt = nodesById.get(edge.target);
       if (!src || !tgt) continue;
-      const screenA = camera.worldToScreen({ x: src.x, y: src.y });
-      const screenB = camera.worldToScreen({ x: tgt.x, y: tgt.y });
-      if (!Number.isFinite(screenA.x) || !Number.isFinite(screenA.y)) continue;
-      if (!Number.isFinite(screenB.x) || !Number.isFinite(screenB.y)) continue;
-      edges.moveTo(screenA.x, screenA.y);
-      edges.lineTo(screenB.x, screenB.y);
-    }
-    edges.stroke({ width: EDGE_WIDTH, color: EDGE_COLOR, alpha: 0.55 });
+      const screenSource = camera.worldToScreen({ x: src.x, y: src.y });
+      const screenTarget = camera.worldToScreen({ x: tgt.x, y: tgt.y });
+      if (!Number.isFinite(screenSource.x) || !Number.isFinite(screenSource.y)) {
+        continue;
+      }
+      if (!Number.isFinite(screenTarget.x) || !Number.isFinite(screenTarget.y)) {
+        continue;
+      }
 
-    // Nodes — screen radius from hierarchy rank (roots larger, deeper smaller)
+      const radiusSource = nodeScreenRadius(src.rank, zoom);
+      const radiusTarget = nodeScreenRadius(tgt.rank, zoom);
+
+      if (edge.type === "PART_OF") {
+        // Data: source=child, target=parent → visual flow parent → child
+        const segment = insetSegment(
+          screenTarget,
+          screenSource,
+          radiusTarget,
+          radiusSource
+        );
+        if (!segment) continue;
+        drawArrow(edges, segment.start, segment.end, {
+          width: strokeWidth,
+          color: EDGE_PART_OF_COLOR,
+          alpha: 0.55,
+        });
+      } else {
+        // RELATES_TO: dashed + arrow along stored source → target
+        const segment = insetSegment(
+          screenSource,
+          screenTarget,
+          radiusSource,
+          radiusTarget
+        );
+        if (!segment) continue;
+        drawArrow(edges, segment.start, segment.end, {
+          width: strokeWidth,
+          color: EDGE_RELATES_TO_COLOR,
+          alpha: 0.45,
+          dashed: true,
+        });
+      }
+    }
+
+    // Nodes — screen-space circles: rank × linear zoom (not stage.scale)
     for (const node of graphData.nodes) {
       const screenPoint = camera.worldToScreen({ x: node.x, y: node.y });
       if (!Number.isFinite(screenPoint.x) || !Number.isFinite(screenPoint.y)) continue;
-      nodes.circle(screenPoint.x, screenPoint.y, radiusForRank(node.rank));
+      const radius = nodeScreenRadius(node.rank, zoom);
+      if (!Number.isFinite(radius) || radius < NODE_DRAW_MIN_PX) continue;
+      nodes.circle(screenPoint.x, screenPoint.y, radius);
       nodes.fill({ color: NODE_FILL, alpha: 0.95 });
     }
   }

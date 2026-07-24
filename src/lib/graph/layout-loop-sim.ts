@@ -12,7 +12,6 @@ import {
   type GraphData,
   createMockGraphData,
 } from "./graph-data";
-import { assignRanks } from "./hierarchy";
 import type {
   LayoutLoopHandle,
   LayoutLoopOptions,
@@ -121,14 +120,14 @@ export function createSimulationLayoutLoop(
   const renderOnGraphData = options.renderOnGraphData;
   let status: LayoutLoopStatus = "idle";
   let animationFrameId: number | null = null;
-  let latestGraphData = assignRanks(
-    cloneGraphData(options.graphData ?? createMockGraphData())
+  // Clone only — ranks are stored on nodes and ride along; FA2 only mutates x/y.
+  let latestGraphData = cloneGraphData(
+    options.graphData ?? createMockGraphData()
   );
   let simGraph = graphDataToGraphology(latestGraphData);
 
   function installGraphData(graphData: GraphData): void {
-    // Recompute ranks on every topology install; FA2 only mutates x/y after.
-    latestGraphData = assignRanks(cloneGraphData(graphData));
+    latestGraphData = cloneGraphData(graphData);
     simGraph = graphDataToGraphology(latestGraphData);
   }
 
