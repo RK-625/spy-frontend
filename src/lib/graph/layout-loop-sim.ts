@@ -12,6 +12,7 @@ import {
   type GraphData,
   createMockGraphData,
 } from "./graph-data";
+import { assignRanks } from "./hierarchy";
 import type {
   LayoutLoopHandle,
   LayoutLoopOptions,
@@ -96,7 +97,10 @@ function graphDataToGraphology(graphData: GraphData): GraphologyGraph {
   return simGraph;
 }
 
-/** Write FA2 positions from simGraph back into latestGraphData nodes by id. */
+/**
+ * Write FA2 positions from simGraph back into latestGraphData nodes by id.
+ * Only x/y — preserve rank, label, and other DTO fields.
+ */
 function syncPositionsFromSim(
   latestGraphData: GraphData,
   simGraph: GraphologyGraph
@@ -117,13 +121,14 @@ export function createSimulationLayoutLoop(
   const renderOnGraphData = options.renderOnGraphData;
   let status: LayoutLoopStatus = "idle";
   let animationFrameId: number | null = null;
-  let latestGraphData = cloneGraphData(
-    options.graphData ?? createMockGraphData()
+  let latestGraphData = assignRanks(
+    cloneGraphData(options.graphData ?? createMockGraphData())
   );
   let simGraph = graphDataToGraphology(latestGraphData);
 
   function installGraphData(graphData: GraphData): void {
-    latestGraphData = cloneGraphData(graphData);
+    // Recompute ranks on every topology install; FA2 only mutates x/y after.
+    latestGraphData = assignRanks(cloneGraphData(graphData));
     simGraph = graphDataToGraphology(latestGraphData);
   }
 

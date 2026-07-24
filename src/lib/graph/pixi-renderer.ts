@@ -20,8 +20,21 @@ const EDGE_COLOR = 0x5a5470;
 /** Lavender node fill (brief palette). */
 const NODE_FILL = 0xc8acfb;
 
-const NODE_RADIUS = 3.5;
+/**
+ * Node screen radius from hierarchy rank only (not camera zoom, not mass).
+ * r = clamp(BASE_PX * (DECAY ** rank), MIN_PX, MAX_PX)
+ */
+const NODE_BASE_PX = 8;
+const NODE_RANK_DECAY = 0.75;
+const NODE_MIN_PX = 2;
+const NODE_MAX_PX = 18;
 const EDGE_WIDTH = 1;
+
+function radiusForRank(rank: number | undefined): number {
+  const depth = rank ?? 0;
+  const raw = NODE_BASE_PX * NODE_RANK_DECAY ** depth;
+  return Math.min(NODE_MAX_PX, Math.max(NODE_MIN_PX, raw));
+}
 
 export type PixiRendererHandle = {
   /** Attach to a host element (async: Application.init). */
@@ -84,11 +97,11 @@ export function createPixiRenderer(
     }
     edges.stroke({ width: EDGE_WIDTH, color: EDGE_COLOR, alpha: 0.55 });
 
-    // Nodes — small circles at projected positions
+    // Nodes — screen radius from hierarchy rank (roots larger, deeper smaller)
     for (const node of graphData.nodes) {
       const screenPoint = camera.worldToScreen({ x: node.x, y: node.y });
       if (!Number.isFinite(screenPoint.x) || !Number.isFinite(screenPoint.y)) continue;
-      nodes.circle(screenPoint.x, screenPoint.y, NODE_RADIUS);
+      nodes.circle(screenPoint.x, screenPoint.y, radiusForRank(node.rank));
       nodes.fill({ color: NODE_FILL, alpha: 0.95 });
     }
   }

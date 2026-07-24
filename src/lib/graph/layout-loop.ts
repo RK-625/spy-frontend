@@ -19,6 +19,7 @@ import {
   type GraphData,
   createMockGraphData,
 } from "./graph-data";
+import { assignRanks } from "./hierarchy";
 import { createSimulationLayoutLoop } from "./layout-loop-sim";
 
 // ---------------------------------------------------------------------------
@@ -71,12 +72,17 @@ function cloneGraphData(source: GraphData): GraphData {
   };
 }
 
+/** Clone then recompute ranks so node.rank always matches PART_OF topology. */
+function installStaticGraphData(source: GraphData): GraphData {
+  return assignRanks(cloneGraphData(source));
+}
+
 function createStaticLayoutLoop(
   options: LayoutLoopOptions
 ): LayoutLoopHandle {
   const renderOnGraphData = options.renderOnGraphData;
   let status: LayoutLoopStatus = "idle";
-  let latestGraphData = cloneGraphData(
+  let latestGraphData = installStaticGraphData(
     options.graphData ?? createMockGraphData()
   );
 
@@ -104,9 +110,9 @@ function createStaticLayoutLoop(
     },
 
     setGraphData(graphData: GraphData): void {
-      // One clone into the store; emit that same snapshot (no second clone).
+      // Clone + assignRanks into the store; emit that same snapshot (no second clone).
       // Consumers must not mutate the object passed to renderOnGraphData.
-      const snap = cloneGraphData(graphData);
+      const snap = installStaticGraphData(graphData);
       latestGraphData = snap;
       renderOnGraphData?.(snap);
     },

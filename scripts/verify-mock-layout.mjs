@@ -59,6 +59,14 @@ async function main() {
   for (const e of g0.edges) {
     const ids = new Set(g0.nodes.map((n) => n.id));
     assert(ids.has(e.source) && ids.has(e.target), `edge ${e.id} endpoints exist`);
+    assert(
+      e.type === "PART_OF" || e.type === "RELATES_TO",
+      `edge ${e.id} has link type (got ${e.type})`
+    );
+  }
+
+  for (const n of g0.nodes) {
+    assert(typeof n.rank === "number" && n.rank >= 0, `node ${n.id} has rank ≥ 0`);
   }
 
   const initial = new Map(g0.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
