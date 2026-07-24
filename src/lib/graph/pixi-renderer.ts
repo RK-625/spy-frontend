@@ -6,8 +6,9 @@
  * - Project world → screen via RtcCamera each frame, then place graphics in
  *   screen space.
  *
- * Edge visuals: A/B demo via setEdgeVisualStyle (pixel-strip | dot-matrix).
- * Scale: graph-scale (shared zoom for nodes, cell, band).
+ * Edge visuals: A/B via setEdgeVisualStyle (pixel-strip | dot-matrix).
+ * Default is continuous diverging dot stream; pixel-strip dissolves to dots
+ * near rims. Scale: graph-scale (shared zoom for nodes, cell, band).
  */
 
 import { Application, Container, Graphics } from "pixi.js";
@@ -68,7 +69,7 @@ export function createPixiRenderer(
   let root: Container | null = null;
   let graphData: GraphData | null = null;
   let camera: RtcCamera | null = null;
-  let edgeVisual: EdgeVisualStyle = options.edgeVisualStyle ?? "pixel-strip";
+  let edgeVisual: EdgeVisualStyle = options.edgeVisualStyle ?? "dot-matrix";
   let isMounted = false;
   let isDestroyed = false;
 
@@ -105,7 +106,7 @@ export function createPixiRenderer(
       const radiusTarget = nodeScreenRadius(targetRank, zoom);
 
       if (edge.type === "PART_OF") {
-        // parent → child; rim arcs on both ends (flow later via pulse animation)
+        // parent → child; continuous stream meets both rims (flow later via pulse)
         const segment = insetSegment(
           screenTarget,
           screenSource,

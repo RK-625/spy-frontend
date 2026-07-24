@@ -1,10 +1,16 @@
 /**
  * Screen-space directed edges for Pixi Graphics.
  *
- * Shaft: pixel-strip (A) or dot-matrix (B).
- * Heads: rim arcs on **both** endpoints (landing pads).
- * Synaptic gap is only between **node fill border** and **arc** — shaft meets
- * the arc continuously (no extra void between stroke and rim).
+ * Single-pass continuous diverging stream (both firm/soft, pixel-strip /
+ * dot-matrix): one cartesian sampler along the edge from hairline gap at
+ * start to hairline gap at end. Near each node the field flares laterally,
+ * densifies, grows dot radius, and fans outer laterals slightly closer to
+ * the rim — a soft crescent socket with no polar terminal, no dual paint,
+ * and no multi-cell black moat.
+ *
+ * pixel-strip: oriented squares mid-edge while near < dissolve threshold;
+ * dissolves into dots near the join (same positions).
+ * dot-matrix: dots only, full morph.
  *
  * Direction of flow is left to future pulse animation across the cleft.
  */
@@ -14,14 +20,17 @@ import type { Graphics } from "pixi.js";
 import {
   DOT_RADIUS_FRAC,
   DOT_STEP_FRAC,
-  EDGE_RIM_ARC_HALF_SPAN_FIRM,
-  EDGE_RIM_ARC_HALF_SPAN_SOFT,
-  EDGE_RIM_ARC_ROWS_FIRM,
-  EDGE_RIM_ARC_ROWS_SOFT,
+  EDGE_DOT_AXIAL_FAN,
+  EDGE_DOT_DENSIFY_GAIN,
+  EDGE_DOT_FLARE_GAIN,
+  EDGE_DOT_MORPH_ZONE_BAND_MULT,
+  EDGE_DOT_MORPH_ZONE_CELL_MULT,
+  EDGE_DOT_MORPH_ZONE_NODE_FRAC,
+  EDGE_DOT_RADIUS_GROW,
+  EDGE_PIXEL_DISSOLVE_NEAR,
   EDGE_SYNAPSE_GAP_FRAC,
   EDGE_SYNAPSE_GAP_MIN,
   PIXEL_FILL_FRAC,
-  PIXEL_STEP_FRAC,
   edgeStripLayout,
 } from "./graph-scale";
 
@@ -114,166 +123,44 @@ function fillDot(
   graphics.fill({ color, alpha });
 }
 
-/** Even cleft between node border and inner arc (scales with node size). */
+/** Even hairline cleft between node border and first stream dots. */
 function synapseGap(nodeRadius: number): number {
   return Math.max(EDGE_SYNAPSE_GAP_MIN, nodeRadius * EDGE_SYNAPSE_GAP_FRAC);
 }
 
-/**
- * Rim arc at a node: mid-angle faces the edge attachment on the rim.
- * Gap is only node→arc; shaft is expected to meet the inner arc radius.
- */
-function drawRimArc(
-  graphics: Graphics,
-  nodeCenter: ScreenPoint,
-  nodeRadius: number,
-  /** Point on the node rim where the edge attaches. */
-  attachment: ScreenPoint,
-  cell: number,
-  color: number,
-  alpha: number,
-  density: "firm" | "soft",
-  visual: EdgeVisualStyle
-): void {
-  if (!Number.isFinite(nodeRadius) || nodeRadius < 0.5) return;
+/** Classic smoothstep on [0, 1]. */
+function smoothstep01(t: number): number {
+  const x = t < 0 ? 0 : t > 1 ? 1 : t;
+  return x * x * (3 - 2 * x);
+}
 
-  const gap = synapseGap(nodeRadius);
-  const midAngle = Math.atan2(
-    attachment.y - nodeCenter.y,
-    attachment.x - nodeCenter.x
+/**
+ * Morph zone length at one end — flare/densify/radius domain.
+ * zone = max(band * 2.5, cell * 8, nodeR * 0.45)
+ */
+function morphZone(band: number, cell: number, nodeR: number): number {
+  return Math.max(
+    band * EDGE_DOT_MORPH_ZONE_BAND_MULT,
+    cell * EDGE_DOT_MORPH_ZONE_CELL_MULT,
+    nodeR * EDGE_DOT_MORPH_ZONE_NODE_FRAC
   );
-  const halfSpan =
-    density === "firm"
-      ? EDGE_RIM_ARC_HALF_SPAN_FIRM
-      : EDGE_RIM_ARC_HALF_SPAN_SOFT;
-  const radialRows =
-    density === "firm" ? EDGE_RIM_ARC_ROWS_FIRM : EDGE_RIM_ARC_ROWS_SOFT;
-
-  const half = cell * PIXEL_FILL_FRAC;
-  const dotR = Math.max(0.15, cell * DOT_RADIUS_FRAC);
-  const radialStep = cell * 0.95;
-
-  for (let ring = 0; ring < radialRows; ring++) {
-    // Inner ring sits at nodeRadius + gap (continuous with shaft end)
-    const arcR = nodeRadius + gap + ring * radialStep + cell * 0.2;
-    const arcLen = 2 * halfSpan * arcR;
-    const steps = Math.max(4, Math.round(arcLen / Math.max(cell * 0.95, 0.35)));
-
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const ang = midAngle - halfSpan + t * 2 * halfSpan;
-      const cx = nodeCenter.x + Math.cos(ang) * arcR;
-      const cy = nodeCenter.y + Math.sin(ang) * arcR;
-
-      if (
-        density === "soft" &&
-        ring === radialRows - 1 &&
-        i % 2 === 1 &&
-        i !== 0 &&
-        i !== steps
-      ) {
-        continue;
-      }
-
-      if (visual === "pixel-strip") {
-        const ax = -Math.sin(ang);
-        const ay = Math.cos(ang);
-        fillOrientedSquare(graphics, cx, cy, half, ax, ay, color, alpha);
-      } else {
-        fillDot(graphics, cx, cy, dotR, color, alpha);
-      }
-    }
-  }
-}
-
-function sampleShaft(
-  graphics: Graphics,
-  from: ScreenPoint,
-  ux: number,
-  uy: number,
-  s0: number,
-  s1: number,
-  cell: number,
-  halfBand: number,
-  color: number,
-  alpha: number,
-  density: "firm" | "soft",
-  visual: EdgeVisualStyle
-): void {
-  if (s1 <= s0 + cell * 0.25) return;
-  const px = -uy;
-  const py = ux;
-
-  if (visual === "pixel-strip") {
-    const half = cell * PIXEL_FILL_FRAC;
-    const latPitch = cell;
-    const step = cell * PIXEL_STEP_FRAC;
-    for (let s = s0; s < s1; s += step) {
-      const cx = from.x + ux * s;
-      const cy = from.y + uy * s;
-      for (let lat = -halfBand; lat <= halfBand; lat++) {
-        if (density === "soft") {
-          if (Math.abs(lat) === halfBand && Math.floor(s / step) % 2 === 0) {
-            continue;
-          }
-          if (Math.abs(lat) > halfBand - 1 && halfBand > 1) {
-            if ((Math.floor(s / step) + lat) % 2 === 0) continue;
-          }
-        }
-        fillOrientedSquare(
-          graphics,
-          cx + px * lat * latPitch,
-          cy + py * lat * latPitch,
-          half,
-          ux,
-          uy,
-          color,
-          alpha
-        );
-      }
-    }
-  } else {
-    const pitch = cell;
-    const r = Math.max(0.15, pitch * DOT_RADIUS_FRAC);
-    const latPitch = pitch;
-    const step = pitch * DOT_STEP_FRAC;
-    const length = Math.max(s1 - s0, 1);
-    for (let s = s0; s < s1; s += step) {
-      const t = (s - s0) / length;
-      const a = density === "soft" ? alpha * (0.55 + 0.35 * t) : alpha;
-      for (let lat = -halfBand; lat <= halfBand; lat++) {
-        if (
-          halfBand > 0 &&
-          Math.abs(lat) === halfBand &&
-          Math.floor(s / step) % 2 === 0
-        ) {
-          continue;
-        }
-        if (
-          density === "soft" &&
-          halfBand > 1 &&
-          Math.abs(lat) > halfBand - 1 &&
-          (Math.floor(s / step) + lat) % 2 === 0
-        ) {
-          continue;
-        }
-        fillDot(
-          graphics,
-          from.x + ux * s + px * lat * latPitch,
-          from.y + uy * s + py * lat * latPitch,
-          r,
-          color,
-          a
-        );
-      }
-    }
-  }
 }
 
 /**
- * Full edge: rim at both nodes + shaft that meets each inner arc (no stroke↔rim void).
+ * Single-pass continuous diverging stream along the edge attachments.
+ *
+ * Morph (s along edge, L = length):
+ *   dFromAlong = s, dToAlong = L - s
+ *   tFrom = smoothstep(1 - dFromAlong/zoneFrom), same for end
+ *   near = max(tFrom, tTo)  — no double-apply widen
+ *   widen = 1 + near * FLARE_GAIN
+ *   latMax = round(halfBand * widen)
+ *   localStep = cell * DOT_STEP_FRAC / (1 + near * DENSIFY_GAIN)
+ *   localR = cell * DOT_RADIUS_FRAC * (1 + near * RADIUS_GROW)
+ *   axial fan: outer lats may reach s0 - extra / s1 + extra toward node
+ *   cull: dist(nodeCenter) >= nodeR + synapseGap
  */
-function drawEdgeBody(
+function sampleDivergingStream(
   graphics: Graphics,
   from: ScreenPoint,
   to: ScreenPoint,
@@ -289,61 +176,161 @@ function drawEdgeBody(
 ): void {
   const dir = unitAlong(from, to);
   if (!dir) return;
-  const { ux, uy, length } = dir;
+  const { ux, uy, length: L } = dir;
+  if (!Number.isFinite(L) || L < 1e-6) return;
 
   const { cols, cell } = edgeStripLayout(band, density);
+  if (!Number.isFinite(cell) || cell <= 0) return;
   const halfBand = Math.floor((cols - 1) / 2);
+  const px = -uy;
+  const py = ux;
 
   const gapFrom = synapseGap(fromRadius);
   const gapTo = synapseGap(toRadius);
+  const zoneFrom = morphZone(band, cell, fromRadius);
+  const zoneTo = morphZone(band, cell, toRadius);
+  // Avoid div-by-zero in near factors
+  const zFrom = Math.max(zoneFrom, 1e-6);
+  const zTo = Math.max(zoneTo, 1e-6);
 
-  // Shaft spans from outer side of start cleft to outer side of end cleft:
-  // attachment is on node rim; step out by gap to meet inner arc.
-  // s=0 at `from` (start rim), s=length at `to` (end rim).
-  const s0 = gapFrom;
-  const s1 = length - gapTo;
-  // Slight inset so last shaft cells kiss the first arc ring without a hole
-  const join = cell * 0.15;
-  const shaftStart = Math.max(0, s0 - join);
-  const shaftEnd = Math.min(length, s1 + join);
+  // Centerline domain: hairline past each rim. Short edges: full [0, L] bridge.
+  let s0 = gapFrom;
+  let s1 = L - gapTo;
+  if (!(s1 > s0)) {
+    s0 = 0;
+    s1 = L;
+  }
 
-  sampleShaft(
+  // Expand sample domain for axial fan (outer laterals closer to nodes).
+  const maxFan = EDGE_DOT_AXIAL_FAN * cell;
+  const sSample0 = Math.max(0, s0 - maxFan);
+  const sSample1 = Math.min(L, s1 + maxFan);
+  if (!(sSample1 >= sSample0)) return;
+
+  const squareHalf = cell * PIXEL_FILL_FRAC;
+  // Floor step so densest region still advances
+  const minStep = Math.max(
+    cell * DOT_STEP_FRAC / (1 + EDGE_DOT_DENSIFY_GAIN) * 0.5,
+    0.05
+  );
+
+  let s = sSample0;
+  let guard = 0;
+  const maxIters = Math.ceil((sSample1 - sSample0) / minStep) + cols * 4 + 64;
+
+  while (s <= sSample1 + 1e-9 && guard < maxIters) {
+    guard += 1;
+
+    const dFromAlong = s;
+    const dToAlong = L - s;
+    const tFrom = smoothstep01(1 - dFromAlong / zFrom);
+    const tTo = smoothstep01(1 - dToAlong / zTo);
+    const near = tFrom > tTo ? tFrom : tTo;
+
+    const widen = 1 + near * EDGE_DOT_FLARE_GAIN;
+    const latMax = Math.max(0, Math.round(halfBand * widen));
+    const localStep = Math.max(
+      minStep,
+      (cell * DOT_STEP_FRAC) / (1 + near * EDGE_DOT_DENSIFY_GAIN)
+    );
+    const localR = Math.max(
+      0.15,
+      cell * DOT_RADIUS_FRAC * (1 + near * EDGE_DOT_RADIUS_GROW)
+    );
+
+    // Soft mid-shaft alpha ramp (mild); firm stays flat
+    const tAlong = L > 1e-6 ? s / L : 0.5;
+    const baseAlpha =
+      density === "soft" ? alpha * (0.55 + 0.35 * tAlong) : alpha;
+
+    const useSquares =
+      visual === "pixel-strip" && near < EDGE_PIXEL_DISSOLVE_NEAR;
+
+    const latDenom = Math.max(latMax, 1);
+    const stepIndex = Math.floor(s / localStep);
+
+    for (let lat = -latMax; lat <= latMax; lat++) {
+      const absLat = Math.abs(lat);
+      const latFrac = absLat / latDenom;
+
+      // Axial fan: outer laterals extend toward each node by end-local near
+      const extraFrom = tFrom * EDGE_DOT_AXIAL_FAN * latFrac * cell;
+      const extraTo = tTo * EDGE_DOT_AXIAL_FAN * latFrac * cell;
+      if (s < s0 - extraFrom - 1e-6) continue;
+      if (s > s1 + extraTo + 1e-6) continue;
+
+      // Soft / outer-column density thinning (mid stream spirit)
+      if (latMax > 0 && absLat === latMax && stepIndex % 2 === 0) {
+        continue;
+      }
+      if (
+        density === "soft" &&
+        latMax > 1 &&
+        absLat > latMax - 1 &&
+        (stepIndex + lat) % 2 === 0
+      ) {
+        continue;
+      }
+
+      const cx = from.x + ux * s + px * lat * cell;
+      const cy = from.y + uy * s + py * lat * cell;
+
+      // Forbidden disks: node fill + hairline synapse
+      const distFrom = Math.hypot(cx - fromCenter.x, cy - fromCenter.y);
+      if (distFrom < fromRadius + gapFrom) continue;
+      const distTo = Math.hypot(cx - toCenter.x, cy - toCenter.y);
+      if (distTo < toRadius + gapTo) continue;
+
+      if (useSquares) {
+        fillOrientedSquare(
+          graphics,
+          cx,
+          cy,
+          squareHalf,
+          ux,
+          uy,
+          color,
+          baseAlpha
+        );
+      } else {
+        fillDot(graphics, cx, cy, localR, color, baseAlpha);
+      }
+    }
+
+    s += localStep;
+  }
+}
+
+/**
+ * Full edge: one continuous diverging stream (no polar pads, no dual pass).
+ */
+function drawEdgeBody(
+  graphics: Graphics,
+  from: ScreenPoint,
+  to: ScreenPoint,
+  band: number,
+  color: number,
+  alpha: number,
+  density: "firm" | "soft",
+  visual: EdgeVisualStyle,
+  fromCenter: ScreenPoint,
+  fromRadius: number,
+  toCenter: ScreenPoint,
+  toRadius: number
+): void {
+  sampleDivergingStream(
     graphics,
     from,
-    ux,
-    uy,
-    shaftStart,
-    shaftEnd,
-    cell,
-    halfBand,
+    to,
+    band,
     color,
     alpha,
     density,
-    visual
-  );
-
-  // Rim on both ends — direction later via pulse animation
-  drawRimArc(
-    graphics,
+    visual,
     fromCenter,
     fromRadius,
-    from,
-    cell,
-    color,
-    alpha,
-    density,
-    visual
-  );
-  drawRimArc(
-    graphics,
     toCenter,
-    toRadius,
-    to,
-    cell,
-    color,
-    alpha,
-    density,
-    visual
+    toRadius
   );
 }
 
