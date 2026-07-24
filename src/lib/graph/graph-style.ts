@@ -1,9 +1,8 @@
 /**
- * Graph canvas visual tokens (Pixi hex colors).
+ * Graph canvas palette (Pixi hex colors + alphas only).
  *
- * Mirror the product lavender / utility-register system from brief + globals.css:
- * lavender-white text, muted purple edges, soft node fill — no gold/amber.
- * Keep numbers here; CSS remains the chat UI source of truth.
+ * Mirrors the product lavender / utility-register system from brief + globals.css.
+ * No gold/amber. Scale tokens and formulas live in graph-scale.ts.
  */
 
 /** Deepest register background. */
@@ -25,11 +24,3 @@ export const GRAPH_EDGE_PART_OF_ALPHA = 0.55;
 /** RELATES_TO associative edges — secondary dim gray. */
 export const GRAPH_EDGE_RELATES = 0x7a7685;
 export const GRAPH_EDGE_RELATES_ALPHA = 0.42;
-/** RELATES_TO is thinner than PART_OF at the same zoom. */
-export const GRAPH_EDGE_RELATES_WIDTH_SCALE = 0.75;
-
-/**
- * Base pitch (screen px) between dots on a RELATES_TO shaft.
- * Lightly scaled with stroke width at draw time.
- */
-export const GRAPH_DOT_PITCH = 4.5;

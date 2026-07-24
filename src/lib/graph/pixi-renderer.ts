@@ -6,91 +6,57 @@
  * - Project world → screen via RtcCamera each frame, then place graphics in
  *   screen space.
  *
- * Viewport size is owned by GraphCanvas (initial setViewport + ResizeObserver).
- * Pixi uses resizeTo: host only for canvas/buffer size.
- *
- * Edges: PART_OF solid + pixel head; RELATES_TO dots + pixel head (thinner).
+ * Edge visuals: A/B demo via setEdgeVisualStyle (pixel-strip | dot-matrix).
+ * Scale: graph-scale (shared zoom for nodes, cell, band).
  */
 
 import { Application, Container, Graphics } from "pixi.js";
 
 import type { RtcCamera } from "@/lib/graph/rtc-camera";
 import type { GraphData } from "@/lib/graph/graph-data";
-import { drawArrow, insetSegment } from "@/lib/graph/draw-arrow";
+import {
+  drawEdge,
+  insetSegment,
+  type EdgeVisualStyle,
+} from "@/lib/graph/draw-arrow";
+import {
+  NODE_DRAW_MIN_PX,
+  edgeBandWidth,
+  edgeScreenWidth,
+  nodeRingWidth,
+  nodeScreenRadius,
+} from "@/lib/graph/graph-scale";
 import {
   GRAPH_BG,
-  GRAPH_DOT_PITCH,
   GRAPH_EDGE_PART_OF,
   GRAPH_EDGE_PART_OF_ALPHA,
   GRAPH_EDGE_RELATES,
   GRAPH_EDGE_RELATES_ALPHA,
-  GRAPH_EDGE_RELATES_WIDTH_SCALE,
   GRAPH_NODE_FILL,
   GRAPH_NODE_FILL_ALPHA,
   GRAPH_NODE_RING,
   GRAPH_NODE_RING_ALPHA,
-  GRAPH_NODE_RING_WIDTH,
 } from "@/lib/graph/graph-style";
 
-/**
- * Independent node sizing: each radius depends ONLY on that node's stored
- * rank and current camera.zoom. Neighbors, degree, mass, density do not affect
- * size. Same zoom scales everyone; Q keeps relative hierarchy.
- *
- * r = BASE * (Q ** rank) * |zoom|
- *   BASE = root px at zoom 1; Q = parent→child size ratio
- *   Pure linear zoom — no floor, no shared MAX, no soft-K.
- */
-const NODE_BASE_PX = 8;
-/** Each +1 rank multiplies size by Q (hierarchy chain). */
-const NODE_RANK_Q = 0.8;
-/** Skip drawing nodes smaller than this (subpixel cull; formula itself has no MIN). */
-const NODE_DRAW_MIN_PX = 0.25;
-const EDGE_BASE_PX = 1;
-/** Stroke safety only — keeps Pixi from zero-width strokes; not a hierarchy floor. */
-const EDGE_STROKE_MIN_PX = 0.25;
-
-/**
- * Pure screen-pixel radius for a node given stored rank and camera zoom.
- * No floor/ceiling so deep hierarchy ratios stay true at all zooms.
- */
-export function nodeScreenRadius(
-  rank: number | undefined,
-  zoom: number
-): number {
-  const depth = rank ?? 0;
-  const z = Number.isFinite(zoom) && zoom !== 0 ? Math.abs(zoom) : 1;
-  return NODE_BASE_PX * NODE_RANK_Q ** depth * z;
-}
-
-/**
- * Edge stroke width from zoom (linear). Safety floor only for stroke stability.
- */
-export function edgeScreenWidth(zoom: number): number {
-  const z = Number.isFinite(zoom) && zoom !== 0 ? Math.abs(zoom) : 1;
-  return Math.max(EDGE_STROKE_MIN_PX, EDGE_BASE_PX * z);
-}
+// Re-export scale helpers so existing imports from pixi-renderer keep working.
+export { nodeScreenRadius, edgeScreenWidth };
 
 export type PixiRendererHandle = {
-  /** Attach to a host element (async: Application.init). */
   mount: (host: HTMLElement) => void | Promise<void>;
-  /** Tear down WebGL / listeners / stage children. */
   destroy: () => void;
-  /** Push latest graph snapshot before draw. */
   setGraphData: (graphData: GraphData) => void;
-  /** Bind external RTC camera (never owned by Pixi). */
   setCamera: (camera: RtcCamera) => void;
-  /** One frame draw: project + redraw screen-space graphics. */
+  /** A/B edge visual demo — redraws if mounted. */
+  setEdgeVisualStyle: (style: EdgeVisualStyle) => void;
+  getEdgeVisualStyle: () => EdgeVisualStyle;
   render: () => void;
 };
 
 export type CreatePixiRendererOptions = {
   background?: number;
+  edgeVisualStyle?: EdgeVisualStyle;
 };
 
-/**
- * Factory for the Pixi surface. Import only from client components.
- */
 export function createPixiRenderer(
   options: CreatePixiRendererOptions = {}
 ): PixiRendererHandle {
@@ -102,6 +68,7 @@ export function createPixiRenderer(
   let root: Container | null = null;
   let graphData: GraphData | null = null;
   let camera: RtcCamera | null = null;
+  let edgeVisual: EdgeVisualStyle = options.edgeVisualStyle ?? "pixel-strip";
   let isMounted = false;
   let isDestroyed = false;
 
@@ -117,11 +84,8 @@ export function createPixiRenderer(
 
     const nodesById = new Map(graphData.nodes.map((n) => [n.id, n]));
     const zoom = camera.zoom;
-    const baseWidth = edgeScreenWidth(zoom);
-    const relatesWidth = baseWidth * GRAPH_EDGE_RELATES_WIDTH_SCALE;
-    const dotPitch = Math.max(GRAPH_DOT_PITCH, baseWidth * 3.5);
+    const ringWidth = nodeRingWidth(zoom);
 
-    // Edges — directed, inset to node rims (nodeLayer draws on top)
     for (const edge of graphData.edges) {
       const src = nodesById.get(edge.source);
       const tgt = nodesById.get(edge.target);
@@ -135,11 +99,13 @@ export function createPixiRenderer(
         continue;
       }
 
-      const radiusSource = nodeScreenRadius(src.rank, zoom);
-      const radiusTarget = nodeScreenRadius(tgt.rank, zoom);
+      const sourceRank = src.rank ?? 0;
+      const targetRank = tgt.rank ?? 0;
+      const radiusSource = nodeScreenRadius(sourceRank, zoom);
+      const radiusTarget = nodeScreenRadius(targetRank, zoom);
 
       if (edge.type === "PART_OF") {
-        // Data: source=child, target=parent → visual flow parent → child
+        // parent → child; rim arcs on both ends (flow later via pulse animation)
         const segment = insetSegment(
           screenTarget,
           screenSource,
@@ -147,15 +113,19 @@ export function createPixiRenderer(
           radiusSource
         );
         if (!segment) continue;
-        drawArrow(edges, segment.start, segment.end, {
-          width: baseWidth,
+        const band = edgeBandWidth(zoom, "part_of", sourceRank, targetRank);
+        drawEdge(edges, segment.start, segment.end, {
           color: GRAPH_EDGE_PART_OF,
           alpha: GRAPH_EDGE_PART_OF_ALPHA,
-          shaft: "solid",
-          headStyle: "pixel",
+          density: "firm",
+          visual: edgeVisual,
+          band,
+          fromCenter: screenTarget,
+          fromRadius: radiusTarget,
+          toCenter: screenSource,
+          toRadius: radiusSource,
         });
       } else {
-        // RELATES_TO: thinner dots + pixel head, source → target
         const segment = insetSegment(
           screenSource,
           screenTarget,
@@ -163,29 +133,33 @@ export function createPixiRenderer(
           radiusTarget
         );
         if (!segment) continue;
-        drawArrow(edges, segment.start, segment.end, {
-          width: relatesWidth,
+        const band = edgeBandWidth(zoom, "relates", sourceRank, targetRank);
+        drawEdge(edges, segment.start, segment.end, {
           color: GRAPH_EDGE_RELATES,
           alpha: GRAPH_EDGE_RELATES_ALPHA,
-          shaft: "dots",
-          headStyle: "pixel",
-          dotPitch,
-          dotRadius: Math.max(0.65, relatesWidth * 0.55),
+          density: "soft",
+          visual: edgeVisual,
+          band,
+          fromCenter: screenSource,
+          fromRadius: radiusSource,
+          toCenter: screenTarget,
+          toRadius: radiusTarget,
         });
       }
     }
 
-    // Nodes — lavender fill + thin ring (chat-border kinship); no labels
     for (const node of graphData.nodes) {
       const screenPoint = camera.worldToScreen({ x: node.x, y: node.y });
-      if (!Number.isFinite(screenPoint.x) || !Number.isFinite(screenPoint.y)) continue;
+      if (!Number.isFinite(screenPoint.x) || !Number.isFinite(screenPoint.y)) {
+        continue;
+      }
       const radius = nodeScreenRadius(node.rank, zoom);
       if (!Number.isFinite(radius) || radius < NODE_DRAW_MIN_PX) continue;
       nodes.circle(screenPoint.x, screenPoint.y, radius);
       nodes.fill({ color: GRAPH_NODE_FILL, alpha: GRAPH_NODE_FILL_ALPHA });
       nodes.circle(screenPoint.x, screenPoint.y, radius);
       nodes.stroke({
-        width: GRAPH_NODE_RING_WIDTH,
+        width: ringWidth,
         color: GRAPH_NODE_RING,
         alpha: GRAPH_NODE_RING_ALPHA,
       });
@@ -204,15 +178,13 @@ export function createPixiRenderer(
         resizeTo: host,
         antialias: true,
         autoDensity: true,
-        resolution: typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
+        resolution:
+          typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
         preference: "webgl",
       });
 
       if (isDestroyed) {
-        application.destroy(
-          { removeView: true },
-          { children: true }
-        );
+        application.destroy({ removeView: true }, { children: true });
         return;
       }
 
@@ -220,7 +192,6 @@ export function createPixiRenderer(
       host.appendChild(application.canvas);
 
       root = new Container();
-      // HARD RULE: never set root.scale / root.position as world camera
       edgeLayer = new Graphics();
       nodeLayer = new Graphics();
       root.addChild(edgeLayer);
@@ -228,7 +199,6 @@ export function createPixiRenderer(
       application.stage.addChild(root);
 
       isMounted = true;
-      // No drawFrame here — graphData is usually null until layoutLoop.start().
     },
 
     destroy(): void {
@@ -236,7 +206,6 @@ export function createPixiRenderer(
       isMounted = false;
 
       if (app) {
-        // removeView: let Pixi detach the canvas; avoid double DOM removal.
         app.destroy({ removeView: true }, { children: true });
         app = null;
       }
@@ -253,8 +222,18 @@ export function createPixiRenderer(
     },
 
     setCamera(nextCamera: RtcCamera): void {
-      // Viewport size is owned by GraphCanvas (setViewport + ResizeObserver).
       camera = nextCamera;
+    },
+
+    setEdgeVisualStyle(style: EdgeVisualStyle): void {
+      edgeVisual = style;
+      if (isMounted && !isDestroyed) {
+        drawFrame();
+      }
+    },
+
+    getEdgeVisualStyle(): EdgeVisualStyle {
+      return edgeVisual;
     },
 
     render(): void {

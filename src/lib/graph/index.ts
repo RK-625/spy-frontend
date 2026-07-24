@@ -35,14 +35,41 @@ export {
   type PixiRendererHandle,
 } from "@/lib/graph/pixi-renderer";
 
+/** Scale hub — tokens + pure formulas (single place to tune size). */
 export {
+  NODE_BASE_PX,
+  NODE_RANK_Q,
+  EDGE_BASE_BAND,
+  EDGE_BASE_CELL,
+  EDGE_COLS_FIRM,
+  EDGE_COLS_SOFT,
+  EDGE_RELATES_WIDTH_SCALE,
+  PIXEL_FILL_FRAC,
+  PIXEL_STEP_FRAC,
+  DOT_RADIUS_FRAC,
+  DOT_STEP_FRAC,
+  NODE_DRAW_MIN_PX,
+  usableZoom,
+  edgeCellSize,
+  edgeBandWidth,
+  edgeRankFactor,
+  edgeColumnCount,
+  edgeStripLayout,
+  edgeHeadRows,
+  edgeHeadLengthTarget,
+  nodeRingWidth,
+} from "@/lib/graph/graph-scale";
+
+export {
+  drawEdge,
   drawArrow,
   insetSegment,
-  type DrawArrowOptions,
-  type ArrowShaftStyle,
-  type ArrowHeadStyle,
+  type DrawEdgeOptions,
+  type EdgeVisualStyle,
+  type ScreenPoint as EdgeScreenPoint,
 } from "@/lib/graph/draw-arrow";
 
+/** Palette only — hex colors / alphas. */
 export {
   GRAPH_BG,
   GRAPH_NODE_FILL,
@@ -54,6 +81,4 @@ export {
   GRAPH_EDGE_PART_OF_ALPHA,
   GRAPH_EDGE_RELATES,
   GRAPH_EDGE_RELATES_ALPHA,
-  GRAPH_EDGE_RELATES_WIDTH_SCALE,
-  GRAPH_DOT_PITCH,
 } from "@/lib/graph/graph-style";
