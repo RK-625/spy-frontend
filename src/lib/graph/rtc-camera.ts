@@ -4,21 +4,15 @@
  * Cancels the huge shared world offset before scale so float precision holds
  * when cam and content sit far from the origin (e.g. FA2 clusters at 1e17).
  *
- * World → screen (RTC):
+ * World → screen:
  *   screenX = (worldX - camX) * zoom + viewportWidth  / 2
  *   screenY = (worldY - camY) * zoom + viewportHeight / 2
  *
- * World → screen (naive — catastrophic cancellation demo):
- *   screenX = worldX * zoom - camX * zoom + viewportWidth  / 2
- *   (same algebra, but float loses low-order bits at huge coords)
- *
- * Inverse (screen → world) always uses RTC so pan/zoom stay well-defined.
+ * Inverse (screen → world) uses the same RTC algebra so pan/zoom stay well-defined.
  *
  * Camera state lives outside Pixi; never pan/zoom via container.scale.
  * No min/max zoom clamps — literal infinite zoom (float is the wall).
  */
-
-export type ProjectionMode = "rtc" | "naive";
 
 export type RtcCameraState = {
   camX: number;
@@ -26,14 +20,13 @@ export type RtcCameraState = {
   zoom: number;
   viewportWidth: number;
   viewportHeight: number;
-  projectionMode: ProjectionMode;
 };
 
 export type ScreenPoint = { x: number; y: number };
 export type WorldPoint = { x: number; y: number };
 
-function isUsableZoom(z: number): boolean {
-  return Number.isFinite(z) && z !== 0;
+function isUsableZoom(zoom: number): boolean {
+  return Number.isFinite(zoom) && zoom !== 0;
 }
 
 /** Mutable camera for pan / zoom-at-point / look-at. */
@@ -43,67 +36,42 @@ export class RtcCamera {
   zoom = 1;
   viewportWidth = 0;
   viewportHeight = 0;
-  /** `rtc` subtracts cam before scale; `naive` scales first (demo only). */
-  projectionMode: ProjectionMode = "rtc";
-
-  getState(): RtcCameraState {
-    return {
-      camX: this.camX,
-      camY: this.camY,
-      zoom: this.zoom,
-      viewportWidth: this.viewportWidth,
-      viewportHeight: this.viewportHeight,
-      projectionMode: this.projectionMode,
-    };
-  }
 
   setViewport(width: number, height: number): void {
     this.viewportWidth = width;
     this.viewportHeight = height;
   }
 
-  setProjectionMode(mode: ProjectionMode): void {
-    this.projectionMode = mode;
-  }
-
   /**
-   * Project world → screen.
-   * RTC: (world - cam) * zoom + vp/2
-   * Naive: world * zoom - cam * zoom + vp/2 (same math, worse float at huge coords)
+   * Project world → screen: (world - cam) * zoom + vp/2
    * If zoom is 0 or non-finite, returns viewport center (avoids NaN).
    */
   worldToScreen(world: WorldPoint): ScreenPoint {
-    const z = this.zoom;
-    if (!isUsableZoom(z)) {
+    const zoom = this.zoom;
+    if (!isUsableZoom(zoom)) {
       return {
         x: this.viewportWidth / 2,
         y: this.viewportHeight / 2,
       };
     }
-    if (this.projectionMode === "naive") {
-      return {
-        x: world.x * z - this.camX * z + this.viewportWidth / 2,
-        y: world.y * z - this.camY * z + this.viewportHeight / 2,
-      };
-    }
     return {
-      x: (world.x - this.camX) * z + this.viewportWidth / 2,
-      y: (world.y - this.camY) * z + this.viewportHeight / 2,
+      x: (world.x - this.camX) * zoom + this.viewportWidth / 2,
+      y: (world.y - this.camY) * zoom + this.viewportHeight / 2,
     };
   }
 
   /**
-   * Inverse: screen → world (always RTC; interaction math must stay stable).
+   * Inverse: screen → world (RTC algebra).
    * If zoom is 0 or non-finite, returns camera center.
    */
   screenToWorld(screen: ScreenPoint): WorldPoint {
-    const z = this.zoom;
-    if (!isUsableZoom(z)) {
+    const zoom = this.zoom;
+    if (!isUsableZoom(zoom)) {
       return { x: this.camX, y: this.camY };
     }
     return {
-      x: (screen.x - this.viewportWidth / 2) / z + this.camX,
-      y: (screen.y - this.viewportHeight / 2) / z + this.camY,
+      x: (screen.x - this.viewportWidth / 2) / zoom + this.camX,
+      y: (screen.y - this.viewportHeight / 2) / zoom + this.camY,
     };
   }
 
@@ -117,10 +85,10 @@ export class RtcCamera {
    */
   panByScreen(dx: number, dy: number): void {
     if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
-    const z = this.zoom;
-    if (!isUsableZoom(z)) return;
-    this.camX -= dx / z;
-    this.camY -= dy / z;
+    const zoom = this.zoom;
+    if (!isUsableZoom(zoom)) return;
+    this.camX -= dx / zoom;
+    this.camY -= dy / zoom;
   }
 
   /**
@@ -165,18 +133,15 @@ export class RtcCamera {
 export function createRtcCamera(
   partial?: Partial<RtcCameraState>
 ): RtcCamera {
-  const cam = new RtcCamera();
-  if (partial?.camX !== undefined) cam.camX = partial.camX;
-  if (partial?.camY !== undefined) cam.camY = partial.camY;
-  if (partial?.zoom !== undefined) cam.zoom = partial.zoom;
+  const camera = new RtcCamera();
+  if (partial?.camX !== undefined) camera.camX = partial.camX;
+  if (partial?.camY !== undefined) camera.camY = partial.camY;
+  if (partial?.zoom !== undefined) camera.zoom = partial.zoom;
   if (partial?.viewportWidth !== undefined) {
-    cam.viewportWidth = partial.viewportWidth;
+    camera.viewportWidth = partial.viewportWidth;
   }
   if (partial?.viewportHeight !== undefined) {
-    cam.viewportHeight = partial.viewportHeight;
+    camera.viewportHeight = partial.viewportHeight;
   }
-  if (partial?.projectionMode !== undefined) {
-    cam.projectionMode = partial.projectionMode;
-  }
-  return cam;
+  return camera;
 }

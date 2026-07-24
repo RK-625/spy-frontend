@@ -194,7 +194,7 @@ async function main() {
     ok(cam.zoom === 1, "guard: Infinity factor ignored");
   }
 
-  // 7. Projection modes exist; RTC uses subtract-before-scale path
+  // 7. RTC preserves local offset at huge coords (subtract-before-scale)
   {
     const H = 1e17;
     const cam = createRtcCamera({
@@ -204,23 +204,13 @@ async function main() {
       viewportWidth: 800,
       viewportHeight: 600,
     });
-    cam.setProjectionMode("rtc");
     // Use offset large enough to survive float64 ULP at 1e17 (~16)
     const offset = 1024;
     const rtc = cam.worldToScreen({ x: H + offset, y: H });
-    cam.setProjectionMode("naive");
-    const naive = cam.worldToScreen({ x: H + offset, y: H });
-    ok(
-      Number.isFinite(rtc.x) && Number.isFinite(naive.x),
-      "7) both projection modes finite at 1e17"
-    );
+    ok(Number.isFinite(rtc.x) && Number.isFinite(rtc.y), "7) RTC finite at 1e17");
     // RTC: (offset)*zoom + center — representable delta survives
     const expectedRtcX = 400 + offset * 2;
     approx(rtc.x, expectedRtcX, 1, "7) RTC preserves local offset at 1e17");
-    ok(
-      cam.projectionMode === "naive",
-      "7) setProjectionMode('naive') sticks"
-    );
   }
 
   if (failed > 0) {
