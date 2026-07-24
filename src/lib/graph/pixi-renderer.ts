@@ -18,7 +18,6 @@ import { drawEdge, insetSegment } from "@/lib/graph/draw-arrow";
 import {
   NODE_DRAW_MIN_PX,
   edgeBandWidth,
-  edgeScreenWidth,
   nodeRingWidth,
   nodeScreenRadius,
 } from "@/lib/graph/graph-scale";
@@ -33,9 +32,6 @@ import {
   GRAPH_NODE_RING,
   GRAPH_NODE_RING_ALPHA,
 } from "@/lib/graph/graph-style";
-
-// Re-export scale helpers so existing imports from pixi-renderer keep working.
-export { nodeScreenRadius, edgeScreenWidth };
 
 export type PixiRendererHandle = {
   mount: (host: HTMLElement) => void | Promise<void>;

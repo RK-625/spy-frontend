@@ -250,34 +250,6 @@ function sampleDivergingStream(
 /**
  * Full edge: one continuous diverging DotStream (no polar pads, no dual pass).
  */
-function drawEdgeBody(
-  graphics: Graphics,
-  from: ScreenPoint,
-  to: ScreenPoint,
-  band: number,
-  color: number,
-  alpha: number,
-  density: "firm" | "soft",
-  fromCenter: ScreenPoint,
-  fromRadius: number,
-  toCenter: ScreenPoint,
-  toRadius: number
-): void {
-  sampleDivergingStream(
-    graphics,
-    from,
-    to,
-    band,
-    color,
-    alpha,
-    density,
-    fromCenter,
-    fromRadius,
-    toCenter,
-    toRadius
-  );
-}
-
 export function drawEdge(
   graphics: Graphics,
   from: ScreenPoint,
@@ -293,7 +265,7 @@ export function drawEdge(
     return;
   }
 
-  drawEdgeBody(
+  sampleDivergingStream(
     graphics,
     from,
     to,
@@ -307,6 +279,3 @@ export function drawEdge(
     options.toRadius
   );
 }
-
-/** @deprecated Use drawEdge. */
-export const drawArrow = drawEdge;

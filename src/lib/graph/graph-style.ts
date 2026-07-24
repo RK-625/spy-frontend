@@ -15,7 +15,6 @@ export const GRAPH_NODE_FILL_ALPHA = 0.92;
 /** Thin ring for chat-border kinship (same hue, low alpha). */
 export const GRAPH_NODE_RING = 0xc8acfb;
 export const GRAPH_NODE_RING_ALPHA = 0.3;
-export const GRAPH_NODE_RING_WIDTH = 1;
 
 /** PART_OF hierarchy edges — muted purple-gray. */
 export const GRAPH_EDGE_PART_OF = 0x5a5470;
