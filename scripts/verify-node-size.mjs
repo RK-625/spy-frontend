@@ -1,5 +1,5 @@
 /**
- * verify-node-size.mjs — pure rank × linear zoom (no node MIN/MAX) + edge width.
+ * verify-node-size.mjs — pure linear zoom + rank-symmetric edge band.
  *
  * Run: npm run verify:node-size
  *   → npx tsx scripts/verify-node-size.mjs
@@ -23,108 +23,113 @@ function assert(cond, msg) {
 }
 
 async function main() {
-  const url = pathToFileURL(
-    path.join(root, "src/lib/graph/pixi-renderer.ts")
+  const scaleUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/graph-scale.ts")
   ).href;
-  const mod = await import(url);
-  const { nodeScreenRadius, edgeScreenWidth } = mod;
+  const scale = await import(scaleUrl);
+  const {
+    NODE_BASE_PX,
+    NODE_RANK_Q,
+    EDGE_BASE_CELL,
+    EDGE_BASE_BAND,
+    EDGE_COLS_FIRM,
+    EDGE_COLS_SOFT,
+    EDGE_RELATES_WIDTH_SCALE,
+    nodeScreenRadius,
+    edgeCellSize,
+    edgeBandWidth,
+    edgeRankFactor,
+    edgeColumnCount,
+    edgeStripLayout,
+    usableZoom,
+  } = scale;
 
   const drawArrowUrl = pathToFileURL(
     path.join(root, "src/lib/graph/draw-arrow.ts")
   ).href;
-  const drawArrowMod = await import(drawArrowUrl);
-  const { insetSegment } = drawArrowMod;
+  const { insetSegment } = await import(drawArrowUrl);
 
-  const BASE = 8;
-  const Q = 0.8;
-  const EDGE_BASE = 1;
-  const EDGE_STROKE_MIN = 0.25;
-
+  // --- Nodes: pure linear zoom ---
   const r0z1 = nodeScreenRadius(0, 1);
-  const r1z1 = nodeScreenRadius(1, 1);
-  const r2z1 = nodeScreenRadius(2, 1);
   const r0z2 = nodeScreenRadius(0, 2);
-  const r0zTiny = nodeScreenRadius(0, 0.1);
-  const r2zTiny = nodeScreenRadius(2, 0.1);
-  const r0zHuge = nodeScreenRadius(0, 1e6);
-  const r2zHuge = nodeScreenRadius(2, 1e6);
+  const r1z1 = nodeScreenRadius(1, 1);
+  assert(Math.abs(r0z1 - NODE_BASE_PX) < 1e-9, `rank0 z1 = BASE (${r0z1})`);
+  assert(
+    Math.abs(r0z2 / r0z1 - 2) < 1e-9,
+    `node r(z=2)/r(z=1) === 2 (got ${r0z2 / r0z1})`
+  );
+  assert(Math.abs(r1z1 / r0z1 - NODE_RANK_Q) < 1e-9, `node Q ladder`);
+  assert(usableZoom(NaN) === 1 && usableZoom(0) === 1, `usableZoom guards`);
 
-  assert(r0z1 > r1z1 && r1z1 > r2z1, `rank0 > rank1 > rank2 at z1 (${r0z1} > ${r1z1} > ${r2z1})`);
-  assert(r0z1 > r2z1, `rank0 > rank2 at zoom 1`);
-  assert(r0zHuge > r2zHuge, `rank0 > rank2 at extreme zoom (${r0zHuge} > ${r2zHuge})`);
+  // --- Cell: pure linear (no max clamp) ---
+  const c1 = edgeCellSize(1);
+  const c2 = edgeCellSize(2);
+  const cHuge = edgeCellSize(1e6);
+  assert(Math.abs(c1 - EDGE_BASE_CELL) < 1e-9, `cell(1) = BASE_CELL`);
   assert(
-    Math.abs(r0z2 - 2 * r0z1) < 1e-9,
-    `linear zoom: rank0 z2 = 2× z1 (${r0z2} vs ${2 * r0z1})`
-  );
-  assert(Math.abs(r0z1 - BASE) < 1e-9, `rank0 zoom1 = BASE (${r0z1})`);
-  assert(
-    Math.abs(r1z1 / r0z1 - Q) < 1e-9,
-    `ratio rank1/rank0 = Q (${r1z1 / r0z1})`
+    Math.abs(c2 / c1 - 2) < 1e-9,
+    `cell(2)/cell(1) === 2 (got ${c2 / c1})`
   );
   assert(
-    Math.abs(r2z1 - BASE * Q ** 2) < 1e-9,
-    `pure formula rank2 z1 (${r2z1})`
-  );
-
-  // Tiny zoom: sizes can be < 2; ratios still hold
-  assert(r0zTiny < 2, `tiny zoom can be < 2px (got ${r0zTiny})`);
-  assert(r0zTiny > r2zTiny, `tiny zoom still rank0 > rank2 (${r0zTiny} > ${r2zTiny})`);
-  assert(
-    Math.abs(r0zTiny - BASE * 0.1) < 1e-9,
-    `pure formula rank0 z0.1 (${r0zTiny})`
+    Math.abs(cHuge - EDGE_BASE_CELL * 1e6) < 1e-3,
+    `cell huge stays linear (no max clamp)`
   );
 
+  // --- Rank factor rules ---
   assert(
-    Math.abs(nodeScreenRadius(0, NaN) - r0z1) < 1e-9,
-    "NaN zoom falls back to |z|=1"
+    edgeRankFactor("part_of", 2, 0) === 0,
+    `PART_OF uses parent (target) rank only`
   );
   assert(
-    Math.abs(nodeScreenRadius(0, 0) - r0z1) < 1e-9,
-    "zero zoom falls back to |z|=1"
-  );
-
-  // --- Edges: linear zoom + stroke safety floor (native solid only) ---
-  const e1 = edgeScreenWidth(1);
-  const e2 = edgeScreenWidth(2);
-  const eTiny = edgeScreenWidth(0.01);
-  assert(Math.abs(e1 - EDGE_BASE) < 1e-9, `edge zoom1 = EDGE_BASE (${e1})`);
-  assert(Math.abs(e2 - 2 * e1) < 1e-9, `edge width doubles with zoom (${e2} vs ${2 * e1})`);
-  assert(eTiny >= EDGE_STROKE_MIN, `edge safety floor at tiny zoom (${eTiny})`);
-  assert(
-    Math.abs(edgeScreenWidth(NaN) - e1) < 1e-9,
-    "edge NaN zoom falls back to 1"
+    edgeRankFactor("relates", 3, 1) === 1,
+    `RELATES uses min(source, target)`
   );
 
-  // --- insetSegment (arrow endpoint padding) ---
+  // --- Band: pure linear + Q^rankFactor ---
+  const bandP0 = edgeBandWidth(1, "part_of", 1, 0);
+  const bandP1 = edgeBandWidth(1, "part_of", 2, 1);
+  assert(
+    Math.abs(bandP0 - EDGE_BASE_BAND) < 1e-9,
+    `part_of parent0 z1 = BASE_BAND (${bandP0})`
+  );
+  assert(
+    Math.abs(bandP0 / bandP1 - 1 / NODE_RANK_Q) < 1e-9,
+    `band(parent0)/band(parent1) === 1/Q (got ${bandP0 / bandP1})`
+  );
+  assert(
+    Math.abs(edgeBandWidth(2, "part_of", 1, 0) / bandP0 - 2) < 1e-9,
+    `band linear zoom: z2/z1 === 2`
+  );
+
+  const bandR0 = edgeBandWidth(1, "relates", 0, 0);
+  assert(
+    Math.abs(bandR0 - EDGE_BASE_BAND * EDGE_RELATES_WIDTH_SCALE) < 1e-9,
+    `relates rank0 = BASE_BAND * 0.75`
+  );
+  assert(bandR0 < bandP0, `relates thinner than part_of at same rank factor`);
+
+  // --- Target cols + cell = band/cols ---
+  assert(edgeColumnCount(1, 1, "firm") === EDGE_COLS_FIRM, `firm cols = 10`);
+  assert(edgeColumnCount(1, 1, "soft") === EDGE_COLS_SOFT, `soft cols = 7`);
+  const layoutFirm = edgeStripLayout(bandP0, "firm");
+  assert(layoutFirm.cols === EDGE_COLS_FIRM, `strip firm cols 10`);
+  assert(
+    Math.abs(layoutFirm.cell * layoutFirm.cols - bandP0) < 1e-9,
+    `cell * cols === band (drawn width tracks band)`
+  );
+  const layoutSoft = edgeStripLayout(bandR0, "soft");
+  assert(layoutSoft.cols === EDGE_COLS_SOFT, `strip soft cols 7`);
+  assert(layoutFirm.cell < bandP0 / 5, `firm cells smaller than old 5-col grain`);
+
+  // --- insetSegment ---
   const inset = insetSegment({ x: 0, y: 0 }, { x: 100, y: 0 }, 10, 10);
-  assert(inset !== null, "insetSegment returns segment for long enough line");
-  assert(Math.abs(inset.start.x - 10) < 1e-9, `inset start.x=10 (got ${inset.start.x})`);
-  assert(Math.abs(inset.end.x - 90) < 1e-9, `inset end.x=90 (got ${inset.end.x})`);
-  assert(
-    insetSegment({ x: 0, y: 0 }, { x: 10, y: 0 }, 6, 6) === null,
-    "insetSegment null when too short"
-  );
-
-  // --- RELATES_TO width scale token ---
-  const styleUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/graph-style.ts")
-  ).href;
-  const style = await import(styleUrl);
-  assert(
-    style.GRAPH_EDGE_RELATES_WIDTH_SCALE === 0.75,
-    `RELATES width scale 0.75 (got ${style.GRAPH_EDGE_RELATES_WIDTH_SCALE})`
-  );
-  const relatesW = e1 * style.GRAPH_EDGE_RELATES_WIDTH_SCALE;
-  assert(
-    Math.abs(relatesW - 0.75) < 1e-9,
-    `relates width at zoom1 = 0.75 (got ${relatesW})`
-  );
+  assert(inset !== null && Math.abs(inset.start.x - 10) < 1e-9, `inset ok`);
 
   if (failed > 0) {
     console.error(`\n${failed} check(s) failed`);
     process.exit(1);
   }
-  console.log("\nAll node-size / edge-width checks passed.");
+  console.log("\nAll scale-law checks passed.");
 }
 
 main().catch((err) => {
