@@ -1,5 +1,5 @@
 /**
- * verify-mock-layout.mjs — Step 2 checks for multi-cluster mock + FA2 loop.
+ * verify-mock-layout.mjs — nearby mock graph + FA2 layout loop.
  *
  * Run: npm run verify:mock-layout
  *   → npx tsx scripts/verify-mock-layout.mjs
@@ -23,34 +23,51 @@ function assert(cond, msg) {
 }
 
 async function main() {
-  const mockUrl = pathToFileURL(path.join(root, "src/lib/graph/mock-graph.ts")).href;
-  const layoutUrl = pathToFileURL(path.join(root, "src/lib/graph/layout-loop.ts")).href;
+  // Node has no DOM rAF. Layout sim start() uses it in the browser; tests
+  // mostly use step(). Polyfill only here so layout-loop stays free of typeof guards.
+  if (typeof globalThis.requestAnimationFrame !== "function") {
+    globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+    globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+  }
 
-  const mock = await import(mockUrl);
+  const graphDataUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/graph-data.ts")
+  ).href;
+  const layoutUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/layout-loop.ts")
+  ).href;
+
+  const graphDataModule = await import(graphDataUrl);
   const layout = await import(layoutUrl);
 
-  const { createMockGraph, CLUSTER_ANCHORS } = mock;
+  const { createMockGraphData } = graphDataModule;
   const { createLayoutLoop } = layout;
 
-  const g0 = createMockGraph();
-  const clusters = new Set(g0.nodes.map((n) => n.cluster).filter(Boolean));
-  assert(clusters.size >= 4, `≥4 clusters represented (got ${clusters.size}: ${[...clusters]})`);
-
-  let maxAbs = 0;
-  for (const n of g0.nodes) {
-    maxAbs = Math.max(maxAbs, Math.abs(n.x), Math.abs(n.y));
-  }
-  assert(maxAbs >= 1e16, `max |coord| ≥ 1e16 (got ${maxAbs})`);
+  const g0 = createMockGraphData();
+  assert(g0.nodes.length >= 2, `≥2 nodes (got ${g0.nodes.length})`);
+  assert(g0.edges.length >= 1, `≥1 edge (got ${g0.edges.length})`);
 
   for (const n of g0.nodes) {
     assert(Number.isFinite(n.x) && Number.isFinite(n.y), `initial finite ${n.id}`);
+    // Nearby fixture — not multi-scale clusters yet
+    assert(
+      Math.abs(n.x) < 1e4 && Math.abs(n.y) < 1e4,
+      `node ${n.id} stays local (x=${n.x}, y=${n.y})`
+    );
+  }
+
+  for (const e of g0.edges) {
+    const ids = new Set(g0.nodes.map((n) => n.id));
+    assert(ids.has(e.source) && ids.has(e.target), `edge ${e.id} endpoints exist`);
   }
 
   const initial = new Map(g0.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
 
+  // Force simulation ON for this check (module default may be soft-disabled)
   const loop = createLayoutLoop({
-    graph: g0,
+    graphData: g0,
     iterationsPerFrame: 5,
+    simulationEnabled: true,
   });
 
   const STEPS = 8;
@@ -58,7 +75,7 @@ async function main() {
     loop.step();
   }
 
-  const after = loop.getGraph();
+  const after = loop.getGraphData();
   assert(after.nodes.length === g0.nodes.length, "node count preserved");
 
   let moved = 0;
@@ -69,21 +86,24 @@ async function main() {
   }
   assert(moved >= 1, `at least one node moved after ${STEPS} steps (moved=${moved})`);
 
-  const dAnchor = CLUSTER_ANCHORS.D;
-  const dNodes = after.nodes.filter((n) => n.cluster === "D" || String(n.id).startsWith("D-"));
-  assert(dNodes.length > 0, "cluster D has nodes");
-
-  for (const n of dNodes) {
-    const dist = Math.hypot(n.x - dAnchor.x, n.y - dAnchor.y);
-    // Stay near D anchor (local radius); must remain << 1e15 at world scale ~1e17
-    assert(dist < 1e6, `D node ${n.id} local radius < 1e6 (dist=${dist})`);
-    assert(
-      Math.abs(n.x) >= 1e16 || Math.abs(n.y) >= 1e16,
-      `D node ${n.id} still at extreme world scale (x=${n.x}, y=${n.y})`
-    );
+  // Soft-disabled path: positions must not change
+  const staticLoop = createLayoutLoop({
+    graphData: createMockGraphData(),
+    simulationEnabled: false,
+  });
+  const beforeStatic = staticLoop.getGraphData();
+  staticLoop.start();
+  staticLoop.step();
+  const afterStatic = staticLoop.getGraphData();
+  let staticMoved = 0;
+  for (const n of afterStatic.nodes) {
+    const prev = beforeStatic.nodes.find((p) => p.id === n.id);
+    if (prev && (n.x !== prev.x || n.y !== prev.y)) staticMoved += 1;
   }
+  assert(staticMoved === 0, `soft-disabled layout keeps positions (moved=${staticMoved})`);
 
-  assert(typeof loop.getGraph === "function", "handle exposes getGraph");
+  assert(typeof loop.getGraphData === "function", "handle exposes getGraphData");
+  assert(typeof loop.setGraphData === "function", "handle exposes setGraphData");
   loop.start();
   assert(
     loop.status() === "running" || loop.status() === "stopped",

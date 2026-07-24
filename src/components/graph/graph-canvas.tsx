@@ -1,36 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
-  CLUSTER_ANCHORS,
   createLayoutLoop,
   createPixiRenderer,
   createRtcCamera,
-  type ClusterId,
-  type ProjectionMode,
-  type RtcCamera,
 } from "@/lib/graph";
 
 type HudState = {
   camX: number;
   camY: number;
   zoom: number;
-  fps: number;
-  projectionMode: ProjectionMode;
 };
 
-const CLUSTER_JUMPS: readonly ClusterId[] = ["A", "B", "C", "D"];
-
-const btnClass =
-  "pointer-events-auto rounded-[var(--radius)] border border-[#C8ACFB]/45 bg-black/60 px-2 py-0.5 text-[11px] text-[#ded4f0] transition-colors hover:border-[#C8ACFB] hover:bg-[#C8ACFB]/12 hover:text-[#e8dff8] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#C8ACFB]/70";
-
-function formatCam(n: number): string {
+function formatHudNumber(n: number): string {
   if (!Number.isFinite(n)) return String(n);
   const abs = Math.abs(n);
   if (abs === 0) return "0";
-  // Extreme cluster scales (1e15+): compact scientific for HUD readability
-  if (abs >= 1e15) return n.toExponential(4);
   if (abs >= 1e6 || abs < 1e-4) return n.toExponential(4);
   return n.toPrecision(12).replace(/\.?0+$/, "");
 }
@@ -39,191 +26,143 @@ function formatCam(n: number): string {
  * Full-viewport graph host: RTC camera + FA2 layout + Pixi draw + HUD.
  */
 export function GraphCanvas() {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const cameraRef = useRef<RtcCamera | null>(null);
+  const canvasHostRef = useRef<HTMLDivElement | null>(null);
   const [hud, setHud] = useState<HudState>({
     camX: 0,
     camY: 0,
     zoom: 1,
-    fps: 0,
-    projectionMode: "rtc",
   });
 
-  const renderRef = useRef<(() => void) | null>(null);
-
-  const jumpTo = useCallback((id: ClusterId) => {
-    const cam = cameraRef.current;
-    if (!cam) return;
-    const a = CLUSTER_ANCHORS[id];
-    cam.lookAt(a.x, a.y);
-    renderRef.current?.();
-    setHud((h) => ({
-      ...h,
-      camX: cam.camX,
-      camY: cam.camY,
-      zoom: cam.zoom,
-    }));
-  }, []);
-
-  const toggleProjection = useCallback(() => {
-    const cam = cameraRef.current;
-    if (!cam) return;
-    const next: ProjectionMode =
-      cam.projectionMode === "rtc" ? "naive" : "rtc";
-    cam.setProjectionMode(next);
-    renderRef.current?.();
-    setHud((h) => ({ ...h, projectionMode: next }));
-  }, []);
-
   useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
+    const canvasHost = canvasHostRef.current;
+    if (!canvasHost) return;
 
-    let cancelled = false;
-    const camera = createRtcCamera({ zoom: 1, projectionMode: "rtc" });
-    cameraRef.current = camera;
+    let isCanvasDisposed = false;
 
-    const w0 = host.clientWidth || 1;
-    const h0 = host.clientHeight || 1;
-    camera.setViewport(w0, h0);
-    // Start on cluster A
-    camera.lookAt(CLUSTER_ANCHORS.A.x, CLUSTER_ANCHORS.A.y);
+    // --- camera ---
+    // Initial viewport once; ResizeObserver owns size after that.
+    const camera = createRtcCamera({ zoom: 1 });
+    const viewportWidth = canvasHost.clientWidth || 1;
+    const viewportHeight = canvasHost.clientHeight || 1;
+    camera.setViewport(viewportWidth, viewportHeight);
+    camera.lookAt(0, 0);
 
+    // --- renderer ---
     const renderer = createPixiRenderer({ background: 0x0a0a0c });
     renderer.setCamera(camera);
-    renderRef.current = () => renderer.render();
 
-    // Pointer pan
-    let dragging = false;
-    let lastX = 0;
-    let lastY = 0;
+    // --- HUD helpers (rAF-coalesced; no FPS bookkeeping on static layout) ---
+    let hudFrameId: number | null = null;
 
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
-      dragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      host.setPointerCapture(e.pointerId);
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      if (!dragging) return;
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      camera.panByScreen(dx, dy);
-      renderer.render();
-      scheduleHud();
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      dragging = false;
-      try {
-        host.releasePointerCapture(e.pointerId);
-      } catch {
-        // already released
-      }
-    };
-
-    // FPS + HUD throttle (declared before handlers that call scheduleHud)
-    let frames = 0;
-    let fpsWindowStart = performance.now();
-    let lastFps = 0;
-    let hudRaf: number | null = null;
-    let pendingHud = false;
-
-    const pushHud = () => {
-      pendingHud = false;
-      hudRaf = null;
+    const flushHudState = () => {
+      hudFrameId = null;
       setHud({
         camX: camera.camX,
         camY: camera.camY,
         zoom: camera.zoom,
-        fps: lastFps,
-        projectionMode: camera.projectionMode,
       });
     };
 
-    const scheduleHud = () => {
-      if (pendingHud) return;
-      pendingHud = true;
-      hudRaf = requestAnimationFrame(pushHud);
+    const queueHudUpdate = () => {
+      if (hudFrameId !== null) return;
+      hudFrameId = requestAnimationFrame(flushHudState);
     };
 
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const rect = host.getBoundingClientRect();
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-      const factor = Math.exp(-e.deltaY * 0.001);
-      camera.zoomAt(sx, sy, factor);
+    // --- pointer + wheel ---
+    let isPanning = false;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      isPanning = true;
+      lastPointerX = e.clientX;
+      lastPointerY = e.clientY;
+      canvasHost.setPointerCapture(e.pointerId);
+    };
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!isPanning) return;
+      const dx = e.clientX - lastPointerX;
+      const dy = e.clientY - lastPointerY;
+      lastPointerX = e.clientX;
+      lastPointerY = e.clientY;
+      camera.panByScreen(dx, dy);
       renderer.render();
-      scheduleHud();
+      queueHudUpdate();
+    };
+    const handlePointerUp = (e: PointerEvent) => {
+      isPanning = false;
+      try {
+        canvasHost.releasePointerCapture(e.pointerId);
+      } catch {
+        // already released
+      }
+    };
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = canvasHost.getBoundingClientRect();
+      const pointerScreenX = e.clientX - rect.left;
+      const pointerScreenY = e.clientY - rect.top;
+      const zoomFactor = Math.exp(-e.deltaY * 0.001);
+      camera.zoomAt(pointerScreenX, pointerScreenY, zoomFactor);
+      renderer.render();
+      queueHudUpdate();
     };
 
-    host.addEventListener("pointerdown", onPointerDown);
-    host.addEventListener("pointermove", onPointerMove);
-    host.addEventListener("pointerup", onPointerUp);
-    host.addEventListener("pointercancel", onPointerUp);
-    host.addEventListener("wheel", onWheel, { passive: false });
+    canvasHost.addEventListener("pointerdown", handlePointerDown);
+    canvasHost.addEventListener("pointermove", handlePointerMove);
+    canvasHost.addEventListener("pointerup", handlePointerUp);
+    canvasHost.addEventListener("pointercancel", handlePointerUp);
+    canvasHost.addEventListener("wheel", handleWheel, { passive: false });
 
-    const layout = createLayoutLoop({
-      onTick: (g) => {
-        if (cancelled) return;
-        renderer.setGraph(g);
-        renderer.render();
-
-        frames += 1;
-        const now = performance.now();
-        const elapsed = now - fpsWindowStart;
-        if (elapsed >= 500) {
-          lastFps = Math.round((frames * 1000) / elapsed);
-          frames = 0;
-          fpsWindowStart = now;
-        }
-        scheduleHud();
-      },
-    });
-
+    // --- resize ---
     const resizeObserver = new ResizeObserver(() => {
-      const w = host.clientWidth;
-      const h = host.clientHeight;
+      const w = canvasHost.clientWidth;
+      const h = canvasHost.clientHeight;
       if (w > 0 && h > 0) {
         camera.setViewport(w, h);
         renderer.render();
       }
     });
-    resizeObserver.observe(host);
+    resizeObserver.observe(canvasHost);
 
+    // --- layout (static path under soft-disable; onGraphData drives draw) ---
+    const layoutLoop = createLayoutLoop({
+      renderOnGraphData: (graphData) => {
+        if (isCanvasDisposed) return;
+        renderer.setGraphData(graphData);
+        renderer.render();
+        queueHudUpdate();
+      },
+    });
+
+    // --- mount + start layout ---
+    // Draw path is only onGraphData → setGraphData + render.
+    // Static start() emits once; sim start() emits then schedules rAF.
     void (async () => {
-      await renderer.mount(host);
-      if (cancelled) {
+      await renderer.mount(canvasHost);
+      if (isCanvasDisposed) {
         renderer.destroy();
         return;
       }
-      // Initial graph draw before first layout tick
-      renderer.setGraph(layout.getGraph());
-      renderer.render();
-      layout.start();
-      scheduleHud();
+      layoutLoop.start();
+      queueHudUpdate();
     })();
 
+    // --- cleanup ---
     return () => {
-      cancelled = true;
-      layout.stop();
-      if (hudRaf !== null) cancelAnimationFrame(hudRaf);
+      isCanvasDisposed = true;
+      layoutLoop.stop();
+      if (hudFrameId !== null) cancelAnimationFrame(hudFrameId);
       resizeObserver.disconnect();
-      host.removeEventListener("pointerdown", onPointerDown);
-      host.removeEventListener("pointermove", onPointerMove);
-      host.removeEventListener("pointerup", onPointerUp);
-      host.removeEventListener("pointercancel", onPointerUp);
-      host.removeEventListener("wheel", onWheel);
+      canvasHost.removeEventListener("pointerdown", handlePointerDown);
+      canvasHost.removeEventListener("pointermove", handlePointerMove);
+      canvasHost.removeEventListener("pointerup", handlePointerUp);
+      canvasHost.removeEventListener("pointercancel", handlePointerUp);
+      canvasHost.removeEventListener("wheel", handleWheel);
       renderer.destroy();
-      cameraRef.current = null;
-      renderRef.current = null;
     };
   }, []);
-
-  const rtcOn = hud.projectionMode === "rtc";
 
   return (
     <div
@@ -231,7 +170,7 @@ export function GraphCanvas() {
       data-graph-spike="step-3"
     >
       <div
-        ref={hostRef}
+        ref={canvasHostRef}
         className="absolute inset-0 cursor-grab touch-none active:cursor-grabbing"
         aria-hidden
       />
@@ -242,34 +181,10 @@ export function GraphCanvas() {
       >
         <div className="text-[#ded4f0]">Spy graph spike — Step 3</div>
         <div className="mt-0.5 text-[#7a7685]">
-          camX {formatCam(hud.camX)} · camY {formatCam(hud.camY)}
+          camX {formatHudNumber(hud.camX)} · camY {formatHudNumber(hud.camY)}
         </div>
         <div className="text-[#7a7685]">
-          zoom {formatCam(hud.zoom)} · fps {hud.fps || "—"}
-        </div>
-        <div className="text-[#4a4658]">
-          projection {rtcOn ? "RTC" : "naive"}
-        </div>
-
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {CLUSTER_JUMPS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className={btnClass}
-              onClick={() => jumpTo(id)}
-            >
-              Jump {id}
-            </button>
-          ))}
-          <button
-            type="button"
-            className={btnClass}
-            onClick={toggleProjection}
-            aria-pressed={rtcOn}
-          >
-            RTC {rtcOn ? "ON" : "OFF"}
-          </button>
+          zoom {formatHudNumber(hud.zoom)}
         </div>
 
         <div className="mt-2 text-[#4a4658]">drag pan · wheel zoom</div>

@@ -1,28 +1,26 @@
 /**
  * Product-shaped graph spike — public barrel.
- * Steps 1–4 fill rtc-camera, mock-graph clusters, layout-loop, pixi-renderer.
+ * RTC camera, nearby mock graph, FA2 layout, Pixi renderer.
  */
 
 export {
   RtcCamera,
   createRtcCamera,
-  type ProjectionMode,
   type RtcCameraState,
   type ScreenPoint,
   type WorldPoint,
 } from "@/lib/graph/rtc-camera";
 
 export {
-  createMockGraph,
-  CLUSTER_ANCHORS,
-  type ClusterId,
+  createMockGraphData,
   type GraphNode,
   type GraphEdge,
-  type MockGraph,
-} from "@/lib/graph/mock-graph";
+  type GraphData,
+} from "@/lib/graph/graph-data";
 
 export {
   createLayoutLoop,
+  LAYOUT_SIMULATION_ENABLED,
   type LayoutLoopHandle,
   type LayoutLoopOptions,
   type LayoutLoopStatus,

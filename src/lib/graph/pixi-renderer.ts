@@ -5,24 +5,20 @@
  * - Never pan/zoom with stage.scale / stage.position for world camera.
  * - Project world → screen via RtcCamera each frame, then place graphics in
  *   screen space.
+ *
+ * Viewport size is owned by GraphCanvas (initial setViewport + ResizeObserver).
+ * Pixi uses resizeTo: host only for canvas/buffer size.
  */
 
 import { Application, Container, Graphics } from "pixi.js";
 
 import type { RtcCamera } from "@/lib/graph/rtc-camera";
-import type { ClusterId, MockGraph } from "@/lib/graph/mock-graph";
+import type { GraphData } from "@/lib/graph/graph-data";
 
-const BG = 0x0a0a0c;
+const BACKGROUND_COLOR = 0x0a0a0c;
 const EDGE_COLOR = 0x5a5470;
-const NODE_DEFAULT = 0xc8acfb;
-
-/** Light cluster tints (lavender family — not pure white). */
-const CLUSTER_FILL: Record<ClusterId, number> = {
-  A: 0xc8acfb,
-  B: 0xb89af0,
-  C: 0xa888e0,
-  D: 0x9a78d0,
-};
+/** Lavender node fill (brief palette). */
+const NODE_FILL = 0xc8acfb;
 
 const NODE_RADIUS = 3.5;
 const EDGE_WIDTH = 1;
@@ -33,7 +29,7 @@ export type PixiRendererHandle = {
   /** Tear down WebGL / listeners / stage children. */
   destroy: () => void;
   /** Push latest graph snapshot before draw. */
-  setGraph: (graph: MockGraph) => void;
+  setGraphData: (graphData: GraphData) => void;
   /** Bind external RTC camera (never owned by Pixi). */
   setCamera: (camera: RtcCamera) => void;
   /** One frame draw: project + redraw screen-space graphics. */
@@ -50,29 +46,20 @@ export type CreatePixiRendererOptions = {
 export function createPixiRenderer(
   options: CreatePixiRendererOptions = {}
 ): PixiRendererHandle {
-  const background = options.background ?? BG;
+  const background = options.background ?? BACKGROUND_COLOR;
 
   let app: Application | null = null;
-  let hostEl: HTMLElement | null = null;
   let edgeLayer: Graphics | null = null;
   let nodeLayer: Graphics | null = null;
   let root: Container | null = null;
-  let graph: MockGraph | null = null;
+  let graphData: GraphData | null = null;
   let camera: RtcCamera | null = null;
-  let mounted = false;
-  let destroyed = false;
+  let isMounted = false;
+  let isDestroyed = false;
 
-  function syncViewportFromHost(): void {
-    if (!hostEl || !camera) return;
-    const w = hostEl.clientWidth;
-    const h = hostEl.clientHeight;
-    if (w > 0 && h > 0) {
-      camera.setViewport(w, h);
-    }
-  }
-
+  // Draws the nodes and the edges in the edges and nodes Graphics
   function drawFrame(): void {
-    if (!mounted || destroyed || !edgeLayer || !nodeLayer || !camera || !graph) {
+    if (!isMounted || isDestroyed || !edgeLayer || !nodeLayer || !camera || !graphData) {
       return;
     }
 
@@ -81,41 +68,36 @@ export function createPixiRenderer(
     edges.clear();
     nodes.clear();
 
-    const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+    const nodesById = new Map(graphData.nodes.map((n) => [n.id, n]));
 
     // Edges — screen-space segments
-    for (const edge of graph.edges) {
-      const src = byId.get(edge.source);
-      const tgt = byId.get(edge.target);
+    for (const edge of graphData.edges) {
+      const src = nodesById.get(edge.source);
+      const tgt = nodesById.get(edge.target);
       if (!src || !tgt) continue;
-      const a = camera.worldToScreen({ x: src.x, y: src.y });
-      const b = camera.worldToScreen({ x: tgt.x, y: tgt.y });
-      if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) continue;
-      if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
-      edges.moveTo(a.x, a.y);
-      edges.lineTo(b.x, b.y);
+      const screenA = camera.worldToScreen({ x: src.x, y: src.y });
+      const screenB = camera.worldToScreen({ x: tgt.x, y: tgt.y });
+      if (!Number.isFinite(screenA.x) || !Number.isFinite(screenA.y)) continue;
+      if (!Number.isFinite(screenB.x) || !Number.isFinite(screenB.y)) continue;
+      edges.moveTo(screenA.x, screenA.y);
+      edges.lineTo(screenB.x, screenB.y);
     }
     edges.stroke({ width: EDGE_WIDTH, color: EDGE_COLOR, alpha: 0.55 });
 
     // Nodes — small circles at projected positions
-    for (const node of graph.nodes) {
-      const p = camera.worldToScreen({ x: node.x, y: node.y });
-      if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
-      const fill =
-        node.cluster !== undefined
-          ? CLUSTER_FILL[node.cluster]
-          : NODE_DEFAULT;
-      nodes.circle(p.x, p.y, NODE_RADIUS);
-      nodes.fill({ color: fill, alpha: 0.95 });
+    for (const node of graphData.nodes) {
+      const screenPoint = camera.worldToScreen({ x: node.x, y: node.y });
+      if (!Number.isFinite(screenPoint.x) || !Number.isFinite(screenPoint.y)) continue;
+      nodes.circle(screenPoint.x, screenPoint.y, NODE_RADIUS);
+      nodes.fill({ color: NODE_FILL, alpha: 0.95 });
     }
   }
 
   return {
     async mount(host: HTMLElement): Promise<void> {
-      if (destroyed) return;
-      if (mounted) return;
+      if (isDestroyed) return;
+      if (isMounted) return;
 
-      hostEl = host;
       const application = new Application();
       await application.init({
         background,
@@ -127,7 +109,7 @@ export function createPixiRenderer(
         preference: "webgl",
       });
 
-      if (destroyed) {
+      if (isDestroyed) {
         application.destroy(
           { removeView: true },
           { children: true }
@@ -146,23 +128,15 @@ export function createPixiRenderer(
       root.addChild(nodeLayer);
       application.stage.addChild(root);
 
-      mounted = true;
-      syncViewportFromHost();
-      // Viewport resize is owned by GraphCanvas ResizeObserver (single source).
-      // Pixi still uses resizeTo: host for canvas/buffer size.
-      drawFrame();
+      isMounted = true;
+      // No drawFrame here — graphData is usually null until layoutLoop.start().
     },
 
     destroy(): void {
-      destroyed = true;
-      mounted = false;
+      isDestroyed = true;
+      isMounted = false;
 
       if (app) {
-        try {
-          app.ticker.stop();
-        } catch {
-          // ignore
-        }
         // removeView: let Pixi detach the canvas; avoid double DOM removal.
         app.destroy({ removeView: true }, { children: true });
         app = null;
@@ -171,22 +145,21 @@ export function createPixiRenderer(
       edgeLayer = null;
       nodeLayer = null;
       root = null;
-      hostEl = null;
-      graph = null;
+      graphData = null;
       camera = null;
     },
 
-    setGraph(next: MockGraph): void {
-      graph = next;
+    setGraphData(nextGraphData: GraphData): void {
+      graphData = nextGraphData;
     },
 
-    setCamera(next: RtcCamera): void {
-      camera = next;
-      syncViewportFromHost();
+    setCamera(nextCamera: RtcCamera): void {
+      // Viewport size is owned by GraphCanvas (setViewport + ResizeObserver).
+      camera = nextCamera;
     },
 
     render(): void {
-      if (!mounted || destroyed) return;
+      if (!isMounted || isDestroyed) return;
       drawFrame();
     },
   };
