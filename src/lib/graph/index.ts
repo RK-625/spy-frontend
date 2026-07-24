@@ -29,8 +29,6 @@ export {
 
 export {
   createPixiRenderer,
-  nodeScreenRadius,
-  edgeScreenWidth,
   type CreatePixiRendererOptions,
   type PixiRendererHandle,
 } from "@/lib/graph/pixi-renderer";
@@ -62,14 +60,13 @@ export {
   edgeRankFactor,
   edgeColumnCount,
   edgeStripLayout,
-  edgeHeadRows,
-  edgeHeadLengthTarget,
+  nodeScreenRadius,
+  edgeScreenWidth,
   nodeRingWidth,
 } from "@/lib/graph/graph-scale";
 
 export {
   drawEdge,
-  drawArrow,
   insetSegment,
   type DrawEdgeOptions,
   type ScreenPoint as EdgeScreenPoint,
@@ -82,7 +79,6 @@ export {
   GRAPH_NODE_FILL_ALPHA,
   GRAPH_NODE_RING,
   GRAPH_NODE_RING_ALPHA,
-  GRAPH_NODE_RING_WIDTH,
   GRAPH_EDGE_PART_OF,
   GRAPH_EDGE_PART_OF_ALPHA,
   GRAPH_EDGE_RELATES,

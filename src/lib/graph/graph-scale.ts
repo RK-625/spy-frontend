@@ -34,8 +34,8 @@ export const NODE_RANK_Q = 0.8;
 export const EDGE_BASE_BAND = 2.268;
 
 /**
- * Reference grain at zoom 1 (node ring / legacy helpers).
- * DotStream uses edgeStripLayout: cell = band / cols.
+ * Reference grain at zoom 1 — node ring width / verify helpers only.
+ * Not the DotStream cell size; DotStream cell = band / cols via edgeStripLayout.
  */
 export const EDGE_BASE_CELL = 0.85;
 
@@ -142,8 +142,8 @@ export function edgeBandWidth(
 }
 
 /**
- * Reference grain (linear). Prefer edgeStripLayout for DotStream so
- * column density matches band thickness.
+ * Reference grain (linear) for node ring / verify — not DotStream cell.
+ * DotStream cell comes from edgeStripLayout (band / cols).
  */
 export function edgeCellSize(zoom: number): number {
   return EDGE_BASE_CELL * usableZoom(zoom);
@@ -174,20 +174,6 @@ export function edgeStripLayout(
     Number.isFinite(band) && band > 0 ? band : EDGE_BASE_BAND;
   const cell = safeBand / cols;
   return { cols, cell };
-}
-
-/** Head length target so row count tracks cell, not magic ints. */
-export function edgeHeadLengthTarget(
-  band: number,
-  cell: number,
-  cols: number
-): number {
-  return Math.max(band * 2.2, cell * cols * 0.9);
-}
-
-export function edgeHeadRows(headLenTarget: number, cell: number): number {
-  if (!Number.isFinite(cell) || cell <= 0) return 6;
-  return Math.max(6, Math.round(headLenTarget / cell));
 }
 
 /** Node ring tracks reference grain (tiny floor so stroke never vanishes). */
