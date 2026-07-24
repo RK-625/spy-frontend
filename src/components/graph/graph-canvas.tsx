@@ -36,7 +36,7 @@ export function GraphCanvas() {
     camY: 0,
     zoom: 1,
   });
-  const [edgeStyle, setEdgeStyle] = useState<EdgeVisualStyle>("pixel-strip");
+  const [edgeStyle, setEdgeStyle] = useState<EdgeVisualStyle>("dot-matrix");
 
   useEffect(() => {
     const canvasHost = canvasHostRef.current;
@@ -216,7 +216,7 @@ export function GraphCanvas() {
                 : "text-[#7a7685] hover:text-[#ded4f0]"
             }`}
           >
-            A · Pixel strip
+            A · Squares → dots
           </button>
           <button
             type="button"
@@ -227,13 +227,13 @@ export function GraphCanvas() {
                 : "text-[#7a7685] hover:text-[#ded4f0]"
             }`}
           >
-            B · Dot matrix
+            B · Dot stream
           </button>
         </div>
         <div className="max-w-sm text-center text-[10px] leading-snug text-[#4a4658]">
           {edgeStyle === "pixel-strip"
-            ? "A: square cells · continuous ribbon + chevron head (one material)"
-            : "B: circular dots only · denser chevron at tip (halftone arrow)"}
+            ? "A: squares mid-edge · dissolve to continuous dots at the rim"
+            : "B: continuous diverging dots · flare + densify into the socket"}
         </div>
       </div>
     </div>

@@ -56,20 +56,48 @@ export const DOT_STEP_FRAC = 1.05;
 export const NODE_DRAW_MIN_PX = 0.25;
 
 /**
- * Synaptic cleft: gap between node fill border and inner edge of rim-arc.
- * Primarily a fraction of tip node radius so spacing stays even at any zoom;
- * min floor so small nodes still show a hairline gap for future pulse.
+ * Synaptic cleft: hairline gap between node fill border and first edge dots.
+ * Fraction of node radius keeps spacing even at any zoom; min floor so small
+ * nodes still show a readable gap (future pulse lives in this cleft).
+ * Tightened (min 1.0 / frac 0.04) so continuous streams meet the rim without
+ * a multi-cell black moat from the old polar outer extent.
  */
-export const EDGE_SYNAPSE_GAP_MIN = 1.5;
-export const EDGE_SYNAPSE_GAP_FRAC = 0.07;
+export const EDGE_SYNAPSE_GAP_MIN = 1.0;
+export const EDGE_SYNAPSE_GAP_FRAC = 0.04;
 
-/** Rim-arc angular half-span (radians) — short crescent, not a long wrap. */
-export const EDGE_RIM_ARC_HALF_SPAN_FIRM = 0.36; // ~41° total
-export const EDGE_RIM_ARC_HALF_SPAN_SOFT = 0.28; // ~32° total
+// ---------------------------------------------------------------------------
+// Continuous diverging edge stream (single-pass cartesian morph)
+// ---------------------------------------------------------------------------
 
-/** Radial thickness of the rim arc (rows of cells/dots outside the gap). */
-export const EDGE_RIM_ARC_ROWS_FIRM = 3;
-export const EDGE_RIM_ARC_ROWS_SOFT = 2;
+/** Lateral half-band growth at node rims: widen = 1 + near * gain (~2.2×). */
+export const EDGE_DOT_FLARE_GAIN = 1.2;
+
+/** Along-edge step densification near rims: step /= (1 + near * gain). */
+export const EDGE_DOT_DENSIFY_GAIN = 0.85;
+
+/** Dot radius growth near rims: r *= (1 + near * gain). */
+export const EDGE_DOT_RADIUS_GROW = 0.35;
+
+/**
+ * Morph zone length per end (smoothstep near-factor domain):
+ *   zone = max(band * BAND_MULT, cell * CELL_MULT, nodeR * NODE_FRAC)
+ */
+export const EDGE_DOT_MORPH_ZONE_BAND_MULT = 2.5;
+export const EDGE_DOT_MORPH_ZONE_CELL_MULT = 8;
+export const EDGE_DOT_MORPH_ZONE_NODE_FRAC = 0.45;
+
+/**
+ * Axial fan-out: outer laterals may reach closer to the node than the
+ * centerline by extra = near * AXIAL_FAN * (|lat|/latMax) * cell — soft
+ * crescent socket without a second polar paint pass.
+ */
+export const EDGE_DOT_AXIAL_FAN = 1.2;
+
+/**
+ * pixel-strip → dots dissolve threshold on the continuous stream.
+ * Squares only while near < this; at/above, same positions draw as dots.
+ */
+export const EDGE_PIXEL_DISSOLVE_NEAR = 0.55;
 
 // ---------------------------------------------------------------------------
 // Pure helpers
