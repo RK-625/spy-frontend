@@ -51,6 +51,8 @@ export function GraphCanvas() {
     renderer.setCamera(camera);
 
     let hudFrameId: number | null = null;
+    /** Coalesce Pixi draws to at most one per animation frame (pan/wheel flood). */
+    let renderFrameId: number | null = null;
 
     const flushHudState = () => {
       hudFrameId = null;
@@ -64,6 +66,17 @@ export function GraphCanvas() {
     const queueHudUpdate = () => {
       if (hudFrameId !== null) return;
       hudFrameId = requestAnimationFrame(flushHudState);
+    };
+
+    const flushRender = () => {
+      renderFrameId = null;
+      if (isCanvasDisposed) return;
+      renderer.render();
+    };
+
+    const queueRender = () => {
+      if (renderFrameId !== null) return;
+      renderFrameId = requestAnimationFrame(flushRender);
     };
 
     let isPanning = false;
@@ -84,7 +97,7 @@ export function GraphCanvas() {
       lastPointerX = e.clientX;
       lastPointerY = e.clientY;
       camera.panByScreen(dx, dy);
-      renderer.render();
+      queueRender();
       queueHudUpdate();
     };
     const handlePointerUp = (e: PointerEvent) => {
@@ -102,7 +115,7 @@ export function GraphCanvas() {
       const pointerScreenY = e.clientY - rect.top;
       const zoomFactor = Math.exp(-e.deltaY * 0.001);
       camera.zoomAt(pointerScreenX, pointerScreenY, zoomFactor);
-      renderer.render();
+      queueRender();
       queueHudUpdate();
     };
 
@@ -117,7 +130,7 @@ export function GraphCanvas() {
       const h = canvasHost.clientHeight;
       if (w > 0 && h > 0) {
         camera.setViewport(w, h);
-        renderer.render();
+        queueRender();
       }
     });
     resizeObserver.observe(canvasHost);
@@ -126,7 +139,7 @@ export function GraphCanvas() {
       renderOnGraphData: (graphData) => {
         if (isCanvasDisposed) return;
         renderer.setGraphData(graphData);
-        renderer.render();
+        queueRender();
         queueHudUpdate();
       },
     });
@@ -145,6 +158,7 @@ export function GraphCanvas() {
       isCanvasDisposed = true;
       layoutLoop.stop();
       if (hudFrameId !== null) cancelAnimationFrame(hudFrameId);
+      if (renderFrameId !== null) cancelAnimationFrame(renderFrameId);
       resizeObserver.disconnect();
       canvasHost.removeEventListener("pointerdown", handlePointerDown);
       canvasHost.removeEventListener("pointermove", handlePointerMove);
