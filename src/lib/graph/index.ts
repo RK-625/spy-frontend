@@ -32,6 +32,8 @@ export {
 } from "@/lib/graph/fixtures/mock-graph";
 
 // --- Diff / dirty for partial bake ----------------------------------------
+// Note: `from-memory-graph.ts` is comment-only contract for Falkor→GraphData
+// until the adapter is implemented (no exports yet).
 export {
   diffGraphDirty,
   expandDirtyEdgesForHubs,
