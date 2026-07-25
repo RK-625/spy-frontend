@@ -107,22 +107,25 @@ export function recomputeIncidence(graph: GraphData): void {
 }
 
 /**
- * Small local hierarchy around the origin for the graph spike.
+ * Mock fixture for the graph spike (two clusters).
  *
- * Tree (PART_OF, child → parent) with stored ranks:
+ * **Left — small tree** (origin) for hierarchy + sparse sockets:
  *   root (0)
- *   ├── child-a (1)
- *   │   ├── leaf-a1 (2)
- *   │   └── leaf-a2 (2)
- *   ├── child-b (1)
- *   │   └── leaf-b1 (2)
- *   └── child-c (1)
- *       └── leaf-c1 (2)
+ *   ├── child-a (1) → leaf-a1, leaf-a2
+ *   ├── child-b (1) → leaf-b1
+ *   └── child-c (1) → leaf-c1
+ *   + a few RELATES_TO chords
  *
- * Plus RELATES_TO chords (do not affect stored rank).
+ * **Right — multi-edge hub** for RimLock stress (zoom/pan to ~x=220):
+ *   hub (0) with HUB_SPOKE_COUNT PART_OF children on a ring
+ *   + ring RELATES between adjacent spokes
+ *   + a few long RELATES from hub to tree leaves
  *
  * Name still says "mock" because the fixture data is mock — not live graph I/O.
  */
+/** Spokes on the hub ring — enough to force rim sharing / non-overlap. */
+export const HUB_SPOKE_COUNT = 14;
+
 export function createMockGraphData(): GraphData {
   const nodes: GraphNode[] = [
     { id: "root", x: 0, y: 0, label: "root", rank: 0, ...emptyNodeIncidence() },
@@ -198,6 +201,54 @@ export function createMockGraphData(): GraphData {
     { id: "rt-a1b1", source: "leaf-a1", target: "leaf-b1", type: "RELATES_TO" },
     { id: "rt-root-a2", source: "root", target: "leaf-a2", type: "RELATES_TO" },
   ];
+
+  // --- Multi-edge hub cluster (right of origin) for RimLock / socket stress ---
+  const hubX = 220;
+  const hubY = 0;
+  const spokeR = 95;
+  nodes.push({
+    id: "hub",
+    x: hubX,
+    y: hubY,
+    label: "hub",
+    rank: 0,
+    ...emptyNodeIncidence(),
+  });
+
+  for (let i = 0; i < HUB_SPOKE_COUNT; i++) {
+    const ang = (i / HUB_SPOKE_COUNT) * Math.PI * 2 - Math.PI / 2;
+    const id = `spoke-${i}`;
+    nodes.push({
+      id,
+      x: hubX + Math.cos(ang) * spokeR,
+      y: hubY + Math.sin(ang) * spokeR,
+      label: id,
+      rank: 1,
+      ...emptyNodeIncidence(),
+    });
+    // PART_OF: child → parent (spoke → hub)
+    edges.push({
+      id: `po-hub-${i}`,
+      source: id,
+      target: "hub",
+      type: "PART_OF",
+    });
+    // Ring RELATES between adjacent spokes (softer density)
+    const next = `spoke-${(i + 1) % HUB_SPOKE_COUNT}`;
+    edges.push({
+      id: `rt-spoke-${i}`,
+      source: id,
+      target: next,
+      type: "RELATES_TO",
+    });
+  }
+
+  // A few long RELATES: hub ↔ tree (cross-cluster, not for rank)
+  edges.push(
+    { id: "rt-hub-root", source: "hub", target: "root", type: "RELATES_TO" },
+    { id: "rt-hub-a2", source: "hub", target: "leaf-a2", type: "RELATES_TO" },
+    { id: "rt-spoke0-b1", source: "spoke-0", target: "leaf-b1", type: "RELATES_TO" }
+  );
 
   const graph: GraphData = { nodes, edges };
   recomputeIncidence(graph);
