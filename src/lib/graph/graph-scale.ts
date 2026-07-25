@@ -46,6 +46,12 @@ export const EDGE_COLS_SOFT = 7;
 /** RELATES_TO band quieter than PART_OF at the same rank factor. */
 export const EDGE_RELATES_WIDTH_SCALE = 0.75;
 
+/**
+ * Fraction of the full rim (2π) that edge sockets may occupy after natural
+ * band→angle conversion. Residual free arc is split as equal gaps in RimLock.
+ */
+export const EDGE_RIM_FILL_FRAC = 0.85;
+
 /** DotStream radius / step fractions (air between dots). */
 export const DOT_RADIUS_FRAC = 0.32;
 export const DOT_STEP_FRAC = 1.05;

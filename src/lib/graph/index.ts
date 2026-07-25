@@ -13,11 +13,21 @@ export {
 
 export {
   createMockGraphData,
+  recomputeIncidence,
+  emptyNodeIncidence,
   type GraphNode,
   type GraphEdge,
   type GraphData,
   type GraphLinkType,
+  type RimOccupation,
+  type RimOccupationKind,
 } from "@/lib/graph/graph-data";
+
+export {
+  applyRimLock,
+  findRimSlot,
+  RIM_FILL_FRAC,
+} from "@/lib/graph/rim-lock";
 
 export {
   createLayoutLoop,
@@ -42,6 +52,7 @@ export {
   EDGE_COLS_FIRM,
   EDGE_COLS_SOFT,
   EDGE_RELATES_WIDTH_SCALE,
+  EDGE_RIM_FILL_FRAC,
   DOT_RADIUS_FRAC,
   DOT_STEP_FRAC,
   NODE_DRAW_MIN_PX,
@@ -69,6 +80,7 @@ export {
   drawEdge,
   insetSegment,
   type DrawEdgeOptions,
+  type RimSlot,
   type ScreenPoint as EdgeScreenPoint,
 } from "@/lib/graph/draw-arrow";
 

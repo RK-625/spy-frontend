@@ -16,6 +16,7 @@ import { Application, Container, Graphics } from "pixi.js";
 
 import type { RtcCamera } from "@/lib/graph/rtc-camera";
 import type { GraphData } from "@/lib/graph/graph-data";
+import { recomputeIncidence } from "@/lib/graph/graph-data";
 import { drawEdge, insetSegment } from "@/lib/graph/draw-arrow";
 import {
   NODE_DRAW_MIN_PX,
@@ -23,6 +24,7 @@ import {
   nodeRingWidth,
   nodeScreenRadius,
 } from "@/lib/graph/graph-scale";
+import { applyRimLock, findRimSlot } from "@/lib/graph/rim-lock";
 import {
   GRAPH_BG,
   GRAPH_EDGE_PART_OF,
@@ -73,6 +75,10 @@ export function createPixiRenderer(
     const zoom = camera.zoom;
     const ringWidth = nodeRingWidth(zoom);
 
+    // Incidence lists + rim socket allocation (mock size: full recompute OK).
+    recomputeIncidence(graphData);
+    applyRimLock(graphData, zoom);
+
     // Edges first — nodes draw after so fills/rings sit on top of streams.
     for (const edge of graphData.edges) {
       const src = nodesById.get(edge.source);
@@ -94,6 +100,7 @@ export function createPixiRenderer(
 
       if (edge.type === "PART_OF") {
         // parent → child; continuous stream meets both rims (flow later via pulse)
+        // drawEdge sourceRim = from end = parent (tgt); targetRim = child (src)
         const segment = insetSegment(
           screenTarget,
           screenSource,
@@ -111,8 +118,11 @@ export function createPixiRenderer(
           fromRadius: radiusTarget,
           toCenter: screenSource,
           toRadius: radiusSource,
+          sourceRim: findRimSlot(tgt, edge.id),
+          targetRim: findRimSlot(src, edge.id),
         });
       } else {
+        // RELATES: source → target
         const segment = insetSegment(
           screenSource,
           screenTarget,
@@ -130,6 +140,8 @@ export function createPixiRenderer(
           fromRadius: radiusSource,
           toCenter: screenTarget,
           toRadius: radiusTarget,
+          sourceRim: findRimSlot(src, edge.id),
+          targetRim: findRimSlot(tgt, edge.id),
         });
       }
     }
