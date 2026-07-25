@@ -10,6 +10,10 @@
  * fills/rings (edges first so nodes paint on top within the same Graphics).
  * Scale: graph-scale (shared zoom for nodes, cell, band). Camera remains
  * outside Pixi.
+ *
+ * Phase 0 perf:
+ * - topologyDirty / zoomDirty: skip recomputeIncidence + applyRimLock on pure pan
+ * - world AABB viewport culling for nodes and edges (still full clear/redraw)
  */
 
 import { Application, Container, Graphics } from "pixi.js";
@@ -49,6 +53,106 @@ export type CreatePixiRendererOptions = {
   background?: number;
 };
 
+/** World-space axis-aligned bounds (inclusive). */
+type WorldAabb = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
+/** Relative zoom change that forces RimLock (band/radius scale with zoom). */
+const RIM_ZOOM_REL_EPS = 0.02;
+
+/** Expand viewport by this fraction of span on each side (~20%). */
+const VIEWPORT_CULL_MARGIN = 0.2;
+
+/**
+ * World AABB of the visible viewport from camera inverse + margin.
+ * Margin is ~20% of span so partially-visible flares near the edge still draw.
+ */
+function viewportWorldBounds(camera: RtcCamera): WorldAabb | null {
+  const w = camera.viewportWidth;
+  const h = camera.viewportHeight;
+  if (!(w > 0) || !(h > 0)) return null;
+
+  const tl = camera.screenToWorld({ x: 0, y: 0 });
+  const tr = camera.screenToWorld({ x: w, y: 0 });
+  const bl = camera.screenToWorld({ x: 0, y: h });
+  const br = camera.screenToWorld({ x: w, y: h });
+
+  let minX = Math.min(tl.x, tr.x, bl.x, br.x);
+  let maxX = Math.max(tl.x, tr.x, bl.x, br.x);
+  let minY = Math.min(tl.y, tr.y, bl.y, br.y);
+  let maxY = Math.max(tl.y, tr.y, bl.y, br.y);
+
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxY)
+  ) {
+    return null;
+  }
+
+  const spanX = maxX - minX;
+  const spanY = maxY - minY;
+  const padX = spanX * VIEWPORT_CULL_MARGIN;
+  const padY = spanY * VIEWPORT_CULL_MARGIN;
+
+  return {
+    minX: minX - padX,
+    maxX: maxX + padX,
+    minY: minY - padY,
+    maxY: maxY + padY,
+  };
+}
+
+function circleOutsideAabb(
+  cx: number,
+  cy: number,
+  radius: number,
+  bounds: WorldAabb
+): boolean {
+  return (
+    cx + radius < bounds.minX ||
+    cx - radius > bounds.maxX ||
+    cy + radius < bounds.minY ||
+    cy - radius > bounds.maxY
+  );
+}
+
+/** Segment AABB (endpoints ± pad) misses viewport. */
+function segmentAabbMisses(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  pad: number,
+  bounds: WorldAabb
+): boolean {
+  const minX = Math.min(ax, bx) - pad;
+  const maxX = Math.max(ax, bx) + pad;
+  const minY = Math.min(ay, by) - pad;
+  const maxY = Math.max(ay, by) + pad;
+  return (
+    maxX < bounds.minX ||
+    minX > bounds.maxX ||
+    maxY < bounds.minY ||
+    minY > bounds.maxY
+  );
+}
+
+function zoomChangedEnoughForRim(
+  zoom: number,
+  lastRimZoom: number | null
+): boolean {
+  if (lastRimZoom === null) return true;
+  if (!Number.isFinite(zoom) || !Number.isFinite(lastRimZoom)) return true;
+  if (lastRimZoom === 0) return zoom !== 0;
+  return Math.abs(zoom - lastRimZoom) / Math.abs(lastRimZoom) > RIM_ZOOM_REL_EPS;
+}
+
 export function createPixiRenderer(
   options: CreatePixiRendererOptions = {}
 ): PixiRendererHandle {
@@ -63,6 +167,17 @@ export function createPixiRenderer(
   let isMounted = false;
   let isDestroyed = false;
 
+  /**
+   * True after setGraphData — incidence lists + rim sockets need rebuild.
+   * Cleared after recomputeIncidence + applyRimLock in drawFrame.
+   */
+  let topologyDirty = true;
+  /**
+   * Zoom used for the last RimLock pass. Pure pan leaves this unchanged so we
+   * skip incidence + rimlock; meaningful zoom change re-runs RimLock only.
+   */
+  let lastRimZoom: number | null = null;
+
   function drawFrame(): void {
     if (!isMounted || isDestroyed || !graphLayer || !camera || !graphData) {
       return;
@@ -75,15 +190,61 @@ export function createPixiRenderer(
     const zoom = camera.zoom;
     const ringWidth = nodeRingWidth(zoom);
 
-    // Incidence lists + rim socket allocation (mock size: full recompute OK).
-    recomputeIncidence(graphData);
-    applyRimLock(graphData, zoom);
+    // Topology or meaningful zoom change → rebuild sockets.
+    // Pure pan: skip recomputeIncidence + applyRimLock entirely (Phase 0).
+    if (topologyDirty) {
+      recomputeIncidence(graphData);
+      applyRimLock(graphData, zoom);
+      topologyDirty = false;
+      lastRimZoom = zoom;
+    } else if (zoomChangedEnoughForRim(zoom, lastRimZoom)) {
+      // Incidence lists unchanged; rim band/radius scale with zoom only.
+      applyRimLock(graphData, zoom);
+      lastRimZoom = zoom;
+    }
+
+    const worldBounds = viewportWorldBounds(camera);
+    // Screen → world pad for radii: r_world = r_screen / zoom
+    const invZoom =
+      Number.isFinite(zoom) && zoom !== 0 ? 1 / Math.abs(zoom) : 0;
 
     // Edges first — nodes draw after so fills/rings sit on top of streams.
     for (const edge of graphData.edges) {
       const src = nodesById.get(edge.source);
       const tgt = nodesById.get(edge.target);
       if (!src || !tgt) continue;
+
+      const sourceRank = src.rank ?? 0;
+      const targetRank = tgt.rank ?? 0;
+      const radiusSource = nodeScreenRadius(sourceRank, zoom);
+      const radiusTarget = nodeScreenRadius(targetRank, zoom);
+
+      // World AABB cull before world→screen projection / DotStream.
+      if (worldBounds && invZoom > 0) {
+        const isPartOf = edge.type === "PART_OF";
+        const band = edgeBandWidth(
+          zoom,
+          isPartOf ? "part_of" : "relates",
+          sourceRank,
+          targetRank
+        );
+        // Expand by max endpoint radius and band (flare roughly within this pad).
+        const padWorld =
+          Math.max(radiusSource, radiusTarget, band) * invZoom;
+        if (
+          segmentAabbMisses(
+            src.x,
+            src.y,
+            tgt.x,
+            tgt.y,
+            padWorld,
+            worldBounds
+          )
+        ) {
+          continue;
+        }
+      }
+
       const screenSource = camera.worldToScreen({ x: src.x, y: src.y });
       const screenTarget = camera.worldToScreen({ x: tgt.x, y: tgt.y });
       if (!Number.isFinite(screenSource.x) || !Number.isFinite(screenSource.y)) {
@@ -92,11 +253,6 @@ export function createPixiRenderer(
       if (!Number.isFinite(screenTarget.x) || !Number.isFinite(screenTarget.y)) {
         continue;
       }
-
-      const sourceRank = src.rank ?? 0;
-      const targetRank = tgt.rank ?? 0;
-      const radiusSource = nodeScreenRadius(sourceRank, zoom);
-      const radiusTarget = nodeScreenRadius(targetRank, zoom);
 
       if (edge.type === "PART_OF") {
         // parent → child; continuous stream meets both rims (flow later via pulse)
@@ -148,12 +304,20 @@ export function createPixiRenderer(
 
     // Nodes second — paint on top of edge streams within the same Graphics.
     for (const node of graphData.nodes) {
+      const radius = nodeScreenRadius(node.rank, zoom);
+      if (!Number.isFinite(radius) || radius < NODE_DRAW_MIN_PX) continue;
+
+      if (worldBounds && invZoom > 0) {
+        const radiusWorld = radius * invZoom;
+        if (circleOutsideAabb(node.x, node.y, radiusWorld, worldBounds)) {
+          continue;
+        }
+      }
+
       const screenPoint = camera.worldToScreen({ x: node.x, y: node.y });
       if (!Number.isFinite(screenPoint.x) || !Number.isFinite(screenPoint.y)) {
         continue;
       }
-      const radius = nodeScreenRadius(node.rank, zoom);
-      if (!Number.isFinite(radius) || radius < NODE_DRAW_MIN_PX) continue;
       g.circle(screenPoint.x, screenPoint.y, radius);
       g.fill({ color: GRAPH_NODE_FILL, alpha: GRAPH_NODE_FILL_ALPHA });
       g.circle(screenPoint.x, screenPoint.y, radius);
@@ -212,10 +376,13 @@ export function createPixiRenderer(
       root = null;
       graphData = null;
       camera = null;
+      topologyDirty = true;
+      lastRimZoom = null;
     },
 
     setGraphData(nextGraphData: GraphData): void {
       graphData = nextGraphData;
+      topologyDirty = true;
     },
 
     setCamera(nextCamera: RtcCamera): void {
