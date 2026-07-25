@@ -214,14 +214,25 @@ function sampleDivergingStream(
     const near = tFrom > tTo ? tFrom : tTo;
 
     const widen = 1 + near * EDGE_DOT_FLARE_GAIN;
-    let latMax = Math.max(0, Math.round(halfBand * widen));
-    // Rim-aware lateral clamp: near the node limit fan-out to the allocated arc
-    if (sourceRim && tFrom >= tTo && latMax > 0) {
+    const naturalLatMax = Math.max(0, Math.round(halfBand * widen));
+    let latMax = naturalLatMax;
+    // Rim lateral clamp + angular cull only when the socket is tighter than
+    // natural flare at this sample. Uncrowded rims keep full flare + crescent.
+    let sourceConstrained = false;
+    let targetConstrained = false;
+    if (sourceRim && naturalLatMax > 0) {
       const arcCols = Math.floor((sourceRim.halfSpan * fromRadius) / cell);
-      latMax = Math.min(latMax, Math.max(1, arcCols));
-    } else if (targetRim && tTo > tFrom && latMax > 0) {
+      if (arcCols < naturalLatMax) {
+        sourceConstrained = true;
+        if (tFrom >= tTo) latMax = Math.max(1, arcCols);
+      }
+    }
+    if (targetRim && naturalLatMax > 0) {
       const arcCols = Math.floor((targetRim.halfSpan * toRadius) / cell);
-      latMax = Math.min(latMax, Math.max(1, arcCols));
+      if (arcCols < naturalLatMax) {
+        targetConstrained = true;
+        if (tTo > tFrom) latMax = Math.max(1, arcCols);
+      }
     }
     const localStep = Math.max(
       minStep,
@@ -266,21 +277,29 @@ function sampleDivergingStream(
       const cx = from.x + ux * s + px * lat * cell;
       const cy = from.y + uy * s + py * lat * cell;
 
-      // Forbidden disks: node fill + hairline synapse
+      // Forbidden disks: node fill + hairline synapse (do not enlarge gap)
       const distFrom = Math.hypot(cx - fromCenter.x, cy - fromCenter.y);
       if (distFrom < fromRadius + gapFrom) continue;
       const distTo = Math.hypot(cx - toCenter.x, cy - toCenter.y);
       if (distTo < toRadius + gapTo) continue;
 
-      // Angular rim cull: skip dots outside the allocated arc (with blend margin)
-      if (sourceRim && distFrom < fromRadius + gapFrom + RIM_BLEND_CELLS * cell) {
+      // Angular rim cull only when the socket is actually constraining flare
+      if (
+        sourceConstrained &&
+        sourceRim &&
+        distFrom < fromRadius + gapFrom + RIM_BLEND_CELLS * cell
+      ) {
         const dotAngle = normaliseAngle(
           Math.atan2(cy - fromCenter.y, cx - fromCenter.x)
         );
         const delta = Math.abs(normaliseAngle(dotAngle - sourceRim.midAngle));
         if (delta > sourceRim.halfSpan + RIM_BLEND_CELLS * cell / fromRadius) continue;
       }
-      if (targetRim && distTo < toRadius + gapTo + RIM_BLEND_CELLS * cell) {
+      if (
+        targetConstrained &&
+        targetRim &&
+        distTo < toRadius + gapTo + RIM_BLEND_CELLS * cell
+      ) {
         const dotAngle = normaliseAngle(
           Math.atan2(cy - toCenter.y, cx - toCenter.x)
         );
