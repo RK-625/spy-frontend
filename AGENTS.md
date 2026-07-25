@@ -132,7 +132,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Spy is an agent-first knowledge base. The user doesn't organize their own notes. They throw messy, raw, unstructured information at Spy — and the agent weaves it into a knowledge graph, connecting related concepts, mapping memory orientation, and maintaining the web over time. Think of it as an alien intelligence that lives in your notes, finds patterns you didn't see, and builds a living map of everything you know.
 
-The **landing page** is shipped. **Current focus is the chat UI** at `/home` — conversation, sidebar, prompt shell, streaming, and agent tools. The chat should feel like talking to an alien intelligence that's already weaving your knowledge.
+The **landing page** is shipped. **Primary product surface is chat** at `/home` — conversation, sidebar, prompt shell, streaming, and agent tools. The chat should feel like talking to an alien intelligence that's already weaving your knowledge.
+
+**Knowledge graph canvas** lives at `/graph` (Pixi v8 + RTC camera) — a living knowledge-graph spike and path toward a navigable graph UI. Default mock is ~23 nodes / ~41 edges; opt-in stress: `/graph?stress=1` (`hubs`, `spokes` query params). Client pure-perf under quality bans has hit its product ceiling for static mock / large-loaded-graph tracks; full DB-scale residency is not achieved (see **What's left**).
 
 **Not in live chat UI:** the in-prompt multiple-choice / morphing “ask user question” widget was removed from production `prompt-input` and parked under `src/deprecated/ask-user-question-widget/` for a future redesign.
 
@@ -194,9 +196,11 @@ These are things a new engineer might not guess. They must be followed:
 
 ## Short-term goal
 
-**Ship and refine the chat workspace** at `/home`: conversation stream, sidebar (recents/search/settings), chat-only prompt shell (header attachments, body, textarea, footer tools), model/web controls, and agent streaming.
+**Ship and refine the chat workspace** at `/home`: conversation stream, sidebar (recents/search/settings), chat-only prompt shell (header attachments, body, textarea, footer tools), model/web controls, and agent streaming. Chat remains the primary product surface; the graph is adjacent infrastructure.
 
 Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
+
+**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). Client pure-perf ceiling for static mock pan/zoom and large-loaded-graph tracks is **achieved** under quality bans. FA2 / continuous layout is **off** (`LAYOUT_SIMULATION_ENABLED = false`) — worker + sim path ready but unused. Do not re-litigate ban-safe pure-perf; next graph work is product modes (FA2 on when wanted, full KB residency). Details under **What's left**.
 
 **Prompt input:** production `src/components/chat/ai-elements/prompt-input.tsx` is a **chat-only** shell. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
 
@@ -206,9 +210,9 @@ Landing (`/`) is the front door and is already in good shape — polish as neede
 
 ## Long-term vision
 
-Spy becomes a full application — a workspace where users actually throw their knowledge at the agent and watch it weave. The knowledge graph stops being a decorative backdrop and becomes a living, navigable interface. The spider becomes an interactive presence — responding to user activity, surfacing connections, maintaining the web in real time.
+Spy becomes a full application — a workspace where users actually throw their knowledge at the agent and watch it weave. `/graph` is already a real interactive canvas spike (Pixi + RTC camera); the long-term path is a living, navigable knowledge-graph interface backed by full KB residency — not mock-only. The spider becomes an interactive presence — responding to user activity, surfacing connections, maintaining the web in real time.
 
-Right now the door is open; the work is making the chat workspace feel like walking into the web.
+Right now the door is open; the work is making the chat workspace feel like walking into the web, with the graph as the navigable map underneath.
 
 ## Current architecture
 
@@ -225,6 +229,8 @@ src/
 │   ├── page.tsx              — Landing page (composes hero components)
 │   ├── home/
 │   │   └── page.tsx          — Chat UI (conversation, messages, input, suggestions)
+│   ├── graph/
+│   │   └── page.tsx          — Knowledge graph canvas route (`/graph`, stress query params)
 │   ├── layout.tsx            — Root layout + fonts + metadata + hydration fix
 │   └── globals.css           — Tailwind v4 @theme tokens + design tokens + chat styles
 ├── components/
@@ -234,6 +240,8 @@ src/
 │   │   ├── settings-dialog.tsx — Session settings overlay (trigger + optional shortcut)
 │   │   ├── command-palette.tsx — ⌘K command palette (product chrome, not a primitive)
 │   │   └── ai-elements/      — Conversation, message, prompt-input, suggestions, CoT, …
+│   ├── graph/
+│   │   └── graph-canvas.tsx  — Host for `/graph` (Pixi renderer + camera + bake)
 │   ├── landing/              — Landing/marketing surfaces
 │   │   ├── hero-section.tsx  — Hero layout
 │   │   └── shiny-text.tsx    — Glint sweep text animation
@@ -254,6 +262,19 @@ src/
 │   └── use-mobile.ts         — Responsive layout breakpoint state hook
 ├── lib/
 │   ├── falkor.ts             — Native FalkorDB graph connection & Cypher queries
+│   ├── graph/                — Knowledge graph client (Pixi pure-perf stack)
+│   │   ├── pixi-renderer.ts  — World-space DotStream bake; camera → graphContent only
+│   │   ├── bake-sample.ts / bake-worker.ts / bake-worker-pool.ts — Bake + residency
+│   │   ├── spatial-index.ts  — GraphSpatialIndex (viewport + OVERSCAN_MARGIN=2.0)
+│   │   ├── rim-lock.ts       — RimLock (O(E) / incremental)
+│   │   ├── graph-diff.ts     — host diffGraphDirty + dirtyEdges / movedNodeIds
+│   │   ├── layout-loop.ts / layout-loop-sim.ts — layout loop; FA2 sim dynamic-import (off)
+│   │   ├── fa2-worker.ts     — FA2 worker path ready; product keeps sim off
+│   │   ├── draw-arrow.ts / dot-circle-batch.ts — DotStream draw primitives
+│   │   ├── graph-scale.ts / graph-style.ts — scale + visual tokens
+│   │   ├── rtc-camera.ts     — RTC camera (never stage.scale for world camera)
+│   │   ├── graph-data.ts     — default mock + stress fixture
+│   │   └── index.ts          — public exports
 │   └── utils.ts              — cn() helper for Tailwind class merging
 ├── prompts/
 │   └── system-prompt.ts      — Agent system prompt export
@@ -264,6 +285,8 @@ src/
 ```
 
 **Note:** `prompt-input.tsx` under `chat/ai-elements` is chat-only (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/toolset.ts` without a live morph UI.
+
+**Graph note:** FA2 / `LAYOUT_SIMULATION_ENABLED = false` in product. Do not assume continuous layout is live. Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
 
 ## Design files
 
@@ -292,14 +315,46 @@ src/
 - **Graph Schema strictness:** Memory edges are strictly limited to `PART_OF` (Hierarchical) and `RELATES_TO` (Associative). We do not use prerequisite or causal edges because semantic vector search on content embeddings implicitly handles those relationships.
 - **Node.js Runtime only:** FalkorDB native driver breaks in Edge runtime. API routes interacting with the DB must run in Node.js and require `serverExternalPackages: ["falkordb"]` in `next.config.ts`.
 - Restrained rounded corners only (--radius)
+- **Graph client quality bans (still in force):** no maxDots / lodMul / skipOuterLats; no half-res soft sprites; no EDGE_BASE_BAND fatten; no packing floor 0.15 (keep 1e-6); no hierarchy silent-hide as “perf”
+
+## What's left
+
+### Done / do not re-litigate (graph pure-perf)
+
+Client pure-perf under quality bans — **ceiling status:**
+
+| Track | Status |
+|---|---|
+| Product ceiling (static mock pan/zoom) | **Achieved** |
+| Client large-loaded-graph pure-perf (A–C) | **Achieved** for planned scope |
+| Absolute / full product KB (DB-scale data residency) | **Not achieved** — Tier D out of scope |
+
+**Achieved (ban-safe client pure-perf):**
+- World-space DotStream bake @ z=1; camera only transforms `graphContent` (never `stage.scale` for world camera)
+- Universal residency: viewport + `OVERSCAN_MARGIN=2.0` + GraphSpatialIndex + bake worker (all graph sizes)
+- Wave 2: underlay pan-decouple, packed bake payloads/transferables, O(candidates) payload, resident buffer pooling, RimLock O(E), dynamic-import layout-loop-sim (graphology/FA2 not on static path), strip no-op setInteractionQuality settle timers
+- Large-KB track: rim-coupled dirty expansion, host `diffGraphDirty` + dirtyEdges/movedNodeIds, durable mergedDotBuffer splice, worker latest-only/cancel, incremental RimLock, spatial incidence + int keys, node redraw only when nodes dirty
+- FA2 / `LAYOUT_SIMULATION_ENABLED = false` (static layout product); FA2 worker + sim path **ready but unused**
+
+Hard bans remain in force (see Constraints). Do not re-open pure-perf by relaxing quality bans.
+
+### Left (next product modes — not unfinished mock pan work)
+
+1. **Enable FA2 when product wants motion** — wire already emits dirty+moved; keep physics params; validate hubs under continuous layout. Do not claim FA2 is live until this is on.
+2. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
+3. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
+4. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
+5. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; do not resurrect ask-user-question morph without redesign.
+
+Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 
 ## Getting started
 
 1. Read **`brief.md`** — design constitution
-2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat)
+2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` knowledge graph; stress: `/graph?stress=1`)
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
-5. Prefer domain imports: `@/components/chat/...`, `@/components/dotmatrix/icons`, `@/components/ui/...`
+5. Prefer domain imports: `@/components/chat/...`, `@/components/graph/...`, `@/lib/graph/...`, `@/components/dotmatrix/icons`, `@/components/ui/...`
 6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
 7. Do not resurrect deprecated ask-user-question morph into production without a redesign task
 

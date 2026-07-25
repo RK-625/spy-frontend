@@ -23,7 +23,13 @@
  * (default 1) so η is rank-stable under isotropic zoom.
  */
 
-import type { GraphData, GraphNode, RimOccupation, RimOccupationKind } from "./graph-data";
+import type {
+  GraphData,
+  GraphEdge,
+  GraphNode,
+  RimOccupation,
+  RimOccupationKind,
+} from "./graph-data";
 import type { RimSlot } from "./draw-arrow";
 import {
   EDGE_DOT_FLARE_GAIN,
@@ -237,19 +243,45 @@ function gapFairnessRedistribute(pending: PendingSlot[]): void {
 }
 
 /**
- * Full rewrite of `node.rimOccupations` for every node in the graph.
- * @param zoom Optional camera zoom for screen-consistent halfSpan; default 1.
+ * Build edge incidence lists per node id (push order = graph.edges order).
+ * Shared by full and incremental RimLock so packing order stays identical.
  */
-export function applyRimLock(graph: GraphData, zoom?: number): void {
-  const z = usableZoom(zoom ?? 1);
-  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+function buildIncidentMap(graph: GraphData): Map<string, GraphEdge[]> {
+  const incident = new Map<string, GraphEdge[]>();
+  for (const edge of graph.edges) {
+    let srcList = incident.get(edge.source);
+    if (!srcList) {
+      srcList = [];
+      incident.set(edge.source, srcList);
+    }
+    srcList.push(edge);
+    if (edge.target !== edge.source) {
+      let tgtList = incident.get(edge.target);
+      if (!tgtList) {
+        tgtList = [];
+        incident.set(edge.target, tgtList);
+      }
+      tgtList.push(edge);
+    }
+  }
+  return incident;
+}
 
-  for (const node of graph.nodes) {
-    const pending: PendingSlot[] = [];
+/**
+ * Pack rim occupations for a single node (mutates `node.rimOccupations`).
+ * Same math as the full-graph loop body.
+ */
+function lockOneNode(
+  node: GraphNode,
+  byId: Map<string, GraphNode>,
+  incident: Map<string, GraphEdge[]>,
+  z: number
+): void {
+  const pending: PendingSlot[] = [];
+  const edges = incident.get(node.id);
 
-    for (const edge of graph.edges) {
-      if (edge.source !== node.id && edge.target !== node.id) continue;
-
+  if (edges) {
+    for (const edge of edges) {
       const otherId = edge.source === node.id ? edge.target : edge.source;
       const other = byId.get(otherId);
       if (!other) continue;
@@ -257,7 +289,12 @@ export function applyRimLock(graph: GraphData, zoom?: number): void {
       const preferred = normalizeAngle(
         Math.atan2(other.y - node.y, other.x - node.x)
       );
-      const kind = occupationKind(edge.type, node.id, edge.source, edge.target);
+      const kind = occupationKind(
+        edge.type,
+        node.id,
+        edge.source,
+        edge.target
+      );
       const bandKind = bandKindForOccupation(kind);
       const density = densityForOccupation(kind);
 
@@ -281,35 +318,100 @@ export function applyRimLock(graph: GraphData, zoom?: number): void {
         kind,
       });
     }
-
-    if (pending.length === 0) {
-      node.rimOccupations = [];
-      continue;
-    }
-
-    // Proportional compress only when natural flares overflow the full rim.
-    let sumFull = 0;
-    for (const p of pending) sumFull += 2 * p.eta;
-    if (sumFull > TWO_PI && sumFull > 0) {
-      const scale = TWO_PI / sumFull;
-      for (const p of pending) p.eta *= scale;
-    }
-
-    // Keep mid on geometric preferred ray — never lockstep-repack away from aim.
-    resolveAdjacentOverlaps(pending);
-    // Give leftover free arc back (PART_OF first) up to natural flare.
-    gapFairnessRedistribute(pending);
-
-    const occupations: RimOccupation[] = pending.map((p) => ({
-      edgeId: p.edgeId,
-      midAngle: normalizeAngle(p.preferred),
-      halfSpan: p.eta,
-      kind: p.kind,
-    }));
-
-    occupations.sort((a, b) => a.midAngle - b.midAngle);
-    node.rimOccupations = occupations;
   }
+
+  if (pending.length === 0) {
+    node.rimOccupations = [];
+    return;
+  }
+
+  // Proportional compress only when natural flares overflow the full rim.
+  let sumFull = 0;
+  for (const p of pending) sumFull += 2 * p.eta;
+  if (sumFull > TWO_PI && sumFull > 0) {
+    const scale = TWO_PI / sumFull;
+    for (const p of pending) p.eta *= scale;
+  }
+
+  // Keep mid on geometric preferred ray — never lockstep-repack away from aim.
+  resolveAdjacentOverlaps(pending);
+  // Give leftover free arc back (PART_OF first) up to natural flare.
+  gapFairnessRedistribute(pending);
+
+  const occupations: RimOccupation[] = pending.map((p) => ({
+    edgeId: p.edgeId,
+    midAngle: normalizeAngle(p.preferred),
+    halfSpan: p.eta,
+    kind: p.kind,
+  }));
+
+  occupations.sort((a, b) => a.midAngle - b.midAngle);
+  node.rimOccupations = occupations;
+}
+
+/**
+ * Full rewrite of `node.rimOccupations` for every node in the graph.
+ * @param zoom Optional camera zoom for screen-consistent halfSpan; default 1.
+ *
+ * Complexity: O(E + packing). One edge scan builds per-node incidence lists
+ * (edges in graph.edges order), then each node packs only its incident edges.
+ * Same order as the former per-node full-edge scan → identical pending order
+ * before preferred sort → identical packing results (stable sort + same rules).
+ */
+export function applyRimLock(graph: GraphData, zoom?: number): void {
+  const z = usableZoom(zoom ?? 1);
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const incident = buildIncidentMap(graph);
+
+  for (const node of graph.nodes) {
+    lockOneNode(node, byId, incident, z);
+  }
+}
+
+/**
+ * Incremental RimLock: re-pack only the given nodes (and leave others intact).
+ * Safe when packing is local to each node (current algorithm is per-node).
+ *
+ * Callers must include every node whose preferred rays may change — typically
+ * `moved ∪ graph-neighbors(moved)` — so neighbor hubs re-socket toward movers.
+ *
+ * @returns node ids that were re-locked (intersection with graph nodes).
+ */
+export function applyRimLockForNodes(
+  graph: GraphData,
+  nodeIds: ReadonlySet<string>,
+  zoom?: number
+): string[] {
+  if (nodeIds.size === 0) return [];
+  const z = usableZoom(zoom ?? 1);
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const incident = buildIncidentMap(graph);
+  const locked: string[] = [];
+
+  for (const id of nodeIds) {
+    const node = byId.get(id);
+    if (!node) continue;
+    lockOneNode(node, byId, incident, z);
+    locked.push(id);
+  }
+  return locked;
+}
+
+/**
+ * Nodes that must re-lock when `movedNodeIds` change position:
+ * movers + every graph neighbor (edge endpoint pair).
+ */
+export function rimLockNodesForMoves(
+  graph: GraphData,
+  movedNodeIds: ReadonlySet<string>
+): Set<string> {
+  const out = new Set<string>(movedNodeIds);
+  if (movedNodeIds.size === 0) return out;
+  for (const edge of graph.edges) {
+    if (movedNodeIds.has(edge.source)) out.add(edge.target);
+    if (movedNodeIds.has(edge.target)) out.add(edge.source);
+  }
+  return out;
 }
 
 /** Map a node's occupation for `edgeId` to a draw-arrow RimSlot. */

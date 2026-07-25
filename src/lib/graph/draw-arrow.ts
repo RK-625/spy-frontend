@@ -7,7 +7,7 @@
  * slightly closer to the rim — a soft crescent socket with no polar
  * terminal, no dual paint, and no multi-cell black moat.
  *
- * Direction of flow is left to future pulse animation across the cleft.
+ * Direction of flow: signal wave shades dots along parent→child / source→target.
  *
  * Phase 1 perf:
  * - DotBatch: batch per-dot circle/rect into one fill() per style group (B).

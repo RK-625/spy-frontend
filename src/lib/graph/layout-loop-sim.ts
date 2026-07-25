@@ -1,8 +1,25 @@
 /**
  * Simulation layout path — Graphology + ForceAtlas2 + recenter + rAF.
  *
- * Loaded only when createLayoutLoop enables simulation. Static default path
- * never needs this module for runtime work (verify/tests use simulationEnabled).
+ * Loaded only via createLayoutLoopAsync when simulation is enabled
+ * (dynamic import). Static default path never pulls this module or graphology
+ * into the product chunk (verify/tests: createLayoutLoopAsync + simulationEnabled).
+ *
+ * LAYOUT_SIMULATION_ENABLED is currently false — this path is dead in product.
+ * Enabling it does not change FA2 physics params (FORCE_ATLAS_SETTINGS).
+ *
+ * FA2 worker (landed, sim-only):
+ * - When `typeof Worker !== "undefined"`, forceAtlas2.assign + recenter run in
+ *   fa2-worker.ts; main applies positions on message and emits renderOnGraphData.
+ * - Fail-open: worker construct/error → main-thread FA2 (same settings).
+ * - Emit throttled via rAF chain; each position emit passes
+ *   `{ dirtyEdges, movedNodeIds }` to renderOnGraphData for partial Pixi merge.
+ * - First paint / topology install still omits options (host → "all").
+ * - step() (verify) stays synchronous on main for deterministic tests.
+ *
+ * Do not enable LAYOUT_SIMULATION_ENABLED until product wants continuous layout
+ * motion; enabling changes node positions over time (UI behavior, not style).
+ * This module only preps dirty plumbing — product flag stays false.
  */
 
 import GraphologyGraph from "graphology";
@@ -12,11 +29,18 @@ import {
   type GraphData,
   createMockGraphData,
 } from "./graph-data";
+import { incidentEdgeIds } from "./graph-diff";
 import type {
   LayoutLoopHandle,
   LayoutLoopOptions,
   LayoutLoopStatus,
+  LayoutRenderOptions,
 } from "./layout-loop";
+import type {
+  Fa2WorkerRequest,
+  Fa2WorkerResponse,
+  Fa2WorkerSettings,
+} from "./fa2-worker";
 
 const FORCE_ATLAS_SETTINGS = {
   // Stronger pull to origin so the blob settles instead of sliding as a pack
@@ -29,7 +53,7 @@ const FORCE_ATLAS_SETTINGS = {
   linLogMode: false,
   outboundAttractionDistribution: false,
   edgeWeightInfluence: 1,
-} as const;
+} as const satisfies Fa2WorkerSettings;
 
 /**
  * Pin the graph's center of mass at the origin after each FA2 batch.
@@ -113,6 +137,20 @@ function syncPositionsFromSim(
   }
 }
 
+function applyPositionsBuffer(
+  latestGraphData: GraphData,
+  nodeIds: string[],
+  positions: Float32Array
+): void {
+  const byId = new Map(latestGraphData.nodes.map((n) => [n.id, n]));
+  for (let i = 0; i < nodeIds.length; i++) {
+    const node = byId.get(nodeIds[i]);
+    if (!node) continue;
+    node.x = positions[i * 2] ?? 0;
+    node.y = positions[i * 2 + 1] ?? 0;
+  }
+}
+
 export function createSimulationLayoutLoop(
   options: LayoutLoopOptions
 ): LayoutLoopHandle {
@@ -126,17 +164,95 @@ export function createSimulationLayoutLoop(
   );
   let simGraph = graphDataToGraphology(latestGraphData);
 
+  // FA2 worker (optional) — fail-open to main-thread assign.
+  let fa2Worker: Worker | null | undefined;
+  let fa2Seq = 0;
+  let fa2InFlight = false;
+  let fa2MessageHandler:
+    | ((ev: MessageEvent<Fa2WorkerResponse>) => void)
+    | null = null;
+
+  function getFa2Worker(): Worker | null {
+    if (fa2Worker !== undefined) return fa2Worker;
+    if (typeof Worker === "undefined") {
+      fa2Worker = null;
+      return null;
+    }
+    try {
+      const w = new Worker(new URL("./fa2-worker.ts", import.meta.url), {
+        type: "module",
+      });
+      fa2MessageHandler = (ev: MessageEvent<Fa2WorkerResponse>) => {
+        const msg = ev.data;
+        if (!msg || msg.type !== "step-result") return;
+        if (msg.seq !== fa2Seq) return;
+        fa2InFlight = false;
+        applyPositionsBuffer(latestGraphData, msg.nodeIds, msg.positions);
+        // Keep simGraph in sync for subsequent main-thread step() / install.
+        for (let i = 0; i < msg.nodeIds.length; i++) {
+          const id = msg.nodeIds[i];
+          if (!simGraph.hasNode(id)) continue;
+          simGraph.setNodeAttribute(id, "x", msg.positions[i * 2] ?? 0);
+          simGraph.setNodeAttribute(id, "y", msg.positions[i * 2 + 1] ?? 0);
+        }
+        emitGraphDataFromSim(msg.nodeIds);
+      };
+      w.addEventListener("message", fa2MessageHandler);
+      w.addEventListener("error", () => {
+        // Permanent fail-open to main-thread FA2.
+        try {
+          if (fa2MessageHandler) {
+            w.removeEventListener("message", fa2MessageHandler);
+          }
+          w.terminate();
+        } catch {
+          // ignore
+        }
+        fa2Worker = null;
+        fa2InFlight = false;
+      });
+      fa2Worker = w;
+      return w;
+    } catch {
+      fa2Worker = null;
+      return null;
+    }
+  }
+
   function installGraphData(graphData: GraphData): void {
     latestGraphData = cloneGraphData(graphData);
     simGraph = graphDataToGraphology(latestGraphData);
   }
 
-  function emitGraphData(): void {
+  /**
+   * Emit positions to the host. When `movedIds` is provided (FA2 step result),
+   * pass partial dirtyEdges + movedNodeIds so Pixi can rim-expand + partial bake.
+   * Topology install / first paint omit options → host uses full dirty.
+   */
+  function emitGraphDataFromSim(movedIds?: readonly string[]): void {
     syncPositionsFromSim(latestGraphData, simGraph);
-    renderOnGraphData?.(cloneGraphData(latestGraphData));
+    const snap = cloneGraphData(latestGraphData);
+    if (movedIds && movedIds.length > 0) {
+      const movedSet = new Set(movedIds);
+      const dirty = incidentEdgeIds(latestGraphData, movedSet);
+      const opts: LayoutRenderOptions = {
+        dirtyEdges: dirty,
+        movedNodeIds: movedIds,
+      };
+      renderOnGraphData?.(snap, opts);
+      return;
+    }
+    // No moved list: treat as full (first paint / install).
+    renderOnGraphData?.(snap);
   }
 
-  function runForceAtlasBatch(): void {
+  /** After main-thread FA2, every sim node may have moved. */
+  function emitAllNodesMoved(): void {
+    const ids = latestGraphData.nodes.map((n) => n.id);
+    emitGraphDataFromSim(ids);
+  }
+
+  function runForceAtlasBatchMain(): void {
     if (simGraph.order >= 2) {
       forceAtlas2.assign(simGraph, {
         iterations: iterationsPerFrame,
@@ -144,7 +260,50 @@ export function createSimulationLayoutLoop(
       });
       recenterToOrigin(simGraph);
     }
-    emitGraphData();
+    emitAllNodesMoved();
+  }
+
+  function runForceAtlasBatch(): void {
+    const w = getFa2Worker();
+    if (!w) {
+      runForceAtlasBatchMain();
+      return;
+    }
+    // Skip overlapping worker steps (rAF faster than FA2) — keep last result.
+    if (fa2InFlight) return;
+
+    fa2Seq += 1;
+    const seq = fa2Seq;
+    fa2InFlight = true;
+
+    const nodes = latestGraphData.nodes.map((n) => ({
+      id: n.id,
+      x: n.x,
+      y: n.y,
+    }));
+    // Prefer live simGraph positions if present.
+    for (const n of nodes) {
+      if (simGraph.hasNode(n.id)) {
+        const x = simGraph.getNodeAttribute(n.id, "x");
+        const y = simGraph.getNodeAttribute(n.id, "y");
+        n.x = typeof x === "number" ? x : n.x;
+        n.y = typeof y === "number" ? y : n.y;
+      }
+    }
+    const edges = latestGraphData.edges.map((e) => ({
+      source: e.source,
+      target: e.target,
+    }));
+
+    const req: Fa2WorkerRequest = {
+      type: "step",
+      seq,
+      nodes,
+      edges,
+      iterations: iterationsPerFrame,
+      settings: { ...FORCE_ATLAS_SETTINGS },
+    };
+    w.postMessage(req);
   }
 
   function onAnimationFrame(): void {
@@ -156,9 +315,8 @@ export function createSimulationLayoutLoop(
   function start(): void {
     if (status === "running") return;
     status = "running";
-    // Emit current positions immediately so the first paint does not wait a frame;
-    // rAF continues with FA2 batches after that.
-    emitGraphData();
+    // First paint: no dirty options → host full bake (topology residency).
+    emitGraphDataFromSim();
     animationFrameId = requestAnimationFrame(onAnimationFrame);
   }
 
@@ -188,24 +346,24 @@ export function createSimulationLayoutLoop(
      * Must not run FA2 on the old simGraph while installing, so we always
      * stop the rAF chain first. Remember whether we were running so we can
      * resume after install (stop() alone would leave the sim permanently off).
-     *
-     * - was running → stop → install → start (resume continuous layout)
-     * - was idle/stopped → install → emit once (UI updates, no rAF)
      */
     setGraphData(graphData: GraphData): void {
       const wasSimulationRunning = status === "running";
       stop();
+      fa2InFlight = false;
+      fa2Seq += 1; // invalidate in-flight worker results
       installGraphData(graphData);
       if (wasSimulationRunning) {
         start();
       } else {
-        emitGraphData();
+        emitGraphDataFromSim();
       }
     },
 
     step(): void {
-      // One FA2 batch — Node verify / no continuous rAF.
-      runForceAtlasBatch();
+      // Synchronous one FA2 batch — Node verify / no continuous rAF.
+      // Always main-thread so tests do not depend on Worker.
+      runForceAtlasBatchMain();
     },
   };
 }
