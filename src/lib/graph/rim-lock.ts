@@ -11,9 +11,13 @@
  * When uncrowded, halfSpan stays at etaFlare so draw-arrow can paint full flare +
  * axial crescent without clamping. midAngle stays on the geometric preferred ray.
  *
- * Crowding: if sum(2·eta) > 2π, scale all etas proportionally. Adjacent intervals
- * that still overlap shrink eta further (mids fixed). Only then is halfSpan tighter
- * than natural flare — draw-arrow clamps/culls only in that constrained case.
+ * Crowding:
+ *   1) if sum(2·eta) > 2π, scale all etas proportionally
+ *   2) adjacent overlaps: shrink with **RELATES first** (PART_OF keeps more share)
+ *   3) **gap fairness**: leftover free arc between neighbors is redistributed,
+ *      preferring PART_OF, up to each slot's natural etaNat
+ *
+ * Only when halfSpan is tighter than natural flare does draw-arrow clamp/cull.
  *
  * No Pixi. World positions from GraphNode.x/y. Band/radius at the same zoom
  * (default 1) so η is rank-stable under isotropic zoom.
@@ -39,6 +43,9 @@ const EPS_R = 1e-6;
 const CRESCENT_MARGIN = 1.15;
 /** Tiny clearance when resolving adjacent arc overlaps (avoid exact touch glitches). */
 const OVERLAP_CLEAR = 0.999;
+/** PART_OF weight vs RELATES when splitting a shared angular gap (shrink + grow). */
+const WEIGHT_PART_OF = 3;
+const WEIGHT_RELATES = 1;
 
 function normalizeAngle(radians: number): number {
   let a = radians % TWO_PI;
@@ -53,10 +60,18 @@ function angularSep(a: number, b: number): number {
   return d;
 }
 
+/** Forward arc length from angle a to b on the circle, in [0, 2π). */
+function forwardArc(from: number, to: number): number {
+  return normalizeAngle(to - from);
+}
+
 type PendingSlot = {
   edgeId: string;
   preferred: number;
+  /** Current half-span (may shrink under crowding). */
   eta: number;
+  /** Natural flare half-span (growth cap for gap fairness). */
+  etaNat: number;
   kind: RimOccupationKind;
 };
 
@@ -84,6 +99,10 @@ function densityForOccupation(kind: RimOccupationKind): "firm" | "soft" {
   return kind === "relates" ? "soft" : "firm";
 }
 
+function slotWeight(kind: RimOccupationKind): number {
+  return kind === "relates" ? WEIGHT_RELATES : WEIGHT_PART_OF;
+}
+
 /**
  * Natural flare half-span (radians) at the rim — capacity reserve matching
  * DotStream latMax at full widen, plus crescent margin for axial fan.
@@ -101,8 +120,24 @@ function naturalFlareHalfSpan(
 }
 
 /**
+ * Angular separation budget between two consecutive preferred rays (circle).
+ */
+function consecutiveSep(
+  a: PendingSlot,
+  b: PendingSlot,
+  n: number,
+  i: number
+): number {
+  if (n === 2) return angularSep(a.preferred, b.preferred);
+  return i + 1 < n
+    ? forwardArc(a.preferred, b.preferred)
+    : forwardArc(a.preferred, b.preferred);
+}
+
+/**
  * Shrink adjacent etas until [mid±eta] intervals no longer overlap.
- * Keeps midAngles fixed (geometric preferred rays). Multiple passes for chains.
+ * midAngles stay fixed. When shrinking, **RELATES yield first** (lower weight)
+ * so PART_OF hierarchy sockets keep more flare.
  */
 function resolveAdjacentOverlaps(pending: PendingSlot[]): void {
   if (pending.length < 2) return;
@@ -115,18 +150,85 @@ function resolveAdjacentOverlaps(pending: PendingSlot[]): void {
     for (let i = 0; i < n; i++) {
       const a = pending[i];
       const b = pending[(i + 1) % n];
-      // Forward arc to next preferred (circle wrap on last→first).
-      const gap =
-        i + 1 < n
-          ? normalizeAngle(b.preferred - a.preferred)
-          : normalizeAngle(b.preferred + TWO_PI - a.preferred);
-      // Two slots: only the shorter arc is meaningful for interval overlap.
-      const sep = n === 2 ? angularSep(a.preferred, b.preferred) : gap;
+      const sep = consecutiveSep(a, b, n, i);
       const need = a.eta + b.eta;
-      if (need > sep && need > 0) {
-        const scale = (sep / need) * OVERLAP_CLEAR;
-        a.eta *= scale;
-        b.eta *= scale;
+      if (need <= sep || need <= 0) continue;
+
+      const budget = sep * OVERLAP_CLEAR;
+      const wA = slotWeight(a.kind);
+      const wB = slotWeight(b.kind);
+      const wSum = wA + wB;
+      // Higher weight keeps a larger share of the tight gap (PART_OF > RELATES).
+      let tA = (budget * wA) / wSum;
+      let tB = (budget * wB) / wSum;
+      // Only shrink, never grow in this pass.
+      tA = Math.min(a.eta, tA);
+      tB = Math.min(b.eta, tB);
+      // If still over (both already at floor of weighted share), scale the pair.
+      if (tA + tB > budget && tA + tB > 0) {
+        const s = budget / (tA + tB);
+        tA *= s;
+        tB *= s;
+      }
+      if (tA < a.eta - 1e-12 || tB < b.eta - 1e-12) {
+        a.eta = tA;
+        b.eta = tB;
+        any = true;
+      }
+    }
+    if (!any) break;
+  }
+}
+
+/**
+ * After overlaps are resolved, leftover free arc between neighbors is given
+ * back to sockets (up to etaNat), preferring PART_OF so hierarchy terminals
+ * recover flare when a soft RELATES had forced a squeeze.
+ */
+function gapFairnessRedistribute(pending: PendingSlot[]): void {
+  if (pending.length < 2) return;
+
+  const n = pending.length;
+  pending.sort((a, b) => a.preferred - b.preferred);
+
+  for (let pass = 0; pass < n + 2; pass++) {
+    let any = false;
+    for (let i = 0; i < n; i++) {
+      const a = pending[i];
+      const b = pending[(i + 1) % n];
+      const sep = consecutiveSep(a, b, n, i);
+      const free = sep - a.eta - b.eta;
+      if (free <= 1e-9) continue;
+
+      const roomA = Math.max(0, a.etaNat - a.eta);
+      const roomB = Math.max(0, b.etaNat - b.eta);
+      if (roomA <= 0 && roomB <= 0) continue;
+
+      const wA = slotWeight(a.kind);
+      const wB = slotWeight(b.kind);
+      // Prefer expanding PART_OF: allocate free by weight, then remainder to other.
+      let giveA = 0;
+      let giveB = 0;
+      if (roomA > 0 && roomB > 0) {
+        const wSum = wA + wB;
+        giveA = Math.min(roomA, (free * wA) / wSum);
+        giveB = Math.min(roomB, free - giveA);
+        // If B still has room and free left (A hit cap), feed B.
+        if (giveA + giveB < free - 1e-12) {
+          giveB = Math.min(roomB, free - giveA);
+        }
+      } else if (roomA > 0) {
+        giveA = Math.min(roomA, free);
+      } else {
+        giveB = Math.min(roomB, free);
+      }
+
+      if (giveA > 1e-12) {
+        a.eta += giveA;
+        any = true;
+      }
+      if (giveB > 1e-12) {
+        b.eta += giveB;
         any = true;
       }
     }
@@ -167,14 +269,15 @@ export function applyRimLock(graph: GraphData, zoom?: number): void {
       const band = edgeBandWidth(z, bandKind, sourceRank, targetRank);
       const radius = Math.max(nodeScreenRadius(node.rank, z), EPS_R);
       // Capacity reserve = natural terminal flare (+ crescent), not band/(2R).
-      const eta = naturalFlareHalfSpan(band, density, radius);
+      const etaNat = naturalFlareHalfSpan(band, density, radius);
 
-      if (!Number.isFinite(eta) || eta <= 0) continue;
+      if (!Number.isFinite(etaNat) || etaNat <= 0) continue;
 
       pending.push({
         edgeId: edge.id,
         preferred,
-        eta,
+        eta: etaNat,
+        etaNat,
         kind,
       });
     }
@@ -194,6 +297,8 @@ export function applyRimLock(graph: GraphData, zoom?: number): void {
 
     // Keep mid on geometric preferred ray — never lockstep-repack away from aim.
     resolveAdjacentOverlaps(pending);
+    // Give leftover free arc back (PART_OF first) up to natural flare.
+    gapFairnessRedistribute(pending);
 
     const occupations: RimOccupation[] = pending.map((p) => ({
       edgeId: p.edgeId,
