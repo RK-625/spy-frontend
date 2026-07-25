@@ -41,7 +41,7 @@ async function main() {
   const layout = await import(layoutUrl);
 
   const { createMockGraphData } = graphDataModule;
-  const { createLayoutLoop } = layout;
+  const { createLayoutLoop, createLayoutLoopAsync } = layout;
 
   const g0 = createMockGraphData();
   assert(g0.nodes.length >= 2, `≥2 nodes (got ${g0.nodes.length})`);
@@ -71,8 +71,12 @@ async function main() {
 
   const initial = new Map(g0.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
 
-  // Force simulation ON for this check (module default may be soft-disabled)
-  const loop = createLayoutLoop({
+  // Force simulation ON via async entry (dynamic-imports layout-loop-sim)
+  assert(
+    typeof createLayoutLoopAsync === "function",
+    "createLayoutLoopAsync exported for sim path"
+  );
+  const loop = await createLayoutLoopAsync({
     graphData: g0,
     iterationsPerFrame: 5,
     simulationEnabled: true,
@@ -94,7 +98,7 @@ async function main() {
   }
   assert(moved >= 1, `at least one node moved after ${STEPS} steps (moved=${moved})`);
 
-  // Soft-disabled path: positions must not change
+  // Soft-disabled path: positions must not change (sync createLayoutLoop)
   const staticLoop = createLayoutLoop({
     graphData: createMockGraphData(),
     simulationEnabled: false,

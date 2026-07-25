@@ -6,7 +6,14 @@ import {
   createLayoutLoop,
   createPixiRenderer,
   createRtcCamera,
+  createLargeStressGraphData,
+  createMockGraphData,
+  type GraphData,
+  type LayoutRenderOptions,
+  type PixiRendererHandle,
 } from "@/lib/graph";
+import { diffGraphDirty } from "@/lib/graph/graph-diff";
+import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 
 type HudState = {
   camX: number;
@@ -24,14 +31,18 @@ function formatHudNumber(n: number): string {
 
 /**
  * Full-viewport graph host: RTC camera + layout + Pixi DotStream edges.
+ * Header chrome: ambient signal-pulse toggle (product weave metaphor).
  */
 export function GraphCanvas() {
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
+  const rendererRef = useRef<PixiRendererHandle | null>(null);
   const [hud, setHud] = useState<HudState>({
     camX: 0,
     camY: 0,
     zoom: 1,
   });
+  /** Default on — ambient life on the web (not a loud lab dashboard). */
+  const [pulsesOn, setPulsesOn] = useState(true);
 
   useEffect(() => {
     const canvasHost = canvasHostRef.current;
@@ -49,6 +60,8 @@ export function GraphCanvas() {
       background: 0x0a0a0c,
     });
     renderer.setCamera(camera);
+    renderer.setSignalPulsesEnabled(true);
+    rendererRef.current = renderer;
 
     let hudFrameId: number | null = null;
     /** Coalesce Pixi draws to at most one per animation frame (pan/wheel flood). */
@@ -82,42 +95,10 @@ export function GraphCanvas() {
     let isPanning = false;
     let lastPointerX = 0;
     let lastPointerY = 0;
-    /**
-     * Interaction settle: after 160ms of no further wheel/pointer activity,
-     * restore full quality. Shared by pan and zoom so wheel never sticks in
-     * "fast" without a click (start must also schedule settle).
-     */
-    let interactionSettleTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const clearInteractionTimer = () => {
-      if (interactionSettleTimer !== null) {
-        clearTimeout(interactionSettleTimer);
-        interactionSettleTimer = null;
-      }
-    };
-
-    /** Single settle path: restart 160ms idle timer → full quality. */
-    const scheduleInteractionSettle = () => {
-      clearInteractionTimer();
-      interactionSettleTimer = setTimeout(() => {
-        renderer.setInteractionQuality("full");
-        queueRender();
-        interactionSettleTimer = null;
-      }, 160);
-    };
-
-    const startInteraction = () => {
-      renderer.setInteractionQuality("fast");
-      queueRender();
-      // Always re-arm settle so wheel zoom restores full res after idle
-      // (previously only pointer-up called endInteraction → stuck at fast).
-      scheduleInteractionSettle();
-    };
-
-    const endInteraction = () => {
-      // Same settle helper as start — no second timer type, just restart idle.
-      scheduleInteractionSettle();
-    };
+    // setInteractionQuality is a no-op on the renderer (world-bake + GPU batches);
+    // do not schedule settle timers / extra rAFs for quality toggles. Pan/zoom
+    // still queueRender so the camera transform applies every frame.
 
     const handlePointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
@@ -125,7 +106,6 @@ export function GraphCanvas() {
       lastPointerX = e.clientX;
       lastPointerY = e.clientY;
       canvasHost.setPointerCapture(e.pointerId);
-      startInteraction();
     };
     const handlePointerMove = (e: PointerEvent) => {
       if (!isPanning) return;
@@ -134,14 +114,11 @@ export function GraphCanvas() {
       lastPointerX = e.clientX;
       lastPointerY = e.clientY;
       camera.panByScreen(dx, dy);
-      // Keep settle armed while dragging so full quality returns only after idle.
-      scheduleInteractionSettle();
       queueRender();
       queueHudUpdate();
     };
     const handlePointerUp = (e: PointerEvent) => {
       isPanning = false;
-      endInteraction();
       try {
         canvasHost.releasePointerCapture(e.pointerId);
       } catch {
@@ -150,8 +127,6 @@ export function GraphCanvas() {
     };
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      // startInteraction sets fast + restarts 160ms settle (full res after idle).
-      startInteraction();
       const rect = canvasHost.getBoundingClientRect();
       const pointerScreenX = e.clientX - rect.left;
       const pointerScreenY = e.clientY - rect.top;
@@ -177,10 +152,57 @@ export function GraphCanvas() {
     });
     resizeObserver.observe(canvasHost);
 
+    /**
+     * Optional stress fixture via `?stress=1` (or hub/spoke counts).
+     * Default remains createMockGraphData from the layout loop.
+     */
+    let initialGraph: GraphData | undefined;
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("stress")) {
+        const hubs = Number(params.get("hubs") ?? "40");
+        const spokes = Number(params.get("spokes") ?? "12");
+        initialGraph = createLargeStressGraphData({
+          hubCount: Number.isFinite(hubs) ? hubs : 40,
+          spokesPerHub: Number.isFinite(spokes) ? spokes : 12,
+        });
+      }
+    }
+
+    let prevGraphForDirty: GraphData | null = null;
+
     const layoutLoop = createLayoutLoop({
-      renderOnGraphData: (graphData) => {
+      graphData: initialGraph ?? createMockGraphData(),
+      renderOnGraphData: (
+        graphData: GraphData,
+        renderOpts?: LayoutRenderOptions
+      ) => {
         if (isCanvasDisposed) return;
-        renderer.setGraphData(graphData);
+
+        // Prefer explicit dirty from layout/sim; else diff against previous snapshot.
+        if (renderOpts?.dirtyEdges !== undefined) {
+          renderer.setGraphData(graphData, {
+            dirtyEdges: renderOpts.dirtyEdges,
+            movedNodeIds: renderOpts.movedNodeIds,
+          });
+        } else {
+          const diff = diffGraphDirty(prevGraphForDirty, graphData);
+          if (diff.kind === "all") {
+            renderer.setGraphData(graphData);
+          } else if (diff.kind === "position") {
+            renderer.setGraphData(graphData, {
+              dirtyEdges: diff.dirtyEdges,
+              movedNodeIds: diff.movedNodeIds,
+            });
+          } else {
+            // Identical positions — skip setGraphData (no topology/dirty work).
+            prevGraphForDirty = graphData;
+            queueRender();
+            queueHudUpdate();
+            return;
+          }
+        }
+        prevGraphForDirty = graphData;
         queueRender();
         queueHudUpdate();
       },
@@ -201,7 +223,6 @@ export function GraphCanvas() {
       layoutLoop.stop();
       if (hudFrameId !== null) cancelAnimationFrame(hudFrameId);
       if (renderFrameId !== null) cancelAnimationFrame(renderFrameId);
-      clearInteractionTimer();
       resizeObserver.disconnect();
       canvasHost.removeEventListener("pointerdown", handlePointerDown);
       canvasHost.removeEventListener("pointermove", handlePointerMove);
@@ -209,8 +230,15 @@ export function GraphCanvas() {
       canvasHost.removeEventListener("pointercancel", handlePointerUp);
       canvasHost.removeEventListener("wheel", handleWheel);
       renderer.destroy();
+      rendererRef.current = null;
     };
   }, []);
+
+  const handlePulseToggle = () => {
+    const next = !pulsesOn;
+    setPulsesOn(next);
+    rendererRef.current?.setSignalPulsesEnabled(next);
+  };
 
   return (
     <div
@@ -223,19 +251,76 @@ export function GraphCanvas() {
         aria-hidden
       />
 
-      <div
-        className="pointer-events-none absolute left-3 top-3 z-10 max-w-[min(100%,24rem)] font-mono text-[12px] leading-relaxed tracking-wide"
+      {/* Product chrome — dark utility register; HUD is secondary, Signals is primary control */}
+      <header
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 p-3 sm:p-4"
         style={{ fontFamily: "var(--font-vt323), ui-monospace, monospace" }}
       >
-        <div className="text-[#ded4f0]">Spy graph</div>
-        <div className="mt-0.5 text-[#7a7685]">
-          camX {formatHudNumber(hud.camX)} · camY {formatHudNumber(hud.camY)}
+        <div className="pointer-events-none max-w-[min(100%,20rem)] select-none">
+          <div className="text-[15px] tracking-wide text-[#ded4f0]">
+            Spy graph
+          </div>
+          <div className="mt-1 text-[11px] leading-snug tracking-wide text-[#4a4658]">
+            Drag to pan · wheel to zoom
+          </div>
+          {/* Compact camera readout — product-secondary, not debug dump */}
+          <div
+            className="mt-2 font-mono text-[10px] tabular-nums tracking-wide text-[#4a4658]/90"
+            aria-hidden
+          >
+            <span className="text-[#7a7685]">z</span>{" "}
+            {hud.zoom.toFixed(2)}
+            <span className="mx-1.5 text-[#4a4658]">·</span>
+            <span className="text-[#7a7685]">xy</span>{" "}
+            {formatHudNumber(hud.camX)}, {formatHudNumber(hud.camY)}
+          </div>
         </div>
-        <div className="text-[#7a7685]">
-          zoom {formatHudNumber(hud.zoom)}
+
+        <div className="pointer-events-auto flex flex-col items-end gap-1.5">
+          <button
+            type="button"
+            onClick={handlePulseToggle}
+            aria-pressed={pulsesOn}
+            aria-label={pulsesOn ? "Signals on" : "Signals off"}
+            title={
+              pulsesOn
+                ? "Signals on — neural weave along edges"
+                : "Signals off"
+            }
+            className={[
+              "inline-flex items-center gap-2 rounded-[var(--radius)] border px-3 py-1.5",
+              "text-[14px] tracking-wide transition-[color,background-color,border-color] duration-150",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+              "focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0c]",
+              pulsesOn
+                ? "border-[#c8acfb]/50 bg-[#c8acfb]/14 text-[#e8dff8] shadow-[0_0_0_1px_rgba(200,172,251,0.08)]"
+                : "border-[#4a4658]/90 bg-[#0a0a0c]/85 text-[#7a7685] hover:border-[#7a7685] hover:text-[#ded4f0]",
+            ].join(" ")}
+          >
+            <DotMatrixIcon
+              name="bulb"
+              size={15}
+              className={pulsesOn ? "text-[#c8acfb]" : "text-[#7a7685]"}
+            />
+            <span className="font-medium">Signals</span>
+            <span
+              className={[
+                "rounded-[calc(var(--radius)-2px)] px-1.5 py-0.5 text-[11px] uppercase tracking-wider",
+                pulsesOn
+                  ? "bg-[#c8acfb]/20 text-[#c8acfb]"
+                  : "bg-[#4a4658]/25 text-[#4a4658]",
+              ].join(" ")}
+            >
+              {pulsesOn ? "on" : "off"}
+            </span>
+          </button>
+          <p className="max-w-[11rem] text-right text-[10px] leading-snug tracking-wide text-[#4a4658]">
+            {pulsesOn
+              ? "Pulse along the web"
+              : "Turn on edge weave"}
+          </p>
         </div>
-        <div className="mt-2 text-[#4a4658]">drag pan · wheel zoom</div>
-      </div>
+      </header>
     </div>
   );
 }
