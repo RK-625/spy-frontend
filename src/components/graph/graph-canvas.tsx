@@ -82,6 +82,42 @@ export function GraphCanvas() {
     let isPanning = false;
     let lastPointerX = 0;
     let lastPointerY = 0;
+    /**
+     * Interaction settle: after 160ms of no further wheel/pointer activity,
+     * restore full quality. Shared by pan and zoom so wheel never sticks in
+     * "fast" without a click (start must also schedule settle).
+     */
+    let interactionSettleTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearInteractionTimer = () => {
+      if (interactionSettleTimer !== null) {
+        clearTimeout(interactionSettleTimer);
+        interactionSettleTimer = null;
+      }
+    };
+
+    /** Single settle path: restart 160ms idle timer → full quality. */
+    const scheduleInteractionSettle = () => {
+      clearInteractionTimer();
+      interactionSettleTimer = setTimeout(() => {
+        renderer.setInteractionQuality("full");
+        queueRender();
+        interactionSettleTimer = null;
+      }, 160);
+    };
+
+    const startInteraction = () => {
+      renderer.setInteractionQuality("fast");
+      queueRender();
+      // Always re-arm settle so wheel zoom restores full res after idle
+      // (previously only pointer-up called endInteraction → stuck at fast).
+      scheduleInteractionSettle();
+    };
+
+    const endInteraction = () => {
+      // Same settle helper as start — no second timer type, just restart idle.
+      scheduleInteractionSettle();
+    };
 
     const handlePointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
@@ -89,6 +125,7 @@ export function GraphCanvas() {
       lastPointerX = e.clientX;
       lastPointerY = e.clientY;
       canvasHost.setPointerCapture(e.pointerId);
+      startInteraction();
     };
     const handlePointerMove = (e: PointerEvent) => {
       if (!isPanning) return;
@@ -97,11 +134,14 @@ export function GraphCanvas() {
       lastPointerX = e.clientX;
       lastPointerY = e.clientY;
       camera.panByScreen(dx, dy);
+      // Keep settle armed while dragging so full quality returns only after idle.
+      scheduleInteractionSettle();
       queueRender();
       queueHudUpdate();
     };
     const handlePointerUp = (e: PointerEvent) => {
       isPanning = false;
+      endInteraction();
       try {
         canvasHost.releasePointerCapture(e.pointerId);
       } catch {
@@ -110,6 +150,8 @@ export function GraphCanvas() {
     };
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
+      // startInteraction sets fast + restarts 160ms settle (full res after idle).
+      startInteraction();
       const rect = canvasHost.getBoundingClientRect();
       const pointerScreenX = e.clientX - rect.left;
       const pointerScreenY = e.clientY - rect.top;
@@ -159,6 +201,7 @@ export function GraphCanvas() {
       layoutLoop.stop();
       if (hudFrameId !== null) cancelAnimationFrame(hudFrameId);
       if (renderFrameId !== null) cancelAnimationFrame(renderFrameId);
+      clearInteractionTimer();
       resizeObserver.disconnect();
       canvasHost.removeEventListener("pointerdown", handlePointerDown);
       canvasHost.removeEventListener("pointermove", handlePointerMove);
