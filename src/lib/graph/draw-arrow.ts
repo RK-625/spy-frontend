@@ -29,6 +29,14 @@ import {
 
 export type ScreenPoint = { x: number; y: number };
 
+/** Angular arc an edge's DotStream socket occupies at one node rim. */
+export type RimSlot = {
+  /** Direction from node center toward the neighbor (radians). */
+  midAngle: number;
+  /** Half-angular-span at the rim (radians). Dots beyond this are culled. */
+  halfSpan: number;
+};
+
 export type DrawEdgeOptions = {
   color: number;
   alpha?: number;
@@ -40,6 +48,10 @@ export type DrawEdgeOptions = {
   /** End / arrival node (screen). */
   toCenter: ScreenPoint;
   toRadius: number;
+  /** Optional angular constraint at the source rim — culls dots outside arc. */
+  sourceRim?: RimSlot;
+  /** Optional angular constraint at the target rim. */
+  targetRim?: RimSlot;
 };
 
 export function insetSegment(
@@ -98,6 +110,14 @@ function smoothstep01(t: number): number {
   return x * x * (3 - 2 * x);
 }
 
+/** Normalize angle to [-π, π]. */
+function normaliseAngle(a: number): number {
+  let x = a % (2 * Math.PI);
+  if (x > Math.PI) x -= 2 * Math.PI;
+  if (x < -Math.PI) x += 2 * Math.PI;
+  return x;
+}
+
 /**
  * Morph zone length at one end — flare/densify/radius domain.
  * zone = max(band * 2.5, cell * 8, nodeR * 0.45)
@@ -124,6 +144,8 @@ function morphZone(band: number, cell: number, nodeR: number): number {
  *   axial fan: outer lats may reach s0 - extra / s1 + extra toward node
  *   cull: dist(nodeCenter) >= nodeR + synapseGap
  */
+const RIM_BLEND_CELLS = 2; // blend margin in cell-widths beyond halfSpan
+
 function sampleDivergingStream(
   graphics: Graphics,
   from: ScreenPoint,
@@ -135,7 +157,9 @@ function sampleDivergingStream(
   fromCenter: ScreenPoint,
   fromRadius: number,
   toCenter: ScreenPoint,
-  toRadius: number
+  toRadius: number,
+  sourceRim?: RimSlot,
+  targetRim?: RimSlot
 ): void {
   const dir = unitAlong(from, to);
   if (!dir) return;
@@ -190,7 +214,15 @@ function sampleDivergingStream(
     const near = tFrom > tTo ? tFrom : tTo;
 
     const widen = 1 + near * EDGE_DOT_FLARE_GAIN;
-    const latMax = Math.max(0, Math.round(halfBand * widen));
+    let latMax = Math.max(0, Math.round(halfBand * widen));
+    // Rim-aware lateral clamp: near the node limit fan-out to the allocated arc
+    if (sourceRim && tFrom >= tTo && latMax > 0) {
+      const arcCols = Math.floor((sourceRim.halfSpan * fromRadius) / cell);
+      latMax = Math.min(latMax, Math.max(1, arcCols));
+    } else if (targetRim && tTo > tFrom && latMax > 0) {
+      const arcCols = Math.floor((targetRim.halfSpan * toRadius) / cell);
+      latMax = Math.min(latMax, Math.max(1, arcCols));
+    }
     const localStep = Math.max(
       minStep,
       (cell * DOT_STEP_FRAC) / (1 + near * EDGE_DOT_DENSIFY_GAIN)
@@ -240,6 +272,22 @@ function sampleDivergingStream(
       const distTo = Math.hypot(cx - toCenter.x, cy - toCenter.y);
       if (distTo < toRadius + gapTo) continue;
 
+      // Angular rim cull: skip dots outside the allocated arc (with blend margin)
+      if (sourceRim && distFrom < fromRadius + gapFrom + RIM_BLEND_CELLS * cell) {
+        const dotAngle = normaliseAngle(
+          Math.atan2(cy - fromCenter.y, cx - fromCenter.x)
+        );
+        const delta = Math.abs(normaliseAngle(dotAngle - sourceRim.midAngle));
+        if (delta > sourceRim.halfSpan + RIM_BLEND_CELLS * cell / fromRadius) continue;
+      }
+      if (targetRim && distTo < toRadius + gapTo + RIM_BLEND_CELLS * cell) {
+        const dotAngle = normaliseAngle(
+          Math.atan2(cy - toCenter.y, cx - toCenter.x)
+        );
+        const delta = Math.abs(normaliseAngle(dotAngle - targetRim.midAngle));
+        if (delta > targetRim.halfSpan + RIM_BLEND_CELLS * cell / toRadius) continue;
+      }
+
       fillDot(graphics, cx, cy, localR, color, baseAlpha);
     }
 
@@ -276,6 +324,8 @@ export function drawEdge(
     options.fromCenter,
     options.fromRadius,
     options.toCenter,
-    options.toRadius
+    options.toRadius,
+    options.sourceRim,
+    options.targetRim
   );
 }
