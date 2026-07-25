@@ -35,7 +35,6 @@ import {
   EDGE_DOT_MORPH_ZONE_NODE_FRAC,
   EDGE_DOT_RADIUS_GROW,
   EDGE_SYNAPSE_GAP_FRAC,
-  EDGE_SYNAPSE_GAP_MIN,
   edgeStripLayout,
 } from "./graph-scale";
 
@@ -153,9 +152,13 @@ class DotBatch {
   }
 }
 
-/** Even hairline cleft between node border and first stream dots. */
+/**
+ * Even hairline cleft between node border and first stream dots.
+ * E′: pure fractional — no screen-px floor. World bake + zoom transform
+ * remains exact at any scale.
+ */
 function synapseGap(nodeRadius: number): number {
-  return Math.max(EDGE_SYNAPSE_GAP_MIN, nodeRadius * EDGE_SYNAPSE_GAP_FRAC);
+  return nodeRadius * EDGE_SYNAPSE_GAP_FRAC;
 }
 
 /** Classic smoothstep on [0, 1]. */
@@ -248,10 +251,11 @@ function sampleDivergingStream(
   const sSample1 = Math.min(L, s1 + maxFan);
   if (!(sSample1 >= sSample0)) return;
 
-  // Floor step so densest region still advances
+  // World-unit min step — no screen-px floor (A′ world bake: z=1).
+  // Epsilon only to avoid zero-step infinite loop on degenerate input.
   const minStep = Math.max(
-    (cell * DOT_STEP_FRAC) / (1 + EDGE_DOT_DENSIFY_GAIN) * 0.5,
-    0.05
+    1e-6,
+    (cell * DOT_STEP_FRAC) / (1 + EDGE_DOT_DENSIFY_GAIN) * 0.5
   );
 
   // Quality-first: no density LOD (lodMul always 1; outer laterals kept).
@@ -295,8 +299,10 @@ function sampleDivergingStream(
       minStep,
       (cell * DOT_STEP_FRAC) / (1 + near * EDGE_DOT_DENSIFY_GAIN)
     );
+    // World-unit radius — no screen-px floor (A′ world bake: z=1).
+    // Previous floor of 0.15 forced r ≈ 2× true value at firm/z=1 → heavy overlap.
     const localR = Math.max(
-      0.15,
+      1e-6,
       cell * DOT_RADIUS_FRAC * (1 + near * EDGE_DOT_RADIUS_GROW)
     );
 

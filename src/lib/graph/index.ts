@@ -40,6 +40,7 @@ export {
 export {
   createPixiRenderer,
   type CreatePixiRendererOptions,
+  type PerfStats,
   type PixiRendererHandle,
 } from "@/lib/graph/pixi-renderer";
 
