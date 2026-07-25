@@ -45,7 +45,7 @@ const CRESCENT_MARGIN = 1.15;
 const OVERLAP_CLEAR = 0.999;
 /** PART_OF weight vs RELATES when splitting a shared angular gap (shrink + grow). */
 const WEIGHT_PART_OF = 3;
-const WEIGHT_RELATES = 1;
+const WEIGHT_RELATES = 2;
 
 function normalizeAngle(radians: number): number {
   let a = radians % TWO_PI;
