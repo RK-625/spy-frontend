@@ -78,11 +78,18 @@ export {
 
 export {
   drawEdge,
+  drawEdgeDots,
   insetSegment,
+  type DotEmit,
   type DrawEdgeOptions,
   type RimSlot,
   type ScreenPoint as EdgeScreenPoint,
 } from "@/lib/graph/draw-arrow";
+
+export {
+  DotCircleBatch,
+  circleSegmentCount,
+} from "@/lib/graph/dot-circle-batch";
 
 /** Palette only — hex colors / alphas. */
 export {

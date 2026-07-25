@@ -1,13 +1,25 @@
 /**
- * Screen-space directed edges for Pixi Graphics.
+ * Screen-space directed edges for Pixi.
  *
- * DotStream: single-pass continuous diverging dots along the edge from
+ * Single-pass continuous diverging dots along the edge from
  * hairline gap at start to hairline gap at end. Near each node the field
  * flares laterally, densifies, grows dot radius, and fans outer laterals
  * slightly closer to the rim — a soft crescent socket with no polar
  * terminal, no dual paint, and no multi-cell black moat.
  *
  * Direction of flow is left to future pulse animation across the cleft.
+ *
+ * Phase 1 perf:
+ * - DotBatch: batch per-dot circle/rect into one fill() per style group (B).
+ *
+ * Phase 2b (quality-first GPU vector circles):
+ * - DotEmit feeds the renderer's DotCircleBatch (triangle-mesh circles),
+ *   not ParticleContainer sprites — geometry stays smooth at any zoom.
+ * - drawEdge(graphics, ...) wraps DotBatch for backward compat / debug.
+ * - drawEdgeDots(emit, ...) is the preferred API for the Pixi renderer.
+ * - No density LOD (no lodMul / skipOuterLats) — full stream always;
+ *   perf via GPU batching + pan-cache + viewport cull, not thinning.
+ * - Soft alpha still quantizes to 12 steps for batch group keys only.
  */
 
 import type { Graphics } from "pixi.js";
@@ -28,6 +40,18 @@ import {
 } from "./graph-scale";
 
 export type ScreenPoint = { x: number; y: number };
+
+/**
+ * Callback for emitting a single dot into the renderer's GPU batch
+ * (DotCircleBatch) or a Graphics DotBatch for debug paths.
+ */
+export type DotEmit = (
+  cx: number,
+  cy: number,
+  r: number,
+  color: number,
+  alpha: number
+) => void;
 
 /** Angular arc an edge's DotStream socket occupies at one node rim. */
 export type RimSlot = {
@@ -87,16 +111,46 @@ function unitAlong(
   return { ux: dx / length, uy: dy / length, length };
 }
 
-function fillDot(
-  graphics: Graphics,
-  cx: number,
-  cy: number,
-  r: number,
-  color: number,
-  alpha: number
-): void {
-  graphics.circle(cx, cy, r);
-  graphics.fill({ color, alpha });
+/**
+ * Batch dots sharing the same color+alpha into one path + single fill call.
+ * Flushes automatically when style changes or via flush().
+ */
+class DotBatch {
+  private g: Graphics;
+  private curColor: number = 0;
+  private curAlpha: number = 0;
+  private hasPending: boolean = false;
+
+  constructor(g: Graphics) {
+    this.g = g;
+  }
+
+  add(
+    cx: number,
+    cy: number,
+    r: number,
+    color: number,
+    alpha: number
+  ): void {
+    if (
+      this.hasPending &&
+      (color !== this.curColor || alpha !== this.curAlpha)
+    ) {
+      this.flush();
+    }
+    if (!this.hasPending) {
+      this.curColor = color;
+      this.curAlpha = alpha;
+      this.hasPending = true;
+    }
+    this.g.circle(cx, cy, r);
+  }
+
+  flush(): void {
+    if (!this.hasPending) return;
+    this.g.fill({ color: this.curColor, alpha: this.curAlpha });
+    this.hasPending = false;
+  }
 }
 
 /** Even hairline cleft between node border and first stream dots. */
@@ -147,7 +201,7 @@ function morphZone(band: number, cell: number, nodeR: number): number {
 const RIM_BLEND_CELLS = 2; // blend margin in cell-widths beyond halfSpan
 
 function sampleDivergingStream(
-  graphics: Graphics,
+  emit: DotEmit,
   from: ScreenPoint,
   to: ScreenPoint,
   band: number,
@@ -200,6 +254,9 @@ function sampleDivergingStream(
     0.05
   );
 
+  // Quality-first: no density LOD (lodMul always 1; outer laterals kept).
+  // Perf comes from GPU mesh batching + pan-cache + viewport cull.
+
   let s = sSample0;
   let guard = 0;
   const maxIters = Math.ceil((sSample1 - sSample0) / minStep) + cols * 4 + 64;
@@ -245,8 +302,12 @@ function sampleDivergingStream(
 
     // Soft mid-shaft alpha ramp (mild); firm stays flat
     const tAlong = L > 1e-6 ? s / L : 0.5;
-    const baseAlpha =
+    const baseAlphaRaw =
       density === "soft" ? alpha * (0.55 + 0.35 * tAlong) : alpha;
+    // Quantise soft alpha to 12 steps so consecutive samples share a style
+    // key for DotCircleBatch / Graphics DotBatch group flushes.
+    const baseAlpha =
+      density === "soft" ? Math.round(baseAlphaRaw * 12) / 12 : baseAlphaRaw;
 
     const latDenom = Math.max(latMax, 1);
     const stepIndex = Math.floor(s / localStep);
@@ -307,7 +368,7 @@ function sampleDivergingStream(
         if (delta > targetRim.halfSpan + RIM_BLEND_CELLS * cell / toRadius) continue;
       }
 
-      fillDot(graphics, cx, cy, localR, color, baseAlpha);
+      emit(cx, cy, localR, color, baseAlpha);
     }
 
     s += localStep;
@@ -316,6 +377,9 @@ function sampleDivergingStream(
 
 /**
  * Full edge: one continuous diverging DotStream (no polar pads, no dual pass).
+ *
+ * Graphics wrapper — uses DotBatch internally for backward compat and debug.
+ * For production use drawEdgeDots(emit, ...) which feeds the GPU vector batch.
  */
 export function drawEdge(
   graphics: Graphics,
@@ -332,8 +396,51 @@ export function drawEdge(
     return;
   }
 
+  const batch = new DotBatch(graphics);
+  const emit: DotEmit = (cx, cy, r, colorVal, alphaVal) => {
+    batch.add(cx, cy, r, colorVal, alphaVal);
+  };
+
   sampleDivergingStream(
-    graphics,
+    emit,
+    from,
+    to,
+    band,
+    options.color,
+    alpha,
+    density,
+    options.fromCenter,
+    options.fromRadius,
+    options.toCenter,
+    options.toRadius,
+    options.sourceRim,
+    options.targetRim
+  );
+  batch.flush();
+}
+
+/**
+ * Full-edge DotStream fed directly into an external emit callback
+ * (typically DotCircleBatch.add). Same morph math as drawEdge but avoids
+ * Graphics fill overhead entirely.
+ */
+export function drawEdgeDots(
+  emit: DotEmit,
+  from: ScreenPoint,
+  to: ScreenPoint,
+  options: DrawEdgeOptions
+): void {
+  const alpha = options.alpha ?? 1;
+  const density = options.density ?? "firm";
+  const band = options.band;
+  if (!Number.isFinite(band) || band <= 0) return;
+  if (!options.fromCenter || !options.toCenter) return;
+  if (!Number.isFinite(options.fromRadius) || !Number.isFinite(options.toRadius)) {
+    return;
+  }
+
+  sampleDivergingStream(
+    emit,
     from,
     to,
     band,

@@ -6,29 +6,50 @@
  * - Project world → screen via RtcCamera each frame, then place graphics in
  *   screen space.
  *
- * Single layer: one Graphics (`graphLayer`) draws DotStream edges then node
- * fills/rings (edges first so nodes paint on top within the same Graphics).
- * Scale: graph-scale (shared zoom for nodes, cell, band). Camera remains
- * outside Pixi.
- *
  * Phase 0 perf:
  * - topologyDirty / zoomDirty: skip recomputeIncidence + applyRimLock on pure pan
  * - world AABB viewport culling for nodes and edges (still full clear/redraw)
+ *
+ * Phase 1 perf:
+ * - Pan cache (A): pure-pan frames skip clear/redraw by translating graphContent
+ *   container via -(cam-drawnCam)*zoom. Full redraw only when zoom changes,
+ *   topology changes, overscan exhausted, or viewport resized (~5-20× pan).
+ * - Frame hygiene (C): nodesById cache across frames; rimSlotCache built after
+ *   RimLock; edgeLayer + nodeLayer split under graphContent container.
+ *
+ * Phase 2b (quality-first GPU vector circles):
+ * - Edge DotStream uses DotCircleBatch: triangle-list circle meshes grouped by
+ *   (color, quantized alpha) → few GPU draws, smooth at any zoom (adaptive
+ *   segment count). No ParticleContainer / fixed bitmap sprites for edges.
+ * - Interaction quality (B): setInteractionQuality is intentionally a no-op.
+ *   Pan is already cheap via graphContent pan-cache; edge meshes only rebuild
+ *   on full redraw (not on pure pan). Resolution downscale is not used.
+ * - Scene graph: stage → root → graphContent → [edgeLayer, nodeLayer]
+ *
+ * Quality policy: do not cut visual quality for perf (no soft textures, no
+ * 0.6× resolution, no sparse LOD that thins streams). Perf via batching +
+ * pan-cache + viewport cull.
  */
 
 import { Application, Container, Graphics } from "pixi.js";
 
 import type { RtcCamera } from "@/lib/graph/rtc-camera";
-import type { GraphData } from "@/lib/graph/graph-data";
+import type { GraphData, GraphNode } from "@/lib/graph/graph-data";
 import { recomputeIncidence } from "@/lib/graph/graph-data";
-import { drawEdge, insetSegment } from "@/lib/graph/draw-arrow";
+import {
+  drawEdgeDots,
+  insetSegment,
+  type DotEmit,
+  type RimSlot,
+} from "@/lib/graph/draw-arrow";
+import { DotCircleBatch } from "@/lib/graph/dot-circle-batch";
 import {
   NODE_DRAW_MIN_PX,
   edgeBandWidth,
   nodeRingWidth,
   nodeScreenRadius,
 } from "@/lib/graph/graph-scale";
-import { applyRimLock, findRimSlot } from "@/lib/graph/rim-lock";
+import { applyRimLock } from "@/lib/graph/rim-lock";
 import {
   GRAPH_BG,
   GRAPH_EDGE_PART_OF,
@@ -47,6 +68,12 @@ export type PixiRendererHandle = {
   setGraphData: (graphData: GraphData) => void;
   setCamera: (camera: RtcCamera) => void;
   render: () => void;
+  /**
+   * Interaction quality toggle (API kept for graph-canvas settle path).
+   * No-op: pan-cache + GPU vector batches already make interaction cheap;
+   * resolution downscale hurt edge sharpness without meaningful gain.
+   */
+  setInteractionQuality: (mode: "full" | "fast") => void;
 };
 
 export type CreatePixiRendererOptions = {
@@ -67,11 +94,27 @@ const RIM_ZOOM_REL_EPS = 0.02;
 /** Expand viewport by this fraction of span on each side (~20%). */
 const VIEWPORT_CULL_MARGIN = 0.2;
 
+/** Wider cull margin during full-rebuild for pan cache (~50%). */
+const VIEWPORT_CULL_MARGIN_PAN_CACHE = 0.5;
+
+/**
+ * Max pan translation as fraction of min viewport dimension before forced
+ * full redraw (~25%). Reduces risk of culling artifacts at large offsets.
+ */
+const PAN_REDRAW_THRESHOLD = 0.35;
+
+/** Tiny epsilon for zoom comparison in pan cache. */
+const ZOOM_EPS = 1e-9;
+
 /**
  * World AABB of the visible viewport from camera inverse + margin.
- * Margin is ~20% of span so partially-visible flares near the edge still draw.
+ * @param camera The camera.
+ * @param margin Overscan fraction on each side (default ~20%).
  */
-function viewportWorldBounds(camera: RtcCamera): WorldAabb | null {
+function viewportWorldBounds(
+  camera: RtcCamera,
+  margin: number = VIEWPORT_CULL_MARGIN
+): WorldAabb | null {
   const w = camera.viewportWidth;
   const h = camera.viewportHeight;
   if (!(w > 0) || !(h > 0)) return null;
@@ -97,8 +140,8 @@ function viewportWorldBounds(camera: RtcCamera): WorldAabb | null {
 
   const spanX = maxX - minX;
   const spanY = maxY - minY;
-  const padX = spanX * VIEWPORT_CULL_MARGIN;
-  const padY = spanY * VIEWPORT_CULL_MARGIN;
+  const padX = spanX * margin;
+  const padY = spanY * margin;
 
   return {
     minX: minX - padX,
@@ -159,11 +202,18 @@ export function createPixiRenderer(
   const background = options.background ?? GRAPH_BG;
 
   let app: Application | null = null;
-  /** One Graphics for DotStream edges + node fills/rings (edges then nodes). */
-  let graphLayer: Graphics | null = null;
+  /** Edge DotStream layer: Container of GPU-batched vector circle meshes. */
+  let edgeLayer: Container | null = null;
+  let nodeLayer: Graphics | null = null;
   let root: Container | null = null;
+  /** graphContent holds edgeLayer + nodeLayer; position is set to pan offset (A). */
+  let graphContent: Container | null = null;
   let graphData: GraphData | null = null;
   let camera: RtcCamera | null = null;
+  /** nodesById built once after setGraphData, reused every frame. */
+  let nodesByIdCache: Map<string, GraphNode> = new Map();
+  /** rimOccupations pre-indexed by nodeId→edgeId after RimLock. */
+  let rimSlotCache: Map<string, Map<string, RimSlot>> = new Map();
   let isMounted = false;
   let isDestroyed = false;
 
@@ -178,37 +228,93 @@ export function createPixiRenderer(
    */
   let lastRimZoom: number | null = null;
 
-  function drawFrame(): void {
-    if (!isMounted || isDestroyed || !graphLayer || !camera || !graphData) {
+  // -----------------------------------------------------------------------
+  // Pan cache (A): snapshot of camera state at last full redraw.
+  // -----------------------------------------------------------------------
+  let drawnCamX = 0;
+  let drawnCamY = 0;
+  let drawnZoom = 1;
+  let drawnViewportW = 0;
+  let drawnViewportH = 0;
+  let lastDrawForPanCache = false;
+  let panAccumX = 0;
+  let panAccumY = 0;
+
+  /**
+   * Phase 2b: GPU vector circle batch for edge dots.
+   * begin → emit via drawEdgeDots → flush into edgeLayer each fullRedraw.
+   */
+  let edgeDotBatch: DotCircleBatch | null = null;
+
+  /** Rebuild rimSlotCache from current graphData node rimOccupations. */
+  function rebuildRimSlotCache(): void {
+    if (!graphData) {
+      rimSlotCache = new Map();
+      return;
+    }
+    const map = new Map<string, Map<string, RimSlot>>();
+    for (const node of graphData.nodes) {
+      const slotMap = new Map<string, RimSlot>();
+      for (const occ of node.rimOccupations) {
+        slotMap.set(occ.edgeId, {
+          midAngle: occ.midAngle,
+          halfSpan: occ.halfSpan,
+        });
+      }
+      map.set(node.id, slotMap);
+    }
+    rimSlotCache = map;
+  }
+
+  /**
+   * Full clear + redraw of both edgeLayer and nodeLayer. Resets pan cache
+   * state and positions graphContent at (0,0). Uses expanded cull margin
+   * when lastDrawForPanCache is set so subsequent pan frames have more
+   * overscan before geometry gaps appear.
+   *
+   * Phase 2b: edges emit into DotCircleBatch (vector meshes), then flush
+   * into edgeLayer. Nodes remain Graphics.
+   */
+  function fullRedraw(): void {
+    if (!edgeLayer || !nodeLayer || !camera || !graphData || !edgeDotBatch) {
       return;
     }
 
-    const g = graphLayer;
-    g.clear();
+    const gNode = nodeLayer;
+    gNode.clear();
 
-    const nodesById = new Map(graphData.nodes.map((n) => [n.id, n]));
+    const batch = edgeDotBatch;
+    batch.begin();
+
+    const nodesById = nodesByIdCache;
     const zoom = camera.zoom;
     const ringWidth = nodeRingWidth(zoom);
 
-    // Topology or meaningful zoom change → rebuild sockets.
-    // Pure pan: skip recomputeIncidence + applyRimLock entirely (Phase 0).
     if (topologyDirty) {
       recomputeIncidence(graphData);
       applyRimLock(graphData, zoom);
+      rebuildRimSlotCache();
       topologyDirty = false;
       lastRimZoom = zoom;
     } else if (zoomChangedEnoughForRim(zoom, lastRimZoom)) {
-      // Incidence lists unchanged; rim band/radius scale with zoom only.
       applyRimLock(graphData, zoom);
+      rebuildRimSlotCache();
       lastRimZoom = zoom;
     }
 
-    const worldBounds = viewportWorldBounds(camera);
-    // Screen → world pad for radii: r_world = r_screen / zoom
+    // Use wide cull margin so subsequent pan frames have overscan before gaps appear.
+    const cullMargin = VIEWPORT_CULL_MARGIN_PAN_CACHE;
+    const worldBounds = viewportWorldBounds(camera, cullMargin);
     const invZoom =
       Number.isFinite(zoom) && zoom !== 0 ? 1 / Math.abs(zoom) : 0;
 
-    // Edges first — nodes draw after so fills/rings sit on top of streams.
+    const rimSlotsByNode = rimSlotCache;
+
+    const emit: DotEmit = (cx, cy, r, color, alpha) => {
+      batch.add(cx, cy, r, color, alpha);
+    };
+
+    // Edges (edgeLayer) — lower z-order. Emit into GPU vector batch.
     for (const edge of graphData.edges) {
       const src = nodesById.get(edge.source);
       const tgt = nodesById.get(edge.target);
@@ -219,7 +325,6 @@ export function createPixiRenderer(
       const radiusSource = nodeScreenRadius(sourceRank, zoom);
       const radiusTarget = nodeScreenRadius(targetRank, zoom);
 
-      // World AABB cull before world→screen projection / DotStream.
       if (worldBounds && invZoom > 0) {
         const isPartOf = edge.type === "PART_OF";
         const band = edgeBandWidth(
@@ -228,18 +333,10 @@ export function createPixiRenderer(
           sourceRank,
           targetRank
         );
-        // Expand by max endpoint radius and band (flare roughly within this pad).
         const padWorld =
           Math.max(radiusSource, radiusTarget, band) * invZoom;
         if (
-          segmentAabbMisses(
-            src.x,
-            src.y,
-            tgt.x,
-            tgt.y,
-            padWorld,
-            worldBounds
-          )
+          segmentAabbMisses(src.x, src.y, tgt.x, tgt.y, padWorld, worldBounds)
         ) {
           continue;
         }
@@ -247,16 +344,16 @@ export function createPixiRenderer(
 
       const screenSource = camera.worldToScreen({ x: src.x, y: src.y });
       const screenTarget = camera.worldToScreen({ x: tgt.x, y: tgt.y });
-      if (!Number.isFinite(screenSource.x) || !Number.isFinite(screenSource.y)) {
-        continue;
-      }
-      if (!Number.isFinite(screenTarget.x) || !Number.isFinite(screenTarget.y)) {
-        continue;
-      }
+      if (
+        !Number.isFinite(screenSource.x) ||
+        !Number.isFinite(screenSource.y)
+      ) continue;
+      if (
+        !Number.isFinite(screenTarget.x) ||
+        !Number.isFinite(screenTarget.y)
+      ) continue;
 
       if (edge.type === "PART_OF") {
-        // parent → child; continuous stream meets both rims (flow later via pulse)
-        // drawEdge sourceRim = from end = parent (tgt); targetRim = child (src)
         const segment = insetSegment(
           screenTarget,
           screenSource,
@@ -265,7 +362,9 @@ export function createPixiRenderer(
         );
         if (!segment) continue;
         const band = edgeBandWidth(zoom, "part_of", sourceRank, targetRank);
-        drawEdge(g, segment.start, segment.end, {
+        const srcSlots = rimSlotsByNode.get(src.id);
+        const tgtSlots = rimSlotsByNode.get(tgt.id);
+        drawEdgeDots(emit, segment.start, segment.end, {
           color: GRAPH_EDGE_PART_OF,
           alpha: GRAPH_EDGE_PART_OF_ALPHA,
           density: "firm",
@@ -274,11 +373,10 @@ export function createPixiRenderer(
           fromRadius: radiusTarget,
           toCenter: screenSource,
           toRadius: radiusSource,
-          sourceRim: findRimSlot(tgt, edge.id),
-          targetRim: findRimSlot(src, edge.id),
+          sourceRim: tgtSlots?.get(edge.id),
+          targetRim: srcSlots?.get(edge.id),
         });
       } else {
-        // RELATES: source → target
         const segment = insetSegment(
           screenSource,
           screenTarget,
@@ -287,7 +385,9 @@ export function createPixiRenderer(
         );
         if (!segment) continue;
         const band = edgeBandWidth(zoom, "relates", sourceRank, targetRank);
-        drawEdge(g, segment.start, segment.end, {
+        const srcSlots = rimSlotsByNode.get(src.id);
+        const tgtSlots = rimSlotsByNode.get(tgt.id);
+        drawEdgeDots(emit, segment.start, segment.end, {
           color: GRAPH_EDGE_RELATES,
           alpha: GRAPH_EDGE_RELATES_ALPHA,
           density: "soft",
@@ -296,37 +396,104 @@ export function createPixiRenderer(
           fromRadius: radiusSource,
           toCenter: screenTarget,
           toRadius: radiusTarget,
-          sourceRim: findRimSlot(src, edge.id),
-          targetRim: findRimSlot(tgt, edge.id),
+          sourceRim: srcSlots?.get(edge.id),
+          targetRim: tgtSlots?.get(edge.id),
         });
       }
     }
 
-    // Nodes second — paint on top of edge streams within the same Graphics.
+    batch.flush(edgeLayer);
+
+    // Nodes (nodeLayer) — higher z-order.
     for (const node of graphData.nodes) {
       const radius = nodeScreenRadius(node.rank, zoom);
       if (!Number.isFinite(radius) || radius < NODE_DRAW_MIN_PX) continue;
 
       if (worldBounds && invZoom > 0) {
         const radiusWorld = radius * invZoom;
-        if (circleOutsideAabb(node.x, node.y, radiusWorld, worldBounds)) {
+        if (circleOutsideAabb(node.x, node.y, radiusWorld, worldBounds))
           continue;
-        }
       }
 
       const screenPoint = camera.worldToScreen({ x: node.x, y: node.y });
-      if (!Number.isFinite(screenPoint.x) || !Number.isFinite(screenPoint.y)) {
-        continue;
-      }
-      g.circle(screenPoint.x, screenPoint.y, radius);
-      g.fill({ color: GRAPH_NODE_FILL, alpha: GRAPH_NODE_FILL_ALPHA });
-      g.circle(screenPoint.x, screenPoint.y, radius);
-      g.stroke({
+      if (
+        !Number.isFinite(screenPoint.x) ||
+        !Number.isFinite(screenPoint.y)
+      ) continue;
+      gNode.circle(screenPoint.x, screenPoint.y, radius);
+      gNode.fill({ color: GRAPH_NODE_FILL, alpha: GRAPH_NODE_FILL_ALPHA });
+      gNode.circle(screenPoint.x, screenPoint.y, radius);
+      gNode.stroke({
         width: ringWidth,
         color: GRAPH_NODE_RING,
         alpha: GRAPH_NODE_RING_ALPHA,
       });
     }
+
+    // Update pan cache snapshot.
+    drawnCamX = camera.camX;
+    drawnCamY = camera.camY;
+    drawnZoom = camera.zoom;
+    drawnViewportW = camera.viewportWidth;
+    drawnViewportH = camera.viewportHeight;
+    panAccumX = 0;
+    panAccumY = 0;
+
+    if (graphContent) {
+      graphContent.position.set(0, 0);
+    }
+  }
+
+  function drawFrame(): void {
+    if (
+      !isMounted ||
+      isDestroyed ||
+      !edgeLayer ||
+      !nodeLayer ||
+      !camera ||
+      !graphData ||
+      !graphContent
+    ) {
+      return;
+    }
+
+    // --- Pan cache (A): pure-pan shortcut ---
+    if (
+      !topologyDirty &&
+      camera.zoom > 0 &&
+      drawnZoom > 0 &&
+      Number.isFinite(camera.zoom) &&
+      Number.isFinite(drawnZoom) &&
+      Math.abs(camera.zoom - drawnZoom) < ZOOM_EPS &&
+      Math.round(camera.viewportWidth) === Math.round(drawnViewportW) &&
+      Math.round(camera.viewportHeight) === Math.round(drawnViewportH) &&
+      Number.isFinite(camera.camX) &&
+      Number.isFinite(camera.camY)
+    ) {
+      // Pure pan: screen moves by -(cam - drawnCam) * zoom.
+      const tx = -(camera.camX - drawnCamX) * camera.zoom;
+      const ty = -(camera.camY - drawnCamY) * camera.zoom;
+      graphContent.position.set(tx, ty);
+      panAccumX = tx;
+      panAccumY = ty;
+
+      // If accumulated pan exhausts overscan, force full redraw with expanded
+      // cull margin so next pan cycle has more room.
+      const minDim = Math.min(camera.viewportWidth, camera.viewportHeight, 1);
+      const threshold = minDim * PAN_REDRAW_THRESHOLD;
+      if (
+        Math.abs(panAccumX) > threshold ||
+        Math.abs(panAccumY) > threshold
+      ) {
+        lastDrawForPanCache = true;
+        fullRedraw();
+      }
+      return; // skip clear/redraw
+    }
+
+    // --- Full redraw (zoom change, topology change, resize, or first frame) ---
+    lastDrawForPanCache = false;
+    fullRedraw();
   }
 
   return {
@@ -354,10 +521,18 @@ export function createPixiRenderer(
       app = application;
       host.appendChild(application.canvas);
 
-      // stage → root → graphLayer (single Graphics; future overlays under root)
+      // stage → root → graphContent → [edgeLayer, nodeLayer]
       root = new Container();
-      graphLayer = new Graphics();
-      root.addChild(graphLayer);
+      graphContent = new Container();
+
+      // Edge vector-mesh layer — DotCircleBatch flushes Mesh children here.
+      edgeLayer = new Container();
+      edgeDotBatch = new DotCircleBatch();
+
+      nodeLayer = new Graphics();
+      graphContent.addChild(edgeLayer);
+      graphContent.addChild(nodeLayer);
+      root.addChild(graphContent);
       application.stage.addChild(root);
 
       isMounted = true;
@@ -367,21 +542,39 @@ export function createPixiRenderer(
       isDestroyed = true;
       isMounted = false;
 
+      if (edgeDotBatch) {
+        edgeDotBatch.destroy();
+        edgeDotBatch = null;
+      }
+
       if (app) {
         app.destroy({ removeView: true }, { children: true });
         app = null;
       }
 
-      graphLayer = null;
+      edgeLayer = null;
+      nodeLayer = null;
+      graphContent = null;
       root = null;
       graphData = null;
       camera = null;
+      nodesByIdCache = new Map();
+      rimSlotCache = new Map();
       topologyDirty = true;
       lastRimZoom = null;
+      drawnZoom = 1;
+      drawnViewportW = 0;
+      drawnViewportH = 0;
+      drawnCamX = 0;
+      drawnCamY = 0;
+      panAccumX = 0;
+      panAccumY = 0;
+      lastDrawForPanCache = false;
     },
 
     setGraphData(nextGraphData: GraphData): void {
       graphData = nextGraphData;
+      nodesByIdCache = new Map(nextGraphData.nodes.map((n) => [n.id, n]));
       topologyDirty = true;
     },
 
@@ -392,6 +585,15 @@ export function createPixiRenderer(
     render(): void {
       if (!isMounted || isDestroyed) return;
       drawFrame();
+    },
+
+    /**
+     * No-op by design. Phase 1 pan-cache (graphContent translate) + Phase 2b
+     * GPU vector batches already keep pan/zoom cheap without touching resolution.
+     * API retained so graph-canvas settle path stays stable.
+     */
+    setInteractionQuality(_mode: "full" | "fast"): void {
+      // intentionally empty — see file header Phase 2b
     },
   };
 }
