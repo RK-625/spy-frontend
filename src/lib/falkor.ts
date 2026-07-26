@@ -1,11 +1,13 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { FalkorDB } from "falkordblite";
-import { Memory, Links } from "../types/graph-schema";
+import {
+  Memory as MemorySchema,
+  Links as LinksSchema,
+  type Memory,
+  type Links,
+} from "../types/graph-schema";
 import { z } from "zod";
-
-type Memory = z.infer<typeof Memory>;
-type Links = z.infer<typeof Links>;
 
 type FalkorNode<T> = {
   id: number; // FalkorDB's internal numeric node id — NOT your app id
@@ -125,7 +127,7 @@ export async function vectorSearch(embedding: number[], topK: number = 10) {
 }
 
 export async function upsertMemory(memory: Memory) {
-  const parsed = Memory.parse(memory);
+  const parsed = MemorySchema.parse(memory);
   const graph = await getDb();
 
   // coalesce layout props so content-only upserts do not wipe stored x/y/rank
@@ -161,7 +163,7 @@ export async function upsertMemory(memory: Memory) {
 }
 
 export async function createLink(link: Links) {
-  const parsed = Links.parse(link);
+  const parsed = LinksSchema.parse(link);
   const graph = await getDb();
 
   const query = `
@@ -185,6 +187,111 @@ export async function createLink(link: Links) {
     return result.data[0].type;
   } catch (error) {
     console.error("Create Link Error:", error);
+    throw error;
+  }
+}
+
+/** Layout fields used for canvas placement (no embeddings / content). */
+export type MemoryLayout = {
+  id: string;
+  x: number | null;
+  y: number | null;
+  rank: number | null;
+};
+
+function numOrNull(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/**
+ * All Memory nodes with layout props (for collision / cluster placement).
+ */
+export async function listMemoryLayouts(): Promise<MemoryLayout[]> {
+  const graph = await getDb();
+  const query = `
+    MATCH (m:Memory)
+    RETURN m.id AS id, m.x AS x, m.y AS y, m.rank AS rank
+  `;
+  try {
+    const result = (await graph.query(query)) as {
+      data: Array<{ id: unknown; x: unknown; y: unknown; rank: unknown }>;
+    };
+    return (result.data ?? [])
+      .map((row) => ({
+        id: String(row.id ?? ""),
+        x: numOrNull(row.x),
+        y: numOrNull(row.y),
+        rank: numOrNull(row.rank),
+      }))
+      .filter((row) => row.id.length > 0);
+  } catch (error) {
+    console.error("listMemoryLayouts error:", error);
+    throw error;
+  }
+}
+
+export async function getMemoryLayout(
+  id: string,
+): Promise<MemoryLayout | null> {
+  const validId = z.string().min(1).parse(id);
+  const graph = await getDb();
+  const query = `
+    MATCH (m:Memory {id: $id})
+    RETURN m.id AS id, m.x AS x, m.y AS y, m.rank AS rank
+  `;
+  try {
+    const result = (await graph.query(query, {
+      params: { id: validId },
+    })) as {
+      data: Array<{ id: unknown; x: unknown; y: unknown; rank: unknown }>;
+    };
+    const row = result.data?.[0];
+    if (row == null) return null;
+    return {
+      id: String(row.id ?? validId),
+      x: numOrNull(row.x),
+      y: numOrNull(row.y),
+      rank: numOrNull(row.rank),
+    };
+  } catch (error) {
+    console.error("getMemoryLayout error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Force-write canvas layout (does not coalesce — used after placeMemoryNode).
+ */
+export async function setMemoryLayout(input: {
+  id: string;
+  x: number;
+  y: number;
+  rank: number;
+}): Promise<void> {
+  const id = z.string().min(1).parse(input.id);
+  const x = z.number().finite().parse(input.x);
+  const y = z.number().finite().parse(input.y);
+  const rank = z.number().int().min(0).parse(input.rank);
+  const graph = await getDb();
+  const query = `
+    MATCH (m:Memory {id: $id})
+    SET m.x = $x, m.y = $y, m.rank = $rank
+    RETURN m.id AS id
+  `;
+  try {
+    const result = (await graph.query(query, {
+      params: { id, x, y, rank },
+    })) as { data: Array<{ id: string }> };
+    if (result.data.length === 0) {
+      throw new Error(`setMemoryLayout: Memory not found (${id})`);
+    }
+  } catch (error) {
+    console.error("setMemoryLayout error:", error);
     throw error;
   }
 }

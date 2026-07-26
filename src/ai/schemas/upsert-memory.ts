@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+/**
+ * Tool input for create/update Memory. Canvas layout (x, y, rank) is
+ * system-owned — never present on this schema; the LLM must not invent coordinates.
+ */
 export const upsertMemoryInputSchema = z.object({
   name: z
     .string()
@@ -29,7 +33,11 @@ export const upsertMemoryInputSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Existing Memory id to update. Omit to create a new memory (a new id is generated).",
+      "Existing Memory id to update content/name/impression/confidence. Omit to create a new memory (system generates id). " +
+        "Updates do not move the node on the canvas — existing x/y/rank are preserved. " +
+        "Do NOT pass or invent canvas coordinates (x, y) or rank; layout is system-owned. " +
+        "Structure (PART_OF / RELATES_TO) is via linkMemories, not this tool. " +
+        "Intermediate hierarchy: create nodes here, then link correctly; the system places children after PART_OF links.",
     ),
 });
 

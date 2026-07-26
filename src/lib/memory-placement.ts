@@ -3,46 +3,44 @@
  * The LLM never chooses x/y or rank — this module (and toolset callers) do.
  *
  * =============================================================================
- * POLICY (system-owned layout)
+ * POLICY (system-owned layout) — locked
  * =============================================================================
  *
  * Design locks:
  *  - x, y are system-owned — never on tool input schemas; never LLM-authored.
  *  - rank is system-derived: PART_OF child = parent.rank + 1; roots / orphans = 0.
- *  - PART_OF link: only the **child** repositions near parent; parent stays put.
- *  - Overlap: min separation + spiral; never stack.
+ *  - PART_OF: only the **child** repositions near parent; parent stays put.
+ *  - PART_OF link: always re-place child when linking (caller uses shouldPlaceOnLink).
+ *  - Content-only upsert: **do not call place** if finite x/y exist (shouldPlaceOnUpsert).
+ *  - Overlap: min separation + fan (children) + spiral; never stack.
  *
- * Case table (placeMemoryNode / wrappers):
+ * Geometry (this file only — no graph walk, no edge delete, no Falkor I/O):
  *
  * | Case                         | Behavior                                              |
  * |------------------------------|-------------------------------------------------------|
  * | Empty graph                  | seed (0,0), rank 0                                    |
  * | Root / orphan                | cluster centroid bias + spiral                        |
- * | Child with parent            | seed below parent, rank parent+1, spiral              |
+ * | Child with parent            | **fan arc under parent** (±55°), then spiral; rank+1  |
  * | Related-only (no parent)     | seed near related centroid, rank 0                    |
  * | Dense / crowded              | spiral rings until free; fallback far if max rings    |
  * | excludeId                    | don’t collide with self when re-placing               |
  * | Invalid / non-finite coords  | filtered out of occupied / related / parent           |
- * | Content-only upsert          | **do not call place** — preserve existing x/y/rank    |
  *
- * Content re-place: toolset must **not** call placeMemoryNode when upsert is an
- * update and the node already has finite x/y. Use shouldPlaceOnUpsert.
+ * Not handled here (caller / DB / toolset topology):
+ *  - Intermediate insert / reparent edge surgery
+ *  - Subtree re-rank walk
+ *  - Moving parents and dragging children with them
  *
- * Intermediate node / reparent (caller policy — not pure geometry):
- *  1) Ensure edges are correct in DB (PART_OF child→parent; drop wrong old
- *     PART_OF when the API allows).
- *  2) Call placeMemoryNode (or placeAsChild) for the child with the new parent
- *     anchor; parent is never moved.
- *  3) Optionally re-rank a subtree later: use rankAfterParent / recomputeRankFromParent
- *     per child. This module does not walk the graph.
+ * Intermediate / reparent (caller policy):
+ *  1) Fix edges in DB (PART_OF child→parent; drop wrong old PART_OF when allowed).
+ *  2) placeAsChild for the child with new parent; parent never moved.
+ *  3) Optional subtree re-rank later via rankAfterParent per node.
  *
- * Priority for seed anchor inside placeMemoryNode:
- *  1. PART_OF parent (place near parent, slightly below)
- *  2. Centroid of related nodes (RELATES_TO / context)
- *  3. Centroid of the existing graph cluster
- *  4. Origin (0, 0) for an empty graph
- *
- * Then walk a spiral until min separation from all occupied points.
+ * Seed priority inside placeMemoryNode:
+ *  1. PART_OF parent → fan under parent
+ *  2. Related centroid
+ *  3. Cluster centroid
+ *  4. Origin (0, 0)
  */
 
 export type WorldPoint = {
@@ -91,8 +89,20 @@ export type LayoutWithRank = LayoutCoords & {
 /** Default spacing — roughly matches mock-graph tree gaps (~55–60). */
 export const DEFAULT_MIN_SEPARATION = 48;
 
-/** Child sits below parent by this offset before spiral search. */
-const PARENT_CHILD_DY = 56;
+/** Preferred distance from parent to first fan ring (world units). */
+export const PARENT_CHILD_RADIUS = 56;
+
+/**
+ * Half-angle of the child fan under parent (radians).
+ * ±55° ≈ gentle tree look (not a flat 180° bar).
+ */
+export const PARENT_FAN_HALF_ANGLE = (55 * Math.PI) / 180;
+
+/** Candidate slots on the first fan ring under parent. */
+export const PARENT_FAN_SLOTS = 11;
+
+/** Extra fan rings (larger radius) before falling back to full spiral. */
+export const PARENT_FAN_RINGS = 3;
 
 /** Max spiral rings before far-below fallback (dense graphs). */
 const MAX_SPIRAL_RINGS = 48;
@@ -145,7 +155,7 @@ function isClear(
  * Ring 0 tries the seed; then rings of increasing radius with more samples.
  * If all rings fail (extremely dense), place far below seed — never stack.
  */
-function findFreeSlot(
+export function findFreeSlot(
   seed: WorldPoint,
   occupied: WorldPoint[],
   minSeparation: number,
@@ -169,11 +179,67 @@ function findFreeSlot(
     }
   }
 
-  // Fallback: far below seed so we never stack on failure
   return {
     x: seed.x,
     y: seed.y + minSeparation * (MAX_SPIRAL_RINGS + 1),
   };
+}
+
+/**
+ * Fan candidates under a parent (screen-style +y down).
+ * spread=0 → straight below; ±halfAngle spreads left/right.
+ * Exported for unit tests / callers that want to inspect slots.
+ */
+export function fanSlotsUnderParent(
+  parent: WorldPoint,
+  options?: {
+    radius?: number;
+    halfAngle?: number;
+    slots?: number;
+    rings?: number;
+  },
+): WorldPoint[] {
+  const radius0 = options?.radius ?? PARENT_CHILD_RADIUS;
+  const halfAngle = options?.halfAngle ?? PARENT_FAN_HALF_ANGLE;
+  const slots = Math.max(3, options?.slots ?? PARENT_FAN_SLOTS);
+  const rings = Math.max(1, options?.rings ?? PARENT_FAN_RINGS);
+
+  type Cand = { x: number; y: number; absT: number; ring: number };
+  const raw: Cand[] = [];
+  for (let ring = 0; ring < rings; ring++) {
+    const radius = radius0 + ring * (radius0 * 0.55);
+    for (let i = 0; i < slots; i++) {
+      const t = slots === 1 ? 0 : (i / (slots - 1)) * 2 - 1; // -1..1 left→right
+      const spread = t * halfAngle;
+      // +y is down: cos(spread) keeps primary offset downward.
+      raw.push({
+        x: parent.x + Math.sin(spread) * radius,
+        y: parent.y + Math.cos(spread) * radius,
+        absT: Math.abs(t),
+        ring,
+      });
+    }
+  }
+  // Prefer straight-below (absT≈0), then inner rings, then outer fan.
+  raw.sort((a, b) => a.ring - b.ring || a.absT - b.absT);
+  return raw.map(({ x, y }) => ({ x, y }));
+}
+
+/**
+ * First free fan slot under parent, or null if all fan candidates blocked.
+ */
+export function findFreeFanSlot(
+  parent: WorldPoint,
+  occupied: WorldPoint[],
+  minSeparation: number,
+): WorldPoint | null {
+  const candidates = fanSlotsUnderParent(parent, {
+    radius: Math.max(PARENT_CHILD_RADIUS, minSeparation * 1.15),
+  });
+  for (const c of candidates) {
+    if (isClear(c, occupied, minSeparation)) return c;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -182,14 +248,13 @@ function findFreeSlot(
 
 /**
  * Child hierarchy depth given parent rank.
- * Same as recomputeRankFromParent — preferred name for call sites.
  */
 export function rankAfterParent(parentRank: number): number {
   const base = Number.isFinite(parentRank) ? Math.floor(parentRank) : 0;
   return Math.max(0, base) + 1;
 }
 
-/** Alias: child rank = parent.rank + 1 (roots stay 0 via place without parent). */
+/** Alias: child rank = parent.rank + 1. */
 export function recomputeRankFromParent(parentRank: number): number {
   return rankAfterParent(parentRank);
 }
@@ -197,7 +262,6 @@ export function recomputeRankFromParent(parentRank: number): number {
 /**
  * Whether layout should be written on upsert.
  * true only if create OR existing row is missing finite x/y.
- * Content-only updates with layout must preserve coordinates — never re-place.
  */
 export function shouldPlaceOnUpsert(args: {
   isCreate: boolean;
@@ -208,8 +272,7 @@ export function shouldPlaceOnUpsert(args: {
 }
 
 /**
- * @deprecated Prefer shouldPlaceOnUpsert — same rule for create vs content update.
- * true when create or missing x/y on existing.
+ * @deprecated Prefer shouldPlaceOnUpsert.
  */
 export function shouldReplaceLayout(
   existing: LayoutCoords | null,
@@ -259,7 +322,7 @@ export function placeAsRoot(
   return placeMemoryNode({ ...input, parent: null });
 }
 
-/** PART_OF child: seed below parent, rank parent+1. */
+/** PART_OF child: fan under parent, rank parent+1. */
 export function placeAsChild(
   input: PlaceMemoryInput & { parent: ParentAnchor },
 ): PlaceMemoryResult {
@@ -268,7 +331,6 @@ export function placeAsChild(
 
 /**
  * RELATES_TO placement when source has no layout yet.
- * Seeds near related centroid (or cluster / origin); rank stays 0 unless parent given.
  */
 export function placeForRelates(
   input: Omit<PlaceMemoryInput, "parent"> & {
@@ -297,23 +359,32 @@ export function placeMemoryNode(input: PlaceMemoryInput): PlaceMemoryResult {
   const related = (input.related ?? []).filter(isFinitePoint);
 
   let rank = 0;
-  let seed: WorldPoint;
+  let point: WorldPoint;
 
   if (parent != null) {
     rank = rankAfterParent(parent.rank);
-    // Prefer below parent; slight x bias from related centroid if any
-    const relatedBias = centroid(related);
-    seed = {
-      x: relatedBias != null ? (parent.x + relatedBias.x) / 2 : parent.x,
-      y: parent.y + PARENT_CHILD_DY,
-    };
+
+    // 1) Prefer gentle fan under parent (siblings spread, not one seed pile).
+    const fanHit = findFreeFanSlot(parent, occupied, minSeparation);
+    if (fanHit != null) {
+      point = fanHit;
+    } else {
+      // 2) Spiral from straight-below seed if fan is saturated.
+      const relatedBias = centroid(related);
+      const seed = {
+        x: relatedBias != null ? (parent.x + relatedBias.x) / 2 : parent.x,
+        y: parent.y + PARENT_CHILD_RADIUS,
+      };
+      point = findFreeSlot(seed, occupied, minSeparation);
+    }
   } else {
     const relatedCenter = centroid(related);
     const clusterCenter = centroid(occupied);
+    let seed: WorldPoint;
     if (relatedCenter != null) {
       seed = {
         x: relatedCenter.x,
-        y: relatedCenter.y + PARENT_CHILD_DY * 0.5,
+        y: relatedCenter.y + PARENT_CHILD_RADIUS * 0.5,
       };
     } else if (clusterCenter != null) {
       seed = {
@@ -324,8 +395,8 @@ export function placeMemoryNode(input: PlaceMemoryInput): PlaceMemoryResult {
       seed = { x: 0, y: 0 };
     }
     rank = 0;
+    point = findFreeSlot(seed, occupied, minSeparation);
   }
 
-  const { x, y } = findFreeSlot(seed, occupied, minSeparation);
-  return { x, y, rank };
+  return { x: point.x, y: point.y, rank };
 }
