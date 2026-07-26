@@ -8,7 +8,7 @@
  * 4. Pixi renderer + DotStream batch
  * 5. Style tokens + signal wave
  *
- * Live Falkor → GraphData adapter is not here yet (server + layout positions).
+ * Live Falkor fetch is later; pure Memory→GraphData mapper is exported below.
  */
 
 // --- Domain DTO -----------------------------------------------------------
@@ -31,9 +31,10 @@ export {
   type LargeStressFixtureOptions,
 } from "@/lib/graph/fixtures/mock-graph";
 
+// --- Memory / Links → GraphData (pure; no Falkor) -------------------------
+export { memoryGraphToGraphData } from "@/lib/graph/from-memory-graph";
+
 // --- Diff / dirty for partial bake ----------------------------------------
-// Note: `from-memory-graph.ts` is comment-only contract for Falkor→GraphData
-// until the adapter is implemented (no exports yet).
 export {
   diffGraphDirty,
   expandDirtyEdgesForHubs,

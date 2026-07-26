@@ -82,17 +82,17 @@
  *   Memory nodes:
  *     id, name, content, impression, confidence,
  *     searchEmbedding, contentEmbedding
+ *     optional graph layout: x, y, rank (stable canvas placement)
  *
  *   Links (relationship type on the edge):
  *     source Memory.id → target Memory.id
  *     type ∈ { PART_OF, RELATES_TO }
  *     createLink already MERGEs (source)-[r:TYPE]->(target)
  *
- * Today Falkor does **not** provide (adapter or layout must supply):
- *   - x, y layout coordinates
- *   - rank
+ * Still not on Memory (adapter / renderer only):
  *   - precomputed incidence / rimOccupations
  *   - canvas edge string ids (unless you invent them in Cypher RETURN)
+ * If x/y/rank missing on a row, adapter or layout must supply them once.
  *
  * Server-side fetch (future `src/lib/falkor-graph.ts` or extensions of falkor.ts)
  * should return something equivalent to:

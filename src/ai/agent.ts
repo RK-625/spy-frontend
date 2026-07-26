@@ -25,15 +25,20 @@ export async function runAgent({
   const modelMessages = await convertToModelMessages(messages, {
     ignoreIncompleteToolCalls: true,
   });
+  // Only webSearch is optional; memory weave + askUserQuestion stay always on.
   const { webSearch, ...toolsWithoutSearch } = toolSet;
+  const tools = useWebSearch
+    ? toolSet
+    : toolsWithoutSearch;
   const { model: resolvedModel, providerOptions: resolvedProviderOptions } =
     modelConfig({ model, mode });
   const result = streamText({
     model: resolvedModel,
     system: systemPrompt,
     messages: modelMessages,
-    tools: useWebSearch ? toolSet : toolsWithoutSearch,
-    stopWhen: useWebSearch ? stepCountIs(25) : stepCountIs(5),
+    tools,
+    // Non-web: room for upsertMemory + linkMemories (+ ask) without truncating.
+    stopWhen: useWebSearch ? stepCountIs(25) : stepCountIs(8),
     providerOptions: resolvedProviderOptions,
   });
   return result;

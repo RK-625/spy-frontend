@@ -24,6 +24,27 @@ export const Memory = z.object({
     .describe(
       "The confidence score of the memory of how well the user understands and grasps the content",
     ),
+  /**
+   * Graph canvas layout (world space). Optional on write — filled by layout
+   * or authoring so /graph can place nodes without re-running layout every load.
+   * Not used for search; do not put incidence/rim/edge ids on Memory.
+   */
+  x: z
+    .number()
+    .optional()
+    .describe("World X for the knowledge-graph canvas (stable layout)"),
+  y: z
+    .number()
+    .optional()
+    .describe("World Y for the knowledge-graph canvas (stable layout)"),
+  rank: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe(
+      "Hierarchy depth for PART_OF: 0 = root (no parent); child = parent.rank + 1",
+    ),
 });
 export const Concept = z.object({
   id: z.string().describe("A unique identifier to the node"),
