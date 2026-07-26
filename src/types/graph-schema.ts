@@ -25,27 +25,35 @@ export const Memory = z.object({
       "The confidence score of the memory of how well the user understands and grasps the content",
     ),
   /**
-   * Graph canvas layout (world space). Optional on write — filled by layout
-   * or authoring so /graph can place nodes without re-running layout every load.
+   * Server-owned canvas layout storage (world space). Written by placement /
+   * toolset after create or PART_OF link — not model-authored tool input.
+   * Optional on schema so reads/writes without layout stay valid.
    * Not used for search; do not put incidence/rim/edge ids on Memory.
    */
   x: z
     .number()
     .optional()
-    .describe("World X for the knowledge-graph canvas (stable layout)"),
+    .describe(
+      "Server-owned world X on the knowledge-graph canvas (system placement only; never LLM tool input)",
+    ),
   y: z
     .number()
     .optional()
-    .describe("World Y for the knowledge-graph canvas (stable layout)"),
+    .describe(
+      "Server-owned world Y on the knowledge-graph canvas (system placement only; never LLM tool input)",
+    ),
   rank: z
     .number()
     .int()
     .min(0)
     .optional()
     .describe(
-      "Hierarchy depth for PART_OF: 0 = root (no parent); child = parent.rank + 1",
+      "Server-owned hierarchy depth from PART_OF: 0 = root; child = parent.rank + 1 (system-derived, not model-authored)",
     ),
 });
+/** Inferred product Memory row (value `Memory` is the Zod schema). */
+export type Memory = z.infer<typeof Memory>;
+
 export const Concept = z.object({
   id: z.string().describe("A unique identifier to the node"),
   name: z.string().describe("The main title of the node"),
@@ -63,6 +71,8 @@ export const Concept = z.object({
       "The confidence score of the memory of how well the user understands and grasps the content",
     ),
 });
+export type Concept = z.infer<typeof Concept>;
+
 export const Links = z.object({
   source: z.string().describe("The ID of the source node"),
   target: z.string().describe("The ID of the target node"),
@@ -70,3 +80,5 @@ export const Links = z.object({
     .enum(["PART_OF", "RELATES_TO"])
     .describe("The kind of the relation-ship between 2 nodes"),
 });
+/** Inferred product link row (value `Links` is the Zod schema). */
+export type Links = z.infer<typeof Links>;
