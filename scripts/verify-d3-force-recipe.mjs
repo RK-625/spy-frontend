@@ -1,5 +1,5 @@
 /**
- * verify-d3-force-recipe.mjs — Slice 0: pure d3 force recipe on mock graph.
+ * verify-d3-force-recipe.mjs — Slice 0 + Slice 2 cold-start.
  *
  * Run: npm run verify:d3-force-recipe
  *   → npx tsx scripts/verify-d3-force-recipe.mjs
@@ -8,6 +8,11 @@
  *   - all positions finite; ranks identical to input
  *   - mean PART_OF length < mean RELATES_TO length (soft tolerance)
  *   - static product path (layout-loop) does not import d3-force
+ *
+ * Exit criteria (S2 cold-start):
+ *   - missing-xy memories → needsLayout true
+ *   - settleIfNeeded → finite positions, not all near origin
+ *   - ranks unchanged
  */
 
 import fs from "node:fs";
@@ -42,6 +47,32 @@ function meanLength(edges, byId) {
   return sum / edges.length;
 }
 
+function maxPairwiseDistance(nodes) {
+  let max = 0;
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[i].x - nodes[j].x;
+      const dy = nodes[i].y - nodes[j].y;
+      const d = Math.hypot(dx, dy);
+      if (d > max) max = d;
+    }
+  }
+  return max;
+}
+
+function stubMemory(partial) {
+  return {
+    id: partial.id,
+    name: partial.name ?? partial.id,
+    content: "",
+    impression: "",
+    searchEmbedding: [],
+    contentEmbedding: [],
+    confidence: 1,
+    ...partial,
+  };
+}
+
 async function main() {
   const fixtureUrl = pathToFileURL(
     path.join(root, "src/lib/graph/fixtures/mock-graph.ts")
@@ -49,9 +80,23 @@ async function main() {
   const recipeUrl = pathToFileURL(
     path.join(root, "src/lib/graph/force-recipe.ts")
   ).href;
+  const adapterUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/from-memory-graph.ts")
+  ).href;
 
   const { createMockGraphData } = await import(fixtureUrl);
-  const { settleGraphData, buildForceSimulation } = await import(recipeUrl);
+  const {
+    settleGraphData,
+    buildForceSimulation,
+    settleIfNeeded,
+    graphNeedsLayout,
+    ORIGIN_EPSILON,
+  } = await import(recipeUrl);
+  const {
+    hasFiniteLayoutXY,
+    memoriesNeedLayout,
+    memoryGraphToGraphDataWithMeta,
+  } = await import(adapterUrl);
 
   assert(
     typeof settleGraphData === "function",
@@ -61,6 +106,8 @@ async function main() {
     typeof buildForceSimulation === "function",
     "buildForceSimulation exported"
   );
+  assert(typeof settleIfNeeded === "function", "settleIfNeeded exported");
+  assert(typeof graphNeedsLayout === "function", "graphNeedsLayout exported");
 
   const input = createMockGraphData();
   assert(input.nodes.length >= 2, `mock has ≥2 nodes (got ${input.nodes.length})`);
@@ -141,6 +188,95 @@ async function main() {
   console.log(
     `  lengths: PART_OF mean=${meanPo.toFixed(2)} RELATES_TO mean=${meanRt.toFixed(2)}`
   );
+
+  // --- Slice 2: cold-start missing xy ------------------------------------
+  console.log("\n--- Slice 2 cold-start ---");
+
+  assert(
+    !hasFiniteLayoutXY(undefined, undefined),
+    "hasFiniteLayoutXY(undefined, undefined) is false"
+  );
+  assert(
+    !hasFiniteLayoutXY(NaN, 0),
+    "hasFiniteLayoutXY(NaN, 0) is false"
+  );
+  assert(
+    hasFiniteLayoutXY(1, 2),
+    "hasFiniteLayoutXY(1, 2) is true"
+  );
+
+  const coldMemories = [
+    stubMemory({ id: "root", name: "Root", rank: 0 }),
+    stubMemory({ id: "child-a", name: "Child A", rank: 1 }),
+    stubMemory({ id: "child-b", name: "Child B", rank: 1 }),
+    stubMemory({ id: "leaf", name: "Leaf", rank: 2 }),
+    stubMemory({ id: "side", name: "Side", rank: 0 }),
+  ];
+  const coldLinks = [
+    { source: "child-a", target: "root", type: "PART_OF" },
+    { source: "child-b", target: "root", type: "PART_OF" },
+    { source: "leaf", target: "child-a", type: "PART_OF" },
+    { source: "side", target: "root", type: "RELATES_TO" },
+    { source: "child-a", target: "child-b", type: "RELATES_TO" },
+  ];
+
+  assert(
+    memoriesNeedLayout(coldMemories),
+    "memoriesNeedLayout true when all x/y missing"
+  );
+
+  const { graph: coldGraph, needsLayout } = memoryGraphToGraphDataWithMeta({
+    memories: coldMemories,
+    links: coldLinks,
+  });
+
+  assert(needsLayout === true, "memoryGraphToGraphDataWithMeta needsLayout true");
+  assert(coldGraph.nodes.length === 5, "cold graph has 5 nodes");
+  assert(coldGraph.edges.length === 5, "cold graph has 5 edges");
+  assert(
+    coldGraph.nodes.every((n) => n.x === 0 && n.y === 0),
+    "adapter seeds missing xy to 0"
+  );
+  assert(
+    graphNeedsLayout(coldGraph),
+    "graphNeedsLayout detects all-at-origin collapse"
+  );
+
+  const coldRanks = new Map(coldGraph.nodes.map((n) => [n.id, n.rank]));
+  const coldSettled = settleIfNeeded(coldGraph, {
+    needsLayout: true,
+    ticks: 400,
+  });
+
+  for (const n of coldSettled.nodes) {
+    assert(
+      Number.isFinite(n.x) && Number.isFinite(n.y),
+      `cold-start finite ${n.id} (x=${n.x}, y=${n.y})`
+    );
+    assert(
+      coldRanks.get(n.id) === n.rank,
+      `cold-start rank unchanged for ${n.id}`
+    );
+  }
+
+  const allNearOrigin = coldSettled.nodes.every(
+    (n) => Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON
+  );
+  assert(
+    !allNearOrigin,
+    "cold-start settle: nodes not all within ORIGIN_EPSILON of origin"
+  );
+
+  const spread = maxPairwiseDistance(coldSettled.nodes);
+  assert(
+    spread > 1,
+    `cold-start max pairwise distance > 1 (got ${spread.toFixed(4)})`
+  );
+  console.log(`  cold-start spread (max pairwise)=${spread.toFixed(2)}`);
+
+  // settleIfNeeded no-op when needsLayout false and graph already placed.
+  const noop = settleIfNeeded(settled, { needsLayout: false });
+  assert(noop === settled, "settleIfNeeded returns same ref when needsLayout false");
 
   // Static product path must not pull d3-force (Slice 0: no wire yet).
   const layoutLoopSrc = fs.readFileSync(
