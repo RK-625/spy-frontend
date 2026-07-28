@@ -16,7 +16,7 @@
 | Visual size | `nodeScreenRadius(rank, zoom)` in `graph-scale.ts` only |
 | Layout spacing | Force recipe may **read** rank for collide / link distance |
 | Continuous ambient | Off by default (not placement) |
-| Default `/graph` | Static / current mock path until opt-in flag or post-flip slice |
+| Default `/graph` | Static / current mock path until opt-in flag or post-flip slice. **Flipping default to live is a separate product decision (deferred).** |
 | FA2 | Do not build parallel product engine; leave dead path until a dedicated delete slice |
 | Quality bans | Unchanged |
 
@@ -269,6 +269,14 @@ Client never writes layout (`setMemoryLayout` stays server/toolset only).
 - [x] `rg placeAs|placeMemoryNode|placeForRelates` clean on product paths  
 - [x] Verify scripts for rank still green  
 
+**S6 notes (implemented):**
+
+- Product `memory-placement.ts` keeps **rank/policy only** (`rankAfterParent`, `shouldPlaceOnUpsert`, `shouldPlaceOnLink`, `PARENT_CHILD_RADIUS`).
+- Fan/spiral place* + geometry helpers moved to `src/deprecated/memory-placement-geometry.ts` (not imported by product).
+- Incremental settle: `settleAndPersistMemoryLayouts({ focusIds, rankOverrides })` expands 1-hop neighborhood, pins outsiders (`fx`/`fy`), persists dirty set only (`memory-layout-settle.ts`).
+- S5 smoke: `npm run verify:weave-layout`.
+- Flipping default `/graph` to `?source=live` is a **separate product decision** (audit item 4 deferred; mock remains default).
+
 ---
 
 ## Slice 7 — Remove FA2 dead path (cleanup)
@@ -337,7 +345,7 @@ After PR3, stop and lock **P-A vs P-B** before S5.
 | S1 | `verify:d3-layout` + manual `/graph` vs `/graph?layout=d3` |
 | S2 | missing-xy case in recipe or layout verify |
 | S3 | manual / API smoke + empty DB |
-| S5 | weave integration smoke (create + PART_OF) |
+| S5 | `verify:weave-layout` (pure settle + rank; Falkor optional skip) |
 | Existing | `verify:mock-layout`, `verify:hierarchy`, `verify:node-size` stay green every PR |
 
 ---

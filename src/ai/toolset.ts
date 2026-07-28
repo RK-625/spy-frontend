@@ -103,7 +103,7 @@ const upsertMemory: Tool = tool({
       });
 
       if (needsSettle) {
-        await settleAndPersistMemoryLayouts();
+        await settleAndPersistMemoryLayouts({ focusIds: [id] });
       }
 
       return { id, name: input.name };
@@ -125,20 +125,21 @@ const linkMemories: Tool = tool({
       await falkorCreateLink({ source, target, type });
 
       // Topology/rank via shared settle (force-recipe) + P-A setMemoryLayout.
-      // No fan/spiral placeAs* — durable geometry is settled coords only.
+      // Fan/spiral place* removed (S6); durable geometry is settled coords only.
       if (type === "PART_OF") {
         const parent = await getMemoryLayout(target);
         const sourceLayout = await getMemoryLayout(source);
         if (shouldPlaceOnLink({ type: "PART_OF", sourceLayout })) {
           const childRank = rankAfterParent(parent?.rank ?? 0);
           await settleAndPersistMemoryLayouts({
+            focusIds: [source],
             rankOverrides: { [source]: childRank },
           });
         }
       } else if (type === "RELATES_TO") {
         const sourceLayout = await getMemoryLayout(source);
         if (shouldPlaceOnLink({ type: "RELATES_TO", sourceLayout })) {
-          await settleAndPersistMemoryLayouts();
+          await settleAndPersistMemoryLayouts({ focusIds: [source] });
         }
       }
 

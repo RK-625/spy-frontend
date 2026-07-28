@@ -382,7 +382,7 @@ export async function listGraphTopology(): Promise<GraphTopology> {
 
 /**
  * Force-write canvas layout (does not coalesce).
- * Used after shared d3 settle (P-A persist) — not fan/spiral place*.
+ * Used after shared d3 settle (P-A persist). Fan/spiral place* removed (S6).
  */
 export async function setMemoryLayout(input: {
   id: string;
