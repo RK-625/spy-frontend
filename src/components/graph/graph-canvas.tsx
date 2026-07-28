@@ -49,8 +49,8 @@ function formatHudNumber(n: number): string {
 /**
  * Resolve initial fixture from query:
  * - `?stress=1` → large stress fixture (wins)
- * - default / `?source=mock` → mock
- * Live Falkor feed is async via `?source=live` after mount (Slice 3).
+ * - `?source=mock` / default paint seed → mock (default may swap to live after fetch)
+ * Explicit live starts empty until fetch (see GraphCanvas effect).
  */
 function initialGraphFromSearch(search: string): GraphData {
   const params = new URLSearchParams(search);
@@ -69,14 +69,14 @@ function initialGraphFromSearch(search: string): GraphData {
  * Full-viewport graph host: RTC camera + layout + Pixi DotStream edges.
  * Header chrome: ambient signal-pulse toggle (product weave metaphor).
  *
- * Data source (Slice 3):
- * - Default `/graph` and `?source=mock` → mock fixture (product default).
- * - `?stress=1` → stress fixture.
- * - `?source=live` → GET `/api/graph` (Falkor read-only). Empty DB → empty
- *   canvas. Fetch/DB error → fall back to mock so the page is not blank.
+ * Data source (Slice 3 + product default live):
+ * - Default `/graph` → GET `/api/graph` first; non-empty → live; empty or
+ *   fetch/DB error → keep mock (offline / empty DB still works).
+ * - `?source=mock` → mock only (no live fetch).
+ * - `?stress=1` → stress fixture (wins over live).
+ * - `?source=live` → GET `/api/graph`; empty DB → empty canvas; fetch/DB
+ *   error → fall back to mock so the page is not blank.
  * - Client never calls setMemoryLayout; placement writes stay server-side (P-A).
- * - Rollback: omit `source=live` (feed off; mock only).
- * - Flipping default `/graph` to live is a separate product decision (deferred).
  *
  * Layout (Slice 1 + S4):
  * - Default → static positions (no settle). Product `/graph` unchanged.
@@ -208,7 +208,8 @@ export function GraphCanvas() {
 
     /**
      * Optional stress fixture via `?stress=1` (or hub/spoke counts).
-     * Default remains createMockGraphData. Live feed: `?source=live` (async).
+     * Default `/graph` attempts live KB then falls back to mock.
+     * Overrides: `?source=mock`, `?source=live`, `?stress=1` (wins).
      * One-shot settle: `?layout=d3` (S1/S4; dynamic import, default stays static).
      * Ambient motion: `?motion=1` (S8; implies d3 path; default off).
      */
@@ -216,14 +217,19 @@ export function GraphCanvas() {
       typeof window !== "undefined" ? window.location.search : "";
     const params = new URLSearchParams(search);
     const sourceParam = params.get("source");
-    const wantLive = sourceParam === "live" && !params.has("stress");
+    const forceLive = sourceParam === "live";
+    const forceMock = sourceParam === "mock";
+    // Default + explicit live attempt Falkor; mock/stress skip fetch.
+    const wantLive =
+      !params.has("stress") && !forceMock && (forceLive || sourceParam == null);
     const wantLayoutD3 = params.get("layout") === "d3";
     const wantMotion = params.get("motion") === "1";
     // motion=1 loads d3 settle path (ambient ticks after settle); layout=d3 alone is one-shot.
     const layoutEngine: LayoutEngine =
       wantLayoutD3 || wantMotion ? "d3-settle" : "static";
-    // Live starts empty until fetch resolves (avoid mock flash). Errors fall back to mock.
-    const initialGraph = wantLive
+    // Explicit live starts empty (no mock flash). Default seeds mock until
+    // fetch proves a non-empty KB (empty/error keep mock).
+    const initialGraph = forceLive
       ? { nodes: [], edges: [] }
       : initialGraphFromSearch(search);
 
@@ -287,7 +293,8 @@ export function GraphCanvas() {
       layoutLoop.start();
       queueHudUpdate();
 
-      // Slice 3+4 — opt-in live topology (read-only). Settle:
+      // Live topology (read-only). Default attempts live; empty/error → mock.
+      // Explicit ?source=live + empty DB → empty canvas. Settle:
       // - layout=d3 / motion=1 → engine settles on setGraphData
       // - needsLayout (missing xy) → session settle even on static engine (dynamic import)
       // Client never persists (P-A writes stay server/toolset).
@@ -300,7 +307,7 @@ export function GraphCanvas() {
 
         if (data.ok && Array.isArray(data.memories)) {
           if (data.memories.length === 0) {
-            // Empty DB: empty canvas (already showing empty).
+            // Explicit live → empty canvas (already empty). Default → keep mock seed.
             return;
           }
           const { graph, needsLayout } = memoryGraphToGraphDataWithMeta({
@@ -329,6 +336,7 @@ export function GraphCanvas() {
         }
 
         // Non-ok payload — fall back to mock so the page is not blank.
+        // Default already showing mock; explicit live may still be empty.
         console.warn(
           "[graph] live feed unavailable, using mock:",
           data.error ?? res.status,

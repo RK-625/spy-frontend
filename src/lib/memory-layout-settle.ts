@@ -11,12 +11,16 @@
  *
  * Incremental policy (scale):
  * Pass `focusIds` for the weave event (new node, PART_OF child, RELATES source).
- * We expand to a 1-hop neighborhood (incident edges + incidence lists), pin
- * every other node with d3 `fx`/`fy`, run the shared recipe on the full graph,
- * and `setMemoryLayout` only for the movable / rank-override dirty set.
- * Empty focus → full free settle + persist all nodes (cold / bulk). If the
- * movable set is empty or covers most of the graph (≥50%), fall back to a
- * full free settle and persist every node (so free motion stays durable).
+ * We expand to a 1-hop neighborhood (incident edges + incidence lists) as the
+ * **movable** set. Empty focus (and no rank overrides) → full free settle +
+ * persist all nodes (cold / bulk).
+ *
+ * When focus is non-empty: **always** keep outsiders fixed — never free-settle
+ * the whole graph just because the movable fraction is large (avoids hub
+ * blow-up). Sim cost: settle a **subgraph** of movable nodes + a thin 1-hop
+ * **anchor** ring (neighbors outside movable, pinned via `fx`/`fy`), then merge
+ * only movable positions back onto the full GraphData. Persist dirty =
+ * movable (+ rank overrides) only; anchors and distant cousins stay unchanged.
  * Ranks never come from force — apply `rankOverrides` before settle.
  */
 
@@ -29,9 +33,6 @@ import {
   type SettleGraphOptions,
 } from "@/lib/graph/force-recipe";
 import type { GraphData } from "@/lib/graph/graph-data";
-
-/** When movable fraction ≥ this, skip pinning (full free settle). */
-const FULL_SETTLE_MOVABLE_RATIO = 0.5;
 
 export type SettleAndPersistOptions = {
   /**
@@ -52,7 +53,7 @@ export type IncrementalSettleResult = {
   graph: GraphData;
   /** Node ids that may be written (movable + rank overrides). */
   dirtyIds: ReadonlySet<string>;
-  /** True when non-dirty nodes were pinned during settle. */
+  /** True when non-dirty nodes were pinned / held as anchors during settle. */
   pinned: boolean;
 };
 
@@ -75,6 +76,19 @@ function rankOverrideIds(
   if (overrides == null) return [];
   if (overrides instanceof Map) return [...overrides.keys()];
   return Object.keys(overrides);
+}
+
+function cloneGraphDataLocal(graph: GraphData): GraphData {
+  return {
+    nodes: graph.nodes.map((n) => ({
+      ...n,
+      childIds: [...n.childIds],
+      parentIds: [...n.parentIds],
+      relateIds: [...n.relateIds],
+      rimOccupations: n.rimOccupations.map((r) => ({ ...r })),
+    })),
+    edges: graph.edges.map((e) => ({ ...e })),
+  };
 }
 
 /**
@@ -112,6 +126,68 @@ export function expandFocusNeighborhood(
   return movable;
 }
 
+/**
+ * Neighbors of movable that lie outside the movable set (boundary anchors).
+ */
+export function expandAnchorRing(
+  graph: GraphData,
+  movable: ReadonlySet<string>,
+): Set<string> {
+  const anchors = new Set<string>();
+  if (movable.size === 0) return anchors;
+
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+
+  for (const e of graph.edges) {
+    if (movable.has(e.source) && !movable.has(e.target)) anchors.add(e.target);
+    if (movable.has(e.target) && !movable.has(e.source)) anchors.add(e.source);
+  }
+
+  for (const id of movable) {
+    const n = byId.get(id);
+    if (n == null) continue;
+    for (const nbr of n.childIds) {
+      if (!movable.has(nbr)) anchors.add(nbr);
+    }
+    for (const nbr of n.parentIds) {
+      if (!movable.has(nbr)) anchors.add(nbr);
+    }
+    for (const nbr of n.relateIds) {
+      if (!movable.has(nbr)) anchors.add(nbr);
+    }
+  }
+
+  // Drop ids absent from the graph.
+  for (const id of [...anchors]) {
+    if (!byId.has(id)) anchors.delete(id);
+  }
+
+  return anchors;
+}
+
+/** Movable + anchor nodes and edges with both endpoints in that set. */
+export function buildSettleSubgraph(
+  graph: GraphData,
+  movable: ReadonlySet<string>,
+  anchors: ReadonlySet<string>,
+): GraphData {
+  const keep = new Set<string>([...movable, ...anchors]);
+  return {
+    nodes: graph.nodes
+      .filter((n) => keep.has(n.id))
+      .map((n) => ({
+        ...n,
+        childIds: [...n.childIds],
+        parentIds: [...n.parentIds],
+        relateIds: [...n.relateIds],
+        rimOccupations: n.rimOccupations.map((r) => ({ ...r })),
+      })),
+    edges: graph.edges
+      .filter((e) => keep.has(e.source) && keep.has(e.target))
+      .map((e) => ({ ...e })),
+  };
+}
+
 function applyRankOverrides(
   graph: GraphData,
   overrides: SettleAndPersistOptions["rankOverrides"],
@@ -126,7 +202,7 @@ function applyRankOverrides(
 }
 
 /**
- * Pure incremental settle: apply rank overrides → pin non-dirty → settle.
+ * Pure incremental settle: apply rank overrides → subgraph settle → merge.
  * Does not touch Falkor. Used by persist path and verify smoke.
  */
 export function settleMemoryGraphIncremental(
@@ -134,77 +210,82 @@ export function settleMemoryGraphIncremental(
   options?: SettleAndPersistOptions,
 ): IncrementalSettleResult {
   const focusIds = options?.focusIds ?? [];
-  const hasFocus = focusIds.length > 0 || rankOverrideIds(options?.rankOverrides).length > 0;
+  const hasFocus =
+    focusIds.length > 0 || rankOverrideIds(options?.rankOverrides).length > 0;
 
-  // Clone via settleGraphData's clone; apply ranks on a working copy first.
-  const working: GraphData = {
-    nodes: graph.nodes.map((n) => ({
-      ...n,
-      childIds: [...n.childIds],
-      parentIds: [...n.parentIds],
-      relateIds: [...n.relateIds],
-      rimOccupations: n.rimOccupations.map((r) => ({ ...r })),
-    })),
-    edges: graph.edges.map((e) => ({ ...e })),
-  };
+  const working = cloneGraphDataLocal(graph);
   applyRankOverrides(working, options?.rankOverrides);
 
-  let dirtyIds: Set<string>;
-  let pinnedNodeIds: string[] | undefined;
-  let pinned = false;
-
+  // Empty focus → full free settle + persist all (cold / bulk).
   if (!hasFocus) {
-    dirtyIds = new Set(working.nodes.map((n) => n.id));
-  } else {
-    dirtyIds = expandFocusNeighborhood(
-      working,
-      focusIds,
-      options?.rankOverrides,
-    );
-    // Ensure every override id is dirty even if absent from topology briefly.
-    for (const id of rankOverrideIds(options?.rankOverrides)) {
-      dirtyIds.add(id);
+    const dirtyIds = new Set(working.nodes.map((n) => n.id));
+    if (
+      working.nodes.some(
+        (n) =>
+          Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON,
+      )
+    ) {
+      applyColdStartJitter(working.nodes);
     }
-
-    const n = working.nodes.length;
-    const movableCount = [...dirtyIds].filter((id) =>
-      working.nodes.some((node) => node.id === id),
-    ).length;
-    const usePin =
-      movableCount > 0 &&
-      n > 0 &&
-      movableCount / n < FULL_SETTLE_MOVABLE_RATIO;
-
-    if (usePin) {
-      pinnedNodeIds = working.nodes
-        .map((node) => node.id)
-        .filter((id) => !dirtyIds.has(id));
-      pinned = pinnedNodeIds.length > 0;
-    } else {
-      // No useful pin set (empty / huge neighborhood): free settle whole graph
-      // and persist every node so free motion stays durable.
-      dirtyIds = new Set(working.nodes.map((node) => node.id));
-    }
+    const settled = settleGraphData(working, { ...options?.settle });
+    return { graph: settled, dirtyIds, pinned: false };
   }
 
-  // New weave nodes often seed at (0,0) on top of a parent — jitter dirty
-  // nodes only so link/collide can separate without moving pinned seeds.
-  const dirtyNodeRefs = working.nodes.filter((n) => dirtyIds.has(n.id));
+  const dirtyIds = expandFocusNeighborhood(
+    working,
+    focusIds,
+    options?.rankOverrides,
+  );
+  for (const id of rankOverrideIds(options?.rankOverrides)) {
+    dirtyIds.add(id);
+  }
+
+  // Restrict to ids present on the working graph.
+  const movable = new Set(
+    [...dirtyIds].filter((id) => working.nodes.some((n) => n.id === id)),
+  );
+  dirtyIds.clear();
+  for (const id of movable) dirtyIds.add(id);
+
+  if (movable.size === 0) {
+    return { graph: working, dirtyIds, pinned: false };
+  }
+
+  // Always pin outsiders when focus is present (no movable-ratio free settle).
+  const anchors = expandAnchorRing(working, movable);
+  const subgraph = buildSettleSubgraph(working, movable, anchors);
+
+  // Cold-start jitter only on movable nodes that need it.
+  const movableRefs = subgraph.nodes.filter((n) => movable.has(n.id));
   if (
-    dirtyNodeRefs.some(
+    movableRefs.some(
       (n) =>
         Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON,
     )
   ) {
-    applyColdStartJitter(dirtyNodeRefs);
+    applyColdStartJitter(movableRefs);
   }
 
-  const settled = settleGraphData(working, {
+  const pinnedNodeIds = [...anchors];
+  const settledSub = settleGraphData(subgraph, {
     ...options?.settle,
-    pinnedNodeIds,
+    pinnedNodeIds: pinnedNodeIds.length > 0 ? pinnedNodeIds : undefined,
   });
 
-  return { graph: settled, dirtyIds, pinned };
+  const settledById = new Map(settledSub.nodes.map((n) => [n.id, n]));
+  const out = cloneGraphDataLocal(working);
+  for (const node of out.nodes) {
+    if (!movable.has(node.id)) continue;
+    const s = settledById.get(node.id);
+    if (s == null) continue;
+    node.x = s.x;
+    node.y = s.y;
+  }
+
+  const pinned =
+    anchors.size > 0 || out.nodes.some((n) => !movable.has(n.id));
+
+  return { graph: out, dirtyIds, pinned };
 }
 
 /**

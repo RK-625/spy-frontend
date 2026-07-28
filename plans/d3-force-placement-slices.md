@@ -16,7 +16,7 @@
 | Visual size | `nodeScreenRadius(rank, zoom)` in `graph-scale.ts` only |
 | Layout spacing | Force recipe may **read** rank for collide / link distance |
 | Continuous ambient | Off by default (not placement) |
-| Default `/graph` | Static / current mock path until opt-in flag or post-flip slice. **Flipping default to live is a separate product decision (deferred).** |
+| Default `/graph` | Attempt live KB via `/api/graph`; non-empty → live; empty or error → mock. Overrides: `?source=mock`, `?source=live`, `?stress=1`. |
 | FA2 | Do not build parallel product engine; leave dead path until a dedicated delete slice |
 | Quality bans | Unchanged |
 
@@ -169,12 +169,12 @@ S0 force-recipe + verify
 - [x] Empty DB: graceful empty or mock fallback (product choice, document in PR)  
 - [x] No `setMemoryLayout` from client  
 
-**Fallback policy (locked for S3):**
+**Fallback policy (locked for S3 + product default live):**
 
 | Query | Behavior |
 |-------|----------|
-| `/graph` (default) | Mock fixture — product default unchanged |
-| `?source=mock` | Mock |
+| `/graph` (default) | GET `/api/graph`; **non-empty → live**; empty or fetch/DB error → **mock** |
+| `?source=mock` | Mock (no live fetch) |
 | `?stress=1` | Stress fixture (wins over live) |
 | `?source=live` | GET `/api/graph`; non-empty → render; **empty DB → empty canvas**; fetch/DB error → **keep mock** (page not blank) |
 
@@ -205,7 +205,7 @@ Client never writes layout (`setMemoryLayout` stays server/toolset only).
 
 - `?source=live&layout=d3` → `layoutEngine: "d3-settle"` settles on feed `setGraphData`.
 - Live + `needsLayout` (missing xy) → session `settleIfNeeded` even without `layout=d3` (dynamic import; no client persist).
-- Default `/graph` remains static mock. Client never calls `setMemoryLayout`.
+- Default `/graph` attempts live then falls back to mock. Client never calls `setMemoryLayout`.
 
 ---
 
@@ -273,9 +273,9 @@ Client never writes layout (`setMemoryLayout` stays server/toolset only).
 
 - Product `memory-placement.ts` keeps **rank/policy only** (`rankAfterParent`, `shouldPlaceOnUpsert`, `shouldPlaceOnLink`, `PARENT_CHILD_RADIUS`).
 - Fan/spiral place* + geometry helpers moved to `src/deprecated/memory-placement-geometry.ts` (not imported by product).
-- Incremental settle: `settleAndPersistMemoryLayouts({ focusIds, rankOverrides })` expands 1-hop neighborhood, pins outsiders (`fx`/`fy`), persists dirty set only (`memory-layout-settle.ts`).
+- Incremental settle: `settleAndPersistMemoryLayouts({ focusIds, rankOverrides })` expands 1-hop neighborhood, settles movable + anchor subgraph (`fx`/`fy` on anchors), persists dirty set only (`memory-layout-settle.ts`).
 - S5 smoke: `npm run verify:weave-layout`.
-- Flipping default `/graph` to `?source=live` is a **separate product decision** (audit item 4 deferred; mock remains default).
+- Product default `/graph` attempts live KB; empty/error → mock (`?source=mock` / `?source=live` / `?stress=1` overrides).
 
 ---
 
