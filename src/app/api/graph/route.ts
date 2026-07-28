@@ -9,7 +9,8 @@ import { listGraphTopology } from "@/lib/falkor";
  * - Never calls setMemoryLayout (client must not write layout via this route).
  * - Empty DB → `{ ok: true, empty: true, memories: [], links: [] }`.
  *
- * Canvas opt-in: `/graph?source=live` (default `/graph` stays mock).
+ * Canvas: default `/graph` attempts this feed (non-empty → live; empty/error →
+ * mock). Overrides: `?source=live` (empty stays empty), `?source=mock`.
  */
 export const runtime = "nodejs";
 

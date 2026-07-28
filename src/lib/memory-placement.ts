@@ -74,16 +74,6 @@ export function shouldPlaceOnUpsert(args: {
 }
 
 /**
- * @deprecated Prefer shouldPlaceOnUpsert.
- */
-export function shouldReplaceLayout(
-  existing: LayoutCoords | null,
-  isCreate: boolean,
-): boolean {
-  return shouldPlaceOnUpsert({ isCreate, existing });
-}
-
-/**
  * Whether linkMemories should settle layout for the **source** node.
  * - PART_OF: always (rank + settle).
  * - RELATES_TO: only if source is missing finite x/y.
