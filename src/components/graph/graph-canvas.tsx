@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
-  createLayoutLoop,
+  createLayoutLoopAsync,
   createPixiRenderer,
   createRtcCamera,
   createLargeStressGraphData,
   createMockGraphData,
   memoryGraphToGraphData,
   type GraphData,
+  type LayoutEngine,
   type LayoutRenderOptions,
   type PixiRendererHandle,
 } from "@/lib/graph";
@@ -75,6 +76,11 @@ function initialGraphFromSearch(search: string): GraphData {
  *   canvas. Fetch/DB error → fall back to mock so the page is not blank.
  * - Client never calls setMemoryLayout; placement writes stay server-side.
  * - Rollback: omit `source=live` (feed off; mock only).
+ *
+ * Layout engine (Slice 1):
+ * - Default → static positions (no settle).
+ * - `?layout=d3` → one-shot settle via createLayoutLoopAsync({ layoutEngine: "d3-settle" }).
+ * - Does not flip LAYOUT_SIMULATION_ENABLED; no continuous ambient motion.
  */
 export function GraphCanvas() {
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
@@ -198,12 +204,15 @@ export function GraphCanvas() {
     /**
      * Optional stress fixture via `?stress=1` (or hub/spoke counts).
      * Default remains createMockGraphData. Live feed: `?source=live` (async).
+     * One-shot settle: `?layout=d3` (Slice 1; dynamic import, default stays static).
      */
     const search =
       typeof window !== "undefined" ? window.location.search : "";
     const params = new URLSearchParams(search);
     const sourceParam = params.get("source");
     const wantLive = sourceParam === "live" && !params.has("stress");
+    const layoutEngine: LayoutEngine =
+      params.get("layout") === "d3" ? "d3-settle" : "static";
     // Live starts empty until fetch resolves (avoid mock flash). Errors fall back to mock.
     const initialGraph = wantLive
       ? { nodes: [], edges: [] }
@@ -211,59 +220,71 @@ export function GraphCanvas() {
 
     let prevGraphForDirty: GraphData | null = null;
 
-    const layoutLoop = createLayoutLoop({
-      graphData: initialGraph,
-      renderOnGraphData: (
-        graphData: GraphData,
-        renderOpts?: LayoutRenderOptions
-      ) => {
-        if (isCanvasDisposed) return;
+    const renderOnGraphData = (
+      graphData: GraphData,
+      renderOpts?: LayoutRenderOptions
+    ) => {
+      if (isCanvasDisposed) return;
 
-        // Prefer explicit dirty from layout/sim; else diff against previous snapshot.
-        if (renderOpts?.dirtyEdges !== undefined) {
+      // Prefer explicit dirty from layout/sim; else diff against previous snapshot.
+      if (renderOpts?.dirtyEdges !== undefined) {
+        renderer.setGraphData(graphData, {
+          dirtyEdges: renderOpts.dirtyEdges,
+          movedNodeIds: renderOpts.movedNodeIds,
+        });
+      } else {
+        const diff = diffGraphDirty(prevGraphForDirty, graphData);
+        if (diff.kind === "all") {
+          renderer.setGraphData(graphData);
+        } else if (diff.kind === "position") {
           renderer.setGraphData(graphData, {
-            dirtyEdges: renderOpts.dirtyEdges,
-            movedNodeIds: renderOpts.movedNodeIds,
+            dirtyEdges: diff.dirtyEdges,
+            movedNodeIds: diff.movedNodeIds,
           });
         } else {
-          const diff = diffGraphDirty(prevGraphForDirty, graphData);
-          if (diff.kind === "all") {
-            renderer.setGraphData(graphData);
-          } else if (diff.kind === "position") {
-            renderer.setGraphData(graphData, {
-              dirtyEdges: diff.dirtyEdges,
-              movedNodeIds: diff.movedNodeIds,
-            });
-          } else {
-            // Identical positions — skip setGraphData (no topology/dirty work).
-            prevGraphForDirty = graphData;
-            queueRender();
-            queueHudUpdate();
-            return;
-          }
+          // Identical positions — skip setGraphData (no topology/dirty work).
+          prevGraphForDirty = graphData;
+          queueRender();
+          queueHudUpdate();
+          return;
         }
-        prevGraphForDirty = graphData;
-        queueRender();
-        queueHudUpdate();
-      },
-    });
+      }
+      prevGraphForDirty = graphData;
+      queueRender();
+      queueHudUpdate();
+    };
+
+    let layoutLoop: Awaited<ReturnType<typeof createLayoutLoopAsync>> | null =
+      null;
 
     void (async () => {
+      layoutLoop = await createLayoutLoopAsync({
+        graphData: initialGraph,
+        layoutEngine,
+        renderOnGraphData,
+      });
+      if (isCanvasDisposed) {
+        layoutLoop.stop();
+        return;
+      }
+
       await renderer.mount(canvasHost);
       if (isCanvasDisposed) {
+        layoutLoop.stop();
         renderer.destroy();
         return;
       }
       layoutLoop.start();
       queueHudUpdate();
 
-      // Slice 3 — opt-in live topology (read-only). No settle (S4). No layout writes.
+      // Slice 3 — opt-in live topology (read-only). Settle only if layout=d3 (engine).
+      // No layout writes from client (S4 persist later).
       if (!wantLive) return;
 
       try {
         const res = await fetch("/api/graph");
         const data = (await res.json()) as GraphApiResponse;
-        if (isCanvasDisposed) return;
+        if (isCanvasDisposed || !layoutLoop) return;
 
         if (data.ok && Array.isArray(data.memories)) {
           if (data.memories.length === 0) {
@@ -285,7 +306,7 @@ export function GraphCanvas() {
         );
         layoutLoop.setGraphData(createMockGraphData());
       } catch (err) {
-        if (isCanvasDisposed) return;
+        if (isCanvasDisposed || !layoutLoop) return;
         console.warn("[graph] live feed fetch failed, using mock:", err);
         layoutLoop.setGraphData(createMockGraphData());
       }
@@ -293,7 +314,7 @@ export function GraphCanvas() {
 
     return () => {
       isCanvasDisposed = true;
-      layoutLoop.stop();
+      layoutLoop?.stop();
       if (hudFrameId !== null) cancelAnimationFrame(hudFrameId);
       if (renderFrameId !== null) cancelAnimationFrame(renderFrameId);
       resizeObserver.disconnect();
