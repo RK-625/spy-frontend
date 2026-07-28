@@ -1,7 +1,7 @@
 /**
- * Pure Memory[] + Links[] → GraphData adapter (no Falkor, Pixi, React, or fetch).
+ * Pure Memory-like[] + Links[] → GraphData adapter (no Falkor, Pixi, React, or fetch).
  *
- * Uses product types `Memory` / `Links` from `@/types/graph-schema`.
+ * Accepts full `Memory` rows or lean `/api/graph` topology rows (`MemoryGraphNodeInput`).
  * Maps to canvas GraphData only — does **not** recompute layout or rank.
  *
  * Cold-start contract (Slice 2): missing or non-finite Memory `x`/`y` means
@@ -23,7 +23,19 @@ import {
   type GraphEdge,
   type GraphNode,
 } from "./graph-data";
-import type { Links, Memory } from "@/types/graph-schema";
+import type { Links } from "@/types/graph-schema";
+
+/**
+ * Lean node input for canvas mapping (full Memory or `/api/graph` topology rows).
+ * Embeddings are not required — layout/rank/name only.
+ */
+export type MemoryGraphNodeInput = {
+  id: string;
+  name: string;
+  x?: number | null;
+  y?: number | null;
+  rank?: number | null;
+};
 
 /** True when both world coords are finite numbers (placed). */
 export function hasFiniteLayoutXY(x: unknown, y: unknown): boolean {
@@ -36,13 +48,15 @@ export function hasFiniteLayoutXY(x: unknown, y: unknown): boolean {
 }
 
 /** True when this Memory row lacks a finite layout pair (needs settle). */
-export function memoryNeedsLayout(memory: Pick<Memory, "x" | "y">): boolean {
+export function memoryNeedsLayout(
+  memory: Pick<MemoryGraphNodeInput, "x" | "y">
+): boolean {
   return !hasFiniteLayoutXY(memory.x, memory.y);
 }
 
 /** True when any Memory in the set lacks finite x/y. */
 export function memoriesNeedLayout(
-  memories: ReadonlyArray<Pick<Memory, "x" | "y">>
+  memories: ReadonlyArray<Pick<MemoryGraphNodeInput, "x" | "y">>
 ): boolean {
   return memories.some(memoryNeedsLayout);
 }
@@ -60,7 +74,7 @@ export type MemoryGraphMapResult = {
  * `memoriesNeedLayout` when final placement is required.
  */
 export function memoryGraphToGraphData(input: {
-  memories: Memory[];
+  memories: MemoryGraphNodeInput[];
   links: Links[];
 }): GraphData {
   return memoryGraphToGraphDataWithMeta(input).graph;
@@ -71,7 +85,7 @@ export function memoryGraphToGraphData(input: {
  * computed from Memories before zeros are seeded into GraphData.
  */
 export function memoryGraphToGraphDataWithMeta(input: {
-  memories: Memory[];
+  memories: MemoryGraphNodeInput[];
   links: Links[];
 }): MemoryGraphMapResult {
   const needsLayout = memoriesNeedLayout(input.memories);

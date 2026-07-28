@@ -39,6 +39,7 @@ export {
   memoryGraphToGraphData,
   memoryGraphToGraphDataWithMeta,
   type MemoryGraphMapResult,
+  type MemoryGraphNodeInput,
 } from "@/lib/graph/from-memory-graph";
 
 // --- Diff / dirty for partial bake ----------------------------------------
