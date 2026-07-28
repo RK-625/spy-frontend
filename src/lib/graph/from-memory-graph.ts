@@ -4,13 +4,15 @@
  * Accepts full `Memory` rows or lean `/api/graph` topology rows (`MemoryGraphNodeInput`).
  * Maps to canvas GraphData only — does **not** recompute layout or rank.
  *
- * Cold-start contract (Slice 2): missing or non-finite Memory `x`/`y` means
- * layout is required. The adapter may still seed GraphData `x`/`y` to `0` for
- * DTO shape, but those zeros are seeds only — not final placement. Callers that
- * want final positions must settle when `needsLayout` is true (S0
- * `settleGraphData` / `settleIfNeeded`). Detect needs-layout from Memories
- * before/during map (`memoriesNeedLayout` / `memoryGraphToGraphDataWithMeta`);
- * after map, missing coords are indistinguishable from a real origin placement.
+ * Cold-start / settle-gating contract:
+ * Missing, non-finite, **or near-origin** Memory `x`/`y` means layout is required
+ * (`isPlacedLayout` / `memoryNeedsLayout`). Near-origin seeds (both within
+ * LAYOUT_ORIGIN_EPSILON of 0) count as unplaced for settle gating — same policy
+ * as server toolset. The adapter may still seed GraphData `x`/`y` to `0` for
+ * DTO shape; those zeros are seeds only — not final placement. Callers that want
+ * final positions must settle when `needsLayout` is true (S0 `settleGraphData` /
+ * session incremental settle). Detect needs-layout from Memories before/during
+ * map (`memoriesNeedLayout` / `memoryGraphToGraphDataWithMeta`).
  *
  * Memory.name → GraphNode.label; PART_OF source=child target=parent.
  * Incidence / rim derived after map via recomputeIncidence / RimLock.
@@ -23,6 +25,7 @@ import {
   type GraphEdge,
   type GraphNode,
 } from "./graph-data";
+import { isPlacedLayout } from "@/lib/memory-placement";
 import type { Links } from "@/types/graph-schema";
 
 /**
@@ -37,7 +40,7 @@ export type MemoryGraphNodeInput = {
   rank?: number | null;
 };
 
-/** True when both world coords are finite numbers (placed). */
+/** True when both world coords are finite numbers (raw; ignores origin seed). */
 export function hasFiniteLayoutXY(x: unknown, y: unknown): boolean {
   return (
     typeof x === "number" &&
@@ -47,14 +50,17 @@ export function hasFiniteLayoutXY(x: unknown, y: unknown): boolean {
   );
 }
 
-/** True when this Memory row lacks a finite layout pair (needs settle). */
+/**
+ * True when this Memory row needs settle (missing, non-finite, or near-origin seed).
+ * Uses shared `isPlacedLayout` — near-origin counts as unplaced for gating.
+ */
 export function memoryNeedsLayout(
   memory: Pick<MemoryGraphNodeInput, "x" | "y">
 ): boolean {
-  return !hasFiniteLayoutXY(memory.x, memory.y);
+  return !isPlacedLayout({ x: memory.x, y: memory.y });
 }
 
-/** True when any Memory in the set lacks finite x/y. */
+/** True when any Memory in the set needs settle. */
 export function memoriesNeedLayout(
   memories: ReadonlyArray<Pick<MemoryGraphNodeInput, "x" | "y">>
 ): boolean {
@@ -63,7 +69,10 @@ export function memoriesNeedLayout(
 
 export type MemoryGraphMapResult = {
   graph: GraphData;
-  /** True when ≥1 memory lacked finite x/y (seeds are not final placement). */
+  /**
+   * True when ≥1 memory is unplaced (missing / non-finite / near-origin seed).
+   * Adapter still seeds GraphData zeros for DTO shape when missing.
+   */
   needsLayout: boolean;
 };
 

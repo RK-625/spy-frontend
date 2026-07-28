@@ -139,8 +139,10 @@ function toPinnedIdSet(
   pinned: SettleGraphOptions["pinnedNodeIds"],
 ): Set<string> | null {
   if (pinned == null) return null;
+  // ReadonlySet is not eliminated by `instanceof Set` in the false branch.
   if (pinned instanceof Set) return pinned.size > 0 ? pinned : null;
-  return pinned.length > 0 ? new Set(pinned) : null;
+  const list = pinned as readonly string[];
+  return list.length > 0 ? new Set(list) : null;
 }
 
 function toSimNodes(

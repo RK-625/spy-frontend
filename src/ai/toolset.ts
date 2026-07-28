@@ -10,11 +10,14 @@ import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
   getMemoryLayout,
+  setMemoryLayout,
 } from "@/lib/falkor";
 import {
+  isPlacedLayout,
   rankAfterParent,
   shouldPlaceOnUpsert,
   shouldPlaceOnLink,
+  partOfRankNeedsUpdate,
 } from "@/lib/memory-placement";
 import { settleAndPersistMemoryLayouts } from "@/lib/memory-layout-settle";
 
@@ -87,6 +90,8 @@ const upsertMemory: Tool = tool({
 
       // Layout is system-owned (P-A). Content-only updates preserve x/y/rank —
       // no re-settle when topology is unchanged (shouldPlaceOnUpsert).
+      // Create: rank 0 only, leave x/y null — do **not** settle on create alone
+      // (F1/F10). Missing xy later settles via cold update or link path.
       const existing = isCreate ? null : await getMemoryLayout(id);
       const needsSettle = shouldPlaceOnUpsert({ isCreate, existing });
 
@@ -98,11 +103,12 @@ const upsertMemory: Tool = tool({
         confidence,
         searchEmbedding,
         contentEmbedding,
-        // Rank only on create; geometry comes from shared d3 settle + setMemoryLayout.
+        // Rank only on create; geometry comes from link/cold settle + setMemoryLayout.
         ...(isCreate ? { rank: 0 } : {}),
       });
 
-      if (needsSettle) {
+      // F1/F10: never settle on create alone. Cold path: update missing/unplaced xy.
+      if (!isCreate && needsSettle) {
         await settleAndPersistMemoryLayouts({ focusIds: [id] });
       }
 
@@ -118,7 +124,7 @@ const upsertMemory: Tool = tool({
 
 const linkMemories: Tool = tool({
   description:
-    "Create a directed edge between two existing Memory nodes. Call only after both nodes exist (upsert first if needed). PART_OF is hierarchical (source=child → target=parent); system sets child rank and settles layout. RELATES_TO is associative; system settles only when source lacks layout. Geometry is never LLM-authored.",
+    "Create a directed edge between two existing Memory nodes. Call only after both nodes exist (upsert first if needed). PART_OF is hierarchical (source=child → target=parent); system sets child rank and settles layout with parent pinned. RELATES_TO is associative; system settles on link (topology). Geometry is never LLM-authored.",
   inputSchema: linkMemoriesInputSchema,
   execute: async ({ source, target, type }) => {
     try {
@@ -129,18 +135,33 @@ const linkMemories: Tool = tool({
       if (type === "PART_OF") {
         const parent = await getMemoryLayout(target);
         const sourceLayout = await getMemoryLayout(source);
-        if (shouldPlaceOnLink({ type: "PART_OF", sourceLayout })) {
-          const childRank = rankAfterParent(parent?.rank ?? 0);
+        const parentRank = parent?.rank ?? 0;
+        const childRank = rankAfterParent(parentRank);
+        const childPlaced = isPlacedLayout(sourceLayout);
+        const rankNeeds = partOfRankNeedsUpdate({
+          sourceLayout,
+          parentRank,
+        });
+
+        if (childPlaced && !rankNeeds) {
+          // Already placed with correct rank — skip settle and rank write.
+        } else if (childPlaced && rankNeeds) {
+          // Rank-only: keep durable xy, write topology-derived rank (no force).
+          const x = sourceLayout!.x as number;
+          const y = sourceLayout!.y as number;
+          await setMemoryLayout({ id: source, x, y, rank: childRank });
+        } else if (shouldPlaceOnLink({ type: "PART_OF", sourceLayout })) {
+          // Unplaced child: settle with parent as forced anchor.
           await settleAndPersistMemoryLayouts({
             focusIds: [source],
+            anchorIds: [target],
             rankOverrides: { [source]: childRank },
           });
         }
       } else if (type === "RELATES_TO") {
-        const sourceLayout = await getMemoryLayout(source);
-        if (shouldPlaceOnLink({ type: "RELATES_TO", sourceLayout })) {
-          await settleAndPersistMemoryLayouts({ focusIds: [source] });
-        }
+        // F1: always settle RELATES_TO on link (topology; edge can pull nodes).
+        // shouldPlaceOnLink(RELATES_TO) is always true — call settle directly.
+        await settleAndPersistMemoryLayouts({ focusIds: [source] });
       }
 
       return { type, source, target };
