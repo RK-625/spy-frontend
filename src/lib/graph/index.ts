@@ -32,7 +32,14 @@ export {
 } from "@/lib/graph/fixtures/mock-graph";
 
 // --- Memory / Links → GraphData (pure; no Falkor) -------------------------
-export { memoryGraphToGraphData } from "@/lib/graph/from-memory-graph";
+export {
+  hasFiniteLayoutXY,
+  memoryNeedsLayout,
+  memoriesNeedLayout,
+  memoryGraphToGraphData,
+  memoryGraphToGraphDataWithMeta,
+  type MemoryGraphMapResult,
+} from "@/lib/graph/from-memory-graph";
 
 // --- Diff / dirty for partial bake ----------------------------------------
 export {

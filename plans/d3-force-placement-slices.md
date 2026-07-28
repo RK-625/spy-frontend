@@ -138,9 +138,9 @@ S0 force-recipe + verify
 
 **Exit criteria:**
 
-- [ ] Verify covers missing-xy graph  
-- [ ] Documented in `from-memory-graph.ts` header (one short paragraph)  
-- [ ] No rank recompute in adapter  
+- [x] Verify covers missing-xy graph  
+- [x] Documented in `from-memory-graph.ts` header (one short paragraph)  
+- [x] No rank recompute in adapter  
 
 **Rollback:** revert adapter + settle trigger only.
 
