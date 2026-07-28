@@ -76,6 +76,7 @@ function initialGraphFromSearch(search: string): GraphData {
  *   canvas. Fetch/DB error → fall back to mock so the page is not blank.
  * - Client never calls setMemoryLayout; placement writes stay server-side (P-A).
  * - Rollback: omit `source=live` (feed off; mock only).
+ * - Flipping default `/graph` to live is a separate product decision (deferred).
  *
  * Layout (Slice 1 + S4):
  * - Default → static positions (no settle). Product `/graph` unchanged.

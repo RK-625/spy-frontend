@@ -91,6 +91,11 @@ export type ForceRecipeOptions = {
   partOfDistance?: number;
   /** RELATES_TO link distance (default RELATES_TO_DISTANCE). */
   relatesDistance?: number;
+  /**
+   * Node ids fixed via d3 `fx`/`fy` (incremental settle: pin non-dirty nodes).
+   * Pinned seeds keep their input x/y; only unpinned nodes move.
+   */
+  pinnedNodeIds?: ReadonlySet<string> | readonly string[];
 };
 
 export type SettleGraphOptions = ForceRecipeOptions & {
@@ -130,9 +135,21 @@ export function cloneGraphData(graph: GraphData): GraphData {
   };
 }
 
-function toSimNodes(nodes: GraphNode[]): ForceSimNode[] {
+function toPinnedIdSet(
+  pinned: SettleGraphOptions["pinnedNodeIds"],
+): Set<string> | null {
+  if (pinned == null) return null;
+  if (pinned instanceof Set) return pinned.size > 0 ? pinned : null;
+  return pinned.length > 0 ? new Set(pinned) : null;
+}
+
+function toSimNodes(
+  nodes: GraphNode[],
+  pinned: Set<string> | null,
+): ForceSimNode[] {
   return nodes.map((n) => {
     const { x, y } = seedXY(n);
+    const fixed = pinned != null && pinned.has(n.id);
     return {
       id: n.id,
       rank: n.rank,
@@ -141,6 +158,7 @@ function toSimNodes(nodes: GraphNode[]): ForceSimNode[] {
       y,
       vx: 0,
       vy: 0,
+      ...(fixed ? { fx: x, fy: y } : {}),
     };
   });
 }
@@ -188,7 +206,8 @@ export function buildForceSimulation(
   const partOfDist = options?.partOfDistance ?? PART_OF_DISTANCE;
   const relatesDist = options?.relatesDistance ?? RELATES_TO_DISTANCE;
 
-  const nodes = toSimNodes(graph.nodes);
+  const pinned = toPinnedIdSet(options?.pinnedNodeIds);
+  const nodes = toSimNodes(graph.nodes, pinned);
   const links = toSimLinks(graph);
 
   const linkForce: ForceLink<ForceSimNode, ForceSimLink> = forceLink<
