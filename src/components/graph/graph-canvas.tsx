@@ -8,7 +8,7 @@ import {
   createRtcCamera,
   createLargeStressGraphData,
   createMockGraphData,
-  memoryGraphToGraphData,
+  memoryGraphToGraphDataWithMeta,
   type GraphData,
   type LayoutEngine,
   type LayoutRenderOptions,
@@ -74,13 +74,17 @@ function initialGraphFromSearch(search: string): GraphData {
  * - `?stress=1` → stress fixture.
  * - `?source=live` → GET `/api/graph` (Falkor read-only). Empty DB → empty
  *   canvas. Fetch/DB error → fall back to mock so the page is not blank.
- * - Client never calls setMemoryLayout; placement writes stay server-side.
+ * - Client never calls setMemoryLayout; placement writes stay server-side (P-A).
  * - Rollback: omit `source=live` (feed off; mock only).
  *
- * Layout engine (Slice 1):
- * - Default → static positions (no settle).
+ * Layout (Slice 1 + S4):
+ * - Default → static positions (no settle). Product `/graph` unchanged.
  * - `?layout=d3` → one-shot settle via createLayoutLoopAsync({ layoutEngine: "d3-settle" }).
- * - Does not flip LAYOUT_SIMULATION_ENABLED; no continuous ambient motion.
+ * - Live + `layout=d3`: settle runs on feed install (engine setGraphData).
+ * - Live + missing/non-finite xy (`needsLayout`): one-shot settle even without
+ *   `layout=d3` (session paint only — no client persist).
+ * - `?motion=1` → opt-in continuous ambient (S8; separate from settle; default off).
+ * - Does not flip LAYOUT_SIMULATION_ENABLED.
  */
 export function GraphCanvas() {
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
@@ -204,15 +208,19 @@ export function GraphCanvas() {
     /**
      * Optional stress fixture via `?stress=1` (or hub/spoke counts).
      * Default remains createMockGraphData. Live feed: `?source=live` (async).
-     * One-shot settle: `?layout=d3` (Slice 1; dynamic import, default stays static).
+     * One-shot settle: `?layout=d3` (S1/S4; dynamic import, default stays static).
+     * Ambient motion: `?motion=1` (S8; implies d3 path; default off).
      */
     const search =
       typeof window !== "undefined" ? window.location.search : "";
     const params = new URLSearchParams(search);
     const sourceParam = params.get("source");
     const wantLive = sourceParam === "live" && !params.has("stress");
+    const wantLayoutD3 = params.get("layout") === "d3";
+    const wantMotion = params.get("motion") === "1";
+    // motion=1 loads d3 settle path (ambient ticks after settle); layout=d3 alone is one-shot.
     const layoutEngine: LayoutEngine =
-      params.get("layout") === "d3" ? "d3-settle" : "static";
+      wantLayoutD3 || wantMotion ? "d3-settle" : "static";
     // Live starts empty until fetch resolves (avoid mock flash). Errors fall back to mock.
     const initialGraph = wantLive
       ? { nodes: [], edges: [] }
@@ -261,6 +269,7 @@ export function GraphCanvas() {
       layoutLoop = await createLayoutLoopAsync({
         graphData: initialGraph,
         layoutEngine,
+        ambientMotion: wantMotion,
         renderOnGraphData,
       });
       if (isCanvasDisposed) {
@@ -277,8 +286,10 @@ export function GraphCanvas() {
       layoutLoop.start();
       queueHudUpdate();
 
-      // Slice 3 — opt-in live topology (read-only). Settle only if layout=d3 (engine).
-      // No layout writes from client (S4 persist later).
+      // Slice 3+4 — opt-in live topology (read-only). Settle:
+      // - layout=d3 / motion=1 → engine settles on setGraphData
+      // - needsLayout (missing xy) → session settle even on static engine (dynamic import)
+      // Client never persists (P-A writes stay server/toolset).
       if (!wantLive) return;
 
       try {
@@ -291,10 +302,27 @@ export function GraphCanvas() {
             // Empty DB: empty canvas (already showing empty).
             return;
           }
-          const graph = memoryGraphToGraphData({
+          const { graph, needsLayout } = memoryGraphToGraphDataWithMeta({
             memories: data.memories,
             links: Array.isArray(data.links) ? data.links : [],
           });
+
+          if (layoutEngine === "d3-settle") {
+            // Intentional S4 path: live + layout=d3 (or motion) → one-shot settle in engine.
+            layoutLoop.setGraphData(graph);
+            return;
+          }
+
+          if (needsLayout) {
+            // Cold-start live rows: settle once for readable paint; no client persist.
+            const { settleIfNeeded } = await import("@/lib/graph/force-recipe");
+            if (isCanvasDisposed || !layoutLoop) return;
+            layoutLoop.setGraphData(
+              settleIfNeeded(graph, { needsLayout: true }),
+            );
+            return;
+          }
+
           layoutLoop.setGraphData(graph);
           return;
         }

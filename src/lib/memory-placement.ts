@@ -1,46 +1,20 @@
 /**
- * Server-side canvas placement for Memory nodes.
- * The LLM never chooses x/y or rank — this module (and toolset callers) do.
+ * Memory layout helpers — rank + settle policy (geometry SoT is d3 settle).
  *
  * =============================================================================
- * POLICY (system-owned layout) — locked
+ * POLICY (system-owned layout) — locked (Slice 5/6)
  * =============================================================================
  *
  * Design locks:
  *  - x, y are system-owned — never on tool input schemas; never LLM-authored.
  *  - rank is system-derived: PART_OF child = parent.rank + 1; roots / orphans = 0.
- *  - PART_OF: only the **child** repositions near parent; parent stays put.
- *  - PART_OF link: always re-place child when linking (caller uses shouldPlaceOnLink).
- *  - Content-only upsert: **do not call place** if finite x/y exist (shouldPlaceOnUpsert).
- *  - Overlap: min separation + fan (children) + spiral; never stack.
+ *  - Durable geometry: shared `settleGraphData` / `settleAndPersistMemoryLayouts`
+ *    (P-A persist via setMemoryLayout). Fan/spiral place* are deprecated leftovers.
+ *  - Content-only upsert: **do not settle** if finite x/y exist (shouldPlaceOnUpsert).
+ *  - PART_OF link: always re-settle child rank + geometry when linking.
+ *  - RELATES_TO: settle only when source lacks finite x/y.
  *
- * Geometry (this file only — no graph walk, no edge delete, no Falkor I/O):
- *
- * | Case                         | Behavior                                              |
- * |------------------------------|-------------------------------------------------------|
- * | Empty graph                  | seed (0,0), rank 0                                    |
- * | Root / orphan                | cluster centroid bias + spiral                        |
- * | Child with parent            | **fan arc under parent** (±55°), then spiral; rank+1  |
- * | Related-only (no parent)     | seed near related centroid, rank 0                    |
- * | Dense / crowded              | spiral rings until free; fallback far if max rings    |
- * | excludeId                    | don’t collide with self when re-placing               |
- * | Invalid / non-finite coords  | filtered out of occupied / related / parent           |
- *
- * Not handled here (caller / DB / toolset topology):
- *  - Intermediate insert / reparent edge surgery
- *  - Subtree re-rank walk
- *  - Moving parents and dragging children with them
- *
- * Intermediate / reparent (caller policy):
- *  1) Fix edges in DB (PART_OF child→parent; drop wrong old PART_OF when allowed).
- *  2) placeAsChild for the child with new parent; parent never moved.
- *  3) Optional subtree re-rank later via rankAfterParent per node.
- *
- * Seed priority inside placeMemoryNode:
- *  1. PART_OF parent → fan under parent
- *  2. Related centroid
- *  3. Cluster centroid
- *  4. Origin (0, 0)
+ * Prefer `rankAfterParent` + `settleAndPersistMemoryLayouts` over place*.
  */
 
 export type WorldPoint = {
@@ -89,19 +63,19 @@ export type LayoutWithRank = LayoutCoords & {
 /** Default spacing — roughly matches mock-graph tree gaps (~55–60). */
 export const DEFAULT_MIN_SEPARATION = 48;
 
-/** Preferred distance from parent to first fan ring (world units). */
+/** Preferred hierarchy distance (also used by force-recipe PART_OF_DISTANCE). */
 export const PARENT_CHILD_RADIUS = 56;
 
 /**
  * Half-angle of the child fan under parent (radians).
- * ±55° ≈ gentle tree look (not a flat 180° bar).
+ * @deprecated Fan geometry retired; kept for any legacy callers/tests.
  */
 export const PARENT_FAN_HALF_ANGLE = (55 * Math.PI) / 180;
 
-/** Candidate slots on the first fan ring under parent. */
+/** @deprecated Fan geometry retired. */
 export const PARENT_FAN_SLOTS = 11;
 
-/** Extra fan rings (larger radius) before falling back to full spiral. */
+/** @deprecated Fan geometry retired. */
 export const PARENT_FAN_RINGS = 3;
 
 /** Max spiral rings before far-below fallback (dense graphs). */
@@ -152,8 +126,7 @@ function isClear(
 
 /**
  * Spiral outward from seed until a free slot is found.
- * Ring 0 tries the seed; then rings of increasing radius with more samples.
- * If all rings fail (extremely dense), place far below seed — never stack.
+ * @deprecated Durable geometry uses d3 settle; do not call from product paths.
  */
 export function findFreeSlot(
   seed: WorldPoint,
@@ -187,8 +160,7 @@ export function findFreeSlot(
 
 /**
  * Fan candidates under a parent (screen-style +y down).
- * spread=0 → straight below; ±halfAngle spreads left/right.
- * Exported for unit tests / callers that want to inspect slots.
+ * @deprecated Fan geometry retired; d3 settle is placement SoT.
  */
 export function fanSlotsUnderParent(
   parent: WorldPoint,
@@ -227,6 +199,7 @@ export function fanSlotsUnderParent(
 
 /**
  * First free fan slot under parent, or null if all fan candidates blocked.
+ * @deprecated Fan geometry retired.
  */
 export function findFreeFanSlot(
   parent: WorldPoint,
@@ -243,7 +216,7 @@ export function findFreeFanSlot(
 }
 
 // ---------------------------------------------------------------------------
-// Rank & place policy helpers (pure; for toolset / callers)
+// Rank & settle policy helpers (pure; for toolset / callers)
 // ---------------------------------------------------------------------------
 
 /**
@@ -260,8 +233,9 @@ export function recomputeRankFromParent(parentRank: number): number {
 }
 
 /**
- * Whether layout should be written on upsert.
+ * Whether layout settle should run on upsert.
  * true only if create OR existing row is missing finite x/y.
+ * Content-only updates with finite layout must not re-settle.
  */
 export function shouldPlaceOnUpsert(args: {
   isCreate: boolean;
@@ -282,8 +256,8 @@ export function shouldReplaceLayout(
 }
 
 /**
- * Whether linkMemories should re-place the **source** node.
- * - PART_OF: always re-place child when linking (caller still requires parent layout).
+ * Whether linkMemories should settle layout for the **source** node.
+ * - PART_OF: always (rank + settle).
  * - RELATES_TO: only if source is missing finite x/y.
  */
 export function shouldPlaceOnLink(args: {
@@ -296,6 +270,7 @@ export function shouldPlaceOnLink(args: {
 
 /**
  * Build collision list from raw layout rows (filters non-finite; optional exclude).
+ * @deprecated Collision lists were for fan place*; settle no longer needs them.
  */
 export function buildOccupiedFromLayouts(
   layouts: Array<{ id: string; x?: number | null; y?: number | null }>,
@@ -312,17 +287,21 @@ export function buildOccupiedFromLayouts(
 }
 
 // ---------------------------------------------------------------------------
-// Thin placement wrappers (clarity for toolset)
+// Deprecated fan/spiral place APIs (Slice 6 — not used on product paths)
 // ---------------------------------------------------------------------------
 
-/** Root / orphan / empty-graph: no parent; optional related bias. */
+/**
+ * @deprecated Use rank 0 + settleAndPersistMemoryLayouts (P-A).
+ */
 export function placeAsRoot(
   input: Omit<PlaceMemoryInput, "parent">,
 ): PlaceMemoryResult {
   return placeMemoryNode({ ...input, parent: null });
 }
 
-/** PART_OF child: fan under parent, rank parent+1. */
+/**
+ * @deprecated Use rankAfterParent + settleAndPersistMemoryLayouts (P-A).
+ */
 export function placeAsChild(
   input: PlaceMemoryInput & { parent: ParentAnchor },
 ): PlaceMemoryResult {
@@ -330,7 +309,7 @@ export function placeAsChild(
 }
 
 /**
- * RELATES_TO placement when source has no layout yet.
+ * @deprecated Use settleAndPersistMemoryLayouts when source lacks layout.
  */
 export function placeForRelates(
   input: Omit<PlaceMemoryInput, "parent"> & {
@@ -341,11 +320,7 @@ export function placeForRelates(
 }
 
 /**
- * Compute world x/y (and rank) for a new or re-placed Memory.
- * Pure — no I/O; caller loads occupied/parent from Falkor.
- *
- * Do not call for content-only upserts that already have x/y
- * (see shouldPlaceOnUpsert).
+ * @deprecated Durable geometry is d3 settle; do not call from product paths.
  */
 export function placeMemoryNode(input: PlaceMemoryInput): PlaceMemoryResult {
   const minSeparation = input.minSeparation ?? DEFAULT_MIN_SEPARATION;
@@ -364,12 +339,10 @@ export function placeMemoryNode(input: PlaceMemoryInput): PlaceMemoryResult {
   if (parent != null) {
     rank = rankAfterParent(parent.rank);
 
-    // 1) Prefer gentle fan under parent (siblings spread, not one seed pile).
     const fanHit = findFreeFanSlot(parent, occupied, minSeparation);
     if (fanHit != null) {
       point = fanHit;
     } else {
-      // 2) Spiral from straight-below seed if fan is saturated.
       const relatedBias = centroid(related);
       const seed = {
         x: relatedBias != null ? (parent.x + relatedBias.x) / 2 : parent.x,

@@ -80,7 +80,7 @@ These are things a new engineer might not guess. They must be followed:
 
 Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
 
-**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). Client pure-perf ceiling for static mock pan/zoom and large-loaded-graph tracks is **achieved** under quality bans. FA2 / continuous layout is **off** (`LAYOUT_SIMULATION_ENABLED = false`) — worker + sim path ready but unused. Do not re-litigate ban-safe pure-perf; next graph work is product modes (FA2 on when wanted, full KB residency). Details under **What's left**.
+**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). Client pure-perf ceiling for static mock pan/zoom and large-loaded-graph tracks is **achieved** under quality bans. Continuous layout is **off** by default (`LAYOUT_SIMULATION_ENABLED = false`; FA2/graphology path removed). Opt-in placement: `/graph?layout=d3` (one-shot d3 settle); optional ambient: `?motion=1`. Do not re-litigate ban-safe pure-perf; next graph work is product modes (ambient when wanted, full KB residency). Details under **What's left**.
 
 **Prompt input:** production `src/components/chat/ai-elements/prompt-input.tsx` is a **chat-only** shell. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
 
@@ -148,8 +148,8 @@ src/
 │   │   ├── spatial-index.ts  — GraphSpatialIndex (viewport + OVERSCAN_MARGIN=2.0)
 │   │   ├── rim-lock.ts       — RimLock (O(E) / incremental)
 │   │   ├── graph-diff.ts     — host diffGraphDirty + dirtyEdges / movedNodeIds
-│   │   ├── layout-loop.ts / layout-loop-sim.ts — layout loop; FA2 sim dynamic-import (off)
-│   │   ├── fa2-worker.ts     — FA2 worker path ready; product keeps sim off
+│   │   ├── layout-loop.ts / layout-loop-d3.ts — static + opt-in d3 settle (± ambient)
+│   │   ├── force-recipe.ts   — pure d3-force placement (shared server/client)
 │   │   ├── draw-arrow.ts / dot-circle-batch.ts — DotStream draw primitives
 │   │   ├── graph-scale.ts / graph-style.ts — scale + visual tokens
 │   │   ├── rtc-camera.ts     — RTC camera (never stage.scale for world camera)
@@ -166,7 +166,7 @@ src/
 
 **Note:** `prompt-input.tsx` under `chat/ai-elements` is chat-only (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/toolset.ts` without a live morph UI.
 
-**Graph note:** FA2 / `LAYOUT_SIMULATION_ENABLED = false` in product. Do not assume continuous layout is live. Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
+**Graph note:** Continuous layout off by default (`LAYOUT_SIMULATION_ENABLED = false`). FA2/graphology removed; placement SoT is d3 settle (opt-in `layout=d3`; ambient `motion=1`). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
 
 ## Design files
 
@@ -212,15 +212,15 @@ Client pure-perf under quality bans — **ceiling status:**
 **Achieved (ban-safe client pure-perf):**
 - World-space DotStream bake @ z=1; camera only transforms `graphContent` (never `stage.scale` for world camera)
 - Universal residency: viewport + `OVERSCAN_MARGIN=2.0` + GraphSpatialIndex + bake worker (all graph sizes)
-- Wave 2: underlay pan-decouple, packed bake payloads/transferables, O(candidates) payload, resident buffer pooling, RimLock O(E), dynamic-import layout-loop-sim (graphology/FA2 not on static path), strip no-op setInteractionQuality settle timers
+- Wave 2: underlay pan-decouple, packed bake payloads/transferables, O(candidates) payload, resident buffer pooling, RimLock O(E), dynamic-import layout-loop-d3 (d3-force not on static path), strip no-op setInteractionQuality settle timers
 - Large-KB track: rim-coupled dirty expansion, host `diffGraphDirty` + dirtyEdges/movedNodeIds, durable mergedDotBuffer splice, worker latest-only/cancel, incremental RimLock, spatial incidence + int keys, node redraw only when nodes dirty
-- FA2 / `LAYOUT_SIMULATION_ENABLED = false` (static layout product); FA2 worker + sim path **ready but unused**
+- Layout: static product default; FA2/graphology **removed** (S7); d3 one-shot settle + optional ambient (`?motion=1`)
 
 Hard bans remain in force (see Constraints). Do not re-open pure-perf by relaxing quality bans.
 
 ### Left (next product modes — not unfinished mock pan work)
 
-1. **Enable FA2 when product wants motion** — wire already emits dirty+moved; keep physics params; validate hubs under continuous layout. Do not claim FA2 is live until this is on.
+1. **Opt-in ambient / settle when product wants motion** — `?layout=d3` settle + `?motion=1` ambient (default off). Do not claim continuous motion is live until product enables it.
 2. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
 3. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
 4. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).

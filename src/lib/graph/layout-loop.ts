@@ -1,35 +1,18 @@
 /**
- * Continuous ForceAtlas2 layout loop (single graph, world coordinates).
+ * Layout loop dispatcher — static store + opt-in one-shot d3 settle.
  *
- * Mock data currently lives near the origin, so FA2 can run on absolute x/y.
- * When multi-scale clusters return, reintroduce local-offset layout if needed.
+ * Product default: static GraphData passthrough (no force).
+ * Opt-in: `createLayoutLoopAsync({ layoutEngine: "d3-settle" })` dynamic-imports
+ * `layout-loop-d3.ts` (keeps d3-force out of the default chunk).
+ * Optional ambient: `ambientMotion: true` (or `/graph?motion=1`) — continuous
+ * low-alpha ticks after settle; default off (Slice 8).
  *
- * Soft-disable: set LAYOUT_SIMULATION_ENABLED to true to re-enable continuous FA2.
- * When false, createLayoutLoop branches to a pure GraphData store (no Graphology,
- * no FA2) so positions stay at mock/setGraphData values.
- *
- * Graphology / FA2 live only in `layout-loop-sim.ts`. One-shot d3 settle lives
- * in `layout-loop-d3.ts`. The product static path must NOT pull either module
- * into the default chunk — both load only via dynamic import from
- * createLayoutLoopAsync when explicitly requested.
- *
- * Naming: GraphData = plain DTO; GraphologyGraph = library simulation instance.
- *
- * --- FA2 off main thread (when LAYOUT_SIMULATION_ENABLED is true) ---
- * Implemented in layout-loop-sim + fa2-worker.ts:
- *   1. Main posts { type: "step", nodes, edges, iterations, settings } to fa2-worker.
- *   2. Worker runs forceAtlas2.assign + recenter; posts positions Float32Array.
- *   3. Main writes x/y into GraphData and calls renderOnGraphData (rAF-paced).
- *   4. Pixi: setGraphData with dirtyEdges + movedNodeIds from sim emit
- *      (renderOnGraphData second arg) for partial DotStream merge.
- * LAYOUT_SIMULATION_ENABLED remains false in product — enabling changes motion.
- * step() stays sync on main for verify.
+ * FA2 / graphology path removed (Slice 7). `LAYOUT_SIMULATION_ENABLED` remains
+ * false as a legacy soft-switch alias (always off; do not reintroduce FA2).
  *
  * API:
- * - createLayoutLoop() — sync; always static store when simulation is off
- *   (product path). If simulationEnabled is true, throws — use createLayoutLoopAsync.
- * - createLayoutLoopAsync() — dynamic-imports layout-loop-sim (FA2) or
- *   layout-loop-d3 (one-shot settle) when requested.
+ * - createLayoutLoop() — sync; static store only. Throws for d3-settle.
+ * - createLayoutLoopAsync() — dynamic-imports layout-loop-d3 when requested.
  */
 
 import {
@@ -42,9 +25,8 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * Soft switch — flip to `true` to restore continuous FA2.
- * Keep the rest of this module intact; do not hard-delete FA2 paths.
- * Product must keep this false (static path must not load graphology).
+ * Legacy soft switch — always false. FA2 path deleted (S7).
+ * Kept so older callers/docs that read the flag still see "off".
  */
 export const LAYOUT_SIMULATION_ENABLED = false;
 
@@ -53,8 +35,6 @@ export type LayoutLoopStatus = "idle" | "running" | "stopped";
 /**
  * Optional second arg for renderOnGraphData — position-only partial dirty.
  * Shape matches Pixi SetGraphDataOptions (kept local to avoid layout→renderer import).
- * Sim path passes dirtyEdges + movedNodeIds after FA2; static first paint
- * omits options (host treats as full / uses diffGraphDirty).
  */
 export type LayoutRenderOptions = {
   dirtyEdges?: "all" | Iterable<string>;
@@ -64,31 +44,38 @@ export type LayoutRenderOptions = {
 /**
  * Layout engine selection for createLayoutLoopAsync.
  * - `"static"` — passthrough store (default product path)
- * - `"d3-settle"` — one-shot settle via layout-loop-d3 (Slice 1; dynamic import)
- * FA2 continuous sim remains `simulationEnabled: true` (separate flag).
+ * - `"d3-settle"` — one-shot settle via layout-loop-d3 (+ optional ambient)
  */
 export type LayoutEngine = "static" | "d3-settle";
 
 export type LayoutLoopOptions = {
-  /** Initial positions; sim path owns a mutable GraphologyGraph for FA2. */
+  /** Initial positions. */
   graphData?: GraphData;
-  /** FA2 iterations per frame / step. Default 2. Sim path only. */
+  /**
+   * @deprecated FA2 removed (S7). Ignored; always treated as false.
+   */
   iterationsPerFrame?: number;
   /**
-   * Override module soft-disable for this instance only.
-   * Default: LAYOUT_SIMULATION_ENABLED.
-   * When true, callers must use createLayoutLoopAsync (dynamic sim load).
+   * @deprecated FA2 removed (S7). Must stay false / omitted.
+   * If true, createLayoutLoopAsync throws (no sim module).
    */
   simulationEnabled?: boolean;
   /**
-   * One-shot settle engine (Slice 1). Ignored when simulationEnabled is true.
-   * Default: `"static"`. Requires createLayoutLoopAsync for `"d3-settle"`.
+   * One-shot settle engine (Slice 1). Default: `"static"`.
+   * Requires createLayoutLoopAsync for `"d3-settle"`.
    */
   layoutEngine?: LayoutEngine;
   /**
+   * Opt-in continuous ambient ticks after settle (Slice 8). Default false.
+   * Only meaningful with layoutEngine `"d3-settle"`; ignored on static path.
+   * Separate from placement settle — product default stays off (`?motion=1`).
+   */
+  ambientMotion?: boolean;
+  /**
    * Receives a graph snapshot (+ optional dirty scope).
    * Static setGraphData emits the same object as the internal store (one clone);
-   * consumers must not mutate it. Sim path passes partial dirty when positions move.
+   * consumers must not mutate it. Settle/ambient paths pass partial dirty when
+   * positions move.
    */
   renderOnGraphData?: (
     graphData: GraphData,
@@ -107,7 +94,7 @@ export type LayoutLoopHandle = {
 };
 
 // ---------------------------------------------------------------------------
-// Static path — pure GraphData store (no Graphology, no FA2)
+// Static path — pure GraphData store (no d3-force)
 // ---------------------------------------------------------------------------
 
 function cloneGraphData(source: GraphData): GraphData {
@@ -172,21 +159,19 @@ function createStaticLayoutLoop(
 
 /**
  * Creates a layout loop (sync). Product / static path only:
- * - simulation off + static engine → pure GraphData store (no heavy imports)
- * - simulation on or d3-settle → throws; use createLayoutLoopAsync
+ * - static engine → pure GraphData store (no heavy imports)
+ * - d3-settle → throws; use createLayoutLoopAsync
  */
 export function createLayoutLoop(
   options: LayoutLoopOptions = {}
 ): LayoutLoopHandle {
-  const simulationEnabled =
-    options.simulationEnabled ?? LAYOUT_SIMULATION_ENABLED;
-  const layoutEngine = options.layoutEngine ?? "static";
-  if (simulationEnabled) {
+  if (options.simulationEnabled === true) {
     throw new Error(
-      "createLayoutLoop: simulationEnabled requires createLayoutLoopAsync " +
-        "(dynamic import of layout-loop-sim / graphology)"
+      "createLayoutLoop: FA2 simulation path removed (Slice 7). " +
+        'Use layoutEngine: "d3-settle" via createLayoutLoopAsync.'
     );
   }
+  const layoutEngine = options.layoutEngine ?? "static";
   if (layoutEngine === "d3-settle") {
     throw new Error(
       'createLayoutLoop: layoutEngine "d3-settle" requires createLayoutLoopAsync ' +
@@ -197,22 +182,21 @@ export function createLayoutLoop(
 }
 
 /**
- * Creates a layout loop; dynamic-imports heavy engines only when requested.
- * - layoutEngine `"d3-settle"` → layout-loop-d3 (one-shot settle)
- * - simulationEnabled true → layout-loop-sim (FA2)
+ * Creates a layout loop; dynamic-imports d3 settle only when requested.
+ * - layoutEngine `"d3-settle"` → layout-loop-d3 (one-shot settle ± ambient)
  * - else → static store
  */
 export async function createLayoutLoopAsync(
   options: LayoutLoopOptions = {}
 ): Promise<LayoutLoopHandle> {
-  const simulationEnabled =
-    options.simulationEnabled ?? LAYOUT_SIMULATION_ENABLED;
-  const layoutEngine = options.layoutEngine ?? "static";
-
-  if (simulationEnabled) {
-    const { createSimulationLayoutLoop } = await import("./layout-loop-sim");
-    return createSimulationLayoutLoop(options);
+  if (options.simulationEnabled === true) {
+    throw new Error(
+      "createLayoutLoopAsync: FA2 simulation path removed (Slice 7). " +
+        'Use layoutEngine: "d3-settle" (optional ambientMotion: true).'
+    );
   }
+
+  const layoutEngine = options.layoutEngine ?? "static";
 
   if (layoutEngine === "d3-settle") {
     const { createD3SettleLayoutLoop } = await import("./layout-loop-d3");
