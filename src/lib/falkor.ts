@@ -265,6 +265,122 @@ export async function getMemoryLayout(
 }
 
 /**
+ * Canvas / API topology row — no embeddings (keep `/api/graph` payloads small).
+ * Enough for `memoryGraphToGraphData` + HUD labels.
+ */
+export type GraphTopologyMemory = {
+  id: string;
+  name: string;
+  content: string;
+  impression: string;
+  confidence: number;
+  x?: number;
+  y?: number;
+  rank?: number;
+};
+
+export type GraphTopology = {
+  memories: GraphTopologyMemory[];
+  links: Links[];
+};
+
+function strOr(value: unknown, fallback: string): string {
+  if (typeof value === "string") return value;
+  if (value == null) return fallback;
+  return String(value);
+}
+
+function numOr(value: unknown, fallback: number): number {
+  const n = numOrNull(value);
+  return n == null ? fallback : n;
+}
+
+/**
+ * Read-only: all Memory nodes + PART_OF / RELATES_TO links for the graph canvas.
+ * Omits embeddings. Does not write layout.
+ */
+export async function listGraphTopology(): Promise<GraphTopology> {
+  const graph = await getDb();
+
+  const memoryQuery = `
+    MATCH (m:Memory)
+    RETURN m.id AS id,
+           m.name AS name,
+           m.content AS content,
+           m.impression AS impression,
+           m.confidence AS confidence,
+           m.x AS x,
+           m.y AS y,
+           m.rank AS rank
+  `;
+
+  const linkQuery = `
+    MATCH (a:Memory)-[r]->(b:Memory)
+    WHERE type(r) IN ['PART_OF', 'RELATES_TO']
+    RETURN a.id AS source, b.id AS target, type(r) AS type
+  `;
+
+  try {
+    const memResult = (await graph.query(memoryQuery)) as {
+      data: Array<{
+        id: unknown;
+        name: unknown;
+        content: unknown;
+        impression: unknown;
+        confidence: unknown;
+        x: unknown;
+        y: unknown;
+        rank: unknown;
+      }>;
+    };
+
+    const linkResult = (await graph.query(linkQuery)) as {
+      data: Array<{ source: unknown; target: unknown; type: unknown }>;
+    };
+
+    const memories: GraphTopologyMemory[] = (memResult.data ?? [])
+      .map((row) => {
+        const id = strOr(row.id, "").trim();
+        if (!id) return null;
+        const x = numOrNull(row.x);
+        const y = numOrNull(row.y);
+        const rank = numOrNull(row.rank);
+        const out: GraphTopologyMemory = {
+          id,
+          name: strOr(row.name, id),
+          content: strOr(row.content, ""),
+          impression: strOr(row.impression, ""),
+          confidence: numOr(row.confidence, 0.5),
+        };
+        if (x != null) out.x = x;
+        if (y != null) out.y = y;
+        if (rank != null) out.rank = Math.max(0, Math.floor(rank));
+        return out;
+      })
+      .filter((row): row is GraphTopologyMemory => row != null);
+
+    const links: Links[] = [];
+    const seen = new Set<string>();
+    for (const row of linkResult.data ?? []) {
+      const source = strOr(row.source, "").trim();
+      const target = strOr(row.target, "").trim();
+      const type = strOr(row.type, "");
+      if (!source || !target) continue;
+      if (type !== "PART_OF" && type !== "RELATES_TO") continue;
+      const key = `${type}:${source}->${target}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      links.push({ source, target, type });
+    }
+
+    return { memories, links };
+  } catch (error) {
+    console.error("listGraphTopology error:", error);
+    throw error;
+  }
+}
+
+/**
  * Force-write canvas layout (does not coalesce — used after placeMemoryNode).
  */
 export async function setMemoryLayout(input: {

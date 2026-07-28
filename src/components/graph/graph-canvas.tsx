@@ -8,17 +8,33 @@ import {
   createRtcCamera,
   createLargeStressGraphData,
   createMockGraphData,
+  memoryGraphToGraphData,
   type GraphData,
   type LayoutRenderOptions,
   type PixiRendererHandle,
 } from "@/lib/graph";
 import { diffGraphDirty } from "@/lib/graph/graph-diff";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import type { Links } from "@/types/graph-schema";
 
 type HudState = {
   camX: number;
   camY: number;
   zoom: number;
+};
+
+type GraphApiResponse = {
+  ok?: boolean;
+  empty?: boolean;
+  memories?: Array<{
+    id: string;
+    name: string;
+    x?: number;
+    y?: number;
+    rank?: number;
+  }>;
+  links?: Links[];
+  error?: string;
 };
 
 function formatHudNumber(n: number): string {
@@ -30,8 +46,35 @@ function formatHudNumber(n: number): string {
 }
 
 /**
+ * Resolve initial fixture from query:
+ * - `?stress=1` → large stress fixture (wins)
+ * - default / `?source=mock` → mock
+ * Live Falkor feed is async via `?source=live` after mount (Slice 3).
+ */
+function initialGraphFromSearch(search: string): GraphData {
+  const params = new URLSearchParams(search);
+  if (params.has("stress")) {
+    const hubs = Number(params.get("hubs") ?? "40");
+    const spokes = Number(params.get("spokes") ?? "12");
+    return createLargeStressGraphData({
+      hubCount: Number.isFinite(hubs) ? hubs : 40,
+      spokesPerHub: Number.isFinite(spokes) ? spokes : 12,
+    });
+  }
+  return createMockGraphData();
+}
+
+/**
  * Full-viewport graph host: RTC camera + layout + Pixi DotStream edges.
  * Header chrome: ambient signal-pulse toggle (product weave metaphor).
+ *
+ * Data source (Slice 3):
+ * - Default `/graph` and `?source=mock` → mock fixture (product default).
+ * - `?stress=1` → stress fixture.
+ * - `?source=live` → GET `/api/graph` (Falkor read-only). Empty DB → empty
+ *   canvas. Fetch/DB error → fall back to mock so the page is not blank.
+ * - Client never calls setMemoryLayout; placement writes stay server-side.
+ * - Rollback: omit `source=live` (feed off; mock only).
  */
 export function GraphCanvas() {
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
@@ -154,25 +197,22 @@ export function GraphCanvas() {
 
     /**
      * Optional stress fixture via `?stress=1` (or hub/spoke counts).
-     * Default remains createMockGraphData from the layout loop.
+     * Default remains createMockGraphData. Live feed: `?source=live` (async).
      */
-    let initialGraph: GraphData | undefined;
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.has("stress")) {
-        const hubs = Number(params.get("hubs") ?? "40");
-        const spokes = Number(params.get("spokes") ?? "12");
-        initialGraph = createLargeStressGraphData({
-          hubCount: Number.isFinite(hubs) ? hubs : 40,
-          spokesPerHub: Number.isFinite(spokes) ? spokes : 12,
-        });
-      }
-    }
+    const search =
+      typeof window !== "undefined" ? window.location.search : "";
+    const params = new URLSearchParams(search);
+    const sourceParam = params.get("source");
+    const wantLive = sourceParam === "live" && !params.has("stress");
+    // Live starts empty until fetch resolves (avoid mock flash). Errors fall back to mock.
+    const initialGraph = wantLive
+      ? { nodes: [], edges: [] }
+      : initialGraphFromSearch(search);
 
     let prevGraphForDirty: GraphData | null = null;
 
     const layoutLoop = createLayoutLoop({
-      graphData: initialGraph ?? createMockGraphData(),
+      graphData: initialGraph,
       renderOnGraphData: (
         graphData: GraphData,
         renderOpts?: LayoutRenderOptions
@@ -216,6 +256,39 @@ export function GraphCanvas() {
       }
       layoutLoop.start();
       queueHudUpdate();
+
+      // Slice 3 — opt-in live topology (read-only). No settle (S4). No layout writes.
+      if (!wantLive) return;
+
+      try {
+        const res = await fetch("/api/graph");
+        const data = (await res.json()) as GraphApiResponse;
+        if (isCanvasDisposed) return;
+
+        if (data.ok && Array.isArray(data.memories)) {
+          if (data.memories.length === 0) {
+            // Empty DB: empty canvas (already showing empty).
+            return;
+          }
+          const graph = memoryGraphToGraphData({
+            memories: data.memories,
+            links: Array.isArray(data.links) ? data.links : [],
+          });
+          layoutLoop.setGraphData(graph);
+          return;
+        }
+
+        // Non-ok payload — fall back to mock so the page is not blank.
+        console.warn(
+          "[graph] live feed unavailable, using mock:",
+          data.error ?? res.status,
+        );
+        layoutLoop.setGraphData(createMockGraphData());
+      } catch (err) {
+        if (isCanvasDisposed) return;
+        console.warn("[graph] live feed fetch failed, using mock:", err);
+        layoutLoop.setGraphData(createMockGraphData());
+      }
     })();
 
     return () => {

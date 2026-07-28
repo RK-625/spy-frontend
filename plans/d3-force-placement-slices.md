@@ -165,11 +165,20 @@ S0 force-recipe + verify
 
 **Exit criteria:**
 
-- [ ] With DB data: nodes/edges render  
-- [ ] Empty DB: graceful empty or mock fallback (product choice, document in PR)  
-- [ ] No `setMemoryLayout` from client  
+- [x] With DB data: nodes/edges render  
+- [x] Empty DB: graceful empty or mock fallback (product choice, document in PR)  
+- [x] No `setMemoryLayout` from client  
 
-**Rollback:** feature-flag feed off; mock only.
+**Fallback policy (locked for S3):**
+
+| Query | Behavior |
+|-------|----------|
+| `/graph` (default) | Mock fixture — product default unchanged |
+| `?source=mock` | Mock |
+| `?stress=1` | Stress fixture (wins over live) |
+| `?source=live` | GET `/api/graph`; non-empty → render; **empty DB → empty canvas**; fetch/DB error → **keep mock** (page not blank) |
+
+Client never writes layout (`setMemoryLayout` stays server/toolset only).
 
 ---
 
