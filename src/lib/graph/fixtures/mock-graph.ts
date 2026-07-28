@@ -31,14 +31,34 @@ import {
 /** Spokes on the hub ring — enough to force rim sharing / non-overlap. */
 export const HUB_SPOKE_COUNT = 14;
 
+/** Fixture body text for node-inspect (mock only — not live Memory). */
+function mockContent(label: string, blurb: string): string {
+  return `${blurb}\n\n(Fixture node “${label}” — live KB rows carry real Memory content.)`;
+}
+
 export function createMockGraphData(): GraphData {
   const nodes: GraphNode[] = [
-    { id: "root", x: 0, y: 0, label: "root", rank: 0, ...emptyNodeIncidence() },
+    {
+      id: "root",
+      x: 0,
+      y: 0,
+      label: "root",
+      content: mockContent(
+        "root",
+        "Origin of the left tree — hierarchy root for the mock knowledge cluster.",
+      ),
+      rank: 0,
+      ...emptyNodeIncidence(),
+    },
     {
       id: "child-a",
       x: -60,
       y: 55,
       label: "child-a",
+      content: mockContent(
+        "child-a",
+        "Left branch under root. Holds leaf-a1 and leaf-a2.",
+      ),
       rank: 1,
       ...emptyNodeIncidence(),
     },
@@ -47,6 +67,10 @@ export function createMockGraphData(): GraphData {
       x: 60,
       y: 55,
       label: "child-b",
+      content: mockContent(
+        "child-b",
+        "Right branch under root. Relates across to child-a.",
+      ),
       rank: 1,
       ...emptyNodeIncidence(),
     },
@@ -55,6 +79,10 @@ export function createMockGraphData(): GraphData {
       x: 0,
       y: 70,
       label: "child-c",
+      content: mockContent(
+        "child-c",
+        "Center branch under root — sparse path into leaf-c1.",
+      ),
       rank: 1,
       ...emptyNodeIncidence(),
     },
@@ -63,6 +91,7 @@ export function createMockGraphData(): GraphData {
       x: -95,
       y: 110,
       label: "leaf-a1",
+      content: mockContent("leaf-a1", "Deep leaf on the A branch."),
       rank: 2,
       ...emptyNodeIncidence(),
     },
@@ -71,6 +100,7 @@ export function createMockGraphData(): GraphData {
       x: -25,
       y: 115,
       label: "leaf-a2",
+      content: mockContent("leaf-a2", "Sibling leaf on the A branch."),
       rank: 2,
       ...emptyNodeIncidence(),
     },
@@ -79,6 +109,7 @@ export function createMockGraphData(): GraphData {
       x: 70,
       y: 120,
       label: "leaf-b1",
+      content: mockContent("leaf-b1", "Leaf under child-b."),
       rank: 2,
       ...emptyNodeIncidence(),
     },
@@ -87,6 +118,7 @@ export function createMockGraphData(): GraphData {
       x: 5,
       y: 135,
       label: "leaf-c1",
+      content: mockContent("leaf-c1", "Leaf under child-c."),
       rank: 2,
       ...emptyNodeIncidence(),
     },
@@ -113,6 +145,10 @@ export function createMockGraphData(): GraphData {
     x: hubX,
     y: hubY,
     label: "hub",
+    content: mockContent(
+      "hub",
+      "Multi-edge hub for RimLock stress — many PART_OF children on a ring.",
+    ),
     rank: 0,
     ...emptyNodeIncidence(),
   });
@@ -125,6 +161,7 @@ export function createMockGraphData(): GraphData {
       x: hubX + Math.cos(ang) * spokeR,
       y: hubY + Math.sin(ang) * spokeR,
       label: id,
+      content: mockContent(id, `Spoke ${i} of the hub ring.`),
       rank: 1,
       ...emptyNodeIncidence(),
     });
