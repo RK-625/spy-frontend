@@ -3,17 +3,22 @@
  *
  * Shared pure recipe (`settleGraphData`) places the topology; settled world
  * `x` / `y` and topology-derived `rank` are written via `setMemoryLayout`.
- * Call only when topology/placement must change (create, link, missing xy).
+ * Call only when topology/placement must change (link, missing xy / cold).
+ * **Create alone does not settle** (no topology; leave x/y null until link/cold).
  * Content-only upserts must not call this (no reshuffle).
  *
  * Persist policy **P-A** (locked): durable settled coords for stable reopen.
  * Client `/graph` never writes layout.
  *
  * Incremental policy (scale):
- * Pass `focusIds` for the weave event (new node, PART_OF child, RELATES source).
+ * Pass `focusIds` for the weave event (PART_OF child, RELATES source, cold id).
  * We expand to a 1-hop neighborhood (incident edges + incidence lists) as the
  * **movable** set. Empty focus (and no rank overrides) → full free settle +
  * persist all nodes (cold / bulk).
+ *
+ * `anchorIds` (optional): forced pins even when inside the neighborhood
+ * (e.g. PART_OF parent). Anchors stay in the settle subgraph for collide/link
+ * context but never move and are not dirty for xy persist.
  *
  * When focus is non-empty: **always** keep outsiders fixed — never free-settle
  * the whole graph just because the movable fraction is large (avoids hub
@@ -34,12 +39,20 @@ import {
 } from "@/lib/graph/force-recipe";
 import type { GraphData } from "@/lib/graph/graph-data";
 
+/** Skip persist when |Δx| and |Δy| are both within this (float noise). */
+const XY_PERSIST_EPSILON = 1e-6;
+
 export type SettleAndPersistOptions = {
   /**
-   * Weave focus ids (create / link source). Expanded to 1-hop neighborhood.
+   * Weave focus ids (link source / cold node). Expanded to 1-hop neighborhood.
    * Omit or empty → settle whole graph and persist every node.
    */
   focusIds?: readonly string[];
+  /**
+   * Node ids forced pinned even if inside the movable neighborhood
+   * (PART_OF parent as geometry anchor). Stay in subgraph for forces; not dirty.
+   */
+  anchorIds?: readonly string[];
   /**
    * Rank overrides applied on the in-memory GraphData before settle
    * (e.g. PART_OF child = parent.rank + 1). Force never invents rank.
@@ -62,11 +75,13 @@ function rankOverrideFor(
   overrides: SettleAndPersistOptions["rankOverrides"],
 ): number | undefined {
   if (overrides == null) return undefined;
+  // ReadonlyMap is not eliminated by `instanceof Map` in the false branch.
   if (overrides instanceof Map) {
     const v = overrides.get(id);
     return typeof v === "number" && Number.isFinite(v) ? v : undefined;
   }
-  const v = overrides[id];
+  const record = overrides as Readonly<Record<string, number>>;
+  const v = record[id];
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
@@ -75,7 +90,7 @@ function rankOverrideIds(
 ): string[] {
   if (overrides == null) return [];
   if (overrides instanceof Map) return [...overrides.keys()];
-  return Object.keys(overrides);
+  return Object.keys(overrides as Readonly<Record<string, number>>);
 }
 
 function cloneGraphDataLocal(graph: GraphData): GraphData {
@@ -210,6 +225,9 @@ export function settleMemoryGraphIncremental(
   options?: SettleAndPersistOptions,
 ): IncrementalSettleResult {
   const focusIds = options?.focusIds ?? [];
+  const forcedAnchorIds = new Set(
+    (options?.anchorIds ?? []).filter((id) => id.length > 0),
+  );
   const hasFocus =
     focusIds.length > 0 || rankOverrideIds(options?.rankOverrides).length > 0;
 
@@ -217,42 +235,81 @@ export function settleMemoryGraphIncremental(
   applyRankOverrides(working, options?.rankOverrides);
 
   // Empty focus → full free settle + persist all (cold / bulk).
+  // Forced anchors still pin when present (rare for cold path).
   if (!hasFocus) {
     const dirtyIds = new Set(working.nodes.map((n) => n.id));
+    for (const id of forcedAnchorIds) dirtyIds.delete(id);
+
     if (
       working.nodes.some(
         (n) =>
-          Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON,
+          !forcedAnchorIds.has(n.id) &&
+          Math.abs(n.x) <= ORIGIN_EPSILON &&
+          Math.abs(n.y) <= ORIGIN_EPSILON,
       )
     ) {
-      applyColdStartJitter(working.nodes);
+      const free = working.nodes.filter((n) => !forcedAnchorIds.has(n.id));
+      applyColdStartJitter(free);
     }
-    const settled = settleGraphData(working, { ...options?.settle });
-    return { graph: settled, dirtyIds, pinned: false };
+
+    const pinnedNodeIds =
+      forcedAnchorIds.size > 0 ? [...forcedAnchorIds] : undefined;
+    const settled = settleGraphData(working, {
+      ...options?.settle,
+      pinnedNodeIds,
+    });
+    return {
+      graph: settled,
+      dirtyIds,
+      pinned: forcedAnchorIds.size > 0,
+    };
   }
 
-  const dirtyIds = expandFocusNeighborhood(
+  const neighborhood = expandFocusNeighborhood(
     working,
     focusIds,
     options?.rankOverrides,
   );
   for (const id of rankOverrideIds(options?.rankOverrides)) {
-    dirtyIds.add(id);
+    neighborhood.add(id);
   }
 
-  // Restrict to ids present on the working graph.
+  // Movable = neighborhood minus forced anchors (parent pin for PART_OF).
   const movable = new Set(
-    [...dirtyIds].filter((id) => working.nodes.some((n) => n.id === id)),
+    [...neighborhood].filter(
+      (id) =>
+        !forcedAnchorIds.has(id) &&
+        working.nodes.some((n) => n.id === id),
+    ),
   );
-  dirtyIds.clear();
-  for (const id of movable) dirtyIds.add(id);
+
+  // Dirty for persist: movable + rank overrides (even if override id is anchor).
+  const dirtyIds = new Set(movable);
+  for (const id of rankOverrideIds(options?.rankOverrides)) {
+    if (working.nodes.some((n) => n.id === id)) dirtyIds.add(id);
+  }
+  // Forced anchors without rank override are not dirty.
+  for (const id of forcedAnchorIds) {
+    if (rankOverrideFor(id, options?.rankOverrides) === undefined) {
+      dirtyIds.delete(id);
+    }
+  }
 
   if (movable.size === 0) {
-    return { graph: working, dirtyIds, pinned: false };
+    // Rank-only path possible when everything is anchored / already placed.
+    return {
+      graph: working,
+      dirtyIds,
+      pinned: forcedAnchorIds.size > 0 || working.nodes.length > 0,
+    };
   }
 
-  // Always pin outsiders when focus is present (no movable-ratio free settle).
+  // Boundary anchors + forced pins (parent, etc.).
   const anchors = expandAnchorRing(working, movable);
+  for (const id of forcedAnchorIds) {
+    if (working.nodes.some((n) => n.id === id)) anchors.add(id);
+  }
+
   const subgraph = buildSettleSubgraph(working, movable, anchors);
 
   // Cold-start jitter only on movable nodes that need it.
@@ -291,6 +348,9 @@ export function settleMemoryGraphIncremental(
 /**
  * Load topology → incremental settle → persist dirty layouts only.
  * Returns the number of layouts written.
+ *
+ * Persist filter (F6): write only when rank differs or |Δxy| exceeds epsilon.
+ * Rank overrides do not force a write when rank already matches.
  */
 export async function settleAndPersistMemoryLayouts(
   options?: SettleAndPersistOptions,
@@ -314,10 +374,10 @@ export async function settleAndPersistMemoryLayouts(
     const prev = beforeById.get(node.id);
     const rankChanged = prev == null || prev.rank !== node.rank;
     const xyChanged =
-      prev == null || prev.x !== node.x || prev.y !== node.y;
-    // Always write rank overrides / missing prev; skip no-op xy+rank.
-    const override = rankOverrideFor(node.id, options?.rankOverrides);
-    if (!rankChanged && !xyChanged && override === undefined) continue;
+      prev == null ||
+      Math.abs(prev.x - node.x) > XY_PERSIST_EPSILON ||
+      Math.abs(prev.y - node.y) > XY_PERSIST_EPSILON;
+    if (!rankChanged && !xyChanged) continue;
 
     await setMemoryLayout({
       id: node.id,

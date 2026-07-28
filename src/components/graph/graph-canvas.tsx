@@ -82,8 +82,8 @@ function initialGraphFromSearch(search: string): GraphData {
  * - Default → static positions (no settle). Product `/graph` unchanged.
  * - `?layout=d3` → one-shot settle via createLayoutLoopAsync({ layoutEngine: "d3-settle" }).
  * - Live + `layout=d3`: settle runs on feed install (engine setGraphData).
- * - Live + missing/non-finite xy (`needsLayout`): one-shot settle even without
- *   `layout=d3` (session paint only — no client persist).
+ * - Live + unplaced xy (`needsLayout`: missing / near-origin): session settle
+ *   only unplaced nodes (placed nodes pinned); no client persist.
  * - `?motion=1` → opt-in continuous ambient (S8; separate from settle; default off).
  * - Does not flip LAYOUT_SIMULATION_ENABLED.
  */
@@ -322,11 +322,37 @@ export function GraphCanvas() {
           }
 
           if (needsLayout) {
-            // Cold-start live rows: settle once for readable paint; no client persist.
-            const { settleIfNeeded } = await import("@/lib/graph/force-recipe");
+            // Session paint only: pin placed nodes; move only unplaced (F4).
+            // No client setMemoryLayout (P-A stays server/toolset).
+            const {
+              settleGraphData,
+              applyColdStartJitter,
+              cloneGraphData,
+              ORIGIN_EPSILON,
+            } = await import("@/lib/graph/force-recipe");
+            const { isPlacedLayout } = await import("@/lib/memory-placement");
             if (isCanvasDisposed || !layoutLoop) return;
+
+            const pinnedNodeIds = data.memories
+              .filter((m) => isPlacedLayout(m))
+              .map((m) => m.id);
+            const pinnedSet = new Set(pinnedNodeIds);
+            const working = cloneGraphData(graph);
+            const movable = working.nodes.filter((n) => !pinnedSet.has(n.id));
+            if (
+              movable.some(
+                (n) =>
+                  Math.abs(n.x) <= ORIGIN_EPSILON &&
+                  Math.abs(n.y) <= ORIGIN_EPSILON,
+              )
+            ) {
+              applyColdStartJitter(movable);
+            }
             layoutLoop.setGraphData(
-              settleIfNeeded(graph, { needsLayout: true }),
+              settleGraphData(working, {
+                pinnedNodeIds:
+                  pinnedNodeIds.length > 0 ? pinnedNodeIds : undefined,
+              }),
             );
             return;
           }
