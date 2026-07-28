@@ -16,7 +16,8 @@
     "verify:mock-layout": "npx tsx scripts/verify-mock-layout.mjs",
     "verify:hierarchy": "npx tsx scripts/verify-hierarchy.mjs",
     "verify:node-size": "npx tsx scripts/verify-node-size.mjs",
-    "verify:d3-force-recipe": "npx tsx scripts/verify-d3-force-recipe.mjs"
+    "verify:d3-force-recipe": "npx tsx scripts/verify-d3-force-recipe.mjs",
+    "verify:d3-layout": "npx tsx scripts/verify-d3-layout.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.92",

@@ -68,6 +68,7 @@ export {
   type LayoutLoopOptions,
   type LayoutLoopStatus,
   type LayoutRenderOptions,
+  type LayoutEngine,
 } from "@/lib/graph/layout-loop";
 
 // --- Rim packing + spatial residency --------------------------------------

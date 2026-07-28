@@ -111,10 +111,10 @@ S0 force-recipe + verify
 
 **Exit criteria:**
 
-- [ ] `/graph` unchanged (static)  
-- [ ] `/graph?layout=d3` (or agreed flag): readable layout, no NaN, pan/zoom still works  
-- [ ] `verify:d3-layout` green  
-- [ ] Dynamic import so default chunk still avoids `d3-force` when flag off  
+- [x] `/graph` unchanged (static)  
+- [x] `/graph?layout=d3` (or agreed flag): readable layout, no NaN, pan/zoom still works  
+- [x] `verify:d3-layout` green  
+- [x] Dynamic import so default chunk still avoids `d3-force` when flag off  
 
 **Rollback:** remove opt-in branch; leave S0.
 
