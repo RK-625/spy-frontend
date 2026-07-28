@@ -38,6 +38,15 @@ export type GraphNode = {
   x: number;
   y: number;
   label?: string;
+  /**
+   * Memory body for node-inspect UI (not used by bake/render).
+   * Live `/api/graph` rows carry this; mock fixtures may omit.
+   */
+  content?: string;
+  /** Optional Memory impression for node-inspect UI. */
+  impression?: string;
+  /** Optional Memory confidence [0,1] for node-inspect UI. */
+  confidence?: number;
   /** Stored hierarchy depth: 0 at roots (no PART_OF parent). */
   rank: number;
   /** PART_OF where target=me (I'm parent). */

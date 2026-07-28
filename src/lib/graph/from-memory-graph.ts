@@ -30,11 +30,15 @@ import type { Links } from "@/types/graph-schema";
 
 /**
  * Lean node input for canvas mapping (full Memory or `/api/graph` topology rows).
- * Embeddings are not required — layout/rank/name only.
+ * Embeddings are not required — layout/rank/name + optional inspect fields.
  */
 export type MemoryGraphNodeInput = {
   id: string;
   name: string;
+  /** Memory body — shown in node-inspect modal; not used by bake. */
+  content?: string | null;
+  impression?: string | null;
+  confidence?: number | null;
   x?: number | null;
   y?: number | null;
   rank?: number | null;
@@ -120,9 +124,22 @@ export function memoryGraphToGraphDataWithMeta(input: {
   });
 
   const nodes: GraphNode[] = input.memories.map((memory) => {
+    const content =
+      typeof memory.content === "string" ? memory.content : undefined;
+    const impression =
+      typeof memory.impression === "string" ? memory.impression : undefined;
+    const confidence =
+      typeof memory.confidence === "number" &&
+      Number.isFinite(memory.confidence)
+        ? memory.confidence
+        : undefined;
+
     return {
       id: memory.id,
       label: memory.name,
+      ...(content !== undefined ? { content } : {}),
+      ...(impression !== undefined ? { impression } : {}),
+      ...(confidence !== undefined ? { confidence } : {}),
       // Prefill from insertion/placement; 0 is a seed only when layout is missing.
       x:
         typeof memory.x === "number" && Number.isFinite(memory.x)

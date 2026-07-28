@@ -9,13 +9,20 @@ import {
   createLargeStressGraphData,
   createMockGraphData,
   memoryGraphToGraphDataWithMeta,
+  nodeScreenRadius,
   type GraphData,
+  type GraphNode,
   type LayoutEngine,
   type LayoutRenderOptions,
   type PixiRendererHandle,
+  type RtcCamera,
 } from "@/lib/graph";
 import { diffGraphDirty } from "@/lib/graph/graph-diff";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import {
+  NodeDetailDialog,
+  type NodeDetail,
+} from "@/components/graph/node-detail-dialog";
 import type { Links } from "@/types/graph-schema";
 
 type HudState = {
@@ -30,6 +37,9 @@ type GraphApiResponse = {
   memories?: Array<{
     id: string;
     name: string;
+    content?: string;
+    impression?: string;
+    confidence?: number;
     x?: number;
     y?: number;
     rank?: number;
@@ -37,6 +47,57 @@ type GraphApiResponse = {
   links?: Links[];
   error?: string;
 };
+
+/** Max pointer travel (screen px) still treated as a click, not a pan. */
+const CLICK_MOVE_THRESHOLD_PX = 6;
+/** Extra hit slop around the visual node radius (screen px). */
+const NODE_HIT_PAD_PX = 6;
+
+function toNodeDetail(node: GraphNode): NodeDetail {
+  return {
+    id: node.id,
+    label: node.label,
+    content: node.content,
+    impression: node.impression,
+    confidence: node.confidence,
+    rank: node.rank,
+    childIds: node.childIds,
+    parentIds: node.parentIds,
+    relateIds: node.relateIds,
+  };
+}
+
+/**
+ * Closest node under the pointer (world hit using bake-space radii × zoom).
+ * Returns null when the pointer is outside every padded disc.
+ */
+function hitTestNode(
+  graph: GraphData,
+  camera: RtcCamera,
+  screenX: number,
+  screenY: number,
+): GraphNode | null {
+  const world = camera.screenToWorld({ x: screenX, y: screenY });
+  const zoom = Math.abs(camera.zoom);
+  if (!Number.isFinite(zoom) || zoom === 0) return null;
+
+  const padWorld = NODE_HIT_PAD_PX / zoom;
+  let best: GraphNode | null = null;
+  let bestDist2 = Infinity;
+
+  for (const node of graph.nodes) {
+    if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
+    const radius = nodeScreenRadius(node.rank, 1) + padWorld;
+    const dx = node.x - world.x;
+    const dy = node.y - world.y;
+    const dist2 = dx * dx + dy * dy;
+    if (dist2 <= radius * radius && dist2 < bestDist2) {
+      best = node;
+      bestDist2 = dist2;
+    }
+  }
+  return best;
+}
 
 function formatHudNumber(n: number): string {
   if (!Number.isFinite(n)) return String(n);
@@ -97,6 +158,8 @@ export function GraphCanvas() {
   });
   /** Default on — ambient life on the web (not a loud lab dashboard). */
   const [pulsesOn, setPulsesOn] = useState(true);
+  const [selectedNode, setSelectedNode] = useState<NodeDetail | null>(null);
+  const [nodeDialogOpen, setNodeDialogOpen] = useState(false);
 
   useEffect(() => {
     const canvasHost = canvasHostRef.current;
@@ -120,6 +183,8 @@ export function GraphCanvas() {
     let hudFrameId: number | null = null;
     /** Coalesce Pixi draws to at most one per animation frame (pan/wheel flood). */
     let renderFrameId: number | null = null;
+    /** Latest graph snapshot for hit-testing (updated on every renderOnGraphData). */
+    let currentGraph: GraphData = { nodes: [], edges: [] };
 
     const flushHudState = () => {
       hudFrameId = null;
@@ -149,6 +214,9 @@ export function GraphCanvas() {
     let isPanning = false;
     let lastPointerX = 0;
     let lastPointerY = 0;
+    let pointerDownX = 0;
+    let pointerDownY = 0;
+    let pointerTravel = 0;
 
     // setInteractionQuality is a no-op on the renderer (world-bake + GPU batches);
     // do not schedule settle timers / extra rAFs for quality toggles. Pan/zoom
@@ -159,6 +227,9 @@ export function GraphCanvas() {
       isPanning = true;
       lastPointerX = e.clientX;
       lastPointerY = e.clientY;
+      pointerDownX = e.clientX;
+      pointerDownY = e.clientY;
+      pointerTravel = 0;
       canvasHost.setPointerCapture(e.pointerId);
     };
     const handlePointerMove = (e: PointerEvent) => {
@@ -167,17 +238,32 @@ export function GraphCanvas() {
       const dy = e.clientY - lastPointerY;
       lastPointerX = e.clientX;
       lastPointerY = e.clientY;
+      pointerTravel = Math.max(
+        pointerTravel,
+        Math.hypot(e.clientX - pointerDownX, e.clientY - pointerDownY),
+      );
       camera.panByScreen(dx, dy);
       queueRender();
       queueHudUpdate();
     };
     const handlePointerUp = (e: PointerEvent) => {
+      const wasPanning = isPanning;
       isPanning = false;
       try {
         canvasHost.releasePointerCapture(e.pointerId);
       } catch {
         // already released
       }
+      if (!wasPanning || isCanvasDisposed) return;
+      // Click = short travel; pan = drag. Open inspect modal on node hit.
+      if (pointerTravel > CLICK_MOVE_THRESHOLD_PX) return;
+      const rect = canvasHost.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      const hit = hitTestNode(currentGraph, camera, screenX, screenY);
+      if (!hit) return;
+      setSelectedNode(toNodeDetail(hit));
+      setNodeDialogOpen(true);
     };
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -232,6 +318,7 @@ export function GraphCanvas() {
     const initialGraph = forceLive
       ? { nodes: [], edges: [] }
       : initialGraphFromSearch(search);
+    currentGraph = initialGraph;
 
     let prevGraphForDirty: GraphData | null = null;
 
@@ -240,6 +327,8 @@ export function GraphCanvas() {
       renderOpts?: LayoutRenderOptions
     ) => {
       if (isCanvasDisposed) return;
+
+      currentGraph = graphData;
 
       // Prefer explicit dirty from layout/sim; else diff against previous snapshot.
       if (renderOpts?.dirtyEdges !== undefined) {
@@ -397,6 +486,11 @@ export function GraphCanvas() {
     rendererRef.current?.setSignalPulsesEnabled(next);
   };
 
+  const handleNodeDialogOpenChange = (open: boolean) => {
+    setNodeDialogOpen(open);
+    if (!open) setSelectedNode(null);
+  };
+
   return (
     <div
       className="relative h-dvh w-dvw overflow-hidden bg-black text-[#ded4f0]"
@@ -405,7 +499,13 @@ export function GraphCanvas() {
       <div
         ref={canvasHostRef}
         className="absolute inset-0 cursor-grab touch-none active:cursor-grabbing"
-        aria-hidden
+        aria-label="Knowledge graph canvas. Click a node to inspect. Drag to pan, wheel to zoom."
+      />
+
+      <NodeDetailDialog
+        node={selectedNode}
+        open={nodeDialogOpen}
+        onOpenChange={handleNodeDialogOpenChange}
       />
 
       {/* Product chrome — dark utility register; HUD is secondary, Signals is primary control */}
@@ -418,7 +518,7 @@ export function GraphCanvas() {
             Spy graph
           </div>
           <div className="mt-1 text-[11px] leading-snug tracking-wide text-[#4a4658]">
-            Drag to pan · wheel to zoom
+            Click a node · drag to pan · wheel to zoom
           </div>
           {/* Compact camera readout — product-secondary, not debug dump */}
           <div
