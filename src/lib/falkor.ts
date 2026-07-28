@@ -381,7 +381,8 @@ export async function listGraphTopology(): Promise<GraphTopology> {
 }
 
 /**
- * Force-write canvas layout (does not coalesce — used after placeMemoryNode).
+ * Force-write canvas layout (does not coalesce).
+ * Used after shared d3 settle (P-A persist) — not fan/spiral place*.
  */
 export async function setMemoryLayout(input: {
   id: string;

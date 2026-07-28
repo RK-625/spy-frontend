@@ -1,6 +1,6 @@
 # d3-force placement — atomic slice plan
 
-**Status:** Planning only — implement one slice per PR.  
+**Status:** S0–S8 implemented (2026-07-29).  
 **Date:** 2026-07-29  
 **Supersedes for sequencing:** `D3-FORCE-LAYOUT-PLAN.md` dual-authority FA2→d3 polish path.  
 **Direction locked for this plan:** d3-force is the **placement** engine (one-shot / short settle). Visual **size** stays rank-driven in `graph-scale.ts`. Continuous ambient motion stays **off** until a later optional slice.
@@ -20,9 +20,9 @@
 | FA2 | Do not build parallel product engine; leave dead path until a dedicated delete slice |
 | Quality bans | Unchanged |
 
-**Persist policy (pick before Slice 5, not before Slice 0):**
+**Persist policy (LOCKED for S5+):**
 
-- **P-A:** Persist **settled** `x/y` only (stable reopen).  
+- **P-A:** Persist **settled** `x/y` only (stable reopen). ← **chosen**  
 - **P-B:** Do not persist `x/y`; re-settle on every load.
 
 Until that pick, Slices 0–3 treat positions as **session / verify-only**.
@@ -198,8 +198,14 @@ Client never writes layout (`setMemoryLayout` stays server/toolset only).
 
 **Exit criteria:**
 
-- [ ] Live graph + settle opt-in readable  
-- [ ] Default still non-breaking  
+- [x] Live graph + settle opt-in readable  
+- [x] Default still non-breaking  
+
+**S4 notes (implemented):**
+
+- `?source=live&layout=d3` → `layoutEngine: "d3-settle"` settles on feed `setGraphData`.
+- Live + `needsLayout` (missing xy) → session `settleIfNeeded` even without `layout=d3` (dynamic import; no client persist).
+- Default `/graph` remains static mock. Client never calls `setMemoryLayout`.
 
 ---
 
@@ -222,9 +228,11 @@ Client never writes layout (`setMemoryLayout` stays server/toolset only).
 
 **Exit criteria:**
 
-- [ ] New weave produces layout without fan module  
-- [ ] Rank still correct on PART_OF  
-- [ ] No dual-write fan + settle for the same event  
+- [x] New weave produces layout without fan module  
+- [x] Rank still correct on PART_OF  
+- [x] No dual-write fan + settle for the same event  
+
+**Persist policy LOCKED (S5):** **P-A** — persist settled `x/y` (and rank) via `setMemoryLayout` after server settle (`settleAndPersistMemoryLayouts` in `src/lib/memory-layout-settle.ts`). Stable reopen. Content-only upsert skips settle.
 
 **Rollback:** restore place* calls behind a flag for one release if needed.
 
@@ -236,6 +244,8 @@ Client never writes layout (`setMemoryLayout` stays server/toolset only).
 
 - Wire only rank + no place; client always settles (P-B), **or**  
 - Wire only settled write API after server settle (P-A).
+
+**(Not used — S5 landed P-A inline.)**
 
 ---
 
@@ -256,8 +266,8 @@ Client never writes layout (`setMemoryLayout` stays server/toolset only).
 
 **Exit criteria:**
 
-- [ ] `rg placeAs|placeMemoryNode|placeForRelates` clean on product paths  
-- [ ] Verify scripts for rank still green  
+- [x] `rg placeAs|placeMemoryNode|placeForRelates` clean on product paths  
+- [x] Verify scripts for rank still green  
 
 ---
 
@@ -273,8 +283,8 @@ Client never writes layout (`setMemoryLayout` stays server/toolset only).
 
 **Exit criteria:**
 
-- [ ] `rg graphology` clean  
-- [ ] Bundle / import guard: sim chunk is d3 only if any  
+- [x] `rg graphology` clean  
+- [x] Bundle / import guard: sim chunk is d3 only if any  
 
 ---
 
@@ -287,7 +297,12 @@ Client never writes layout (`setMemoryLayout` stays server/toolset only).
 | **Depends on** | S1+ stable; UX sign-off  
 | **Default** | Still off  
 
-**Exit:** motion flag separate from settle; freeze during pan optional.
+**Exit:**
+
+- [x] motion flag separate from settle (`?motion=1` / `ambientMotion`); freeze during pan optional (deferred — minimal ticks only)
+- [x] Default off verified (`ambientMotion: false` → status stopped after settle)
+
+**S8 notes:** Thin continuous low-alpha rAF ticks in `layout-loop-d3` when `ambientMotion: true`. Not the same as one-shot settle. Pan freeze deferred.
 
 ---
 
@@ -344,10 +359,10 @@ Keep `D3-FORCE-LAYOUT-PLAN.md` as historical / FA2 notes if useful; **execute th
 
 | ID | Question | Options |
 |----|----------|---------|
-| P1 | Persist settled xy? | P-A yes / P-B no |
+| P1 | Persist settled xy? | **P-A locked** (settle + setMemoryLayout) |
 | P2 | Settle on server, client, or shared both? | Prefer **shared pure recipe**; run where write authority lives |
 | P3 | Content-only upsert re-settle? | Default **no** |
-| P4 | Opt-in query name | `layout=d3` vs settings flag |
+| P4 | Opt-in query name | `layout=d3` settle; `motion=1` ambient |
 
 ---
 

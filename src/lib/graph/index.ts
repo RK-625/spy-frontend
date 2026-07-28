@@ -59,7 +59,7 @@ export {
   type WorldPoint,
 } from "@/lib/graph/rtc-camera";
 
-// --- Layout (static default; FA2 via createLayoutLoopAsync) ----------------
+// --- Layout (static default; d3 settle via createLayoutLoopAsync) ----------
 export {
   createLayoutLoop,
   createLayoutLoopAsync,

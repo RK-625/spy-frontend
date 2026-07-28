@@ -278,15 +278,20 @@ async function main() {
   const noop = settleIfNeeded(settled, { needsLayout: false });
   assert(noop === settled, "settleIfNeeded returns same ref when needsLayout false");
 
-  // Static product path must not pull d3-force (Slice 0: no wire yet).
+  // Static product path must not statically import d3-force (dynamic via layout-loop-d3).
   const layoutLoopSrc = fs.readFileSync(
     path.join(root, "src/lib/graph/layout-loop.ts"),
     "utf8"
   );
   assert(
-    !layoutLoopSrc.includes("d3-force") &&
-      !layoutLoopSrc.includes("force-recipe"),
-    "layout-loop.ts does not import d3-force / force-recipe"
+    !/from\s+["']d3-force["']/.test(layoutLoopSrc) &&
+      !/from\s+["'][^"']*force-recipe["']/.test(layoutLoopSrc) &&
+      !/require\(["']d3-force["']\)/.test(layoutLoopSrc),
+    "layout-loop.ts does not statically import d3-force / force-recipe"
+  );
+  assert(
+    layoutLoopSrc.includes("layout-loop-d3"),
+    "layout-loop.ts dynamic-imports layout-loop-d3"
   );
 
   const canvasSrc = fs.readFileSync(
@@ -294,8 +299,9 @@ async function main() {
     "utf8"
   );
   assert(
-    !canvasSrc.includes("d3-force") && !canvasSrc.includes("force-recipe"),
-    "graph-canvas.tsx does not import d3-force / force-recipe"
+    !/from\s+["'][^"']*force-recipe["']/.test(canvasSrc) &&
+      !/from\s+["']d3-force["']/.test(canvasSrc),
+    "graph-canvas.tsx does not statically import d3-force / force-recipe"
   );
 
   if (failed > 0) {

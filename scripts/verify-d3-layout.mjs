@@ -119,15 +119,15 @@ async function main() {
 
   d3Loop.stop();
 
-  // Import guard: dispatcher must not statically pull recipe package names.
+  // Import guard: dispatcher must not statically import recipe / d3-force.
   const layoutLoopSrc = fs.readFileSync(
     path.join(root, "src/lib/graph/layout-loop.ts"),
     "utf8"
   );
   assert(
-    !layoutLoopSrc.includes("d3-force") &&
-      !layoutLoopSrc.includes("force-recipe"),
-    "layout-loop.ts does not statically mention d3-force / force-recipe"
+    !/from\s+["']d3-force["']/.test(layoutLoopSrc) &&
+      !/from\s+["'][^"']*force-recipe["']/.test(layoutLoopSrc),
+    "layout-loop.ts does not statically import d3-force / force-recipe"
   );
   assert(
     layoutLoopSrc.includes("layout-loop-d3"),
@@ -139,13 +139,35 @@ async function main() {
     "utf8"
   );
   assert(
-    !canvasSrc.includes("d3-force") && !canvasSrc.includes("force-recipe"),
-    "graph-canvas does not import d3-force / force-recipe directly"
+    !/from\s+["'][^"']*force-recipe["']/.test(canvasSrc) &&
+      !/from\s+["']d3-force["']/.test(canvasSrc),
+    "graph-canvas does not statically import d3-force / force-recipe"
   );
   assert(
     canvasSrc.includes('get("layout") === "d3"'),
     "graph-canvas reads layout=d3 opt-in"
   );
+  assert(
+    canvasSrc.includes('get("motion") === "1"'),
+    "graph-canvas reads motion=1 ambient opt-in (S8)"
+  );
+  assert(
+    canvasSrc.includes("ambientMotion: wantMotion"),
+    "graph-canvas passes ambientMotion (default off unless motion=1)"
+  );
+
+  // Ambient default off: d3-settle without ambientMotion stops after settle.
+  const ambientOff = await createLayoutLoopAsync({
+    graphData: createMockGraphData(),
+    layoutEngine: "d3-settle",
+    ambientMotion: false,
+  });
+  ambientOff.start();
+  assert(
+    ambientOff.status() === "stopped",
+    "ambientMotion false → status stopped after start (no continuous loop)"
+  );
+  ambientOff.stop();
 
   if (failed > 0) {
     console.error(`\n${failed} assertion(s) failed`);

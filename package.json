@@ -51,8 +51,6 @@
     "exa-js": "^2.16.0",
     "falkordb": "^6.6.2",
     "falkordblite": "^0.3.0",
-    "graphology": "^0.26.0",
-    "graphology-layout-forceatlas2": "^0.10.1",
     "gsap": "^3.12.7",
     "lucide-react": "^1.20.0",
     "media-chrome": "^4.19.2",

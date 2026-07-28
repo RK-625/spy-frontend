@@ -9,18 +9,14 @@ import { generateEmbedding } from "@/ai/embeddings";
 import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
-  listMemoryLayouts,
   getMemoryLayout,
-  setMemoryLayout,
 } from "@/lib/falkor";
 import {
-  placeAsRoot,
-  placeAsChild,
-  placeForRelates,
+  rankAfterParent,
   shouldPlaceOnUpsert,
   shouldPlaceOnLink,
-  buildOccupiedFromLayouts,
 } from "@/lib/memory-placement";
+import { settleAndPersistMemoryLayouts } from "@/lib/memory-layout-settle";
 
 export type { AskUserQuestionInput } from "@/ai/schemas/ask-user-question";
 export { askUserQuestionInputSchema } from "@/ai/schemas/ask-user-question";
@@ -89,20 +85,10 @@ const upsertMemory: Tool = tool({
         generateEmbedding(input.content),
       ]);
 
-      // Layout is system-owned: place on create, or if an existing node has no x/y yet.
-      // Content-only updates preserve existing x/y/rank (shouldPlaceOnUpsert).
-      let layout: { x: number; y: number; rank: number } | undefined;
+      // Layout is system-owned (P-A). Content-only updates preserve x/y/rank —
+      // no re-settle when topology is unchanged (shouldPlaceOnUpsert).
       const existing = isCreate ? null : await getMemoryLayout(id);
-
-      if (shouldPlaceOnUpsert({ isCreate, existing })) {
-        const layouts = await listMemoryLayouts();
-        const occupied = buildOccupiedFromLayouts(layouts, id);
-        layout = placeAsRoot({
-          related: [],
-          occupied,
-          excludeId: id,
-        });
-      }
+      const needsSettle = shouldPlaceOnUpsert({ isCreate, existing });
 
       await falkorUpsertMemory({
         id,
@@ -112,10 +98,13 @@ const upsertMemory: Tool = tool({
         confidence,
         searchEmbedding,
         contentEmbedding,
-        ...(layout != null
-          ? { x: layout.x, y: layout.y, rank: layout.rank }
-          : {}),
+        // Rank only on create; geometry comes from shared d3 settle + setMemoryLayout.
+        ...(isCreate ? { rank: 0 } : {}),
       });
+
+      if (needsSettle) {
+        await settleAndPersistMemoryLayouts();
+      }
 
       return { id, name: input.name };
     } catch (error) {
@@ -129,68 +118,27 @@ const upsertMemory: Tool = tool({
 
 const linkMemories: Tool = tool({
   description:
-    "Create a directed edge between two existing Memory nodes. Call only after both nodes exist (upsert first if needed). PART_OF is hierarchical (source=child → target=parent); system repositions the child near the parent and sets rank. RELATES_TO is associative; system places source only if it lacks layout. Geometry is never LLM-authored.",
+    "Create a directed edge between two existing Memory nodes. Call only after both nodes exist (upsert first if needed). PART_OF is hierarchical (source=child → target=parent); system sets child rank and settles layout. RELATES_TO is associative; system settles only when source lacks layout. Geometry is never LLM-authored.",
   inputSchema: linkMemoriesInputSchema,
   execute: async ({ source, target, type }) => {
     try {
       await falkorCreateLink({ source, target, type });
 
-      // PART_OF: place child (source) near parent (target); set rank = parent.rank + 1.
-      // RELATES_TO: place source near target only if source still has no layout.
+      // Topology/rank via shared settle (force-recipe) + P-A setMemoryLayout.
+      // No fan/spiral placeAs* — durable geometry is settled coords only.
       if (type === "PART_OF") {
         const parent = await getMemoryLayout(target);
         const sourceLayout = await getMemoryLayout(source);
-        if (
-          shouldPlaceOnLink({ type: "PART_OF", sourceLayout }) &&
-          parent != null &&
-          parent.x != null &&
-          parent.y != null &&
-          Number.isFinite(parent.x) &&
-          Number.isFinite(parent.y)
-        ) {
-          const layouts = await listMemoryLayouts();
-          const occupied = buildOccupiedFromLayouts(layouts, source);
-          const placement = placeAsChild({
-            parent: {
-              x: parent.x,
-              y: parent.y,
-              rank: parent.rank ?? 0,
-            },
-            related: [],
-            occupied,
-            excludeId: source,
-          });
-          await setMemoryLayout({
-            id: source,
-            x: placement.x,
-            y: placement.y,
-            rank: placement.rank,
+        if (shouldPlaceOnLink({ type: "PART_OF", sourceLayout })) {
+          const childRank = rankAfterParent(parent?.rank ?? 0);
+          await settleAndPersistMemoryLayouts({
+            rankOverrides: { [source]: childRank },
           });
         }
       } else if (type === "RELATES_TO") {
         const sourceLayout = await getMemoryLayout(source);
-        const targetLayout = await getMemoryLayout(target);
-        if (
-          shouldPlaceOnLink({ type: "RELATES_TO", sourceLayout }) &&
-          targetLayout != null &&
-          targetLayout.x != null &&
-          targetLayout.y != null &&
-          Number.isFinite(targetLayout.x) &&
-          Number.isFinite(targetLayout.y)
-        ) {
-          const layouts = await listMemoryLayouts();
-          const occupied = buildOccupiedFromLayouts(layouts, source);
-          const placement = placeForRelates({
-            related: [{ x: targetLayout.x, y: targetLayout.y }],
-            occupied,
-            excludeId: source,
-          });
-          await setMemoryLayout({
-            id: source,
-            x: placement.x,
-            y: placement.y,
-            rank: sourceLayout?.rank ?? placement.rank,
-          });
+        if (shouldPlaceOnLink({ type: "RELATES_TO", sourceLayout })) {
+          await settleAndPersistMemoryLayouts();
         }
       }
 

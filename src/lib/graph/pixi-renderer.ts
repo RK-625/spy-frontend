@@ -82,14 +82,14 @@
  * - PART_OF parent→child; RELATES quieter. Toggle off restores base edge tokens.
  *
  * Landed (this pure-perf track):
- * - Rim-coupled dirty expansion, host dirty plumbing, FA2 emit prep (sim still off)
+ * - Rim-coupled dirty expansion, host dirty plumbing (settle/ambient emit dirty)
  * - Durable buffer + dirty splice, worker latest-only cancel
  * - Incremental RimLock for moved∪neighbors, spatial incidence + int keys
  * - Node layer redraw only when nodes dirty
  * - Optional createLargeStressGraphData export (not default mock)
  *
  * Deferred / residual risks:
- * - FA2 continuous sim still soft-disabled (LAYOUT_SIMULATION_ENABLED = false)
+ * - Continuous ambient opt-in only (`?motion=1`; default off; FA2 path removed)
  * - Multi-mesh per-tile GPU (B3) not landed — full mesh rebuild from durable buffer
  * - Server viewport graph slices / hierarchy drill out of scope
  * - Mid-sample worker abort depends on cooperative yield; very short jobs may finish
