@@ -82,10 +82,10 @@ S0 force-recipe + verify
 
 **Exit criteria:**
 
-- [ ] `npm run verify:d3-force-recipe` green  
-- [ ] All positions finite; ranks identical to input  
-- [ ] Mean PART_OF length &lt; mean RELATES_TO length (soft assert with tolerance)  
-- [ ] Static product path still does not import `d3-force` (no wire yet)
+- [x] `npm run verify:d3-force-recipe` green  
+- [x] All positions finite; ranks identical to input  
+- [x] Mean PART_OF length &lt; mean RELATES_TO length (soft assert with tolerance)  
+- [x] Static product path still does not import `d3-force` (no wire yet)
 
 **Rollback:** remove dep + two files + script.
 
