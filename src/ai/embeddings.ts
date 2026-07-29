@@ -1,4 +1,4 @@
-import { embed, EmbeddingModel } from "ai";
+import { embed } from "ai";
 import { embedModel } from "./modelstore";
 
 export async function generateEmbedding(text: string): Promise<number[]> {

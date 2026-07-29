@@ -1,7 +1,12 @@
 # D3-Force Layout Migration Plan
 
-**Status:** Planning only — no implementation in this document.  
-**Scope:** Shift Spy’s client-side graph layout simulation from Graphology + ForceAtlas2 (FA2) to **d3-force**, while preserving `memory-placement` as the server-side authoritative placement layer and FalkorDB as the persistence store for `x` / `y` / `rank`.
+> [!WARNING]
+> **SUPERSEDED ARCHITECTURE NOTICE**  
+> Server-side `memory-placement` and FalkorDB `x`/`y`/`rank` persistence described in historical sections of this document are **SUPERSEDED**.  
+> The active placement architecture is defined in [`plans/client-placement-cache.md`](./plans/client-placement-cache.md): FalkorDB holds **topology only** (content & links); client d3 computes layout poses (`x`/`y` and derived rank) and caches them in `localStorage`. There are **no server-side placement writes**.
+
+**Status:** Historical migration plan — server-side placement & Falkor `x`/`y`/`rank` persistence are **SUPERSEDED** by [`plans/client-placement-cache.md`](./plans/client-placement-cache.md).  
+**Scope:** Shift Spy’s client-side graph layout simulation from Graphology + ForceAtlas2 (FA2) to **d3-force**. (Note: Server-side `memory-placement` layer and Falkor DB `x`/`y`/`rank` persistence are superseded by client-side d3 pose compute + `localStorage` cache).
 
 **Cross-check method:** This plan simulates a multi-agent review per `rules/orchestration/AGENTS.md` — four independent reviewer lenses (Architecture, Product/UX, Performance, API/Data) with findings, risks, recommendations, then a reconciled decision.
 

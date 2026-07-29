@@ -126,11 +126,34 @@ export async function vectorSearch(embedding: number[], topK: number = 10) {
   }
 }
 
+export async function hasOutgoingLink(
+  source: string,
+  type: "PART_OF" | "RELATES_TO",
+): Promise<boolean> {
+  const validSource = z.string().min(1).parse(source);
+  const graph = await getDb();
+  const query = `
+    MATCH (s:Memory {id: $source})-[r:${type}]->()
+    RETURN count(r) AS count
+  `;
+  try {
+    const result = (await graph.query(query, {
+      params: { source: validSource },
+    })) as { data: Array<{ count: unknown }> };
+    const countVal = result.data?.[0]?.count;
+    const count =
+      typeof countVal === "number" ? countVal : Number(countVal ?? 0);
+    return count > 0;
+  } catch (error) {
+    console.error("hasOutgoingLink error:", error);
+    throw error;
+  }
+}
+
 export async function upsertMemory(memory: Memory) {
   const parsed = MemorySchema.parse(memory);
   const graph = await getDb();
 
-  // coalesce layout props so content-only upserts do not wipe stored x/y/rank
   const query = `
     MERGE (m:Memory {id: $id})
     SET m.name = $name,
@@ -138,20 +161,20 @@ export async function upsertMemory(memory: Memory) {
         m.impression = $impression,
         m.confidence = $confidence,
         m.searchEmbedding = vecf32($searchEmbedding),
-        m.contentEmbedding = vecf32($contentEmbedding),
-        m.x = coalesce($x, m.x),
-        m.y = coalesce($y, m.y),
-        m.rank = coalesce($rank, m.rank)
+        m.contentEmbedding = vecf32($contentEmbedding)
     RETURN m.id AS id
   `;
 
   try {
     const result = (await graph.query(query, {
       params: {
-        ...parsed,
-        x: parsed.x ?? null,
-        y: parsed.y ?? null,
-        rank: parsed.rank ?? null,
+        id: parsed.id,
+        name: parsed.name,
+        content: parsed.content,
+        impression: parsed.impression,
+        confidence: parsed.confidence,
+        searchEmbedding: parsed.searchEmbedding,
+        contentEmbedding: parsed.contentEmbedding,
       },
     })) as { data: Array<{ id: string }> };
 
@@ -244,6 +267,7 @@ export const listMemoryLayouts = listMemoryPlacements;
 export async function getMemoryPlacement(
   id: string,
 ): Promise<MemoryPlacement | null> {
+  // TODO: THE ID OF THE MEMORY IS NOT OF SIZE OF 1 AND IS OF NANOID() AND THIS MIGHT BE REDUNDANT AND WEAK CHECK
   const validId = z.string().min(1).parse(id);
   const graph = await getDb();
   const query = `
@@ -255,7 +279,8 @@ export async function getMemoryPlacement(
       params: { id: validId },
     })) as {
       data: Array<{ id: unknown; x: unknown; y: unknown; rank: unknown }>;
-    };
+      };
+    // TODO: WHY IS THIS A RESULT OF ARRAY AS THE ID OF A MEMORY IS ALWAYS UNIQUE HERE THOUGH RIGHT NA
     const row = result.data?.[0];
     if (row == null) return null;
     return {
@@ -270,6 +295,7 @@ export async function getMemoryPlacement(
   }
 }
 
+// TODO: remove this deprecated export if it not used anywhere
 /** @deprecated Use getMemoryPlacement */
 export const getMemoryLayout = getMemoryPlacement;
 

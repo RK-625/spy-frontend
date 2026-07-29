@@ -80,7 +80,7 @@ These are things a new engineer might not guess. They must be followed:
 
 Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
 
-**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). Client pure-perf ceiling for static mock pan/zoom and large-loaded-graph tracks is **achieved** under quality bans. Continuous layout is **off** by default (`LAYOUT_SIMULATION_ENABLED = false`; FA2/graphology path removed). Opt-in placement: `/graph?layout=d3` (one-shot d3 settle); optional ambient: `?motion=1`. Do not re-litigate ban-safe pure-perf; next graph work is product modes (ambient when wanted, full KB residency). Details under **What's left**.
+**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). Client pure-perf ceiling for static mock pan/zoom and large-loaded-graph tracks is **achieved** under quality bans. Continuous layout is **off** by default (`LAYOUT_SIMULATION_ENABLED = false`; FA2/graphology path removed). Opt-in placement: `/graph?layout=d3` (one-shot d3 settle); optional ambient: `?motion=1`. Active placement architecture follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client placement cache, Falkor holds topology only, no server placement writes). Do not re-litigate ban-safe pure-perf; next graph work is product modes (ambient when wanted, full KB residency). Details under **What's left**.
 
 **Prompt input:** production `src/components/chat/ai-elements/prompt-input.tsx` is a **chat-only** shell. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
 
@@ -166,7 +166,7 @@ src/
 
 **Note:** `prompt-input.tsx` under `chat/ai-elements` is chat-only (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/toolset.ts` without a live morph UI.
 
-**Graph note:** Continuous layout off by default (`LAYOUT_SIMULATION_ENABLED = false`). FA2/graphology removed; placement SoT is d3 settle (opt-in `layout=d3`; ambient `motion=1`). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
+**Graph note:** Continuous layout off by default (`LAYOUT_SIMULATION_ENABLED = false`). FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client d3 compute + `localStorage` pose cache, Falkor holds topology only, no server placement writes). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
 
 ## Design files
 
@@ -220,11 +220,12 @@ Hard bans remain in force (see Constraints). Do not re-open pure-perf by relaxin
 
 ### Left (next product modes — not unfinished mock pan work)
 
-1. **Opt-in ambient / settle when product wants motion** — `?layout=d3` settle + `?motion=1` ambient (default off). Do not claim continuous motion is live until product enables it.
-2. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
-3. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
-4. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
-5. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; do not resurrect ask-user-question morph without redesign.
+1. **Client placement cache integration** — align runtime pose persistence with [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client d3 pose compute + `localStorage` cache, Falkor topology only, no server placement writes).
+2. **Opt-in ambient / settle when product wants motion** — `?layout=d3` settle + `?motion=1` ambient (default off). Do not claim continuous motion is live until product enables it.
+3. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
+4. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
+5. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
+6. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; do not resurrect ask-user-question morph without redesign.
 
 Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 

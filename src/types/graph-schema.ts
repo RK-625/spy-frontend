@@ -25,30 +25,33 @@ export const Memory = z.object({
       "The confidence score of the memory of how well the user understands and grasps the content",
     ),
   /**
-   * Server-owned canvas layout storage (world space). Written by placement /
-   * toolset after create or PART_OF link — not model-authored tool input.
-   * Optional on schema so reads/writes without layout stay valid.
-   * Not used for search; do not put incidence/rim/edge ids on Memory.
+   * @deprecated Client-only field (not written by server).
    */
   x: z
     .number()
     .optional()
     .describe(
-      "Server-owned world X on the knowledge-graph canvas (system placement only; never LLM tool input)",
+      "@deprecated Client-only field (not written by server; never LLM tool input)",
     ),
+  /**
+   * @deprecated Client-only field (not written by server).
+   */
   y: z
     .number()
     .optional()
     .describe(
-      "Server-owned world Y on the knowledge-graph canvas (system placement only; never LLM tool input)",
+      "@deprecated Client-only field (not written by server; never LLM tool input)",
     ),
+  /**
+   * @deprecated Client-only field (not written by server).
+   */
   rank: z
     .number()
     .int()
     .min(0)
     .optional()
     .describe(
-      "Server-owned hierarchy depth from PART_OF: 0 = root; child = parent.rank + 1 (system-derived, not model-authored)",
+      "@deprecated Client-only field (not written by server; never LLM tool input)",
     ),
 });
 /** Inferred product Memory row (value `Memory` is the Zod schema). */

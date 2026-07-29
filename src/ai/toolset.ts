@@ -9,17 +9,8 @@ import { generateEmbedding } from "@/ai/embeddings";
 import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
-  getMemoryPlacement,
-  setMemoryPlacement,
+  hasOutgoingLink,
 } from "@/lib/falkor";
-import {
-  isPlacedLayout,
-  rankAfterParent,
-  shouldPlaceOnUpsert,
-  shouldPlaceOnLink,
-  partOfRankNeedsUpdate,
-} from "@/lib/memory-placement";
-import { settleAndPersistMemoryPlacements } from "@/lib/memory-layout-settle";
 
 export type { AskUserQuestionInput } from "@/ai/schemas/ask-user-question";
 export { askUserQuestionInputSchema } from "@/ai/schemas/ask-user-question";
@@ -88,13 +79,6 @@ const upsertMemory: Tool = tool({
         generateEmbedding(input.content),
       ]);
 
-      // Layout is system-owned (P-A). Content-only updates preserve x/y/rank —
-      // no re-settle when topology is unchanged (shouldPlaceOnUpsert).
-      // New node: rank 0 only, leave x/y null — do **not** settle on create alone
-      // (F1/F10). Missing xy later settles via cold update or link path.
-      const existingMemory = isNew ? null : await getMemoryPlacement(id);
-      const needsSettle = shouldPlaceOnUpsert({ isNew, existing: existingMemory });
-
       await falkorUpsertMemory({
         id,
         name: input.name,
@@ -103,14 +87,7 @@ const upsertMemory: Tool = tool({
         confidence,
         searchEmbedding,
         contentEmbedding,
-        // Rank only on new node; geometry comes from link/cold settle + setMemoryPlacement.
-        ...(isNew ? { rank: 0 } : {}),
       });
-
-      // F1/F10: never settle on create alone. Cold path: update missing/unplaced xy.
-      if (!isNew && needsSettle) {
-        await settleAndPersistMemoryPlacements({ focusIds: [id] });
-      }
 
       return { id, name: input.name };
     } catch (error) {
@@ -128,43 +105,16 @@ const linkMemories: Tool = tool({
   inputSchema: linkMemoriesInputSchema,
   execute: async ({ source, target, type }) => {
     try {
-      await falkorCreateLink({ source, target, type });
-
-      // Topology/rank via shared settle (force-recipe) + P-A setMemoryPlacement.
-      // Fan/spiral place* removed (S6); durable geometry is settled coords only.
       if (type === "PART_OF") {
-        const parent = await getMemoryPlacement(target);
-        const sourcePlacement = await getMemoryPlacement(source);
-        const parentRank = parent?.rank ?? 0;
-        const childRank = rankAfterParent(parentRank);
-        const childPlaced = isPlacedLayout(sourcePlacement);
-        const rankNeeds = partOfRankNeedsUpdate({
-          sourceLayout: sourcePlacement,
-          parentRank,
-        });
-
-        if (childPlaced && !rankNeeds) {
-          // Already placed with correct rank — skip settle and rank write.
-        } else if (childPlaced && rankNeeds) {
-          // Rank-only: keep durable xy, write topology-derived rank (no force).
-          const x = sourcePlacement!.x as number;
-          const y = sourcePlacement!.y as number;
-          await setMemoryPlacement({ id: source, x, y, rank: childRank });
-        } else if (
-          shouldPlaceOnLink({ type: "PART_OF", sourceLayout: sourcePlacement })
-        ) {
-          // Unplaced child: settle with parent as forced anchor.
-          await settleAndPersistMemoryPlacements({
-            focusIds: [source],
-            anchorIds: [target],
-            rankOverrides: { [source]: childRank },
-          });
+        const hasParent = await hasOutgoingLink(source, "PART_OF");
+        if (hasParent) {
+          return {
+            error: `Link failed: Memory '${source}' already has a PART_OF parent link. A Memory can have at most one PART_OF parent.`,
+          };
         }
-      } else if (type === "RELATES_TO") {
-        // F1: always settle RELATES_TO on link (topology; edge can pull nodes).
-        // shouldPlaceOnLink(RELATES_TO) is always true — call settle directly.
-        await settleAndPersistMemoryPlacements({ focusIds: [source] });
       }
+
+      await falkorCreateLink({ source, target, type });
 
       return { type, source, target };
     } catch (error) {

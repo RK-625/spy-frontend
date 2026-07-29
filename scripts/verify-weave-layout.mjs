@@ -169,24 +169,13 @@ async function main() {
     }) === true,
     "shouldPlaceOnUpsert missing existing → true (cold path)"
   );
-  // New alone: flag true but toolset must not settle on create (F1/F10).
   const toolsetSrc = fs.readFileSync(
     path.join(root, "src/ai/toolset.ts"),
     "utf8"
   );
   assert(
-    /!isNew\s*&&\s*needsSettle/.test(toolsetSrc),
-    "create alone does not settle (toolset: !isNew && needsSettle only)"
-  );
-  assert(
-    /anchorIds:\s*\[target\]/.test(toolsetSrc),
-    "toolset PART_OF pins parent via anchorIds: [target]"
-  );
-  assert(
-    !/settleAndPersistMemory(Placements|Layouts)\(\{\s*focusIds:\s*\[id\]\s*\}\)/.test(
-      toolsetSrc.replace(/\s+/g, " ")
-    ) || /!isNew && needsSettle/.test(toolsetSrc),
-    "upsert create path does not blindly settle focusIds:[id]"
+    !/settleAndPersistMemoryPlacements/.test(toolsetSrc),
+    "settleAndPersistMemoryPlacements is NOT called in toolset.ts (no server placement writes on create/update)"
   );
 
   assert(
