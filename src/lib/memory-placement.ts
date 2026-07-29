@@ -8,8 +8,8 @@
  * Design locks:
  *  - x, y are system-owned — never on tool input schemas; never LLM-authored.
  *  - rank is system-derived: PART_OF child = parent.rank + 1; roots / orphans = 0.
- *  - Durable geometry: shared `settleGraphData` / `settleAndPersistMemoryLayouts`
- *    (P-A persist via setMemoryLayout). Fan/spiral place* APIs removed (S6);
+ *  - Durable geometry: shared `settleGraphData` / `settleAndPersistMemoryPlacements`
+ *    (P-A persist via setMemoryPlacement). Fan/spiral place* APIs removed (S6);
  *    snapshot under `src/deprecated/memory-placement-geometry.ts`.
  *  - **Create:** write rank 0 only; leave x/y null — **do not settle** on create alone
  *    (no topology yet; near-origin seeds poison finite-layout gates).
@@ -20,7 +20,7 @@
  *    rank wrong; skip when placed and rank already parent+1.
  *  - RELATES_TO: always settle on link (topology change / edge pull).
  *
- * Prefer `rankAfterParent` + `settleAndPersistMemoryLayouts({ focusIds, anchorIds })`.
+ * Prefer `rankAfterParent` + `settleAndPersistMemoryPlacements({ focusIds, anchorIds })`.
  */
 
 export type LayoutCoords = {
@@ -92,10 +92,10 @@ export function isPlacedLayout(
  * xy) and link paths settle. This flag still means "needs layout eventually."
  */
 export function shouldPlaceOnUpsert(args: {
-  isCreate: boolean;
+  isNew: boolean;
   existing: LayoutCoords | null;
 }): boolean {
-  if (args.isCreate) return true;
+  if (args.isNew) return true;
   return !isPlacedLayout(args.existing);
 }
 

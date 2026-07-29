@@ -1,7 +1,8 @@
 # Preferences
 
 ## Code Structure
-  - Code needs to be structured, following easy to understand naming conventions, simple modular components, separated in sections, maintainable and sorted in dependency order(bottom-up).
+  - Code needs to be structured, following simple modular components, separated in sections, maintainable and sorted in dependency order(bottom-up).
+  - Naming convention for the functions, variables , components, folders , files should be clear and reflect it function or purpose. Not simple vague names isOpen etc 
   - The codebase should be organised with strict, symmetrical, simple, clear, and distinct names for files, variables, functions, components, folder with a uniform directory/folder structure.
   - Escpecially when it some CSS make the styling 
   - never use "any" type in Typescript
@@ -12,7 +13,7 @@
       - **Recommended**: Use React Context (or a lightweight store like Zustand/Jotai) when you have multiple pieces of state (typically 3–5+) that are shared across several components, especially when they need to be accessed at deeper levels in the component tree or have non-trivial read/write patterns and derived state.
     - **Error Handling & Guards**
       - **Under-Engineering**: No guards or fallbacks even when dealing with external data, user input, or third-party APIs.(Non-deterministic cases)
-      - **Over-Engineering**: Adding defensive if checks and error handling for scenarios that are structurally impossible given the current data flow and architecture.
+      - **Over-Engineering**: Adding defensive if checks and error handling for scenarios that are structurally not likely given the current data flow and architecture.Avoid false positives or negatives.
       - **Recommended**: Add explicit checks, error boundaries, or fallback UI only where the outcome is non-deterministic or depends on external factors.
     - **Abstractions & Reusability**
       - **Under-Engineering**: Duplicating the same logic or pattern in multiple places.

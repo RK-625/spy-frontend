@@ -59,18 +59,18 @@ export function NodeDetailDialog({
         showCloseButton
       >
         <DialogHeader>
-          <DialogTitle className="font-[family-name:var(--font-terminal)] text-lg tracking-widest text-[#e8dff8] uppercase">
+          <DialogTitle className="font-[family-name:var(--font-terminal)] text-lg tracking-widest text-primary uppercase">
             {title}
           </DialogTitle>
-          <DialogDescription className="text-sm text-[#7a7685]">
+          <DialogDescription className="text-sm text-text-secondary">
             {node ? (
               <>
                 Rank {node.rank}
-                <span className="mx-1.5 text-[#4a4658]">·</span>
+                <span className="mx-1.5 text-text-dim">·</span>
                 {parentCount} parent{parentCount === 1 ? "" : "s"}
-                <span className="mx-1.5 text-[#4a4658]">·</span>
+                <span className="mx-1.5 text-text-dim">·</span>
                 {childCount} child{childCount === 1 ? "" : "ren"}
-                <span className="mx-1.5 text-[#4a4658]">·</span>
+                <span className="mx-1.5 text-text-dim">·</span>
                 {relateCount} relate{relateCount === 1 ? "" : "s"}
               </>
             ) : (
@@ -82,20 +82,20 @@ export function NodeDetailDialog({
         {node && (
           <div className="flex flex-col gap-3 text-sm">
             <div className="rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-3">
-              <div className="mb-1.5 text-[0.7rem] tracking-wider text-[#7a7685] uppercase">
+              <div className="mb-1.5 text-[0.7rem] tracking-wider text-text-secondary uppercase">
                 Content
               </div>
-              <p className="whitespace-pre-wrap leading-relaxed text-[#ded4f0]">
+              <p className="whitespace-pre-wrap leading-relaxed text-text-primary">
                 {content}
               </p>
             </div>
 
             {node.impression?.trim() ? (
               <div className="rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-3">
-                <div className="mb-1.5 text-[0.7rem] tracking-wider text-[#7a7685] uppercase">
+                <div className="mb-1.5 text-[0.7rem] tracking-wider text-text-secondary uppercase">
                   Impression
                 </div>
-                <p className="whitespace-pre-wrap leading-relaxed text-[#e8e4df]">
+                <p className="whitespace-pre-wrap leading-relaxed text-text-primary">
                   {node.impression.trim()}
                 </p>
               </div>
@@ -104,17 +104,17 @@ export function NodeDetailDialog({
             <div className="flex flex-wrap gap-2">
               {confidenceLabel ? (
                 <div className="rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 px-3 py-2">
-                  <div className="mb-0.5 text-[0.65rem] tracking-wider text-[#7a7685] uppercase">
+                  <div className="mb-0.5 text-[0.65rem] tracking-wider text-text-secondary uppercase">
                     Confidence
                   </div>
-                  <div className="font-mono text-[#e8dff8]">{confidenceLabel}</div>
+                  <div className="font-mono text-primary">{confidenceLabel}</div>
                 </div>
               ) : null}
               <div className="min-w-0 flex-1 rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 px-3 py-2">
-                <div className="mb-0.5 text-[0.65rem] tracking-wider text-[#7a7685] uppercase">
+                <div className="mb-0.5 text-[0.65rem] tracking-wider text-text-secondary uppercase">
                   Id
                 </div>
-                <div className="truncate font-mono text-xs text-[#7a7685]">
+                <div className="truncate font-mono text-xs text-text-secondary">
                   {node.id}
                 </div>
               </div>

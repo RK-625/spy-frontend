@@ -68,7 +68,7 @@ function SidebarItem({
       >
         <span className="text-[0.8125rem]">{label}</span>
         {shortcut && (
-          <kbd className="ml-auto rounded border border-[var(--border-default)] bg-[var(--surface-subtle)] px-1.5 py-0.5 font-mono text-[10px] text-[#7a7685]">
+          <kbd className="ml-auto rounded border border-[var(--border-default)] bg-[var(--surface-subtle)] px-1.5 py-0.5 font-mono text-[10px] text-text-secondary">
             {shortcut}
           </kbd>
         )}
@@ -226,13 +226,13 @@ export function ChatSidebar() {
         {isFull ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2">
-              <span className="font-[family-name:var(--font-terminal)] text-[0.8125rem] font-medium uppercase tracking-[0.2em] text-[#7a7685]">
+              <span className="font-[family-name:var(--font-terminal)] text-[0.8125rem] font-medium uppercase tracking-[0.2em] text-text-secondary">
                 Recents
               </span>
               <div className="h-px flex-1 bg-[var(--accent-border)]" />
             </div>
             <div className="flex flex-1 items-center justify-center px-3">
-              <span className="text-sm text-[#7a7685]">No conversations yet</span>
+              <span className="text-sm text-text-secondary">No conversations yet</span>
             </div>
           </div>
         ) : (

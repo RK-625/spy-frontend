@@ -137,7 +137,7 @@ function initialGraphFromSearch(search: string): GraphData {
  * - `?stress=1` → stress fixture (wins over live).
  * - `?source=live` → GET `/api/graph`; empty DB → empty canvas; fetch/DB
  *   error → fall back to mock so the page is not blank.
- * - Client never calls setMemoryLayout; placement writes stay server-side (P-A).
+ * - Client never calls setMemoryPlacement; placement writes stay server-side (P-A).
  *
  * Layout (Slice 1 + S4):
  * - Default → static positions (no settle). Product `/graph` unchanged.
@@ -412,7 +412,7 @@ export function GraphCanvas() {
 
           if (needsLayout) {
             // Session paint only: pin placed nodes; move only unplaced (F4).
-            // No client setMemoryLayout (P-A stays server/toolset).
+            // No client setMemoryPlacement (P-A stays server/toolset).
             const {
               settleGraphData,
               applyColdStartJitter,
@@ -493,7 +493,7 @@ export function GraphCanvas() {
 
   return (
     <div
-      className="relative h-dvh w-dvw overflow-hidden bg-black text-[#ded4f0]"
+      className="relative h-dvh w-dvw overflow-hidden bg-background text-text-primary"
       data-graph-spike="step-3"
     >
       <div
@@ -514,21 +514,21 @@ export function GraphCanvas() {
         style={{ fontFamily: "var(--font-vt323), ui-monospace, monospace" }}
       >
         <div className="pointer-events-none max-w-[min(100%,20rem)] select-none">
-          <div className="text-[15px] tracking-wide text-[#ded4f0]">
+          <div className="text-[15px] tracking-wide text-text-primary">
             Spy graph
           </div>
-          <div className="mt-1 text-[11px] leading-snug tracking-wide text-[#4a4658]">
+          <div className="mt-1 text-[11px] leading-snug tracking-wide text-text-dim">
             Click a node · drag to pan · wheel to zoom
           </div>
           {/* Compact camera readout — product-secondary, not debug dump */}
           <div
-            className="mt-2 font-mono text-[10px] tabular-nums tracking-wide text-[#4a4658]/90"
+            className="mt-2 font-mono text-[10px] tabular-nums tracking-wide text-text-dim/90"
             aria-hidden
           >
-            <span className="text-[#7a7685]">z</span>{" "}
+            <span className="text-text-secondary">z</span>{" "}
             {hud.zoom.toFixed(2)}
-            <span className="mx-1.5 text-[#4a4658]">·</span>
-            <span className="text-[#7a7685]">xy</span>{" "}
+            <span className="mx-1.5 text-text-dim">·</span>
+            <span className="text-text-secondary">xy</span>{" "}
             {formatHudNumber(hud.camX)}, {formatHudNumber(hud.camY)}
           </div>
         </div>
@@ -548,30 +548,30 @@ export function GraphCanvas() {
               "inline-flex items-center gap-2 rounded-[var(--radius)] border px-3 py-1.5",
               "text-[14px] tracking-wide transition-[color,background-color,border-color] duration-150",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
-              "focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0c]",
+              "focus-visible:ring-offset-2 focus-visible:ring-offset-accent-ink",
               pulsesOn
-                ? "border-[#c8acfb]/50 bg-[#c8acfb]/14 text-[#e8dff8] shadow-[0_0_0_1px_rgba(200,172,251,0.08)]"
-                : "border-[#4a4658]/90 bg-[#0a0a0c]/85 text-[#7a7685] hover:border-[#7a7685] hover:text-[#ded4f0]",
+                ? "border-lavender/50 bg-lavender/14 text-primary shadow-[0_0_0_1px_var(--border-subtle)]"
+                : "border-text-dim/90 bg-accent-ink/85 text-text-secondary hover:border-text-secondary hover:text-text-primary",
             ].join(" ")}
           >
             <DotMatrixIcon
               name="bulb"
               size={15}
-              className={pulsesOn ? "text-[#c8acfb]" : "text-[#7a7685]"}
+              className={pulsesOn ? "text-lavender" : "text-text-secondary"}
             />
             <span className="font-medium">Signals</span>
             <span
               className={[
                 "rounded-[calc(var(--radius)-2px)] px-1.5 py-0.5 text-[11px] uppercase tracking-wider",
                 pulsesOn
-                  ? "bg-[#c8acfb]/20 text-[#c8acfb]"
-                  : "bg-[#4a4658]/25 text-[#4a4658]",
+                  ? "bg-lavender/20 text-lavender"
+                  : "bg-text-dim/25 text-text-dim",
               ].join(" ")}
             >
               {pulsesOn ? "on" : "off"}
             </span>
           </button>
-          <p className="max-w-[11rem] text-right text-[10px] leading-snug tracking-wide text-[#4a4658]">
+          <p className="max-w-[11rem] text-right text-[10px] leading-snug tracking-wide text-text-dim">
             {pulsesOn
               ? "Pulse along the web"
               : "Turn on edge weave"}

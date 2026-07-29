@@ -297,8 +297,10 @@ const ChatWorkspace = () => {
       <Conversation className="chat-fade-bottom" aria-live="polite">
         <ConversationContent aria-label="Conversation messages">
           {error && (
-            <div className="mb-4 flex items-center gap-3 rounded-[var(--radius)] border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-              <span className="text-red-400">⚠</span>
+            <div className="mb-4 flex items-center gap-3 rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
+              <span className="text-status-dot-error" aria-hidden>
+                ⚠
+              </span>
               <span className="flex-1">{error.message}</span>
             </div>
           )}
@@ -331,7 +333,8 @@ const ChatWorkspace = () => {
                         style={
                           {
                             "--color-muted-foreground": "var(--lavender-muted)",
-                            "--color-background": "#ffffff",
+                            /* Shimmer glint highlight: on-palette light accent (not pure white / not dark muted) */
+                            "--color-background": "var(--primary)",
                           } as React.CSSProperties
                         }
                       >

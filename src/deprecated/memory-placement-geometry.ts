@@ -2,7 +2,7 @@
  * DEPRECATED — fan/spiral place* geometry (pre–Slice 6).
  *
  * Product placement SoT is d3 settle (`settleGraphData` /
- * `settleAndPersistMemoryLayouts`). Do not import from production paths.
+ * `settleAndPersistMemoryPlacements`). Do not import from production paths.
  * Kept only as a recoverable snapshot of the retired geometry helpers.
  */
 
@@ -170,21 +170,21 @@ function rankAfterParent(parentRank: number): number {
   return Math.max(0, base) + 1;
 }
 
-/** @deprecated Use settleAndPersistMemoryLayouts (P-A). */
+/** @deprecated Use settleAndPersistMemoryPlacements (P-A). */
 export function placeAsRoot(
   input: Omit<PlaceMemoryInput, "parent">,
 ): PlaceMemoryResult {
   return placeMemoryNode({ ...input, parent: null });
 }
 
-/** @deprecated Use settleAndPersistMemoryLayouts (P-A). */
+/** @deprecated Use settleAndPersistMemoryPlacements (P-A). */
 export function placeAsChild(
   input: PlaceMemoryInput & { parent: ParentAnchor },
 ): PlaceMemoryResult {
   return placeMemoryNode(input);
 }
 
-/** @deprecated Use settleAndPersistMemoryLayouts (P-A). */
+/** @deprecated Use settleAndPersistMemoryPlacements (P-A). */
 export function placeForRelates(
   input: Omit<PlaceMemoryInput, "parent"> & {
     related: WorldPoint[];

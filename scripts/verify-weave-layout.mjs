@@ -145,47 +145,47 @@ async function main() {
   // --- Policy: create / upsert / link gates ------------------------------
   console.log("\n--- place policy gates ---");
   assert(
-    shouldPlaceOnUpsert({ isCreate: true, existing: null }) === true,
-    "shouldPlaceOnUpsert create → true (needs layout later; toolset does not settle on create)"
+    shouldPlaceOnUpsert({ isNew: true, existing: null }) === true,
+    "shouldPlaceOnUpsert new → true (needs layout later; toolset does not settle on create)"
   );
   assert(
     shouldPlaceOnUpsert({
-      isCreate: false,
+      isNew: false,
       existing: { x: 10, y: 20 },
     }) === false,
     "shouldPlaceOnUpsert content-only with placed xy → false"
   );
   assert(
     shouldPlaceOnUpsert({
-      isCreate: false,
+      isNew: false,
       existing: { x: 0, y: 0 },
     }) === true,
     "shouldPlaceOnUpsert near-origin existing → true (cold path)"
   );
   assert(
     shouldPlaceOnUpsert({
-      isCreate: false,
+      isNew: false,
       existing: null,
     }) === true,
     "shouldPlaceOnUpsert missing existing → true (cold path)"
   );
-  // Create alone: flag true but toolset must not settle on create (F1/F10).
+  // New alone: flag true but toolset must not settle on create (F1/F10).
   const toolsetSrc = fs.readFileSync(
     path.join(root, "src/ai/toolset.ts"),
     "utf8"
   );
   assert(
-    /!isCreate\s*&&\s*needsSettle/.test(toolsetSrc),
-    "create alone does not settle (toolset: !isCreate && needsSettle only)"
+    /!isNew\s*&&\s*needsSettle/.test(toolsetSrc),
+    "create alone does not settle (toolset: !isNew && needsSettle only)"
   );
   assert(
     /anchorIds:\s*\[target\]/.test(toolsetSrc),
     "toolset PART_OF pins parent via anchorIds: [target]"
   );
   assert(
-    !/settleAndPersistMemoryLayouts\(\{\s*focusIds:\s*\[id\]\s*\}\)/.test(
+    !/settleAndPersistMemory(Placements|Layouts)\(\{\s*focusIds:\s*\[id\]\s*\}\)/.test(
       toolsetSrc.replace(/\s+/g, " ")
-    ) || /!isCreate && needsSettle/.test(toolsetSrc),
+    ) || /!isNew && needsSettle/.test(toolsetSrc),
     "upsert create path does not blindly settle focusIds:[id]"
   );
 

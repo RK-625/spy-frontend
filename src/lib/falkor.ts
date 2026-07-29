@@ -191,13 +191,16 @@ export async function createLink(link: Links) {
   }
 }
 
-/** Layout fields used for canvas placement (no embeddings / content). */
-export type MemoryLayout = {
+/** Placement pose fields used for canvas geometry (no embeddings / content). */
+export type MemoryPlacement = {
   id: string;
   x: number | null;
   y: number | null;
   rank: number | null;
 };
+
+/** @deprecated Use MemoryPlacement */
+export type MemoryLayout = MemoryPlacement;
 
 function numOrNull(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -209,9 +212,9 @@ function numOrNull(value: unknown): number | null {
 }
 
 /**
- * All Memory nodes with layout props (for collision / cluster placement).
+ * All Memory nodes with placement pose (for collision / cluster placement).
  */
-export async function listMemoryLayouts(): Promise<MemoryLayout[]> {
+export async function listMemoryPlacements(): Promise<MemoryPlacement[]> {
   const graph = await getDb();
   const query = `
     MATCH (m:Memory)
@@ -230,14 +233,17 @@ export async function listMemoryLayouts(): Promise<MemoryLayout[]> {
       }))
       .filter((row) => row.id.length > 0);
   } catch (error) {
-    console.error("listMemoryLayouts error:", error);
+    console.error("listMemoryPlacements error:", error);
     throw error;
   }
 }
 
-export async function getMemoryLayout(
+/** @deprecated Use listMemoryPlacements */
+export const listMemoryLayouts = listMemoryPlacements;
+
+export async function getMemoryPlacement(
   id: string,
-): Promise<MemoryLayout | null> {
+): Promise<MemoryPlacement | null> {
   const validId = z.string().min(1).parse(id);
   const graph = await getDb();
   const query = `
@@ -259,10 +265,13 @@ export async function getMemoryLayout(
       rank: numOrNull(row.rank),
     };
   } catch (error) {
-    console.error("getMemoryLayout error:", error);
+    console.error("getMemoryPlacement error:", error);
     throw error;
   }
 }
+
+/** @deprecated Use getMemoryPlacement */
+export const getMemoryLayout = getMemoryPlacement;
 
 /**
  * Canvas / API topology row — no embeddings (keep `/api/graph` payloads small).
@@ -381,10 +390,10 @@ export async function listGraphTopology(): Promise<GraphTopology> {
 }
 
 /**
- * Force-write canvas layout (does not coalesce).
+ * Force-write canvas placement pose (does not coalesce).
  * Used after shared d3 settle (P-A persist). Fan/spiral place* removed (S6).
  */
-export async function setMemoryLayout(input: {
+export async function setMemoryPlacement(input: {
   id: string;
   x: number;
   y: number;
@@ -405,10 +414,13 @@ export async function setMemoryLayout(input: {
       params: { id, x, y, rank },
     })) as { data: Array<{ id: string }> };
     if (result.data.length === 0) {
-      throw new Error(`setMemoryLayout: Memory not found (${id})`);
+      throw new Error(`setMemoryPlacement: Memory not found (${id})`);
     }
   } catch (error) {
-    console.error("setMemoryLayout error:", error);
+    console.error("setMemoryPlacement error:", error);
     throw error;
   }
 }
+
+/** @deprecated Use setMemoryPlacement */
+export const setMemoryLayout = setMemoryPlacement;

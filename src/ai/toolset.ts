@@ -9,8 +9,8 @@ import { generateEmbedding } from "@/ai/embeddings";
 import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
-  getMemoryLayout,
-  setMemoryLayout,
+  getMemoryPlacement,
+  setMemoryPlacement,
 } from "@/lib/falkor";
 import {
   isPlacedLayout,
@@ -19,7 +19,7 @@ import {
   shouldPlaceOnLink,
   partOfRankNeedsUpdate,
 } from "@/lib/memory-placement";
-import { settleAndPersistMemoryLayouts } from "@/lib/memory-layout-settle";
+import { settleAndPersistMemoryPlacements } from "@/lib/memory-layout-settle";
 
 export type { AskUserQuestionInput } from "@/ai/schemas/ask-user-question";
 export { askUserQuestionInputSchema } from "@/ai/schemas/ask-user-question";
@@ -77,8 +77,8 @@ const upsertMemory: Tool = tool({
   inputSchema: upsertMemoryInputSchema,
   execute: async (input) => {
     try {
-      const isCreate = input.id == null || input.id === "";
-      const id: string = isCreate ? nanoid() : (input.id as string);
+      const isNew = input.id == null || input.id === "";
+      const id: string = isNew ? nanoid() : (input.id as string);
       const impression = input.impression ?? "";
       const confidence = input.confidence ?? 0.5;
       const searchText = `${input.name}\n${input.content}`;
@@ -90,10 +90,10 @@ const upsertMemory: Tool = tool({
 
       // Layout is system-owned (P-A). Content-only updates preserve x/y/rank —
       // no re-settle when topology is unchanged (shouldPlaceOnUpsert).
-      // Create: rank 0 only, leave x/y null — do **not** settle on create alone
+      // New node: rank 0 only, leave x/y null — do **not** settle on create alone
       // (F1/F10). Missing xy later settles via cold update or link path.
-      const existing = isCreate ? null : await getMemoryLayout(id);
-      const needsSettle = shouldPlaceOnUpsert({ isCreate, existing });
+      const existingMemory = isNew ? null : await getMemoryPlacement(id);
+      const needsSettle = shouldPlaceOnUpsert({ isNew, existing: existingMemory });
 
       await falkorUpsertMemory({
         id,
@@ -103,13 +103,13 @@ const upsertMemory: Tool = tool({
         confidence,
         searchEmbedding,
         contentEmbedding,
-        // Rank only on create; geometry comes from link/cold settle + setMemoryLayout.
-        ...(isCreate ? { rank: 0 } : {}),
+        // Rank only on new node; geometry comes from link/cold settle + setMemoryPlacement.
+        ...(isNew ? { rank: 0 } : {}),
       });
 
       // F1/F10: never settle on create alone. Cold path: update missing/unplaced xy.
-      if (!isCreate && needsSettle) {
-        await settleAndPersistMemoryLayouts({ focusIds: [id] });
+      if (!isNew && needsSettle) {
+        await settleAndPersistMemoryPlacements({ focusIds: [id] });
       }
 
       return { id, name: input.name };
@@ -130,16 +130,16 @@ const linkMemories: Tool = tool({
     try {
       await falkorCreateLink({ source, target, type });
 
-      // Topology/rank via shared settle (force-recipe) + P-A setMemoryLayout.
+      // Topology/rank via shared settle (force-recipe) + P-A setMemoryPlacement.
       // Fan/spiral place* removed (S6); durable geometry is settled coords only.
       if (type === "PART_OF") {
-        const parent = await getMemoryLayout(target);
-        const sourceLayout = await getMemoryLayout(source);
+        const parent = await getMemoryPlacement(target);
+        const sourcePlacement = await getMemoryPlacement(source);
         const parentRank = parent?.rank ?? 0;
         const childRank = rankAfterParent(parentRank);
-        const childPlaced = isPlacedLayout(sourceLayout);
+        const childPlaced = isPlacedLayout(sourcePlacement);
         const rankNeeds = partOfRankNeedsUpdate({
-          sourceLayout,
+          sourceLayout: sourcePlacement,
           parentRank,
         });
 
@@ -147,12 +147,14 @@ const linkMemories: Tool = tool({
           // Already placed with correct rank — skip settle and rank write.
         } else if (childPlaced && rankNeeds) {
           // Rank-only: keep durable xy, write topology-derived rank (no force).
-          const x = sourceLayout!.x as number;
-          const y = sourceLayout!.y as number;
-          await setMemoryLayout({ id: source, x, y, rank: childRank });
-        } else if (shouldPlaceOnLink({ type: "PART_OF", sourceLayout })) {
+          const x = sourcePlacement!.x as number;
+          const y = sourcePlacement!.y as number;
+          await setMemoryPlacement({ id: source, x, y, rank: childRank });
+        } else if (
+          shouldPlaceOnLink({ type: "PART_OF", sourceLayout: sourcePlacement })
+        ) {
           // Unplaced child: settle with parent as forced anchor.
-          await settleAndPersistMemoryLayouts({
+          await settleAndPersistMemoryPlacements({
             focusIds: [source],
             anchorIds: [target],
             rankOverrides: { [source]: childRank },
@@ -161,7 +163,7 @@ const linkMemories: Tool = tool({
       } else if (type === "RELATES_TO") {
         // F1: always settle RELATES_TO on link (topology; edge can pull nodes).
         // shouldPlaceOnLink(RELATES_TO) is always true — call settle directly.
-        await settleAndPersistMemoryLayouts({ focusIds: [source] });
+        await settleAndPersistMemoryPlacements({ focusIds: [source] });
       }
 
       return { type, source, target };

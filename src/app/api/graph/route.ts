@@ -6,7 +6,7 @@ import { listGraphTopology } from "@/lib/falkor";
  * GET /api/graph — read-only Memory + Links topology for `/graph`.
  *
  * - No embeddings in the payload.
- * - Never calls setMemoryLayout (client must not write layout via this route).
+ * - Never calls setMemoryPlacement (client must not write layout via this route).
  * - Empty DB → `{ ok: true, empty: true, memories: [], links: [] }`.
  *
  * Canvas: default `/graph` attempts this feed (non-empty → live; empty/error →

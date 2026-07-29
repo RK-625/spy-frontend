@@ -2,7 +2,7 @@
  * Server-side P-A layout settle + persist (Slice 5 / incremental scale).
  *
  * Shared pure recipe (`settleGraphData`) places the topology; settled world
- * `x` / `y` and topology-derived `rank` are written via `setMemoryLayout`.
+ * `x` / `y` and topology-derived `rank` are written via `setMemoryPlacement`.
  * Call only when topology/placement must change (link, missing xy / cold).
  * **Create alone does not settle** (no topology; leave x/y null until link/cold).
  * Content-only upserts must not call this (no reshuffle).
@@ -29,7 +29,7 @@
  * Ranks never come from force — apply `rankOverrides` before settle.
  */
 
-import { listGraphTopology, setMemoryLayout } from "@/lib/falkor";
+import { listGraphTopology, setMemoryPlacement } from "@/lib/falkor";
 import { memoryGraphToGraphDataWithMeta } from "@/lib/graph/from-memory-graph";
 import {
   settleGraphData,
@@ -352,7 +352,7 @@ export function settleMemoryGraphIncremental(
  * Persist filter (F6): write only when rank differs or |Δxy| exceeds epsilon.
  * Rank overrides do not force a write when rank already matches.
  */
-export async function settleAndPersistMemoryLayouts(
+export async function settleAndPersistMemoryPlacements(
   options?: SettleAndPersistOptions,
 ): Promise<{ written: number; dirty: number; pinned: boolean }> {
   const { memories, links } = await listGraphTopology();
@@ -379,7 +379,7 @@ export async function settleAndPersistMemoryLayouts(
       Math.abs(prev.y - node.y) > XY_PERSIST_EPSILON;
     if (!rankChanged && !xyChanged) continue;
 
-    await setMemoryLayout({
+    await setMemoryPlacement({
       id: node.id,
       x: node.x,
       y: node.y,
@@ -390,3 +390,6 @@ export async function settleAndPersistMemoryLayouts(
 
   return { written, dirty: dirtyIds.size, pinned };
 }
+
+/** @deprecated Use settleAndPersistMemoryPlacements */
+export const settleAndPersistMemoryLayouts = settleAndPersistMemoryPlacements;

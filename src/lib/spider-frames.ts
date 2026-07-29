@@ -6,7 +6,7 @@ export const FRAME_H = 32;
 export const COLORS: Record<number, string> = {
   1: "#1a1a2e", // body
   2: "#22223a", // legs (slightly lighter)
-  3: "#c9952a", // accent (amber)
+  3: "#c8acfb", // accent (lavender — production palette; amber banned)
 };
 
 type Grid = number[][];
