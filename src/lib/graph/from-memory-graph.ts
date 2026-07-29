@@ -3,8 +3,7 @@
  *
  * Accepts full `Memory` rows or lean `/api/graph` topology rows (`MemoryGraphNodeInput`).
  * Placement policy: **client-placement-cache** (`plans/client-placement-cache.md`).
- * Falkor / API topology is content + links only — **do not treat API `x`/`y`/`rank` as
- * placement SoT** (those fields are legacy/optional and ignored for live pose).
+ * Falkor / API topology is content + links only — no layout fields on Memory.
  *
  * Cold-start / settle-gating contract (MVP C3):
  * - Filter/dedupe edges first (same set as GraphData), then derive ranks + fingerprint.
@@ -26,7 +25,6 @@ import {
   type GraphEdge,
   type GraphNode,
 } from "./graph-data";
-import { isPlacedLayout } from "@/lib/memory-placement";
 import type { Links } from "@/types/graph-schema";
 import {
   computeBfsOrder,
@@ -38,8 +36,8 @@ import {
 
 /**
  * Lean node input for canvas mapping (full Memory or `/api/graph` topology rows).
- * Embeddings are not required. Layout fields on the input are **ignored** for pose
- * (legacy rows may still carry them; client cache / seeds own placement).
+ * Embeddings are not required. Pose comes from client cache / seeds only —
+ * topology input has no layout fields (Falkor holds content + links only).
  */
 export type MemoryGraphNodeInput = {
   id: string;
@@ -48,12 +46,6 @@ export type MemoryGraphNodeInput = {
   content?: string | null;
   impression?: string | null;
   confidence?: number | null;
-  /** @deprecated Ignored for pose — client cache / seed only. */
-  x?: number | null;
-  /** @deprecated Ignored for pose — client cache / seed only. */
-  y?: number | null;
-  /** @deprecated Ignored — ranks derived from PART_OF on the client. */
-  rank?: number | null;
 };
 
 /** True when both world coords are finite numbers (raw; ignores origin seed). */
@@ -64,27 +56,6 @@ export function hasFiniteLayoutXY(x: unknown, y: unknown): boolean {
     typeof y === "number" &&
     Number.isFinite(y)
   );
-}
-
-/**
- * @deprecated Prefer `memoryGraphToGraphDataWithMeta().needsLayout` for live
- * topology (cache / fingerprint driven). This helper only inspects API/memory
- * `x`/`y` via `isPlacedLayout` and is not the product settle gate.
- */
-export function memoryNeedsLayout(
-  memory: Pick<MemoryGraphNodeInput, "x" | "y">
-): boolean {
-  return !isPlacedLayout({ x: memory.x, y: memory.y });
-}
-
-/**
- * @deprecated Prefer `memoryGraphToGraphDataWithMeta().needsLayout`.
- * API-xy policy only; product pose path ignores input coordinates.
- */
-export function memoriesNeedLayout(
-  memories: ReadonlyArray<Pick<MemoryGraphNodeInput, "x" | "y">>
-): boolean {
-  return memories.some(memoryNeedsLayout);
 }
 
 /**

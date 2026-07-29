@@ -44,7 +44,7 @@ import {
 // Tunable knobs (verify / later product — not UI)
 // ---------------------------------------------------------------------------
 
-/** Match memory-placement PARENT_CHILD_RADIUS — hierarchy spacing. */
+/** Hierarchy spacing (matches client pose helper PARENT_CHILD_RADIUS). */
 export const PART_OF_DISTANCE = 56;
 export const PART_OF_STRENGTH = 0.9;
 

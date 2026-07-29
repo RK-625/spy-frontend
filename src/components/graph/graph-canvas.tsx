@@ -146,7 +146,7 @@ function initialGraphFromSearch(search: string): GraphData {
  * - `?layout=d3` → miss settles via d3 engine; hit still paints cache (no force recompute).
  * - `?motion=1` → opt-in continuous ambient (S8; separate from settle; default off).
  * - Progressive BFS growth (invisible-until-posed) deferred as C3b.
- * - Does not flip LAYOUT_SIMULATION_ENABLED.
+ * - Engines: static (default) or opt-in d3-settle; no continuous FA2 sim.
  */
 export function GraphCanvas() {
   const canvasHostRef = useRef<HTMLDivElement | null>(null);

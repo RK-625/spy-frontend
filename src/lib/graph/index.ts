@@ -35,10 +35,6 @@ export {
 // --- Memory / Links → GraphData (pure; no Falkor) -------------------------
 export {
   hasFiniteLayoutXY,
-  /** @deprecated Prefer memoryGraphToGraphDataWithMeta().needsLayout */
-  memoryNeedsLayout,
-  /** @deprecated Prefer memoryGraphToGraphDataWithMeta().needsLayout */
-  memoriesNeedLayout,
   filterTopologyLinks,
   memoryGraphToGraphData,
   memoryGraphToGraphDataWithMeta,
@@ -81,7 +77,6 @@ export {
 export {
   createLayoutLoop,
   createLayoutLoopAsync,
-  LAYOUT_SIMULATION_ENABLED,
   type LayoutLoopHandle,
   type LayoutLoopOptions,
   type LayoutLoopStatus,
@@ -116,7 +111,6 @@ export {
   DOT_RADIUS_FRAC,
   DOT_STEP_FRAC,
   NODE_DRAW_MIN_PX,
-  EDGE_SYNAPSE_GAP_MIN,
   EDGE_SYNAPSE_GAP_FRAC,
   EDGE_DOT_FLARE_GAIN,
   EDGE_DOT_DENSIFY_GAIN,

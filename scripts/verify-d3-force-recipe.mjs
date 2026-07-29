@@ -95,7 +95,6 @@ async function main() {
   } = await import(recipeUrl);
   const {
     hasFiniteLayoutXY,
-    memoriesNeedLayout,
     memoryGraphToGraphDataWithMeta,
   } = await import(adapterUrl);
 
@@ -220,11 +219,6 @@ async function main() {
     { source: "side", target: "root", type: "RELATES_TO" },
     { source: "child-a", target: "child-b", type: "RELATES_TO" },
   ];
-
-  assert(
-    memoriesNeedLayout(coldMemories),
-    "memoriesNeedLayout true when all x/y missing"
-  );
 
   const { graph: coldGraph, needsLayout } = memoryGraphToGraphDataWithMeta({
     memories: coldMemories,

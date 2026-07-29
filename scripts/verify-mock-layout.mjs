@@ -42,12 +42,16 @@ async function main() {
   const layout = await import(layoutUrl);
 
   const { createMockGraphData } = graphDataModule;
-  const { createLayoutLoop, createLayoutLoopAsync, LAYOUT_SIMULATION_ENABLED } =
-    layout;
+  const { createLayoutLoop, createLayoutLoopAsync } = layout;
 
+  // Engines are static | d3-settle only (FA2 soft-switch removed).
   assert(
-    LAYOUT_SIMULATION_ENABLED === false,
-    "LAYOUT_SIMULATION_ENABLED stays false (FA2 removed)"
+    typeof createLayoutLoop === "function",
+    "createLayoutLoop exported (static product path)"
+  );
+  assert(
+    typeof createLayoutLoopAsync === "function",
+    "createLayoutLoopAsync exported for d3 settle path"
   );
 
   const g0 = createMockGraphData();
@@ -77,28 +81,26 @@ async function main() {
 
   const initial = new Map(g0.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
 
-  // FA2 simulationEnabled must throw (path deleted).
-  let fa2Threw = false;
-  try {
-    await createLayoutLoopAsync({
-      graphData: createMockGraphData(),
-      simulationEnabled: true,
-    });
-  } catch (err) {
-    fa2Threw = true;
-    assert(
-      String(err?.message ?? err).includes("FA2") ||
-        String(err?.message ?? err).includes("d3-settle"),
-      "simulationEnabled error mentions FA2 removal / d3-settle"
-    );
+  // Default async path is static (no layoutEngine → no force).
+  const defaultAsync = await createLayoutLoopAsync({
+    graphData: createMockGraphData(),
+  });
+  const beforeDefault = defaultAsync.getGraphData();
+  defaultAsync.start();
+  defaultAsync.step();
+  const afterDefault = defaultAsync.getGraphData();
+  let defaultMoved = 0;
+  for (const n of afterDefault.nodes) {
+    const prev = beforeDefault.nodes.find((p) => p.id === n.id);
+    if (prev && (n.x !== prev.x || n.y !== prev.y)) defaultMoved += 1;
   }
-  assert(fa2Threw, "createLayoutLoopAsync rejects simulationEnabled (FA2 gone)");
+  assert(
+    defaultMoved === 0,
+    `default layoutEngine is static (moved=${defaultMoved})`
+  );
+  defaultAsync.stop();
 
   // d3-settle moves ≥1 node
-  assert(
-    typeof createLayoutLoopAsync === "function",
-    "createLayoutLoopAsync exported for d3 settle path"
-  );
   const loop = await createLayoutLoopAsync({
     graphData: g0,
     layoutEngine: "d3-settle",

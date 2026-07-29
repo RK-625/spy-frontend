@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 /**
- * Tool input for create/update Memory. Canvas layout (x, y, rank) is
- * system-owned — never present on this schema; the LLM must not invent coordinates.
+ * Tool input for create/update Memory. Canvas layout is client-owned
+ * (placement cache) — never present on this schema; the LLM must not invent
+ * coordinates or rank.
  */
 export const upsertMemoryInputSchema = z.object({
   name: z
@@ -34,10 +35,10 @@ export const upsertMemoryInputSchema = z.object({
     .optional()
     .describe(
       "Existing Memory id to update content/name/impression/confidence. Omit to create a new memory (system generates id). " +
-        "Updates do not move the node on the canvas — existing x/y/rank are preserved. " +
-        "Do NOT pass or invent canvas coordinates (x, y) or rank; layout is system-owned. " +
+        "Updates change content only — tools never author geometry. " +
+        "Do NOT pass or invent canvas coordinates (x, y) or rank; the graph client places nodes from topology/cache. " +
         "Structure (PART_OF / RELATES_TO) is via linkMemories, not this tool. " +
-        "Intermediate hierarchy: create nodes here, then link correctly; the system places children after PART_OF links.",
+        "Intermediate hierarchy: create nodes here, then link correctly.",
     ),
 });
 

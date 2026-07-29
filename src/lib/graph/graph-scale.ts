@@ -62,12 +62,8 @@ export const NODE_DRAW_MIN_PX = 0.25;
 /**
  * Synaptic cleft: hairline gap between node fill border and first edge dots.
  * Fraction of node radius keeps spacing even at any zoom.
- *
- * E′: screen-px floor removed so world bake + zoom scale is exact;
- * gap remains hairline via frac alone (trust frac for quality).
- * Deprecated — kept as 0 for backward compat; only EDGE_SYNAPSE_GAP_FRAC is used.
+ * Screen-px floor removed so world bake + zoom scale is exact.
  */
-export const EDGE_SYNAPSE_GAP_MIN = 0;
 export const EDGE_SYNAPSE_GAP_FRAC = 0.04;
 
 // ---------------------------------------------------------------------------

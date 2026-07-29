@@ -76,7 +76,6 @@ async function main() {
   const layout = await import(layoutUrl);
   const loop = layout.createLayoutLoop({
     graphData: mock,
-    simulationEnabled: false,
   });
   const after = loop.getGraphData();
   for (const n of after.nodes) {

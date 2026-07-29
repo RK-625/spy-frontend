@@ -7,8 +7,8 @@
  * Optional ambient: `ambientMotion: true` (or `/graph?motion=1`) — continuous
  * low-alpha ticks after settle; default off (Slice 8).
  *
- * FA2 / graphology path removed (Slice 7). `LAYOUT_SIMULATION_ENABLED` remains
- * false as a legacy soft-switch alias (always off; do not reintroduce FA2).
+ * FA2 / graphology path removed (Slice 7). Engines are only `"static"` |
+ * `"d3-settle"` — no continuous-sim soft-switch.
  *
  * API:
  * - createLayoutLoop() — sync; static store only. Throws for d3-settle.
@@ -21,14 +21,8 @@ import {
 } from "./graph-data";
 
 // ---------------------------------------------------------------------------
-// Flag + types
+// Types
 // ---------------------------------------------------------------------------
-
-/**
- * Legacy soft switch — always false. FA2 path deleted (S7).
- * Kept so older callers/docs that read the flag still see "off".
- */
-export const LAYOUT_SIMULATION_ENABLED = false;
 
 export type LayoutLoopStatus = "idle" | "running" | "stopped";
 
@@ -51,15 +45,6 @@ export type LayoutEngine = "static" | "d3-settle";
 export type LayoutLoopOptions = {
   /** Initial positions. */
   graphData?: GraphData;
-  /**
-   * @deprecated FA2 removed (S7). Ignored; always treated as false.
-   */
-  iterationsPerFrame?: number;
-  /**
-   * @deprecated FA2 removed (S7). Must stay false / omitted.
-   * If true, createLayoutLoopAsync throws (no sim module).
-   */
-  simulationEnabled?: boolean;
   /**
    * One-shot settle engine (Slice 1). Default: `"static"`.
    * Requires createLayoutLoopAsync for `"d3-settle"`.
@@ -174,12 +159,6 @@ function createStaticLayoutLoop(
 export function createLayoutLoop(
   options: LayoutLoopOptions = {}
 ): LayoutLoopHandle {
-  if (options.simulationEnabled === true) {
-    throw new Error(
-      "createLayoutLoop: FA2 simulation path removed (Slice 7). " +
-        'Use layoutEngine: "d3-settle" via createLayoutLoopAsync.'
-    );
-  }
   const layoutEngine = options.layoutEngine ?? "static";
   if (layoutEngine === "d3-settle") {
     throw new Error(
@@ -198,13 +177,6 @@ export function createLayoutLoop(
 export async function createLayoutLoopAsync(
   options: LayoutLoopOptions = {}
 ): Promise<LayoutLoopHandle> {
-  if (options.simulationEnabled === true) {
-    throw new Error(
-      "createLayoutLoopAsync: FA2 simulation path removed (Slice 7). " +
-        'Use layoutEngine: "d3-settle" (optional ambientMotion: true).'
-    );
-  }
-
   const layoutEngine = options.layoutEngine ?? "static";
 
   if (layoutEngine === "d3-settle") {

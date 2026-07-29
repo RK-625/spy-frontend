@@ -80,7 +80,7 @@ These are things a new engineer might not guess. They must be followed:
 
 Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
 
-**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). Client pure-perf ceiling for static mock pan/zoom and large-loaded-graph tracks is **achieved** under quality bans. Continuous layout is **off** by default (`LAYOUT_SIMULATION_ENABLED = false`; FA2/graphology path removed). Opt-in placement: `/graph?layout=d3` (one-shot d3 settle); optional ambient: `?motion=1`. Active placement architecture follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client placement cache, Falkor holds topology only, no server placement writes). Do not re-litigate ban-safe pure-perf; next graph work is product modes (ambient when wanted, full KB residency). Details under **What's left**.
+**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). Client pure-perf ceiling for static mock pan/zoom and large-loaded-graph tracks is **achieved** under quality bans. Continuous layout is **off** by default (static engine; FA2/graphology path removed). Opt-in placement: `/graph?layout=d3` (one-shot d3 settle); optional ambient: `?motion=1`. Active placement architecture follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client placement cache, Falkor holds topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Do not re-litigate ban-safe pure-perf; next graph work is product modes (ambient when wanted, full KB residency). Details under **What's left**.
 
 **Prompt input:** production `src/components/chat/ai-elements/prompt-input.tsx` is a **chat-only** shell. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
 
@@ -166,7 +166,7 @@ src/
 
 **Note:** `prompt-input.tsx` under `chat/ai-elements` is chat-only (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/toolset.ts` without a live morph UI.
 
-**Graph note:** Continuous layout off by default (`LAYOUT_SIMULATION_ENABLED = false`). FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client d3 compute + `localStorage` pose cache, Falkor holds topology only, no server placement writes). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
+**Graph note:** Continuous layout off by default (static engine). FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client d3 compute + `localStorage` pose cache, Falkor holds topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
 
 ## Design files
 

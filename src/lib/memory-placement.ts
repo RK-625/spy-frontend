@@ -1,21 +1,20 @@
 /**
- * Memory layout helpers — pure rank / settle-gate policy (no geometry engine).
+ * Client pose helpers — pure rank / placed-pose checks (no geometry engine).
  *
  * =============================================================================
  * POLICY — client-placement-cache (plans/client-placement-cache.md)
  * =============================================================================
  *
  * Design locks:
- *  - x, y, rank are **not** durable Falkor fields for product placement.
- *  - Client d3 (`force-recipe` / `settleGraphData`) computes poses; browser
- *    `localStorage` (`placement-cache.ts`) caches them by topology fingerprint.
+ *  - Placement SoT is **client-only**: d3 settle (`force-recipe`) + browser
+ *    `localStorage` (`placement-cache.ts`) by topology fingerprint.
+ *  - Falkor holds topology only — no product `x`/`y`/`rank` writes.
  *  - Rank is **client-derived** from PART_OF (child = parent + 1; roots = 0).
- *  - LLM tools never author x/y/rank; toolset never settles or persists layout.
- *  - Fan/spiral geometry APIs were removed (S6); do not resurrect.
+ *  - LLM tools never author layout; toolset never settles or persists pose.
  *
- * Remaining helpers here are pure gates used by verify scripts and any caller
- * that still reasons about “is this pose real vs seed” on GraphData / cache
- * rows (`isPlacedLayout`, rankAfterParent). Server product path does not place.
+ * This module is thin pure helpers for verify / pose gating on GraphNode or
+ * cache rows (`isPlacedLayout`, `rankAfterParent`). It is **not** a server
+ * place-on-upsert policy surface (those gates were removed).
  */
 
 export type LayoutCoords = {
@@ -29,7 +28,7 @@ export type LayoutWithRank = LayoutCoords & {
 
 /**
  * Preferred hierarchy distance (matches force-recipe PART_OF_DISTANCE).
- * Kept here so rank/policy callers share the same spacing token.
+ * Shared spacing token for callers that need the same constant.
  */
 export const PARENT_CHILD_RADIUS = 56;
 
@@ -40,7 +39,7 @@ export const PARENT_CHILD_RADIUS = 56;
 export const LAYOUT_ORIGIN_EPSILON = 1e-3;
 
 // ---------------------------------------------------------------------------
-// Rank & settle policy helpers (pure)
+// Rank & pose helpers (pure)
 // ---------------------------------------------------------------------------
 
 /**
@@ -57,9 +56,8 @@ export function recomputeRankFromParent(parentRank: number): number {
 }
 
 /**
- * True when a layout has a **real** placed pose for settle gating.
- * Requires finite x and y, and **not** both within LAYOUT_ORIGIN_EPSILON of 0
- * (origin seeds count as unplaced).
+ * True when a layout has a **real** placed pose (not a near-origin seed).
+ * Requires finite x and y, and **not** both within LAYOUT_ORIGIN_EPSILON of 0.
  *
  * Used on GraphNode / cache poses — not on API topology (which has no xy).
  */
@@ -77,44 +75,4 @@ export function isPlacedLayout(
     return false;
   }
   return true;
-}
-
-/**
- * Whether layout would still be required under the old API-xy model
- * (create, missing, or near-origin). Live `/graph` uses cache fingerprint
- * instead (`memoryGraphToGraphDataWithMeta.needsLayout`).
- */
-export function shouldPlaceOnUpsert(args: {
-  isNew: boolean;
-  existing: LayoutCoords | null;
-}): boolean {
-  if (args.isNew) return true;
-  return !isPlacedLayout(args.existing);
-}
-
-/**
- * Whether a link event would have triggered server force-settle historically.
- * Product path no longer settles on the server; retained for pure verify.
- * - RELATES_TO: always (topology change).
- * - PART_OF: only when the child lacks a placed layout.
- */
-export function shouldPlaceOnLink(args: {
-  type: "PART_OF" | "RELATES_TO";
-  sourceLayout: LayoutWithRank | null;
-}): boolean {
-  if (args.type === "RELATES_TO") return true;
-  return !isPlacedLayout(args.sourceLayout);
-}
-
-/**
- * True when PART_OF child rank is missing or not parent.rank + 1.
- */
-export function partOfRankNeedsUpdate(args: {
-  sourceLayout: LayoutWithRank | null;
-  parentRank: number;
-}): boolean {
-  const expected = rankAfterParent(args.parentRank);
-  const current = args.sourceLayout?.rank;
-  if (current == null || !Number.isFinite(current)) return true;
-  return Math.floor(current) !== expected;
 }

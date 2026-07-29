@@ -24,36 +24,8 @@ export const Memory = z.object({
     .describe(
       "The confidence score of the memory of how well the user understands and grasps the content",
     ),
-  /**
-   * @deprecated Legacy optional field. Product placement is client-only
-   * (`localStorage` via placement-cache); Falkor/toolset do not write x/y/rank.
-   */
-  x: z
-    .number()
-    .optional()
-    .describe(
-      "@deprecated Not durable SoT; never LLM tool input; client placement cache owns pose",
-    ),
-  /**
-   * @deprecated Legacy optional field. Product placement is client-only.
-   */
-  y: z
-    .number()
-    .optional()
-    .describe(
-      "@deprecated Not durable SoT; never LLM tool input; client placement cache owns pose",
-    ),
-  /**
-   * @deprecated Legacy optional field. Rank is derived on the client from PART_OF.
-   */
-  rank: z
-    .number()
-    .int()
-    .min(0)
-    .optional()
-    .describe(
-      "@deprecated Not durable SoT; never LLM tool input; client derives rank from PART_OF",
-    ),
+  // Layout (x/y/rank) is client-only via placement-cache — not part of Memory.
+  // Falkor may still hold orphan physical props on disk; product never reads them.
 });
 /** Inferred product Memory row (value `Memory` is the Zod schema). */
 export type Memory = z.infer<typeof Memory>;

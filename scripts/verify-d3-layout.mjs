@@ -43,12 +43,13 @@ async function main() {
   ).href;
 
   const { createMockGraphData } = await import(graphDataUrl);
-  const { createLayoutLoop, createLayoutLoopAsync, LAYOUT_SIMULATION_ENABLED } =
-    await import(layoutUrl);
+  const { createLayoutLoop, createLayoutLoopAsync } = await import(layoutUrl);
 
+  // Engines are static | d3-settle only (no continuous-sim soft-switch).
   assert(
-    LAYOUT_SIMULATION_ENABLED === false,
-    "LAYOUT_SIMULATION_ENABLED stays false (no continuous FA2)"
+    typeof createLayoutLoop === "function" &&
+      typeof createLayoutLoopAsync === "function",
+    "layout-loop exports static + async d3-settle entry points"
   );
 
   const mock = createMockGraphData();
