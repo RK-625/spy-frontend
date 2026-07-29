@@ -222,8 +222,6 @@ export type MemoryPlacement = {
   rank: number | null;
 };
 
-/** @deprecated Use MemoryPlacement */
-export type MemoryLayout = MemoryPlacement;
 
 function numOrNull(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -261,8 +259,6 @@ export async function listMemoryPlacements(): Promise<MemoryPlacement[]> {
   }
 }
 
-/** @deprecated Use listMemoryPlacements */
-export const listMemoryLayouts = listMemoryPlacements;
 
 export async function getMemoryPlacement(
   id: string,
@@ -295,9 +291,6 @@ export async function getMemoryPlacement(
   }
 }
 
-// TODO: remove this deprecated export if it not used anywhere
-/** @deprecated Use getMemoryPlacement */
-export const getMemoryLayout = getMemoryPlacement;
 
 /**
  * Canvas / API topology row — no embeddings (keep `/api/graph` payloads small).
@@ -343,10 +336,7 @@ export async function listGraphTopology(): Promise<GraphTopology> {
            m.name AS name,
            m.content AS content,
            m.impression AS impression,
-           m.confidence AS confidence,
-           m.x AS x,
-           m.y AS y,
-           m.rank AS rank
+           m.confidence AS confidence
   `;
 
   const linkQuery = `
@@ -363,9 +353,6 @@ export async function listGraphTopology(): Promise<GraphTopology> {
         content: unknown;
         impression: unknown;
         confidence: unknown;
-        x: unknown;
-        y: unknown;
-        rank: unknown;
       }>;
     };
 
@@ -377,9 +364,6 @@ export async function listGraphTopology(): Promise<GraphTopology> {
       .map((row) => {
         const id = strOr(row.id, "").trim();
         if (!id) return null;
-        const x = numOrNull(row.x);
-        const y = numOrNull(row.y);
-        const rank = numOrNull(row.rank);
         const out: GraphTopologyMemory = {
           id,
           name: strOr(row.name, id),
@@ -387,9 +371,6 @@ export async function listGraphTopology(): Promise<GraphTopology> {
           impression: strOr(row.impression, ""),
           confidence: numOr(row.confidence, 0.5),
         };
-        if (x != null) out.x = x;
-        if (y != null) out.y = y;
-        if (rank != null) out.rank = Math.max(0, Math.floor(rank));
         return out;
       })
       .filter((row): row is GraphTopologyMemory => row != null);
@@ -448,5 +429,3 @@ export async function setMemoryPlacement(input: {
   }
 }
 
-/** @deprecated Use setMemoryPlacement */
-export const setMemoryLayout = setMemoryPlacement;

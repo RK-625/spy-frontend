@@ -1,32 +1,8 @@
 /**
- * Server-side P-A layout settle + persist (Slice 5 / incremental scale).
+ * @deprecated Server-side P-A layout settle + persist is SUPERSEDED by plans/client-placement-cache.md.
  *
- * Shared pure recipe (`settleGraphData`) places the topology; settled world
- * `x` / `y` and topology-derived `rank` are written via `setMemoryPlacement`.
- * Call only when topology/placement must change (link, missing xy / cold).
- * **Create alone does not settle** (no topology; leave x/y null until link/cold).
- * Content-only upserts must not call this (no reshuffle).
- *
- * Persist policy **P-A** (locked): durable settled coords for stable reopen.
- * Client `/graph` never writes layout.
- *
- * Incremental policy (scale):
- * Pass `focusIds` for the weave event (PART_OF child, RELATES source, cold id).
- * We expand to a 1-hop neighborhood (incident edges + incidence lists) as the
- * **movable** set. Empty focus (and no rank overrides) → full free settle +
- * persist all nodes (cold / bulk).
- *
- * `anchorIds` (optional): forced pins even when inside the neighborhood
- * (e.g. PART_OF parent). Anchors stay in the settle subgraph for collide/link
- * context but never move and are not dirty for xy persist.
- *
- * When focus is non-empty: **always** keep outsiders fixed — never free-settle
- * the whole graph just because the movable fraction is large (avoids hub
- * blow-up). Sim cost: settle a **subgraph** of movable nodes + a thin 1-hop
- * **anchor** ring (neighbors outside movable, pinned via `fx`/`fy`), then merge
- * only movable positions back onto the full GraphData. Persist dirty =
- * movable (+ rank overrides) only; anchors and distant cousins stay unchanged.
- * Ranks never come from force — apply `rankOverrides` before settle.
+ * FalkorDB holds knowledge & topology only. Poses are derived and cached on the client.
+ * Server toolsets make 0 placement writes. This file is retained for legacy reference / verify.
  */
 
 import { listGraphTopology, setMemoryPlacement } from "@/lib/falkor";
@@ -390,6 +366,3 @@ export async function settleAndPersistMemoryPlacements(
 
   return { written, dirty: dirtyIds.size, pinned };
 }
-
-/** @deprecated Use settleAndPersistMemoryPlacements */
-export const settleAndPersistMemoryLayouts = settleAndPersistMemoryPlacements;

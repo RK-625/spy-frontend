@@ -177,6 +177,20 @@ async function main() {
     !/settleAndPersistMemoryPlacements/.test(toolsetSrc),
     "settleAndPersistMemoryPlacements is NOT called in toolset.ts (no server placement writes on create/update)"
   );
+  const falkorSrc = fs.readFileSync(
+    path.join(root, "src/lib/falkor.ts"),
+    "utf8"
+  );
+  const listGraphTopologyBody = falkorSrc.slice(
+    falkorSrc.indexOf("function listGraphTopology"),
+    falkorSrc.indexOf("export async function setMemoryPlacement")
+  );
+  assert(
+    !/m\.x\s+AS\s+x/i.test(listGraphTopologyBody) &&
+      !/m\.y\s+AS\s+y/i.test(listGraphTopologyBody) &&
+      !/m\.rank\s+AS\s+rank/i.test(listGraphTopologyBody),
+    "listGraphTopology in falkor.ts does NOT select m.x, m.y, or m.rank in Cypher query"
+  );
 
   assert(
     shouldPlaceOnLink({

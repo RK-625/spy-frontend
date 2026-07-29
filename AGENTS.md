@@ -220,7 +220,7 @@ Hard bans remain in force (see Constraints). Do not re-open pure-perf by relaxin
 
 ### Left (next product modes — not unfinished mock pan work)
 
-1. **Client placement cache integration** — align runtime pose persistence with [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client d3 pose compute + `localStorage` cache, Falkor topology only, no server placement writes).
+1. **Client placement cache integration** — **Achieved (Slices C0–C5 complete)**: aligned runtime pose persistence with [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client d3 pose compute + `localStorage` cache, Falkor holds topology only, zero server placement writes).
 2. **Opt-in ambient / settle when product wants motion** — `?layout=d3` settle + `?motion=1` ambient (default off). Do not claim continuous motion is live until product enables it.
 3. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
 4. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
