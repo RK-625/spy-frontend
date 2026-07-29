@@ -27,6 +27,11 @@ import {
 } from "./graph-data";
 import { isPlacedLayout } from "@/lib/memory-placement";
 import type { Links } from "@/types/graph-schema";
+import {
+  deriveRanks,
+  computeTopoFingerprint,
+  loadPlacementCache,
+} from "./placement-cache";
 
 /**
  * Lean node input for canvas mapping (full Memory or `/api/graph` topology rows).
@@ -96,12 +101,21 @@ export function memoryGraphToGraphData(input: {
 /**
  * Same map as `memoryGraphToGraphData`, plus an explicit `needsLayout` flag
  * computed from Memories before zeros are seeded into GraphData.
+ * Checks placement-cache for existing cached pose based on topology fingerprint.
  */
 export function memoryGraphToGraphDataWithMeta(input: {
   memories: MemoryGraphNodeInput[];
   links: Links[];
 }): MemoryGraphMapResult {
-  const needsLayout = memoriesNeedLayout(input.memories);
+  const derivedRanks = deriveRanks(input.memories, input.links);
+  const fingerprint = computeTopoFingerprint(
+    input.memories,
+    input.links,
+    derivedRanks
+  );
+  const cache = loadPlacementCache(fingerprint);
+
+  let needsLayout = false;
   const idSet = new Set(input.memories.map((m) => m.id));
 
   const seenEdgeIds = new Set<string>();
@@ -134,25 +148,41 @@ export function memoryGraphToGraphDataWithMeta(input: {
         ? memory.confidence
         : undefined;
 
+    const cached = cache?.[memory.id];
+    const hasValidCachedPose =
+      cached !== undefined &&
+      typeof cached.x === "number" &&
+      Number.isFinite(cached.x) &&
+      typeof cached.y === "number" &&
+      Number.isFinite(cached.y);
+
+    if (!hasValidCachedPose && memoryNeedsLayout(memory)) {
+      needsLayout = true;
+    }
+
+    const x = hasValidCachedPose
+      ? cached.x
+      : typeof memory.x === "number" && Number.isFinite(memory.x)
+      ? memory.x
+      : 0;
+
+    const y = hasValidCachedPose
+      ? cached.y
+      : typeof memory.y === "number" && Number.isFinite(memory.y)
+      ? memory.y
+      : 0;
+
+    const rank = derivedRanks.get(memory.id) ?? 0;
+
     return {
       id: memory.id,
       label: memory.name,
       ...(content !== undefined ? { content } : {}),
       ...(impression !== undefined ? { impression } : {}),
       ...(confidence !== undefined ? { confidence } : {}),
-      // Prefill from insertion/placement; 0 is a seed only when layout is missing.
-      x:
-        typeof memory.x === "number" && Number.isFinite(memory.x)
-          ? memory.x
-          : 0,
-      y:
-        typeof memory.y === "number" && Number.isFinite(memory.y)
-          ? memory.y
-          : 0,
-      rank:
-        typeof memory.rank === "number" && Number.isFinite(memory.rank)
-          ? Math.max(0, Math.floor(memory.rank))
-          : 0,
+      x,
+      y,
+      rank,
       ...emptyNodeIncidence(),
     };
   });
