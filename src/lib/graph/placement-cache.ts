@@ -28,12 +28,13 @@ export type PlacementCacheData = {
  * Children get parent.rank + 1.
  * Cycle guard / unvisited fallback to rank 0.
  */
+ // TODO: HAS FALLBACK FOR CYCLIC AND DUAL PARENT NODES
 export function deriveRanks(
   memories: ReadonlyArray<{ id: string }>,
   links: ReadonlyArray<{ source: string; target: string; type: string }>
 ): Map<string, number> {
-  const ranks = new Map<string, number>();
-  const parentMap = new Map<string, string>();
+  const ranks = new Map<string, number>(); // node id to rank
+  const parentMap = new Map<string, string>(); // parent node to child node
   const memoryIds = new Set(memories.map((m) => m.id));
 
   for (const link of links) {
