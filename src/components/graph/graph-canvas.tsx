@@ -34,15 +34,13 @@ type HudState = {
 type GraphApiResponse = {
   ok?: boolean;
   empty?: boolean;
+  /** Topology only — placement lives in client localStorage cache. */
   memories?: Array<{
     id: string;
     name: string;
     content?: string;
     impression?: string;
     confidence?: number;
-    x?: number;
-    y?: number;
-    rank?: number;
   }>;
   links?: Links[];
   error?: string;
@@ -137,15 +135,17 @@ function initialGraphFromSearch(search: string): GraphData {
  * - `?stress=1` → stress fixture (wins over live).
  * - `?source=live` → GET `/api/graph`; empty DB → empty canvas; fetch/DB
  *   error → fall back to mock so the page is not blank.
- * - Client never calls setMemoryPlacement; placement writes stay server-side (P-A).
+ * - Client **never** writes Falkor placement. Poses live in browser
+ *   `localStorage` (`placement-cache.ts` / `plans/client-placement-cache.md`).
  *
- * Layout (Slice 1 + S4):
- * - Default → static positions (no settle). Product `/graph` unchanged.
- * - `?layout=d3` → one-shot settle via createLayoutLoopAsync({ layoutEngine: "d3-settle" }).
- * - Live + `layout=d3`: settle runs on feed install (engine setGraphData).
- * - Live + unplaced xy (`needsLayout`: missing / near-origin): session settle
- *   only unplaced nodes (placed nodes pinned); no client persist.
+ * Layout (client placement cache MVP — C3):
+ * - Default → static positions after install (no continuous sim).
+ * - Live topology: adapter loads cache by topo fingerprint.
+ *   - Cache hit → paint cached poses; skip settle (also for `?layout=d3`).
+ *   - Cache miss → seedNodePosition + one-shot settle (saves cache).
+ * - `?layout=d3` → miss settles via d3 engine; hit still paints cache (no force recompute).
  * - `?motion=1` → opt-in continuous ambient (S8; separate from settle; default off).
+ * - Progressive BFS growth (invisible-until-posed) deferred as C3b.
  * - Does not flip LAYOUT_SIMULATION_ENABLED.
  */
 export function GraphCanvas() {
@@ -383,10 +383,9 @@ export function GraphCanvas() {
       queueHudUpdate();
 
       // Live topology (read-only). Default attempts live; empty/error → mock.
-      // Explicit ?source=live + empty DB → empty canvas. Settle:
-      // - layout=d3 / motion=1 → engine settles on setGraphData
-      // - needsLayout (missing xy) → session settle even on static engine (dynamic import)
-      // Client never persists (P-A writes stay server/toolset).
+      // Explicit ?source=live + empty DB → empty canvas.
+      // Placement: client localStorage cache (fingerprint hit → paint; miss → settle+save).
+      // Client never writes Falkor x/y/rank.
       if (!wantLive) return;
 
       try {
@@ -404,49 +403,26 @@ export function GraphCanvas() {
             links: Array.isArray(data.links) ? data.links : [],
           });
 
+          if (!needsLayout) {
+            // Full cache hit — paint without re-settle (including layout=d3).
+            layoutLoop.setGraphData(graph, { settle: false });
+            return;
+          }
+
+          // Cache miss MVP: seed poses already on GraphData; one-shot settle
+          // writes localStorage via settleGraphData. No Falkor placement writes.
+          // Progressive BFS reveal is C3b (deferred).
           if (layoutEngine === "d3-settle") {
-            // Intentional S4 path: live + layout=d3 (or motion) → one-shot settle in engine.
+            // Engine settle on install (also saves placement cache).
             layoutLoop.setGraphData(graph);
             return;
           }
 
-          if (needsLayout) {
-            // Session paint only: pin placed nodes; move only unplaced (F4).
-            // No client setMemoryPlacement (P-A stays server/toolset).
-            const {
-              settleGraphData,
-              applyColdStartJitter,
-              cloneGraphData,
-              ORIGIN_EPSILON,
-            } = await import("@/lib/graph/force-recipe");
-            const { isPlacedLayout } = await import("@/lib/memory-placement");
-            if (isCanvasDisposed || !layoutLoop) return;
-
-            const pinnedNodeIds = data.memories
-              .filter((m) => isPlacedLayout(m))
-              .map((m) => m.id);
-            const pinnedSet = new Set(pinnedNodeIds);
-            const working = cloneGraphData(graph);
-            const movable = working.nodes.filter((n) => !pinnedSet.has(n.id));
-            if (
-              movable.some(
-                (n) =>
-                  Math.abs(n.x) <= ORIGIN_EPSILON &&
-                  Math.abs(n.y) <= ORIGIN_EPSILON,
-              )
-            ) {
-              applyColdStartJitter(movable);
-            }
-            layoutLoop.setGraphData(
-              settleGraphData(working, {
-                pinnedNodeIds:
-                  pinnedNodeIds.length > 0 ? pinnedNodeIds : undefined,
-              }),
-            );
-            return;
-          }
-
-          layoutLoop.setGraphData(graph);
+          const { settleIfNeeded } = await import("@/lib/graph/force-recipe");
+          if (isCanvasDisposed || !layoutLoop) return;
+          layoutLoop.setGraphData(
+            settleIfNeeded(graph, { needsLayout: true }),
+          );
           return;
         }
 

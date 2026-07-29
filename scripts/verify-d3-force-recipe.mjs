@@ -9,8 +9,9 @@
  *   - mean PART_OF length < mean RELATES_TO length (soft tolerance)
  *   - static product path (layout-loop) does not import d3-force
  *
- * Exit criteria (S2 cold-start):
- *   - missing-xy memories → needsLayout true
+ * Exit criteria (S2 cold-start + client-placement-cache):
+ *   - topology without cache → needsLayout true (fingerprint miss)
+ *   - adapter seeds via seedNodePosition (not origin zeros)
  *   - settleIfNeeded → finite positions, not all near origin
  *   - ranks unchanged
  */
@@ -230,16 +231,30 @@ async function main() {
     links: coldLinks,
   });
 
-  assert(needsLayout === true, "memoryGraphToGraphDataWithMeta needsLayout true");
+  assert(needsLayout === true, "memoryGraphToGraphDataWithMeta needsLayout true (cache miss)");
   assert(coldGraph.nodes.length === 5, "cold graph has 5 nodes");
   assert(coldGraph.edges.length === 5, "cold graph has 5 edges");
+  // Client placement cache: adapter uses seedNodePosition(id), not origin zeros.
   assert(
-    coldGraph.nodes.every((n) => n.x === 0 && n.y === 0),
-    "adapter seeds missing xy to 0"
+    coldGraph.nodes.every(
+      (n) =>
+        Number.isFinite(n.x) &&
+        Number.isFinite(n.y) &&
+        Math.abs(n.x) <= 200 &&
+        Math.abs(n.y) <= 200
+    ),
+    "adapter seeds missing xy via seedNodePosition (finite, in seed range)"
   );
+  const seedXs = new Set(coldGraph.nodes.map((n) => n.x));
   assert(
-    graphNeedsLayout(coldGraph),
-    "graphNeedsLayout detects all-at-origin collapse"
+    seedXs.size > 1,
+    "seedNodePosition yields distinct seeds across cold nodes"
+  );
+  // graphNeedsLayout is the all-at-origin collapse heuristic (legacy); seeds
+  // intentionally avoid origin stack — settle uses explicit needsLayout flag.
+  assert(
+    !graphNeedsLayout(coldGraph),
+    "seeded graph is not all-at-origin collapse (seeds spread)"
   );
 
   const coldRanks = new Map(coldGraph.nodes.map((n) => [n.id, n.rank]));
@@ -277,6 +292,72 @@ async function main() {
   // settleIfNeeded no-op when needsLayout false and graph already placed.
   const noop = settleIfNeeded(settled, { needsLayout: false });
   assert(noop === settled, "settleIfNeeded returns same ref when needsLayout false");
+
+  // --- Client placement cache hit + dirty-link fingerprint ----------------
+  console.log("\n--- placement cache round-trip + dirty links ---");
+  const store = new Map();
+  const mockLs = {
+    getItem(k) {
+      return store.get(k) ?? null;
+    },
+    setItem(k, v) {
+      store.set(k, String(v));
+    },
+    removeItem(k) {
+      store.delete(k);
+    },
+  };
+  globalThis.localStorage = mockLs;
+  globalThis.window = globalThis.window || { localStorage: mockLs };
+  // Ensure window.localStorage is the same mock (force-recipe checks window).
+  globalThis.window.localStorage = mockLs;
+
+  const cacheMemories = [
+    stubMemory({ id: "r", name: "R" }),
+    stubMemory({ id: "c", name: "C" }),
+  ];
+  const cleanLinks = [{ source: "c", target: "r", type: "PART_OF" }];
+  const dirtyLinks = [
+    ...cleanLinks,
+    // Dangling / unknown — must not change fingerprint vs clean filtered set.
+    { source: "ghost", target: "r", type: "RELATES_TO" },
+    { source: "c", target: "r", type: "PART_OF" }, // duplicate
+  ];
+
+  const firstMap = memoryGraphToGraphDataWithMeta({
+    memories: cacheMemories,
+    links: dirtyLinks,
+  });
+  assert(firstMap.needsLayout === true, "cold map with dirty links → needsLayout true");
+
+  const settledCache = settleGraphData(firstMap.graph, { ticks: 200 });
+  const settledById = new Map(settledCache.nodes.map((n) => [n.id, n]));
+
+  const secondMap = memoryGraphToGraphDataWithMeta({
+    memories: cacheMemories,
+    links: dirtyLinks,
+  });
+  assert(
+    secondMap.needsLayout === false,
+    "after settle+save: dirty-link topology reloads as cache hit (needsLayout false)"
+  );
+  for (const n of secondMap.graph.nodes) {
+    const s = settledById.get(n.id);
+    assert(
+      s != null && n.x === s.x && n.y === s.y && n.rank === s.rank,
+      `cache hit pose equality for ${n.id}`
+    );
+  }
+
+  const cleanMap = memoryGraphToGraphDataWithMeta({
+    memories: cacheMemories,
+    links: cleanLinks,
+  });
+  assert(
+    cleanMap.needsLayout === false &&
+      cleanMap.fingerprint === secondMap.fingerprint,
+    "clean vs dirty input links share fingerprint after filter/dedupe"
+  );
 
   // Static product path must not statically import d3-force (dynamic via layout-loop-d3).
   const layoutLoopSrc = fs.readFileSync(

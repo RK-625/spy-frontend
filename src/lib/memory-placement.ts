@@ -1,26 +1,21 @@
 /**
- * Memory layout helpers — rank + settle policy (geometry SoT is d3 settle).
+ * Memory layout helpers — pure rank / settle-gate policy (no geometry engine).
  *
  * =============================================================================
- * POLICY (system-owned layout) — locked (Slice 5/6 + settle false-positive cleanup)
+ * POLICY — client-placement-cache (plans/client-placement-cache.md)
  * =============================================================================
  *
  * Design locks:
- *  - x, y are system-owned — never on tool input schemas; never LLM-authored.
- *  - rank is system-derived: PART_OF child = parent.rank + 1; roots / orphans = 0.
- *  - Durable geometry: shared `settleGraphData` / `settleAndPersistMemoryPlacements`
- *    (P-A persist via setMemoryPlacement). Fan/spiral place* APIs removed (S6);
- *    snapshot under `src/deprecated/memory-placement-geometry.ts`.
- *  - **Create:** write rank 0 only; leave x/y null — **do not settle** on create alone
- *    (no topology yet; near-origin seeds poison finite-layout gates).
- *  - Content-only upsert: **do not settle** if `isPlacedLayout` (finite, non-origin).
- *  - Missing / near-origin xy later: cold path (update) or link path settles.
- *  - PART_OF link: always apply rank override; geometry settle only when child
- *    unplaced (parent pinned via `anchorIds`); rank-only write when placed but
- *    rank wrong; skip when placed and rank already parent+1.
- *  - RELATES_TO: always settle on link (topology change / edge pull).
+ *  - x, y, rank are **not** durable Falkor fields for product placement.
+ *  - Client d3 (`force-recipe` / `settleGraphData`) computes poses; browser
+ *    `localStorage` (`placement-cache.ts`) caches them by topology fingerprint.
+ *  - Rank is **client-derived** from PART_OF (child = parent + 1; roots = 0).
+ *  - LLM tools never author x/y/rank; toolset never settles or persists layout.
+ *  - Fan/spiral geometry APIs were removed (S6); do not resurrect.
  *
- * Prefer `rankAfterParent` + `settleAndPersistMemoryPlacements({ focusIds, anchorIds })`.
+ * Remaining helpers here are pure gates used by verify scripts and any caller
+ * that still reasons about “is this pose real vs seed” on GraphData / cache
+ * rows (`isPlacedLayout`, rankAfterParent). Server product path does not place.
  */
 
 export type LayoutCoords = {
@@ -45,7 +40,7 @@ export const PARENT_CHILD_RADIUS = 56;
 export const LAYOUT_ORIGIN_EPSILON = 1e-3;
 
 // ---------------------------------------------------------------------------
-// Rank & settle policy helpers (pure; for toolset / callers)
+// Rank & settle policy helpers (pure)
 // ---------------------------------------------------------------------------
 
 /**
@@ -62,11 +57,11 @@ export function recomputeRankFromParent(parentRank: number): number {
 }
 
 /**
- * True when a memory has a **real** placed layout for settle gating.
+ * True when a layout has a **real** placed pose for settle gating.
  * Requires finite x and y, and **not** both within LAYOUT_ORIGIN_EPSILON of 0
- * (adapter / cold-start seeds at origin count as unplaced).
+ * (origin seeds count as unplaced).
  *
- * Does not change adapter DTO seeding of 0 — only gating semantics.
+ * Used on GraphNode / cache poses — not on API topology (which has no xy).
  */
 export function isPlacedLayout(
   layout: LayoutCoords | null | undefined,
@@ -85,11 +80,9 @@ export function isPlacedLayout(
 }
 
 /**
- * Whether layout is still required for this row (create, missing, or near-origin).
- * true for create OR when existing is not `isPlacedLayout`.
- *
- * **Toolset:** must not call settle on create alone — only cold (update missing
- * xy) and link paths settle. This flag still means "needs layout eventually."
+ * Whether layout would still be required under the old API-xy model
+ * (create, missing, or near-origin). Live `/graph` uses cache fingerprint
+ * instead (`memoryGraphToGraphDataWithMeta.needsLayout`).
  */
 export function shouldPlaceOnUpsert(args: {
   isNew: boolean;
@@ -100,10 +93,10 @@ export function shouldPlaceOnUpsert(args: {
 }
 
 /**
- * Whether linkMemories should run a **force settle** for this edge.
- * - RELATES_TO: always (topology change; edge can pull nodes).
- * - PART_OF: only when the child (source) lacks a placed layout.
- *   Rank-only updates when placed but rank wrong are handled outside settle.
+ * Whether a link event would have triggered server force-settle historically.
+ * Product path no longer settles on the server; retained for pure verify.
+ * - RELATES_TO: always (topology change).
+ * - PART_OF: only when the child lacks a placed layout.
  */
 export function shouldPlaceOnLink(args: {
   type: "PART_OF" | "RELATES_TO";

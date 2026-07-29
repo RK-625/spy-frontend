@@ -8,7 +8,8 @@
  * 4. Pixi renderer + DotStream batch
  * 5. Style tokens + signal wave
  *
- * Live Falkor fetch is later; pure Memory→GraphData mapper is exported below.
+ * Live topology via `/api/graph`; placement is client cache (`placement-cache`).
+ * Pure Memory→GraphData mapper + placement helpers exported below.
  */
 
 // --- Domain DTO -----------------------------------------------------------
@@ -34,13 +35,30 @@ export {
 // --- Memory / Links → GraphData (pure; no Falkor) -------------------------
 export {
   hasFiniteLayoutXY,
+  /** @deprecated Prefer memoryGraphToGraphDataWithMeta().needsLayout */
   memoryNeedsLayout,
+  /** @deprecated Prefer memoryGraphToGraphDataWithMeta().needsLayout */
   memoriesNeedLayout,
+  filterTopologyLinks,
   memoryGraphToGraphData,
   memoryGraphToGraphDataWithMeta,
   type MemoryGraphMapResult,
   type MemoryGraphNodeInput,
 } from "@/lib/graph/from-memory-graph";
+
+// --- Client placement cache (poses in localStorage; not Falkor) -----------
+export {
+  PLACEMENT_ALGO_VERSION,
+  PLACEMENT_CACHE_STORAGE_KEY,
+  deriveRanks,
+  computeTopoFingerprint,
+  loadPlacementCache,
+  savePlacementCache,
+  seedNodePosition,
+  computeBfsOrder,
+  type CachedPlacementNode,
+  type PlacementCacheData,
+} from "@/lib/graph/placement-cache";
 
 // --- Diff / dirty for partial bake ----------------------------------------
 export {

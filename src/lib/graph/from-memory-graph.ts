@@ -2,17 +2,18 @@
  * Pure Memory-like[] + Links[] → GraphData adapter (no Falkor, Pixi, React, or fetch).
  *
  * Accepts full `Memory` rows or lean `/api/graph` topology rows (`MemoryGraphNodeInput`).
- * Maps to canvas GraphData only — does **not** recompute layout or rank.
+ * Placement policy: **client-placement-cache** (`plans/client-placement-cache.md`).
+ * Falkor / API topology is content + links only — **do not treat API `x`/`y`/`rank` as
+ * placement SoT** (those fields are legacy/optional and ignored for live pose).
  *
- * Cold-start / settle-gating contract:
- * Missing, non-finite, **or near-origin** Memory `x`/`y` means layout is required
- * (`isPlacedLayout` / `memoryNeedsLayout`). Near-origin seeds (both within
- * LAYOUT_ORIGIN_EPSILON of 0) count as unplaced for settle gating — same policy
- * as server toolset. The adapter may still seed GraphData `x`/`y` to `0` for
- * DTO shape; those zeros are seeds only — not final placement. Callers that want
- * final positions must settle when `needsLayout` is true (S0 `settleGraphData` /
- * session incremental settle). Detect needs-layout from Memories before/during
- * map (`memoriesNeedLayout` / `memoryGraphToGraphDataWithMeta`).
+ * Cold-start / settle-gating contract (MVP C3):
+ * - Filter/dedupe edges first (same set as GraphData), then derive ranks + fingerprint.
+ * - localStorage cache hit (full) → paint cached poses; `needsLayout = false`.
+ * - Cache miss → deterministic `seedNodePosition(id)` + `needsLayout = true`;
+ *   callers run client `settleGraphData` (which saves the cache under the same
+ *   filtered-edge fingerprint). No Falkor writes.
+ * - Progressive BFS stream (invisible-until-posed) is **C3b deferred**;
+ *   `computeBfsOrder` orders the node list for stable intro.
  *
  * Memory.name → GraphNode.label; PART_OF source=child target=parent.
  * Incidence / rim derived after map via recomputeIncidence / RimLock.
@@ -28,15 +29,17 @@ import {
 import { isPlacedLayout } from "@/lib/memory-placement";
 import type { Links } from "@/types/graph-schema";
 import {
-  deriveRanks,
+  computeBfsOrder,
   computeTopoFingerprint,
+  deriveRanks,
   loadPlacementCache,
   seedNodePosition,
 } from "./placement-cache";
 
 /**
  * Lean node input for canvas mapping (full Memory or `/api/graph` topology rows).
- * Embeddings are not required — layout/rank/name + optional inspect fields.
+ * Embeddings are not required. Layout fields on the input are **ignored** for pose
+ * (legacy rows may still carry them; client cache / seeds own placement).
  */
 export type MemoryGraphNodeInput = {
   id: string;
@@ -45,8 +48,11 @@ export type MemoryGraphNodeInput = {
   content?: string | null;
   impression?: string | null;
   confidence?: number | null;
+  /** @deprecated Ignored for pose — client cache / seed only. */
   x?: number | null;
+  /** @deprecated Ignored for pose — client cache / seed only. */
   y?: number | null;
+  /** @deprecated Ignored — ranks derived from PART_OF on the client. */
   rank?: number | null;
 };
 
@@ -61,8 +67,9 @@ export function hasFiniteLayoutXY(x: unknown, y: unknown): boolean {
 }
 
 /**
- * True when this Memory row needs settle (missing, non-finite, or near-origin seed).
- * Uses shared `isPlacedLayout` — near-origin counts as unplaced for gating.
+ * @deprecated Prefer `memoryGraphToGraphDataWithMeta().needsLayout` for live
+ * topology (cache / fingerprint driven). This helper only inspects API/memory
+ * `x`/`y` via `isPlacedLayout` and is not the product settle gate.
  */
 export function memoryNeedsLayout(
   memory: Pick<MemoryGraphNodeInput, "x" | "y">
@@ -70,27 +77,61 @@ export function memoryNeedsLayout(
   return !isPlacedLayout({ x: memory.x, y: memory.y });
 }
 
-/** True when any Memory in the set needs settle. */
+/**
+ * @deprecated Prefer `memoryGraphToGraphDataWithMeta().needsLayout`.
+ * API-xy policy only; product pose path ignores input coordinates.
+ */
 export function memoriesNeedLayout(
   memories: ReadonlyArray<Pick<MemoryGraphNodeInput, "x" | "y">>
 ): boolean {
   return memories.some(memoryNeedsLayout);
 }
 
+/**
+ * Filter raw links to the same PART_OF / RELATES_TO edge set as GraphData:
+ * valid type, both endpoints in the memory id set, de-duplicated.
+ * Fingerprint load/save and settle must use this set (not raw input.links).
+ */
+export function filterTopologyLinks(
+  memories: ReadonlyArray<{ id: string }>,
+  links: ReadonlyArray<Links>
+): GraphEdge[] {
+  const idSet = new Set(memories.map((m) => m.id));
+  const seenEdgeIds = new Set<string>();
+  const edges: GraphEdge[] = [];
+
+  for (const link of links) {
+    if (link.type !== "PART_OF" && link.type !== "RELATES_TO") continue;
+    if (!idSet.has(link.source) || !idSet.has(link.target)) continue;
+    const key = `${link.type}:${link.source}->${link.target}`;
+    if (seenEdgeIds.has(key)) continue;
+    seenEdgeIds.add(key);
+    edges.push({
+      id: key,
+      source: link.source,
+      target: link.target,
+      type: link.type,
+    });
+  }
+
+  return edges;
+}
+
 export type MemoryGraphMapResult = {
   graph: GraphData;
   /**
-   * True when ≥1 memory is unplaced (missing / non-finite / near-origin seed).
-   * Adapter still seeds GraphData zeros for DTO shape when missing.
+   * True when the client placement cache is a miss (not every node has a valid
+   * cached pose for this topology fingerprint). Caller should one-shot settle
+   * and let `settleGraphData` write localStorage. False → paint cache as-is.
    */
   needsLayout: boolean;
+  /** Topology fingerprint used for cache load (algoVersion + ranks + filtered edges). */
+  fingerprint: string;
 };
 
 /**
  * Map product Memory nodes + Links into canvas GraphData.
- * Trusts prefilled Memory.x / y / rank from the authoring path.
- * Missing x/y seed to 0 — use `memoryGraphToGraphDataWithMeta` or
- * `memoriesNeedLayout` when final placement is required.
+ * Poses come from client placement cache or deterministic seeds — never API xy.
  */
 export function memoryGraphToGraphData(input: {
   memories: MemoryGraphNodeInput[];
@@ -100,45 +141,36 @@ export function memoryGraphToGraphData(input: {
 }
 
 /**
- * Same map as `memoryGraphToGraphData`, plus an explicit `needsLayout` flag
- * computed from Memories before zeros are seeded into GraphData.
- * Checks placement-cache for existing cached pose based on topology fingerprint.
+ * Same map as `memoryGraphToGraphData`, plus `needsLayout` / fingerprint.
+ * `needsLayout` is `!fullCacheHit` for live topology (API xy ignored).
+ *
+ * Fingerprint uses the **filtered** edge set (same as GraphData / settle save).
  */
 export function memoryGraphToGraphDataWithMeta(input: {
   memories: MemoryGraphNodeInput[];
   links: Links[];
 }): MemoryGraphMapResult {
-  const derivedRanks = deriveRanks(input.memories, input.links);
+  // Filter first so load fingerprint matches settleGraphData save fingerprint.
+  const edges = filterTopologyLinks(input.memories, input.links);
+  const derivedRanks = deriveRanks(input.memories, edges);
   const fingerprint = computeTopoFingerprint(
     input.memories,
-    input.links,
+    edges,
     derivedRanks
   );
   const cache = loadPlacementCache(fingerprint);
 
-  let needsLayout = false;
-  const idSet = new Set(input.memories.map((m) => m.id));
+  // Stable introduction order (C3b progressive can reuse; MVP applies all seeds).
+  const bfsOrder = computeBfsOrder(input.memories, edges);
+  const memoryById = new Map(input.memories.map((m) => [m.id, m]));
+  const orderedIds =
+    bfsOrder.length === input.memories.length
+      ? bfsOrder
+      : input.memories.map((m) => m.id);
 
-  const seenEdgeIds = new Set<string>();
-  const edges: GraphEdge[] = input.links.filter(
-    (link) =>
-      (link.type === "PART_OF" || link.type === "RELATES_TO")
-      && idSet.has(link.source)
-      && idSet.has(link.target)
-      && !seenEdgeIds.has(`${link.type}:${link.source}->${link.target}`)
-  ).map((link) => {
-    // PART_OF: keep source=child, target=parent (do not reverse).
-    seenEdgeIds.add(`${link.type}:${link.source}->${link.target}`);
-
-    return {
-      id: `${link.type}:${link.source}->${link.target}`,
-      source: link.source,
-      target: link.target,
-      type: link.type,
-    };
-  });
-
-  const nodes: GraphNode[] = input.memories.map((memory) => {
+  let cachedPoseCount = 0;
+  const nodes: GraphNode[] = orderedIds.map((id) => {
+    const memory = memoryById.get(id)!;
     const content =
       typeof memory.content === "string" ? memory.content : undefined;
     const impression =
@@ -157,25 +189,18 @@ export function memoryGraphToGraphDataWithMeta(input: {
       typeof cached.y === "number" &&
       Number.isFinite(cached.y);
 
-    if (!hasValidCachedPose && memoryNeedsLayout(memory)) {
-      needsLayout = true;
+    if (hasValidCachedPose) {
+      cachedPoseCount += 1;
     }
 
+    // Client cache or deterministic seed only — never API / Falkor xy.
     const seed = seedNodePosition(memory.id);
-
-    const x = hasValidCachedPose
-      ? cached.x
-      : typeof memory.x === "number" && Number.isFinite(memory.x) && !memoryNeedsLayout(memory)
-      ? memory.x
-      : seed.x;
-
-    const y = hasValidCachedPose
-      ? cached.y
-      : typeof memory.y === "number" && Number.isFinite(memory.y) && !memoryNeedsLayout(memory)
-      ? memory.y
-      : seed.y;
-
-    const rank = derivedRanks.get(memory.id) ?? 0;
+    const x = hasValidCachedPose ? cached.x : seed.x;
+    const y = hasValidCachedPose ? cached.y : seed.y;
+    const rank =
+      hasValidCachedPose && typeof cached.rank === "number"
+        ? cached.rank
+        : (derivedRanks.get(memory.id) ?? 0);
 
     return {
       id: memory.id,
@@ -190,7 +215,12 @@ export function memoryGraphToGraphDataWithMeta(input: {
     };
   });
 
+  const fullCacheHit =
+    input.memories.length > 0 && cachedPoseCount === input.memories.length;
+  // Empty graph: nothing to settle.
+  const needsLayout = input.memories.length > 0 && !fullCacheHit;
+
   const graph: GraphData = { nodes, edges };
   recomputeIncidence(graph);
-  return { graph, needsLayout };
+  return { graph, needsLayout, fingerprint };
 }

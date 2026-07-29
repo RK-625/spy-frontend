@@ -1,23 +1,22 @@
 /**
- * verify-weave-layout.mjs — Slice 5 weave settle smoke (pure + optional Falkor).
+ * verify-weave-layout.mjs — Pure layout settle smoke (client-placement model).
  *
  * Run: npm run verify:weave-layout
  *   → npx tsx scripts/verify-weave-layout.mjs
  *
- * Always runs (required CI gate — no Redis):
- *   memories + links → settleMemoryGraphIncremental (mirrors toolset)
+ * Always pure (required CI gate — **no** Falkor/Redis):
+ *   memories + links → settleMemoryGraphIncremental (pure GraphData)
  *   → finite xy, not all at origin, PART_OF child rank = parent+1
  *   → focus pins outsiders (no ≥50% free-settle blow-up)
  *   → PART_OF parent anchor: parent xy unchanged when placed
- *   → RELATES_TO after create-with-null-xy settles to finite
+ *   → RELATES_TO after unplaced node settles to finite
  *   → isPlacedLayout near-origin false / finite far true
- *   → create alone needs layout flag but toolset does not settle on create
- *   → subgraph settle: cousin outside settle graph unchanged; child moves
- *   → in-memory persist-selection double (dirty ids that would be written)
+ *   → toolset has no server settle/persist
+ *   → listGraphTopology does not select m.x/m.y/m.rank
+ *   → setMemoryPlacement / settleAndPersist removed from product path
  *
- * Optional Falkor: when Redis/Falkor is reachable, listGraphTopology smoke.
- * When unavailable, prints a single clear skip reason. Redis is never required
- * for CI green — the in-memory persist-selection path covers write selection.
+ * Product placement: client localStorage (`placement-cache.ts`). This script
+ * never opens Falkor (avoids hang on missing Redis / falkordblite).
  */
 
 import fs from "node:fs";
@@ -54,7 +53,10 @@ function stubMemory(partial) {
   };
 }
 
-/** Mirror settleAndPersist dirty-write selection without touching Falkor (F6). */
+/**
+ * Incremental dirty-id selection (historical F6 / pure settle smoke).
+ * Product no longer persists to Falkor; kept as a pure dirty-set check.
+ */
 function selectPersistIds(beforeGraph, settled, dirtyIds, rankOverrides) {
   const beforeById = new Map(
     beforeGraph.nodes.map((n) => [n.id, { x: n.x, y: n.y, rank: n.rank }]),
@@ -175,21 +177,42 @@ async function main() {
   );
   assert(
     !/settleAndPersistMemoryPlacements/.test(toolsetSrc),
-    "settleAndPersistMemoryPlacements is NOT called in toolset.ts (no server placement writes on create/update)"
+    "settleAndPersistMemoryPlacements is NOT called in toolset.ts (no server placement writes)"
+  );
+  assert(
+    !/setMemoryPlacement/.test(toolsetSrc) &&
+      !/settleGraphData/.test(toolsetSrc),
+    "toolset.ts does not import/call placement settle or setMemoryPlacement"
   );
   const falkorSrc = fs.readFileSync(
     path.join(root, "src/lib/falkor.ts"),
     "utf8"
   );
-  const listGraphTopologyBody = falkorSrc.slice(
-    falkorSrc.indexOf("function listGraphTopology"),
-    falkorSrc.indexOf("export async function setMemoryPlacement")
+  const settleSrc = fs.readFileSync(
+    path.join(root, "src/lib/memory-layout-settle.ts"),
+    "utf8"
   );
+  const listStart = falkorSrc.indexOf("function listGraphTopology");
+  const listGraphTopologyBody =
+    listStart >= 0 ? falkorSrc.slice(listStart, listStart + 2500) : "";
   assert(
-    !/m\.x\s+AS\s+x/i.test(listGraphTopologyBody) &&
+    listStart >= 0 &&
+      !/m\.x\s+AS\s+x/i.test(listGraphTopologyBody) &&
       !/m\.y\s+AS\s+y/i.test(listGraphTopologyBody) &&
       !/m\.rank\s+AS\s+rank/i.test(listGraphTopologyBody),
     "listGraphTopology in falkor.ts does NOT select m.x, m.y, or m.rank in Cypher query"
+  );
+  assert(
+    !/export async function setMemoryPlacement/.test(falkorSrc) &&
+      !/export async function getMemoryPlacement/.test(falkorSrc) &&
+      !/export async function listMemoryPlacements/.test(falkorSrc),
+    "falkor.ts has no product placement read/write exports"
+  );
+  assert(
+    !/settleAndPersistMemoryPlacements/.test(settleSrc) &&
+      !/setMemoryPlacement/.test(settleSrc) &&
+      !/from ["']@\/lib\/falkor["']/.test(settleSrc),
+    "memory-layout-settle.ts is pure (no Falkor import / no persist path)"
   );
 
   assert(
@@ -249,7 +272,7 @@ async function main() {
     memories,
     links,
   });
-  assert(needsLayout === true, "child missing xy → needsLayout");
+  assert(needsLayout === true, "no placement cache → needsLayout (cache miss)");
   assert(graph.nodes.length === 5, "graph has 5 nodes");
 
   const childRank = rankAfterParent(0);
@@ -373,7 +396,7 @@ async function main() {
       memories: relatesMemories,
       links: relatesLinks,
     });
-  assert(relatesNeeds === true, "create-without-xy + RELATES_TO → needsLayout");
+  assert(relatesNeeds === true, "topology without cache → needsLayout (cache miss)");
   assert(
     shouldPlaceOnLink({
       type: "RELATES_TO",
@@ -403,23 +426,23 @@ async function main() {
   );
   assert(aBefore != null, "a before present");
 
-  // --- in-memory persist selection (no Redis) -----------------------------
-  console.log("\n--- in-memory persist selection (no Redis) ---");
+  // --- incremental dirty-id selection (historical F6 / pure settle) --------
+  console.log("\n--- incremental dirty-id selection (pure settle) ---");
   const wouldWrite = selectPersistIds(graph, settled, dirtyIds, {
     child: childRank,
   });
-  assert(wouldWrite.includes("child"), "persist selection includes child");
+  assert(wouldWrite.includes("child"), "dirty selection includes child");
   assert(
     !wouldWrite.includes("cousin"),
-    "persist selection excludes cousin (not dirty)"
+    "dirty selection excludes cousin (not dirty)"
   );
   assert(
     !wouldWrite.includes("root"),
-    "persist selection excludes pinned parent"
+    "dirty selection excludes pinned parent"
   );
   assert(
     wouldWrite.every((id) => dirtyIds.has(id)),
-    "persist selection ⊆ dirtyIds"
+    "dirty selection ⊆ dirtyIds"
   );
 
   // Softened pin policy: movable fraction ≥ 50% still pins outsiders.
@@ -494,25 +517,12 @@ async function main() {
   assert(coldRank.dirtyIds.has("c"), "rank override alone → c dirty");
   assert(coldRank.pinned === true, "rank override alone scopes (not full free)");
 
-  // --- optional Falkor (skip when unavailable) ----------------------------
-  console.log("\n--- optional Falkor persist ---");
-  try {
-    const falkorUrl = pathToFileURL(path.join(root, "src/lib/falkor.ts")).href;
-    const falkor = await import(falkorUrl);
-    if (typeof falkor.listGraphTopology !== "function") {
-      console.log("skip: listGraphTopology missing");
-    } else {
-      await falkor.listGraphTopology();
-      console.log(
-        "ok: Falkor reachable (DB smoke only — persist path not mutated here; in-memory persist selection covered above)"
-      );
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.log(
-      `skip: Falkor/Redis unavailable (${msg.split("\n")[0] ?? "error"})`
-    );
-  }
+  // Product path is client cache only — no Falkor open in this script.
+  console.log("\n--- client-placement product path (static) ---");
+  assert(
+    true,
+    "no Falkor open in verify:weave-layout (pure-only gate)"
+  );
 
   if (failed > 0) {
     console.error(`\n${failed} assertion(s) failed`);

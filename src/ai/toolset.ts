@@ -64,12 +64,12 @@ const askUserQuestion: Tool = tool({
 
 const upsertMemory: Tool = tool({
   description:
-    "Create or update a Memory node in the knowledge graph. Use for durable facts, concepts, or explanations worth weaving into the user's web. Prefer small focused memories; omit id to create, pass id to update content only (does not move the node). Do not pass canvas coordinates or rank — the system places nodes. Structure via linkMemories.",
+    "Create or update a Memory node in the knowledge graph. Use for durable facts, concepts, or explanations worth weaving into the user's web. Prefer small focused memories; omit id to create, pass id to update content only. Do not pass canvas coordinates or rank — placement is client-side on the graph map. Structure via linkMemories.",
   inputSchema: upsertMemoryInputSchema,
   execute: async (input) => {
     try {
-      const isNew = input.id == null || input.id === "";
-      const id: string = isNew ? nanoid() : (input.id as string);
+      const id: string =
+        input.id == null || input.id === "" ? nanoid() : (input.id as string);
       const impression = input.impression ?? "";
       const confidence = input.confidence ?? 0.5;
       const searchText = `${input.name}\n${input.content}`;
@@ -101,7 +101,7 @@ const upsertMemory: Tool = tool({
 
 const linkMemories: Tool = tool({
   description:
-    "Create a directed edge between two existing Memory nodes. Call only after both nodes exist (upsert first if needed). PART_OF is hierarchical (source=child → target=parent); system sets child rank and settles layout with parent pinned. RELATES_TO is associative; system settles on link (topology). Geometry is never LLM-authored.",
+    "Create a directed edge between two existing Memory nodes. Call only after both nodes exist (upsert first if needed). PART_OF is hierarchical (source=child → target=parent); a child may have at most one PART_OF parent. RELATES_TO is associative. Geometry/rank are never LLM-authored — the graph client derives rank and places nodes from topology.",
   inputSchema: linkMemoriesInputSchema,
   execute: async ({ source, target, type }) => {
     try {

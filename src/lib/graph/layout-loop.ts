@@ -83,12 +83,21 @@ export type LayoutLoopOptions = {
   ) => void;
 };
 
+/** Optional flags for setGraphData (d3-settle path). */
+export type SetGraphDataOptions = {
+  /**
+   * When false, install poses without re-settling (warm placement-cache hit).
+   * Default true for d3-settle (cold / force recompute). Ignored on static path.
+   */
+  settle?: boolean;
+};
+
 export type LayoutLoopHandle = {
   start: () => void;
   stop: () => void;
   status: () => LayoutLoopStatus;
   getGraphData: () => GraphData;
-  setGraphData: (graphData: GraphData) => void;
+  setGraphData: (graphData: GraphData, options?: SetGraphDataOptions) => void;
   /** Synchronous one frame of layout (no rAF). Prefer for Node tests. */
   step: () => void;
 };
@@ -137,10 +146,10 @@ function createStaticLayoutLoop(
       return cloneGraphData(latestGraphData);
     },
 
-    setGraphData(graphData: GraphData): void {
+    setGraphData(graphData: GraphData, _options?: SetGraphDataOptions): void {
       // One clone into the store; emit that same snapshot (no second clone).
       // Consumers must not mutate the object passed to renderOnGraphData.
-      // Ranks are stored fields — not recomputed on install.
+      // Ranks are stored fields — not recomputed on install. settle option ignored (static).
       const snap = cloneGraphData(graphData);
       latestGraphData = snap;
       renderOnGraphData?.(snap);

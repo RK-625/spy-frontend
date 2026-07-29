@@ -1,7 +1,7 @@
 # Client placement cache — topology in Falkor, pose in the browser
 
-**Status:** Proposed (locked by grill session 2026-07-29).  
-**Date:** 2026-07-29  
+**Status:** **Implemented (MVP)** — C0–C5 product path shipped; **C3b progressive BFS growth deferred**.  
+**Date:** 2026-07-29 (grill) · MVP closed 2026-07-30  
 **Depends on:** `plans/d3-force-placement-slices.md` S0–S8 (force-recipe, live `/api/graph`, FA2/fan gone).  
 **Supersedes for placement policy:**  
 - `plans/hybrid-placement-cache-dirty.md` (server P-A create-always-place / dirty persist) — **void as product direction**  
@@ -9,6 +9,20 @@
 - Durable Falkor `x` / `y` / `rank` as placement SoT  
 
 **One-line goal:** Falkor holds **knowledge + topology only**. d3 computes `x`/`y` (and rank) **in the client** at render/weave time. Poses live in **browser cache** (memory + `localStorage`), never in app DB.
+
+### MVP shipped vs deferred
+
+| Slice | Status |
+|-------|--------|
+| C0 Docs lock | Done |
+| C1 Strip server placement writes (toolset) | Done |
+| C2 Rank + fingerprint + localStorage | Done (`placement-cache.ts`, `verify:placement-cache`) |
+| C3 Progressive BFS place + seeds | **MVP:** deterministic seeds + one-shot `settleGraphData` + cache save; cache hit paints without settle. **`computeBfsOrder` wired for node order.** |
+| **C3b** Progressive stream (invisible-until-posed growth animation) | **Deferred** — not required for stable reopen |
+| C4 `/api/graph` lean payload (no xy/rank) | Done |
+| C5 Cleanup (no product setMemoryPlacement / settleAndPersist) | Done |
+| C6 Live dirty while mounted | Later |
+| C7 PART_OF reparent replace | Later |
 
 ---
 
@@ -40,8 +54,8 @@ Leaner server: **delete** product-path settle/persist for placement. Cleaner mod
 | Continuous ambient | Off by default (`?motion=1` only) |
 | Quality bans | Unchanged |
 | Live multi-surface | **v1:** no live patch; reopen/refetch `/graph` uses fingerprint |
-| Progressive first paint | **Yes** — rank → BFS stream → pose → feed renderer (growth) |
-| Not-yet-posed nodes | **Invisible** until posed |
+| Progressive first paint | **C3b deferred** — MVP: one-shot settle paints all nodes; warm open = full cache paint |
+| Not-yet-posed nodes | **C3b deferred** — MVP paints all seeded/settled nodes immediately (no invisible stream) |
 | Seeds | **Deterministic from node id** for stable-ish cold opens |
 | Cache key | `topoFingerprint = hash(nodeIds + edges + derived ranks)` (+ optional `placementAlgoVersion`) |
 | Cache scope | **Per origin** (single-user local app) |
@@ -168,6 +182,8 @@ Client owns all pose; force-recipe stays as **client** dependency (already used 
 | **Touch** | graph-canvas or layout helper, force-recipe usage, reveal flags |
 | **Work** | BFS from max-degree root; hash seeds; invisible until posed; pin already posed if incremental; write cache on complete |
 | **Exit** | Manual: cold open grows; second open instant paint from cache; clear storage → re-grow similar (seeds) |
+| **MVP (shipped)** | Cache hit → paint; miss → `seedNodePosition` + one-shot settle + `savePlacementCache`. BFS order applied to node list. No growth animation. |
+| **C3b (deferred)** | Progressive reveal stream; not-yet-posed invisible; optional incremental pin already-posed |
 
 ### C4 — `/api/graph` + adapter lean payload
 
@@ -246,11 +262,11 @@ If reject-only is too harsh.
 
 ## Success definition
 
-1. Falkor Memory rows have **no** product dependency on `x`/`y`/`rank`.  
-2. Tools never call placement settle/persist.  
-3. `/graph` first open **progressively** places via BFS + d3; warm open reads **localStorage**.  
-4. Topology change changes fingerprint → re-place; pan/zoom does not.  
-5. Codebase is **leaner**: one client placement path, no dual server/client pose authority.
+1. Falkor Memory rows have **no** product dependency on `x`/`y`/`rank`. ✅  
+2. Tools never call placement settle/persist. ✅  
+3. `/graph` cold open one-shot places via seeds + d3 and writes **localStorage**; warm open reads cache. ✅ MVP (progressive growth = C3b).  
+4. Topology change changes fingerprint → re-place; pan/zoom does not. ✅  
+5. Codebase is **leaner**: one client placement path, no dual server/client pose authority. ✅
 
 ---
 

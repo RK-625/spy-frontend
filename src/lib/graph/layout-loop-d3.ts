@@ -90,7 +90,9 @@ function writeSimPositions(
 
 /**
  * Create a one-shot d3 settle layout loop (± opt-in ambient).
- * `start` / `setGraphData` run `settleGraphData` then emit; `step` re-settles
+ * `start` / `setGraphData` run `settleGraphData` then emit by default;
+ * `setGraphData(g, { settle: false })` paints poses (warm placement-cache hit);
+ * `step` re-settles
  * (verify) or advances one ambient tick when ambient is on.
  */
 export function createD3SettleLayoutLoop(
@@ -132,11 +134,16 @@ export function createD3SettleLayoutLoop(
     renderOnGraphData(cloneGraphData(settled), opts);
   }
 
-  function installAndSettle(input: GraphData, emitDirty: boolean): void {
+  function installAndSettle(
+    input: GraphData,
+    emitDirty: boolean,
+    doSettle: boolean = true,
+  ): void {
     cancelAmbient();
     const before = cloneGraphData(input);
-    const settled = settleGraphData(before);
-    emitSettled(before, settled, emitDirty);
+    // Warm placement-cache hit: paint without re-settle (stable poses).
+    const next = doSettle ? settleGraphData(before) : before;
+    emitSettled(before, next, emitDirty && doSettle);
 
     if (ambientMotion && status === "running") {
       startAmbient();
@@ -205,8 +212,12 @@ export function createD3SettleLayoutLoop(
       return cloneGraphData(latestGraphData);
     },
 
-    setGraphData(graphData: GraphData): void {
-      installAndSettle(graphData, true);
+    setGraphData(
+      graphData: GraphData,
+      options?: { settle?: boolean },
+    ): void {
+      const doSettle = options?.settle !== false;
+      installAndSettle(graphData, true, doSettle);
       if (!ambientMotion) {
         status = "stopped";
       }

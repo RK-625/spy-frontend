@@ -214,15 +214,6 @@ export async function createLink(link: Links) {
   }
 }
 
-/** Placement pose fields used for canvas geometry (no embeddings / content). */
-export type MemoryPlacement = {
-  id: string;
-  x: number | null;
-  y: number | null;
-  rank: number | null;
-};
-
-
 function numOrNull(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim() !== "") {
@@ -233,68 +224,9 @@ function numOrNull(value: unknown): number | null {
 }
 
 /**
- * All Memory nodes with placement pose (for collision / cluster placement).
- */
-export async function listMemoryPlacements(): Promise<MemoryPlacement[]> {
-  const graph = await getDb();
-  const query = `
-    MATCH (m:Memory)
-    RETURN m.id AS id, m.x AS x, m.y AS y, m.rank AS rank
-  `;
-  try {
-    const result = (await graph.query(query)) as {
-      data: Array<{ id: unknown; x: unknown; y: unknown; rank: unknown }>;
-    };
-    return (result.data ?? [])
-      .map((row) => ({
-        id: String(row.id ?? ""),
-        x: numOrNull(row.x),
-        y: numOrNull(row.y),
-        rank: numOrNull(row.rank),
-      }))
-      .filter((row) => row.id.length > 0);
-  } catch (error) {
-    console.error("listMemoryPlacements error:", error);
-    throw error;
-  }
-}
-
-
-export async function getMemoryPlacement(
-  id: string,
-): Promise<MemoryPlacement | null> {
-  // TODO: THE ID OF THE MEMORY IS NOT OF SIZE OF 1 AND IS OF NANOID() AND THIS MIGHT BE REDUNDANT AND WEAK CHECK
-  const validId = z.string().min(1).parse(id);
-  const graph = await getDb();
-  const query = `
-    MATCH (m:Memory {id: $id})
-    RETURN m.id AS id, m.x AS x, m.y AS y, m.rank AS rank
-  `;
-  try {
-    const result = (await graph.query(query, {
-      params: { id: validId },
-    })) as {
-      data: Array<{ id: unknown; x: unknown; y: unknown; rank: unknown }>;
-      };
-    // TODO: WHY IS THIS A RESULT OF ARRAY AS THE ID OF A MEMORY IS ALWAYS UNIQUE HERE THOUGH RIGHT NA
-    const row = result.data?.[0];
-    if (row == null) return null;
-    return {
-      id: String(row.id ?? validId),
-      x: numOrNull(row.x),
-      y: numOrNull(row.y),
-      rank: numOrNull(row.rank),
-    };
-  } catch (error) {
-    console.error("getMemoryPlacement error:", error);
-    throw error;
-  }
-}
-
-
-/**
  * Canvas / API topology row — no embeddings (keep `/api/graph` payloads small).
- * Enough for `memoryGraphToGraphData` + HUD labels.
+ * Topology + inspect fields only. Placement (x/y/rank) is client-only
+ * (`plans/client-placement-cache.md`); never returned here.
  */
 export type GraphTopologyMemory = {
   id: string;
@@ -302,9 +234,6 @@ export type GraphTopologyMemory = {
   content: string;
   impression: string;
   confidence: number;
-  x?: number;
-  y?: number;
-  rank?: number;
 };
 
 export type GraphTopology = {
@@ -392,39 +321,6 @@ export async function listGraphTopology(): Promise<GraphTopology> {
     return { memories, links };
   } catch (error) {
     console.error("listGraphTopology error:", error);
-    throw error;
-  }
-}
-
-/**
- * Force-write canvas placement pose (does not coalesce).
- * Used after shared d3 settle (P-A persist). Fan/spiral place* removed (S6).
- */
-export async function setMemoryPlacement(input: {
-  id: string;
-  x: number;
-  y: number;
-  rank: number;
-}): Promise<void> {
-  const id = z.string().min(1).parse(input.id);
-  const x = z.number().finite().parse(input.x);
-  const y = z.number().finite().parse(input.y);
-  const rank = z.number().int().min(0).parse(input.rank);
-  const graph = await getDb();
-  const query = `
-    MATCH (m:Memory {id: $id})
-    SET m.x = $x, m.y = $y, m.rank = $rank
-    RETURN m.id AS id
-  `;
-  try {
-    const result = (await graph.query(query, {
-      params: { id, x, y, rank },
-    })) as { data: Array<{ id: string }> };
-    if (result.data.length === 0) {
-      throw new Error(`setMemoryPlacement: Memory not found (${id})`);
-    }
-  } catch (error) {
-    console.error("setMemoryPlacement error:", error);
     throw error;
   }
 }

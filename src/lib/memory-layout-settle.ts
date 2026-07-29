@@ -1,12 +1,13 @@
 /**
- * @deprecated Server-side P-A layout settle + persist is SUPERSEDED by plans/client-placement-cache.md.
+ * Pure incremental GraphData settle helpers (no Falkor I/O).
  *
- * FalkorDB holds knowledge & topology only. Poses are derived and cached on the client.
- * Server toolsets make 0 placement writes. This file is retained for legacy reference / verify.
+ * Product placement path is **client-only** — see `plans/client-placement-cache.md`
+ * and `src/lib/graph/placement-cache.ts`. Server toolsets never call settle/persist.
+ *
+ * This module keeps pure subgraph settle utilities for verify scripts and
+ * optional offline experiments. It does **not** write placement to Falkor.
  */
 
-import { listGraphTopology, setMemoryPlacement } from "@/lib/falkor";
-import { memoryGraphToGraphDataWithMeta } from "@/lib/graph/from-memory-graph";
 import {
   settleGraphData,
   applyColdStartJitter,
@@ -14,9 +15,6 @@ import {
   type SettleGraphOptions,
 } from "@/lib/graph/force-recipe";
 import type { GraphData } from "@/lib/graph/graph-data";
-
-/** Skip persist when |Δx| and |Δy| are both within this (float noise). */
-const XY_PERSIST_EPSILON = 1e-6;
 
 export type SettleAndPersistOptions = {
   /**
@@ -194,7 +192,7 @@ function applyRankOverrides(
 
 /**
  * Pure incremental settle: apply rank overrides → subgraph settle → merge.
- * Does not touch Falkor. Used by persist path and verify smoke.
+ * Does not touch Falkor. Used by verify smoke only (product path is client cache).
  */
 export function settleMemoryGraphIncremental(
   graph: GraphData,
@@ -230,9 +228,11 @@ export function settleMemoryGraphIncremental(
 
     const pinnedNodeIds =
       forcedAnchorIds.size > 0 ? [...forcedAnchorIds] : undefined;
+    // Pure verify / non-product path — never write client placement cache.
     const settled = settleGraphData(working, {
       ...options?.settle,
       pinnedNodeIds,
+      saveCache: false,
     });
     return {
       graph: settled,
@@ -300,9 +300,11 @@ export function settleMemoryGraphIncremental(
   }
 
   const pinnedNodeIds = [...anchors];
+  // Never write placement cache from a subgraph settle (would poison full topo key).
   const settledSub = settleGraphData(subgraph, {
     ...options?.settle,
     pinnedNodeIds: pinnedNodeIds.length > 0 ? pinnedNodeIds : undefined,
+    saveCache: false,
   });
 
   const settledById = new Map(settledSub.nodes.map((n) => [n.id, n]));
@@ -319,50 +321,4 @@ export function settleMemoryGraphIncremental(
     anchors.size > 0 || out.nodes.some((n) => !movable.has(n.id));
 
   return { graph: out, dirtyIds, pinned };
-}
-
-/**
- * Load topology → incremental settle → persist dirty layouts only.
- * Returns the number of layouts written.
- *
- * Persist filter (F6): write only when rank differs or |Δxy| exceeds epsilon.
- * Rank overrides do not force a write when rank already matches.
- */
-export async function settleAndPersistMemoryPlacements(
-  options?: SettleAndPersistOptions,
-): Promise<{ written: number; dirty: number; pinned: boolean }> {
-  const { memories, links } = await listGraphTopology();
-  const { graph } = memoryGraphToGraphDataWithMeta({ memories, links });
-
-  const { graph: settled, dirtyIds, pinned } = settleMemoryGraphIncremental(
-    graph,
-    options,
-  );
-
-  const beforeById = new Map(
-    graph.nodes.map((n) => [n.id, { x: n.x, y: n.y, rank: n.rank }]),
-  );
-
-  let written = 0;
-  for (const node of settled.nodes) {
-    if (!dirtyIds.has(node.id)) continue;
-
-    const prev = beforeById.get(node.id);
-    const rankChanged = prev == null || prev.rank !== node.rank;
-    const xyChanged =
-      prev == null ||
-      Math.abs(prev.x - node.x) > XY_PERSIST_EPSILON ||
-      Math.abs(prev.y - node.y) > XY_PERSIST_EPSILON;
-    if (!rankChanged && !xyChanged) continue;
-
-    await setMemoryPlacement({
-      id: node.id,
-      x: node.x,
-      y: node.y,
-      rank: node.rank,
-    });
-    written += 1;
-  }
-
-  return { written, dirty: dirtyIds.size, pinned };
 }

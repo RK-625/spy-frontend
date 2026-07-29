@@ -1,5 +1,5 @@
 /**
- * Pure d3-force placement recipe for GraphData (Slice 0 + cold-start S2).
+ * Pure d3-force placement recipe for GraphData (Slice 0 + client placement cache).
  *
  * One-shot / short settle only — not continuous ambient motion.
  * Mutates / outputs world `x` / `y` only. Never writes `rank` (topology-owned).
@@ -11,11 +11,13 @@
  *
  * Collide radii read `nodeScreenRadius(rank, 1)` so spacing tracks visual size.
  *
- * Cold-start (Slice 2): when many nodes share the origin (missing-xy seeds),
- * `settleIfNeeded` applies a tiny **deterministic jitter** before ticks so
- * many-body / link / collide can separate the stack. Prefer an explicit
- * `needsLayout` from the Memory adapter; `graphNeedsLayout` is the GraphData
- * collapse heuristic (≥2 nodes, ≥1 edge, all near origin).
+ * Placement cache (client-placement-cache MVP):
+ * - Product cold path seeds via adapter `seedNodePosition` (spread, not origin).
+ * - `needsLayout` is fingerprint / full-cache-hit driven from the adapter.
+ * - After full-graph settle, optionally writes `localStorage` (`saveCache`, default
+ *   true). Subgraph / incremental settles must pass `saveCache: false`.
+ * - `graphNeedsLayout` remains a defensive all-at-origin collapse heuristic;
+ *   `settleIfNeeded` still applies tiny jitter when settling that stack.
  */
 
 import {
@@ -106,6 +108,12 @@ export type ForceRecipeOptions = {
 export type SettleGraphOptions = ForceRecipeOptions & {
   /** Sync Verlet ticks (default DEFAULT_SETTLE_TICKS). */
   ticks?: number;
+  /**
+   * When true (default), write client placement cache after settle.
+   * Pass **false** for subgraph / incremental settles so a partial graph does
+   * not clobber the full-topology cache entry.
+   */
+  saveCache?: boolean;
 };
 
 export type SettleIfNeededOptions = SettleGraphOptions & {
@@ -243,6 +251,10 @@ export function buildForceSimulation(
 /**
  * One-shot settle: clone graph → run sync ticks → write finite x/y.
  * Preserves id, label, rank, and incidence fields; only positions change.
+ *
+ * Cache write (when `saveCache !== false` and `window` is defined) fingerprints
+ * **this** graph’s nodes + edges — same filtered edge set the adapter uses when
+ * mapping from topology (see `filterTopologyLinks`).
  */
 export function settleGraphData(
   graph: GraphData,
@@ -264,7 +276,8 @@ export function settleGraphData(
     node.y = typeof y === "number" && Number.isFinite(y) ? y : 0;
   }
 
-  if (typeof window !== "undefined") {
+  const saveCache = options?.saveCache !== false;
+  if (saveCache && typeof window !== "undefined") {
     const ranks = new Map(out.nodes.map((n) => [n.id, n.rank]));
     const fingerprint = computeTopoFingerprint(out.nodes, out.edges, ranks);
     const cachedNodes: Record<string, CachedPlacementNode> = {};
@@ -314,8 +327,9 @@ export function applyColdStartJitter(
 
 /**
  * GraphData collapse heuristic: ≥2 nodes, ≥1 edge, every node within
- * ORIGIN_EPSILON of (0,0). Prefer explicit `needsLayout` from Memories when
- * available — after map, missing coords look like intentional origin seeds.
+ * ORIGIN_EPSILON of (0,0). Defensive only — product cold path uses
+ * `seedNodePosition` (non-origin). Prefer explicit adapter `needsLayout`
+ * (fingerprint / cache miss).
  */
 export function graphNeedsLayout(graph: GraphData): boolean {
   if (graph.nodes.length < 2 || graph.edges.length < 1) return false;
@@ -333,6 +347,7 @@ export function graphNeedsLayout(graph: GraphData): boolean {
  * Uses `options.needsLayout` when provided; otherwise `graphNeedsLayout`.
  * On cold-start / collapse: jitter-seed then run `settleGraphData`.
  * Ranks are never modified. When layout is not needed, returns `graph` as-is.
+ * Forwards `saveCache` (default true) — pass false for subgraph callers.
  */
 export function settleIfNeeded(
   graph: GraphData,
