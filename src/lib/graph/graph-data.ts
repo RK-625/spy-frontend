@@ -121,4 +121,4 @@ export {
   createMockGraphData,
   createLargeStressGraphData,
   type LargeStressFixtureOptions,
-} from "@/lib/graph/fixtures/mock-graph";
+} from "./fixtures/mock-graph";

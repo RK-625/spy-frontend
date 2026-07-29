@@ -32,6 +32,11 @@ import {
 
 import type { GraphData, GraphLinkType, GraphNode } from "./graph-data";
 import { nodeScreenRadius } from "./graph-scale";
+import {
+  computeTopoFingerprint,
+  savePlacementCache,
+  type CachedPlacementNode,
+} from "./placement-cache";
 
 // ---------------------------------------------------------------------------
 // Tunable knobs (verify / later product — not UI)
@@ -257,6 +262,20 @@ export function settleGraphData(
     const y = sim.y;
     node.x = typeof x === "number" && Number.isFinite(x) ? x : 0;
     node.y = typeof y === "number" && Number.isFinite(y) ? y : 0;
+  }
+
+  if (typeof window !== "undefined") {
+    const ranks = new Map(out.nodes.map((n) => [n.id, n.rank]));
+    const fingerprint = computeTopoFingerprint(out.nodes, out.edges, ranks);
+    const cachedNodes: Record<string, CachedPlacementNode> = {};
+    for (const node of out.nodes) {
+      cachedNodes[node.id] = {
+        x: node.x,
+        y: node.y,
+        rank: node.rank,
+      };
+    }
+    savePlacementCache(fingerprint, cachedNodes);
   }
 
   return out;

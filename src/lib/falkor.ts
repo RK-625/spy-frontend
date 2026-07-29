@@ -6,7 +6,7 @@ import {
   Links as LinksSchema,
   type Memory,
   type Links,
-} from "../types/graph-schema";
+} from "@/types/graph-schema";
 import { z } from "zod";
 
 type FalkorNode<T> = {

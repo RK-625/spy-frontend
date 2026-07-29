@@ -31,6 +31,7 @@ import {
   deriveRanks,
   computeTopoFingerprint,
   loadPlacementCache,
+  seedNodePosition,
 } from "./placement-cache";
 
 /**
@@ -160,17 +161,19 @@ export function memoryGraphToGraphDataWithMeta(input: {
       needsLayout = true;
     }
 
+    const seed = seedNodePosition(memory.id);
+
     const x = hasValidCachedPose
       ? cached.x
-      : typeof memory.x === "number" && Number.isFinite(memory.x)
+      : typeof memory.x === "number" && Number.isFinite(memory.x) && !memoryNeedsLayout(memory)
       ? memory.x
-      : 0;
+      : seed.x;
 
     const y = hasValidCachedPose
       ? cached.y
-      : typeof memory.y === "number" && Number.isFinite(memory.y)
+      : typeof memory.y === "number" && Number.isFinite(memory.y) && !memoryNeedsLayout(memory)
       ? memory.y
-      : 0;
+      : seed.y;
 
     const rank = derivedRanks.get(memory.id) ?? 0;
 

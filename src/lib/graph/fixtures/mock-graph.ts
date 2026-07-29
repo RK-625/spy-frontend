@@ -11,7 +11,7 @@ import {
   type GraphData,
   type GraphEdge,
   type GraphNode,
-} from "@/lib/graph/graph-data";
+} from "../graph-data";
 
 /**
  * Mock fixture for the graph spike (two clusters).
