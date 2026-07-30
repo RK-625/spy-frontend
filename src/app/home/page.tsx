@@ -70,7 +70,7 @@ import { useCallback, useMemo } from "react";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { models, chefs } from "@/types/models";
+import { models, chefs } from "@/lib/models";
 import ShinyText from "@/components/landing/shiny-text";
 
 /** Mirrors src/ai/toolset.ts webSearch input/output for UI parts */

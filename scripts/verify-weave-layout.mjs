@@ -66,16 +66,16 @@ function maxPairwiseDistance(nodes) {
 
 async function main() {
   const adapterUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/from-memory-graph.ts")
+    path.join(root, "src/lib/graph/placement/from-memory-graph.ts")
   ).href;
   const recipeUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/force-recipe.ts")
+    path.join(root, "src/lib/graph/placement/force-recipe.ts")
   ).href;
   const placementCacheUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement-cache.ts")
+    path.join(root, "src/lib/graph/placement/placement-cache.ts")
   ).href;
   const poseHelpersUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/memory-placement.ts")
+    path.join(root, "src/lib/graph/placement/memory-placement.ts")
   ).href;
 
   const { memoryGraphToGraphDataWithMeta } = await import(adapterUrl);
@@ -89,20 +89,47 @@ async function main() {
   // --- Product path: no server placement writes ----------------------------
   console.log("--- product path: no Falkor placement ---");
 
-  const toolsetSrc = fs.readFileSync(
-    path.join(root, "src/ai/toolset.ts"),
-    "utf8"
+  // SoT implementation is tools/toolset.ts; root toolset.ts is a re-export shim.
+  // Fence the implementation (and the shim) so a hollow re-export cannot pass.
+  // Positive markers ensure SoT is real tool wiring, not export * only.
+  const toolsetImplPath = path.join(root, "src/ai/tools/toolset.ts");
+  const toolsetShimPath = path.join(root, "src/ai/toolset.ts");
+  assert(fs.existsSync(toolsetImplPath), "src/ai/tools/toolset.ts exists (SoT)");
+  const toolsetSrc = fs.readFileSync(toolsetImplPath, "utf8");
+  const toolsetShimSrc = fs.existsSync(toolsetShimPath)
+    ? fs.readFileSync(toolsetShimPath, "utf8")
+    : "";
+  assert(
+    /export\s+const\s+toolSet\b/.test(toolsetSrc),
+    "tools/toolset.ts exports const toolSet (not hollow re-export)"
   );
   assert(
-    !/settleAndPersistMemoryPlacements/.test(toolsetSrc),
-    "settleAndPersistMemoryPlacements is NOT called in toolset.ts"
+    /\bupsertMemory\b/.test(toolsetSrc) &&
+      /\baskUserQuestion\b/.test(toolsetSrc) &&
+      /\blinkMemories\b/.test(toolsetSrc),
+    "tools/toolset.ts defines upsertMemory / askUserQuestion / linkMemories"
   );
   assert(
-    !/setMemoryPlacement/.test(toolsetSrc) &&
-      !/settleGraphData/.test(toolsetSrc) &&
-      !/settleMemoryGraphIncremental/.test(toolsetSrc),
-    "toolset.ts does not import/call placement settle or setMemoryPlacement"
+    !/^\s*export\s+\*\s+from\s+/m.test(toolsetSrc) ||
+      /export\s+const\s+toolSet\b/.test(toolsetSrc),
+    "tools/toolset.ts is implementation SoT (has toolSet body)"
   );
+  for (const [label, src] of [
+    ["tools/toolset.ts", toolsetSrc],
+    ["toolset.ts (shim)", toolsetShimSrc],
+  ]) {
+    if (!src) continue;
+    assert(
+      !/settleAndPersistMemoryPlacements/.test(src),
+      `settleAndPersistMemoryPlacements is NOT called in ${label}`
+    );
+    assert(
+      !/setMemoryPlacement/.test(src) &&
+        !/settleGraphData/.test(src) &&
+        !/settleMemoryGraphIncremental/.test(src),
+      `${label} does not import/call placement settle or setMemoryPlacement`
+    );
+  }
 
   const falkorSrc = fs.readFileSync(
     path.join(root, "src/lib/falkor.ts"),
@@ -134,7 +161,7 @@ async function main() {
   // Phase 1 removals — source fences (no soft-switch / API-xy helper resurrection).
   console.log("\n--- Phase 1 removal fences ---");
   const adapterSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/from-memory-graph.ts"),
+    path.join(root, "src/lib/graph/placement/from-memory-graph.ts"),
     "utf8"
   );
   const barrelSrc = fs.readFileSync(
@@ -142,11 +169,11 @@ async function main() {
     "utf8"
   );
   const layoutLoopSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/layout-loop.ts"),
+    path.join(root, "src/lib/graph/layout/layout-loop.ts"),
     "utf8"
   );
   const graphScaleSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/graph-scale.ts"),
+    path.join(root, "src/lib/graph/core/graph-scale.ts"),
     "utf8"
   );
   assert(
@@ -193,17 +220,17 @@ async function main() {
     "isPlacedLayout finite far → true"
   );
 
-  // No server place-policy gates remain; module lives under lib/graph.
+  // No server place-policy gates remain; module lives under lib/graph/placement.
   assert(
-    fs.existsSync(path.join(root, "src/lib/graph/memory-placement.ts")),
-    "memory-placement.ts lives under src/lib/graph/"
+    fs.existsSync(path.join(root, "src/lib/graph/placement/memory-placement.ts")),
+    "memory-placement.ts lives under src/lib/graph/placement/"
   );
   assert(
     !fs.existsSync(path.join(root, "src/lib/memory-placement.ts")),
     "legacy src/lib/memory-placement.ts is gone"
   );
   const poseSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/memory-placement.ts"),
+    path.join(root, "src/lib/graph/placement/memory-placement.ts"),
     "utf8"
   );
   assert(

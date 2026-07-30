@@ -1,6 +1,9 @@
 /**
  * Structural check: src/components domain layout after reorg.
  * Asserts required folders/files exist and forbidden legacy paths are gone.
+ *
+ * Domain SoT homes are required; legacy shim paths remain required as the
+ * public compat surface (re-exports only).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -20,14 +23,42 @@ function isEmptyDir(rel) {
 }
 
 const required = [
+  // ui primitives
   "src/components/ui/button.tsx",
+
+  // chat — domain SoT
+  "src/components/chat/prompt/prompt-input.tsx",
+  "src/components/chat/prompt/prompt-input-files.ts",
+  "src/components/chat/prompt/attachments.tsx",
+  "src/components/chat/conversation/conversation.tsx",
+  "src/components/chat/conversation/message.tsx",
+  "src/components/chat/shell/chat-sidebar.tsx",
+  "src/components/chat/shell/command-palette.tsx",
+  "src/components/chat/shell/settings-dialog.tsx",
+  "src/components/chat/index.ts",
+
+  // chat — compat shims (public surface; re-exports only)
   "src/components/chat/chat-sidebar.tsx",
   "src/components/chat/settings-dialog.tsx",
   "src/components/chat/command-palette.tsx",
   "src/components/chat/ai-elements/prompt-input.tsx",
+  "src/components/chat/ai-elements/index.ts",
+
+  // landing
   "src/components/landing/hero-section.tsx",
   "src/components/landing/shiny-text.tsx",
   "src/components/landing/shiny-text.css",
+
+  // dotmatrix — domain SoT
+  "src/components/dotmatrix/core/core.tsx",
+  "src/components/dotmatrix/core/hooks.ts",
+  "src/components/dotmatrix/icons/icons.tsx",
+  "src/components/dotmatrix/loaders/loader.css",
+  "src/components/dotmatrix/loaders/hex-9.tsx",
+  "src/components/dotmatrix/loaders/square-18.tsx",
+  "src/components/dotmatrix/loaders/triangle-16.tsx",
+
+  // dotmatrix — compat shims
   "src/components/dotmatrix/core.tsx",
   "src/components/dotmatrix/hooks.ts",
   "src/components/dotmatrix/icons.tsx",
@@ -35,10 +66,14 @@ const required = [
   "src/components/dotmatrix/hex-9.tsx",
   "src/components/dotmatrix/square-18.tsx",
   "src/components/dotmatrix/triangle-16.tsx",
+
+  // brand
   "src/components/brand/logos/openai.tsx",
   "src/components/brand/logos/anthropic-white.tsx",
   "src/components/brand/logos/google.tsx",
   "src/components/brand/logos/deepseek.tsx",
+
+  // graph host
   "src/components/graph/graph-canvas.tsx",
   "src/components/graph/node-detail-dialog.tsx",
 ];
@@ -100,6 +135,88 @@ for (const f of walk(uiDir)) {
   const text = fs.readFileSync(f, "utf8");
   if (text.includes("@/components/chat/")) {
     failures.push(`ui imports chat: ${path.relative(root, f)}`);
+  }
+}
+
+// Compat shims must re-export domain SoT (not hold large impl bodies).
+// Walk ai-elements/* plus known root/dotmatrix shims.
+const REEXPORT_BUDGET_LINES = 40; // allow brief header comments + export *
+
+function isThinReExport(text, domainRe) {
+  const stripped = text
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "")
+    .trim();
+  if (!domainRe.test(text)) return false;
+  // Only export statements / blank lines after comment strip.
+  const codeLines = stripped
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (codeLines.length === 0 || codeLines.length > REEXPORT_BUDGET_LINES) {
+    return false;
+  }
+  return codeLines.every(
+    (l) =>
+      /^export\s+\*\s+from\s+["'][^"']+["']\s*;?$/.test(l) ||
+      /^export\s+\{[^}]+\}\s+from\s+["'][^"']+["']\s*;?$/.test(l),
+  );
+}
+
+const shimChecks = [
+  // chat shell root shims
+  ["src/components/chat/chat-sidebar.tsx", /export\s+\*\s+from\s+["']\.\/shell\//],
+  ["src/components/chat/settings-dialog.tsx", /export\s+\*\s+from\s+["']\.\/shell\//],
+  ["src/components/chat/command-palette.tsx", /export\s+\*\s+from\s+["']\.\/shell\//],
+  // dotmatrix root shims
+  ["src/components/dotmatrix/core.tsx", /export\s+\*\s+from\s+["']\.\/core\//],
+  ["src/components/dotmatrix/hooks.ts", /export\s+\*\s+from\s+["']\.\/core\//],
+  ["src/components/dotmatrix/icons.tsx", /export\s+\*\s+from\s+["']\.\/icons\//],
+  ["src/components/dotmatrix/hex-9.tsx", /export\s+\*\s+from\s+["']\.\/loaders\//],
+  ["src/components/dotmatrix/square-18.tsx", /export\s+\*\s+from\s+["']\.\/loaders\//],
+  ["src/components/dotmatrix/triangle-16.tsx", /export\s+\*\s+from\s+["']\.\/loaders\//],
+];
+for (const [rel, re] of shimChecks) {
+  if (!exists(rel)) continue;
+  const text = fs.readFileSync(path.join(root, rel), "utf8");
+  if (!isThinReExport(text, re)) {
+    failures.push(`compat shim should thin re-export domain SoT: ${rel}`);
+  }
+}
+
+// loader.css shim is @import of loaders SoT (not TS export).
+if (exists("src/components/dotmatrix/loader.css")) {
+  const css = fs.readFileSync(
+    path.join(root, "src/components/dotmatrix/loader.css"),
+    "utf8",
+  );
+  if (!/@import\s+["']\.\/loaders\/loader\.css["']/.test(css)) {
+    failures.push(
+      "compat shim should @import domain SoT: src/components/dotmatrix/loader.css",
+    );
+  }
+  if (css.split("\n").filter((l) => l.trim() && !l.trim().startsWith("/*")).length > 5) {
+    failures.push(
+      "compat shim loader.css should stay thin (@import only): src/components/dotmatrix/loader.css",
+    );
+  }
+}
+
+// Walk every file under ai-elements/ — each must re-export prompt|conversation.
+const aiElementsDir = path.join(components, "chat/ai-elements");
+if (fs.existsSync(aiElementsDir)) {
+  for (const name of fs.readdirSync(aiElementsDir)) {
+    const abs = path.join(aiElementsDir, name);
+    if (!fs.statSync(abs).isFile()) continue;
+    if (!/\.(tsx?|ts)$/.test(name)) continue;
+    const rel = `src/components/chat/ai-elements/${name}`;
+    const text = fs.readFileSync(abs, "utf8");
+    const domainRe = /export\s+\*\s+from\s+["']\.\.\/(prompt|conversation)(?:\/[^"']*)?["']/;
+    if (!isThinReExport(text, domainRe)) {
+      failures.push(
+        `ai-elements compat shim must thin re-export ../prompt|conversation: ${rel}`,
+      );
+    }
   }
 }
 

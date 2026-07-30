@@ -24,7 +24,7 @@ function assert(cond, msg) {
 
 async function main() {
   const scaleUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/graph-scale.ts")
+    path.join(root, "src/lib/graph/core/graph-scale.ts")
   ).href;
   const scale = await import(scaleUrl);
   const {
@@ -45,7 +45,7 @@ async function main() {
   } = scale;
 
   const drawArrowUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/draw-arrow.ts")
+    path.join(root, "src/lib/graph/render/draw-arrow.ts")
   ).href;
   const { insetSegment } = await import(drawArrowUrl);
 

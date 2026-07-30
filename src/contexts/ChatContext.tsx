@@ -3,15 +3,15 @@
 import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { createContext, useCallback, useContext, useState } from "react";
-import { ChatContextValue } from "@/types";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { ChatContextValue, PromptInputMessage } from "@/types/chat";
 import { toast } from "sonner";
-import type { PromptInputMessage } from "@/components/chat/ai-elements/prompt-input";
+import { models } from "@/lib/models";
 
 const ChatContext = createContext<ChatContextValue | null>(null); // defining the bucket
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-  const [model, setModel] = useState<string>("deepseek-v4-flash");
+  const [model, setModel] = useState<string>(models[0]?.id ?? "deepseek-v4-flash");
   const [mode, setMode] = useState<string>("high");
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
@@ -50,8 +50,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             body: { model, useWebSearch, mode },
           },
         );
-      } catch (e) {
-        console.error(e);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to send message");
       }
     },
     [sendMessage, status, model, useWebSearch, mode],
@@ -65,28 +66,50 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setUseWebSearch((prev) => !prev);
   }, []);
 
-  const value: ChatContextValue = {
-    model,
-    setModel,
-    mode,
-    setMode,
-    modelSelectorOpen,
-    setModelSelectorOpen,
-    modeSelectorOpen,
-    setModeSelectorOpen,
-
-    useWebSearch,
-    setUseWebSearch,
-    status,
-    messages,
-    toggleWebSearch,
-    clearMessages,
-    error,
-    handleSubmit,
-    stop,
-    sendMessage,
-    addToolOutput,
-  };
+  const value: ChatContextValue = useMemo(
+    () => ({
+      model,
+      setModel,
+      mode,
+      setMode,
+      modelSelectorOpen,
+      setModelSelectorOpen,
+      modeSelectorOpen,
+      setModeSelectorOpen,
+      useWebSearch,
+      setUseWebSearch,
+      status,
+      messages,
+      toggleWebSearch,
+      clearMessages,
+      error,
+      handleSubmit,
+      stop,
+      sendMessage,
+      addToolOutput,
+    }),
+    [
+      model,
+      setModel,
+      mode,
+      setMode,
+      modelSelectorOpen,
+      setModelSelectorOpen,
+      modeSelectorOpen,
+      setModeSelectorOpen,
+      useWebSearch,
+      setUseWebSearch,
+      status,
+      messages,
+      toggleWebSearch,
+      clearMessages,
+      error,
+      handleSubmit,
+      stop,
+      sendMessage,
+      addToolOutput,
+    ],
+  );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }
@@ -98,3 +121,4 @@ export function useChatContext() {
   }
   return ctx;
 }
+

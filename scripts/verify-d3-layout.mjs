@@ -35,15 +35,15 @@ async function main() {
     globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
   }
 
-  const graphDataUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/graph-data.ts")
+  const dataUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/core/graph-data.ts")
   ).href;
-  const layoutUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/layout-loop.ts")
+  const loopUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/layout/layout-loop.ts")
   ).href;
 
-  const { createMockGraphData } = await import(graphDataUrl);
-  const { createLayoutLoop, createLayoutLoopAsync } = await import(layoutUrl);
+  const { createMockGraphData } = await import(dataUrl);
+  const { createLayoutLoop, createLayoutLoopAsync } = await import(loopUrl);
 
   // Engines are static | d3-settle only (no continuous-sim soft-switch).
   assert(
@@ -122,7 +122,7 @@ async function main() {
 
   // Import guard: dispatcher must not statically import recipe / d3-force.
   const layoutLoopSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/layout-loop.ts"),
+    path.join(root, "src/lib/graph/layout/layout-loop.ts"),
     "utf8"
   );
   assert(

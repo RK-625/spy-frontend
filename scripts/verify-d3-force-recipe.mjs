@@ -79,10 +79,10 @@ async function main() {
     path.join(root, "src/lib/graph/fixtures/mock-graph.ts")
   ).href;
   const recipeUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/force-recipe.ts")
+    path.join(root, "src/lib/graph/placement/force-recipe.ts")
   ).href;
   const adapterUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/from-memory-graph.ts")
+    path.join(root, "src/lib/graph/placement/from-memory-graph.ts")
   ).href;
 
   const { createMockGraphData } = await import(fixtureUrl);
@@ -355,7 +355,7 @@ async function main() {
 
   // Static product path must not statically import d3-force (dynamic via layout-loop-d3).
   const layoutLoopSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/layout-loop.ts"),
+    path.join(root, "src/lib/graph/layout/layout-loop.ts"),
     "utf8"
   );
   assert(

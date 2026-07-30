@@ -1,12 +1,13 @@
 /**
  * Graph library barrel — product-shaped `/graph` spike.
  *
- * Layout (dependency-friendly sections):
- * 1. Domain DTO + fixtures
- * 2. Camera + layout loop
- * 3. Spatial / rim / bake pipeline
- * 4. Pixi renderer + DotStream batch
- * 5. Style tokens + signal wave
+ * Sub-domain structure:
+ * - core/       (graph-data, graph-scale, graph-style, graph-diff)
+ * - placement/  (placement-cache, from-memory-graph, force-recipe, memory-placement)
+ * - render/     (pixi-renderer, dot-circle-batch, draw-arrow, edge-signal-pulse, bake-*)
+ * - camera/     (rtc-camera)
+ * - layout/     (layout-loop, layout-loop-d3, rim-lock, spatial-index)
+ * - fixtures/   (mock-graph)
  *
  * Live topology via `/api/graph`; placement is client cache (`placement-cache`).
  * Pure Memory→GraphData mapper + pose helpers (`memory-placement`) exported below.
@@ -22,7 +23,7 @@ export {
   type GraphLinkType,
   type RimOccupation,
   type RimOccupationKind,
-} from "@/lib/graph/graph-data";
+} from "./core/graph-data";
 
 // --- Fixtures (mock / stress; not live DB) --------------------------------
 export {
@@ -30,7 +31,7 @@ export {
   createLargeStressGraphData,
   HUB_SPOKE_COUNT,
   type LargeStressFixtureOptions,
-} from "@/lib/graph/fixtures/mock-graph";
+} from "./fixtures/mock-graph";
 
 // --- Memory / Links → GraphData (pure; no Falkor) -------------------------
 export {
@@ -40,7 +41,7 @@ export {
   memoryGraphToGraphDataWithMeta,
   type MemoryGraphMapResult,
   type MemoryGraphNodeInput,
-} from "@/lib/graph/from-memory-graph";
+} from "./placement/from-memory-graph";
 
 // --- Client placement cache (poses in localStorage; not Falkor) -----------
 export {
@@ -54,7 +55,32 @@ export {
   computeBfsOrder,
   type CachedPlacementNode,
   type PlacementCacheData,
-} from "@/lib/graph/placement-cache";
+} from "./placement/placement-cache";
+
+// --- Force recipe / settle ------------------------------------------------
+export {
+  buildForceSimulation,
+  settleGraphData,
+  settleIfNeeded,
+  cloneGraphData,
+  applyColdStartJitter,
+  graphNeedsLayout,
+  PART_OF_DISTANCE,
+  PART_OF_STRENGTH,
+  RELATES_TO_DISTANCE,
+  RELATES_TO_STRENGTH,
+  COLLIDE_PAD,
+  MANY_BODY_STRENGTH,
+  CENTER_STRENGTH,
+  DEFAULT_SETTLE_TICKS,
+  ORIGIN_EPSILON,
+  COLD_START_JITTER,
+  type ForceSimNode,
+  type ForceSimLink,
+  type ForceRecipeOptions,
+  type SettleGraphOptions,
+  type SettleIfNeededOptions,
+} from "./placement/force-recipe";
 
 // --- Client pose helpers (rank / isPlacedLayout; no geometry engine) ------
 export {
@@ -65,7 +91,7 @@ export {
   isPlacedLayout,
   type LayoutCoords,
   type LayoutWithRank,
-} from "@/lib/graph/memory-placement";
+} from "./placement/memory-placement";
 
 // --- Diff / dirty for partial bake ----------------------------------------
 export {
@@ -73,7 +99,7 @@ export {
   expandDirtyEdgesForHubs,
   incidentEdgeIds,
   type GraphDirtyDiff,
-} from "@/lib/graph/graph-diff";
+} from "./core/graph-diff";
 
 // --- Camera ---------------------------------------------------------------
 export {
@@ -82,32 +108,37 @@ export {
   type RtcCameraState,
   type ScreenPoint,
   type WorldPoint,
-} from "@/lib/graph/rtc-camera";
+} from "./camera/rtc-camera";
 
 // --- Layout (static default; d3 settle via createLayoutLoopAsync) ----------
 export {
   createLayoutLoop,
   createLayoutLoopAsync,
+  createStaticLayoutLoop,
+  type LayoutEngine,
   type LayoutLoopHandle,
   type LayoutLoopOptions,
   type LayoutLoopStatus,
   type LayoutRenderOptions,
-  type LayoutEngine,
-} from "@/lib/graph/layout-loop";
+} from "./layout/layout-loop";
 
 // --- Rim packing + spatial residency --------------------------------------
 export {
   applyRimLock,
   applyRimLockForNodes,
   rimLockNodesForMoves,
-  findRimSlot,
-  RIM_FILL_FRAC,
-} from "@/lib/graph/rim-lock";
+  computeRimLockForNode,
+  angleToPoint,
+  DEFAULT_RIM_HALF_SPAN,
+} from "./layout/rim-lock";
 
 export {
   GraphSpatialIndex,
+  packCellKey,
+  DEFAULT_CELL_SIZE,
   type WorldAabb,
-} from "@/lib/graph/spatial-index";
+  type EdgePadResolver,
+} from "./layout/spatial-index";
 
 // --- Scale formulas -------------------------------------------------------
 export {
@@ -139,7 +170,7 @@ export {
   nodeScreenRadius,
   edgeScreenWidth,
   nodeRingWidth,
-} from "@/lib/graph/graph-scale";
+} from "./core/graph-scale";
 
 // --- DotStream sampling / batch / arrow -----------------------------------
 export {
@@ -150,12 +181,12 @@ export {
   type DrawEdgeOptions,
   type RimSlot,
   type ScreenPoint as EdgeScreenPoint,
-} from "@/lib/graph/draw-arrow";
+} from "./render/draw-arrow";
 
 export {
   DotCircleBatch,
   circleSegmentCount,
-} from "@/lib/graph/dot-circle-batch";
+} from "./render/dot-circle-batch";
 
 // --- Pixi host ------------------------------------------------------------
 export {
@@ -164,7 +195,7 @@ export {
   type PerfStats,
   type PixiRendererHandle,
   type SetGraphDataOptions,
-} from "@/lib/graph/pixi-renderer";
+} from "./render/pixi-renderer";
 
 // --- Palette + signal tokens ----------------------------------------------
 export {
@@ -210,7 +241,7 @@ export {
   GRAPH_PULSE_SPEED_PART_OF,
   GRAPH_PULSE_SPEED_RELATES,
   GRAPH_PULSE_UPLOAD_INTERVAL_MS,
-} from "@/lib/graph/graph-style";
+} from "./core/graph-style";
 
 // --- Signal wave helpers --------------------------------------------------
 export {
@@ -236,4 +267,4 @@ export {
   projectLateralU,
   type SignalWaveStyle,
   type WaveGeomContext,
-} from "@/lib/graph/edge-signal-pulse";
+} from "./render/edge-signal-pulse";

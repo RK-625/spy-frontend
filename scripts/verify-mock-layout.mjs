@@ -32,10 +32,10 @@ async function main() {
   }
 
   const graphDataUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/graph-data.ts")
+    path.join(root, "src/lib/graph/core/graph-data.ts")
   ).href;
   const layoutUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/layout-loop.ts")
+    path.join(root, "src/lib/graph/layout/layout-loop.ts")
   ).href;
 
   const graphDataModule = await import(graphDataUrl);

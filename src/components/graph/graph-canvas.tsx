@@ -10,6 +10,7 @@ import {
   createMockGraphData,
   memoryGraphToGraphDataWithMeta,
   nodeScreenRadius,
+  diffGraphDirty,
   type GraphData,
   type GraphNode,
   type LayoutEngine,
@@ -17,7 +18,6 @@ import {
   type PixiRendererHandle,
   type RtcCamera,
 } from "@/lib/graph";
-import { diffGraphDirty } from "@/lib/graph/graph-diff";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import {
   NodeDetailDialog,
@@ -418,7 +418,7 @@ export function GraphCanvas() {
             return;
           }
 
-          const { settleIfNeeded } = await import("@/lib/graph/force-recipe");
+          const { settleIfNeeded } = await import("@/lib/graph");
           if (isCanvasDisposed || !layoutLoop) return;
           layoutLoop.setGraphData(
             settleIfNeeded(graph, { needsLayout: true }),

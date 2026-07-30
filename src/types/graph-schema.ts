@@ -58,3 +58,7 @@ export const Links = z.object({
 });
 /** Inferred product link row (value `Links` is the Zod schema). */
 export type Links = z.infer<typeof Links>;
+
+export const Link = Links;
+export type Link = Links;
+
