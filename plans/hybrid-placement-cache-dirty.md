@@ -425,7 +425,7 @@ Program is done when:
 | Create null xy + cold settle | `src/ai/toolset.ts` `upsertMemory` |
 | Link settle branches | `src/ai/toolset.ts` `linkMemories` |
 | Incremental settle + persist | `src/lib/memory-layout-settle.ts` |
-| Policy helpers | `src/lib/memory-placement.ts` |
+| Policy helpers | `src/lib/graph/memory-placement.ts` (moved from `src/lib/memory-placement.ts`) |
 | Pure d3 | `src/lib/graph/force-recipe.ts` |
 | Live feed | `src/app/api/graph/route.ts`, `graph-canvas.tsx` |
 | Placement read/write | `src/lib/falkor.ts` `getMemoryPlacement` / `setMemoryPlacement` |

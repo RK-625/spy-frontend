@@ -9,7 +9,7 @@
  * 5. Style tokens + signal wave
  *
  * Live topology via `/api/graph`; placement is client cache (`placement-cache`).
- * Pure Memory→GraphData mapper + placement helpers exported below.
+ * Pure Memory→GraphData mapper + pose helpers (`memory-placement`) exported below.
  */
 
 // --- Domain DTO -----------------------------------------------------------
@@ -55,6 +55,17 @@ export {
   type CachedPlacementNode,
   type PlacementCacheData,
 } from "@/lib/graph/placement-cache";
+
+// --- Client pose helpers (rank / isPlacedLayout; no geometry engine) ------
+export {
+  PARENT_CHILD_RADIUS,
+  LAYOUT_ORIGIN_EPSILON,
+  rankAfterParent,
+  recomputeRankFromParent,
+  isPlacedLayout,
+  type LayoutCoords,
+  type LayoutWithRank,
+} from "@/lib/graph/memory-placement";
 
 // --- Diff / dirty for partial bake ----------------------------------------
 export {

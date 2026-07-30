@@ -75,7 +75,7 @@ async function main() {
     path.join(root, "src/lib/graph/placement-cache.ts")
   ).href;
   const poseHelpersUrl = pathToFileURL(
-    path.join(root, "src/lib/memory-placement.ts")
+    path.join(root, "src/lib/graph/memory-placement.ts")
   ).href;
 
   const { memoryGraphToGraphDataWithMeta } = await import(adapterUrl);
@@ -193,9 +193,17 @@ async function main() {
     "isPlacedLayout finite far → true"
   );
 
-  // No server place-policy gates remain.
+  // No server place-policy gates remain; module lives under lib/graph.
+  assert(
+    fs.existsSync(path.join(root, "src/lib/graph/memory-placement.ts")),
+    "memory-placement.ts lives under src/lib/graph/"
+  );
+  assert(
+    !fs.existsSync(path.join(root, "src/lib/memory-placement.ts")),
+    "legacy src/lib/memory-placement.ts is gone"
+  );
   const poseSrc = fs.readFileSync(
-    path.join(root, "src/lib/memory-placement.ts"),
+    path.join(root, "src/lib/graph/memory-placement.ts"),
     "utf8"
   );
   assert(

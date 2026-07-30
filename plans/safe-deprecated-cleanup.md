@@ -51,7 +51,7 @@ Most “old stuff” falls into **three buckets**. Only the first two are pure h
 | 2 | `settleMemoryGraphIncremental` + `memory-layout-settle.ts` | dual-path incremental settle module deleted |
 | 3 | Memory Zod `x` / `y` / `rank`; `MemoryGraphNodeInput` layout fields | `graph-schema.ts`, `from-memory-graph.ts` — client cache owns pose |
 
-**Still present (thin client helpers only):** `memory-placement.ts` keeps `isPlacedLayout`, `rankAfterParent`, `PARENT_CHILD_RADIUS`, `LAYOUT_ORIGIN_EPSILON` for pure pose gating / verify — not server place policy.
+**Still present (thin client helpers only):** `src/lib/graph/memory-placement.ts` keeps `isPlacedLayout`, `rankAfterParent`, `PARENT_CHILD_RADIUS`, `LAYOUT_ORIGIN_EPSILON` for pure pose gating / verify — not server place policy. (Moved from `src/lib/memory-placement.ts` under graph package.)
 
 ### 3. Current product placement surface
 
@@ -269,7 +269,7 @@ Estimated blast radius: layout-loop + graph barrel + 2–3 verify scripts. No ch
 
 Synthesized from deep-research (2026-07-30) over:
 
-- `src/deprecated/*`, `src/types/graph-schema.ts`, `from-memory-graph.ts`, `layout-loop.ts`, `graph-scale.ts`, `memory-placement.ts`, `memory-layout-settle.ts`, `falkor.ts`, toolset, `/home` pending-ask, verify scripts, `plans/client-placement-cache.md`, d3/hybrid plans, AGENTS.md  
+- `src/deprecated/*`, `src/types/graph-schema.ts`, `from-memory-graph.ts`, `layout-loop.ts`, `graph-scale.ts`, `src/lib/graph/memory-placement.ts`, `memory-layout-settle.ts`, `falkor.ts`, toolset, `/home` pending-ask, verify scripts, `plans/client-placement-cache.md`, d3/hybrid plans, AGENTS.md  
 
 Status of that research: **Partial** (no live DB legacy prop inspection; ask permanent kill unresolved). This plan treats those as explicit gates, not assumptions.
 

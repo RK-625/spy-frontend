@@ -3,8 +3,7 @@
 ## Code Structure
   - Code needs to be structured, following simple modular components, separated in sections, maintainable and sorted in dependency order(bottom-up).
   - Naming convention for the functions, variables , components, folders , files should be clear and reflect it function or purpose. Not simple vague names isOpen etc 
-  - The codebase should be organised with strict, symmetrical, simple, clear, and distinct names for files, variables, functions, components, folder with a uniform directory/folder structure.
-  - Escpecially when it some CSS make the styling 
+  - The codebase should be organised with strict, symmetrical, simple, clear, and distinct names for files, variables, functions, components, and grouped in correct direct/nested folders with a uniform directory/folder structure.
   - never use "any" type in Typescript
   - As the codebase grows, you have figure to balance between over-engineering and under-engineering.Instead weight out the benefits and trade-offs of each approach and choose the one that best fits the current and future needs of the codebase.(Use orchesteation here for opinions from other agents).These are some examples of what i meant. In case of confusion and dilemma **orchestrate** use third-agents seek thier advice on the issue.
     - **State Management**

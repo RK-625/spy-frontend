@@ -39,6 +39,8 @@ const required = [
   "src/components/brand/logos/anthropic-white.tsx",
   "src/components/brand/logos/google.tsx",
   "src/components/brand/logos/deepseek.tsx",
+  "src/components/graph/graph-canvas.tsx",
+  "src/components/graph/node-detail-dialog.tsx",
 ];
 
 const forbidden = [

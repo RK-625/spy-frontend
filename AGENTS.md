@@ -96,16 +96,22 @@ Right now the door is open; the work is making the chat workspace feel like walk
 
 ## Current architecture
 
+```
 src/
 ├── ai/
 │   ├── agent.ts              — Server-side model streaming logic
 │   ├── embeddings.ts         — Gemini-embedding-2 generation (1536 dim)
-│   ├── retrieval.ts          — FalkorDB vector similarity search
-│   └── schema.ts             — (Legacy/WIP) AI extraction schemas
+│   ├── modelstore.ts         — Model config / embed model wiring
+│   ├── toolset.ts            — Agent tools (upsert/link/search/ask); never settles layout
+│   └── schemas/              — Zod tool input schemas (upsert, link, web-search, ask)
+├── animation/
+│   ├── spider-mascot.tsx     — Mascot React host
+│   └── spider/               — GSAP behaviors + mascot timeline
 ├── app/
 │   ├── api/                  — Backend API routes (Node.js runtime)
 │   │   ├── chat/route.ts     — Streaming chat & memory extraction loop
-│   │   └── prep-session/route.ts — Pre-fetches graph context for session
+│   │   ├── graph/route.ts    — Live topology for `/graph` (Falkor; no xy)
+│   │   └── test-db/route.ts  — DB connectivity check
 │   ├── page.tsx              — Landing page (composes hero components)
 │   ├── home/
 │   │   └── page.tsx          — Chat UI (conversation, messages, input, suggestions)
@@ -120,8 +126,9 @@ src/
 │   │   ├── settings-dialog.tsx — Session settings overlay (trigger + optional shortcut)
 │   │   ├── command-palette.tsx — ⌘K command palette (product chrome, not a primitive)
 │   │   └── ai-elements/      — Conversation, message, prompt-input, suggestions, CoT, …
-│   ├── graph/
-│   │   └── graph-canvas.tsx  — Host for `/graph` (Pixi renderer + camera + bake)
+│   ├── graph/                — Graph React host (not pure logic)
+│   │   ├── graph-canvas.tsx  — Host for `/graph` (Pixi renderer + camera + bake)
+│   │   └── node-detail-dialog.tsx — Node inspector overlay
 │   ├── landing/              — Landing/marketing surfaces
 │   │   ├── hero-section.tsx  — Hero layout
 │   │   └── shiny-text.tsx    — Glint sweep text animation
@@ -141,28 +148,39 @@ src/
 ├── hooks/
 │   └── use-mobile.ts         — Responsive layout breakpoint state hook
 ├── lib/
-│   ├── falkor.ts             — Native FalkorDB graph connection & Cypher queries
-│   ├── graph/                — Knowledge graph client (Pixi pure-perf stack)
+│   ├── falkor.ts             — Server DB: FalkorDB connection & Cypher (topology only; no xy)
+│   ├── graph/                — Graph pure logic (Pixi pure-perf + client placement)
 │   │   ├── pixi-renderer.ts  — World-space DotStream bake; camera → graphContent only
 │   │   ├── bake-sample.ts / bake-worker.ts / bake-worker-pool.ts — Bake + residency
 │   │   ├── spatial-index.ts  — GraphSpatialIndex (viewport + OVERSCAN_MARGIN=2.0)
 │   │   ├── rim-lock.ts       — RimLock (O(E) / incremental)
 │   │   ├── graph-diff.ts     — host diffGraphDirty + dirtyEdges / movedNodeIds
 │   │   ├── layout-loop.ts / layout-loop-d3.ts — static + opt-in d3 settle (± ambient)
-│   │   ├── force-recipe.ts   — pure d3-force placement (shared server/client)
+│   │   ├── force-recipe.ts   — pure d3-force placement (client settle)
+│   │   ├── placement-cache.ts — localStorage pose cache by topology fingerprint
+│   │   ├── memory-placement.ts — thin client pose helpers (isPlacedLayout, rankAfterParent)
+│   │   ├── from-memory-graph.ts — pure Memory/Links → GraphData mapper
 │   │   ├── draw-arrow.ts / dot-circle-batch.ts — DotStream draw primitives
 │   │   ├── graph-scale.ts / graph-style.ts — scale + visual tokens
 │   │   ├── rtc-camera.ts     — RTC camera (never stage.scale for world camera)
-│   │   ├── graph-data.ts     — default mock + stress fixture
+│   │   ├── graph-data.ts     — GraphNode/Edge DTO + incidence
+│   │   ├── fixtures/mock-graph.ts — default mock + stress fixture
 │   │   └── index.ts          — public exports
+│   ├── ask-user-question.ts  — Pending-ask client helpers (no morph UI)
 │   └── utils.ts              — cn() helper for Tailwind class merging
 ├── prompts/
 │   └── system-prompt.ts      — Agent system prompt export
 └── types/
     ├── chat.ts               — Type declarations for ChatContextValue
     ├── graph-schema.ts       — Zod Schemas for Memory Nodes & Edges
+    ├── models.ts             — Model id / provider types
     └── index.ts              — Main TypeScript module definitions entrypoint
 ```
+
+**Placement policy (where code lives):**
+- **Graph pure logic** → `src/lib/graph/` (force-recipe, placement-cache, memory-placement, from-memory-graph, Pixi bake stack)
+- **Graph React host** → `src/components/graph/` (`graph-canvas`, node-detail dialog)
+- **Server DB** → `src/lib/falkor.ts` (topology only — not under the client graph package; no product `x`/`y`/`rank` writes)
 
 **Note:** `prompt-input.tsx` under `chat/ai-elements` is chat-only (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/toolset.ts` without a live morph UI.
 
