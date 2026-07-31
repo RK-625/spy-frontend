@@ -13,11 +13,11 @@
  *
  * Placement cache (client-placement-cache MVP):
  * - Product cold path seeds via adapter `seedNodePosition` (spread, not origin).
- * - `needsLayout` is fingerprint / full-cache-hit driven from the adapter;
- *   callers pass it explicitly into `settleIfNeeded` (required).
+ * - Adapter exposes `needsLayout` (fingerprint / full-cache-hit); the host
+ *   decides whether to call `settleIfNeeded` (cache miss) or paint as-is (hit).
+ * - `settleIfNeeded` always cold-starts + settles when called (no dual gate).
  * - Full settle always writes client placement cache under this graph's
  *   fingerprint when browser storage exists (`typeof window !== "undefined"`).
- * - On settle, applies tiny cold-start jitter then runs the force recipe.
  */
 
 import {
@@ -103,14 +103,6 @@ export type ForceRecipeOptions = {
 export type SettleGraphOptions = ForceRecipeOptions & {
   /** Sync Verlet ticks (default DEFAULT_SETTLE_TICKS). */
   ticks?: number;
-};
-
-export type SettleIfNeededOptions = SettleGraphOptions & {
-  /**
-   * Explicit layout-required signal (from Memory adapter / product host).
-   * Call site is the single source of truth — no graphNeedsLayout fallback.
-   */
-  needsLayout: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -298,18 +290,14 @@ export function applyColdStartJitter(
 }
 
 /**
- * Settle only when layout is required.
- * Requires explicit `options.needsLayout` from the call site (adapter / host).
- * On settle: jitter-seed then run `settleGraphData` (which persists placement
- * cache under this graph’s fingerprint when browser storage exists).
- * Ranks are never modified. When layout is not needed, returns `graph` as-is.
+ * Always settles: clone → cold-start jitter → `settleGraphData`.
+ * Host owns hit/miss (adapter `needsLayout`); call only when layout is needed.
+ * Ranks are never modified. Placement cache write is browser-only (see settle).
  */
 export function settleIfNeeded(
   graph: GraphData,
-  options: SettleIfNeededOptions
+  options?: SettleGraphOptions
 ): GraphData {
-  if (!options.needsLayout) return graph;
-
   const seeded = cloneGraphData(graph);
   applyColdStartJitter(seeded.nodes);
   return settleGraphData(seeded, options);

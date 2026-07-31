@@ -108,7 +108,7 @@ async function main() {
   // Fence: removed defensive / unused APIs must not reappear.
   assert(
     typeof recipeMod.graphNeedsLayout === "undefined",
-    "graphNeedsLayout removed (explicit needsLayout only)"
+    "graphNeedsLayout removed (host owns hit/miss via adapter)"
   );
   assert(
     typeof adapterMod.hasFiniteLayoutXY === "undefined",
@@ -237,7 +237,7 @@ async function main() {
     seedXs.size > 1,
     "seedNodePosition yields distinct seeds across cold nodes"
   );
-  // Seeds intentionally avoid an all-at-origin stack; settle uses explicit needsLayout.
+  // Seeds intentionally avoid an all-at-origin stack; settleIfNeeded always settles.
   assert(
     !coldGraph.nodes.every(
       (n) =>
@@ -247,10 +247,7 @@ async function main() {
   );
 
   const coldRanks = new Map(coldGraph.nodes.map((n) => [n.id, n.rank]));
-  const coldSettled = settleIfNeeded(coldGraph, {
-    needsLayout: true,
-    ticks: 400,
-  });
+  const coldSettled = settleIfNeeded(coldGraph, { ticks: 400 });
 
   for (const n of coldSettled.nodes) {
     assert(
@@ -277,10 +274,6 @@ async function main() {
     `cold-start max pairwise distance > 1 (got ${spread.toFixed(4)})`
   );
   console.log(`  cold-start spread (max pairwise)=${spread.toFixed(2)}`);
-
-  // settleIfNeeded no-op when needsLayout false and graph already placed.
-  const noop = settleIfNeeded(settled, { needsLayout: false });
-  assert(noop === settled, "settleIfNeeded returns same ref when needsLayout false");
 
   // --- Client placement cache hit + dirty-link fingerprint ----------------
   console.log("\n--- placement cache round-trip + dirty links ---");
@@ -404,8 +397,15 @@ async function main() {
     "force-recipe: pinnedNodeIds / toPinnedIdSet removed"
   );
   assert(
-    /needsLayout:\s*boolean/.test(forceRecipeSrc),
-    "force-recipe: needsLayout required on SettleIfNeededOptions"
+    !/\bSettleIfNeededOptions\b/.test(forceRecipeSrc) &&
+      !/needsLayout\s*:\s*boolean/.test(forceRecipeSrc) &&
+      !/options\.needsLayout\b/.test(forceRecipeSrc) &&
+      !/if\s*\(\s*!options\.needsLayout/.test(forceRecipeSrc),
+    "force-recipe: settle needsLayout gate / SettleIfNeededOptions removed"
+  );
+  assert(
+    !/\bSettleIfNeededOptions\b/.test(barrelSrc),
+    "barrel: SettleIfNeededOptions not re-exported"
   );
   assert(
     !/\bhasFiniteLayoutXY\b/.test(adapterSrc) &&

@@ -420,9 +420,7 @@ export function GraphCanvas() {
 
           const { settleIfNeeded } = await import("@/lib/graph");
           if (isCanvasDisposed || !layoutLoop) return;
-          layoutLoop.setGraphData(
-            settleIfNeeded(graph, { needsLayout: true }),
-          );
+          layoutLoop.setGraphData(settleIfNeeded(graph));
           return;
         }
 

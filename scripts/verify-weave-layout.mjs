@@ -334,10 +334,7 @@ async function main() {
       links: relatesLinks,
     });
   assert(relatesNeeds === true, "topology without cache → needsLayout");
-  const relatesSettled = settleIfNeeded(relatesGraph, {
-    needsLayout: true,
-    ticks: 400,
-  });
+  const relatesSettled = settleIfNeeded(relatesGraph, { ticks: 400 });
   for (const n of relatesSettled.nodes) {
     assert(
       Number.isFinite(n.x) && Number.isFinite(n.y),

@@ -77,7 +77,6 @@ export {
   type ForceSimLink,
   type ForceRecipeOptions,
   type SettleGraphOptions,
-  type SettleIfNeededOptions,
 } from "./placement/force-recipe";
 
 // --- Client pose helpers (rank / isPlacedLayout; no geometry engine) ------
