@@ -13,11 +13,11 @@
  *
  * Placement cache (client-placement-cache MVP):
  * - Product cold path seeds via adapter `seedNodePosition` (spread, not origin).
- * - `needsLayout` is fingerprint / full-cache-hit driven from the adapter.
+ * - `needsLayout` is fingerprint / full-cache-hit driven from the adapter;
+ *   callers pass it explicitly into `settleIfNeeded` (required).
  * - After full-graph settle, optionally writes `localStorage` (`saveCache`, default
  *   true). Subgraph / incremental settles must pass `saveCache: false`.
- * - `graphNeedsLayout` remains a defensive all-at-origin collapse heuristic;
- *   `settleIfNeeded` still applies tiny jitter when settling that stack.
+ * - On settle, applies tiny cold-start jitter then runs the force recipe.
  */
 
 import {
@@ -98,11 +98,6 @@ export type ForceRecipeOptions = {
   partOfDistance?: number;
   /** RELATES_TO link distance (default RELATES_TO_DISTANCE). */
   relatesDistance?: number;
-  /**
-   * Node ids fixed via d3 `fx`/`fy` (incremental settle: pin non-dirty nodes).
-   * Pinned seeds keep their input x/y; only unpinned nodes move.
-   */
-  pinnedNodeIds?: ReadonlySet<string> | readonly string[];
 };
 
 export type SettleGraphOptions = ForceRecipeOptions & {
@@ -118,10 +113,10 @@ export type SettleGraphOptions = ForceRecipeOptions & {
 
 export type SettleIfNeededOptions = SettleGraphOptions & {
   /**
-   * Explicit layout-required signal (from Memory adapter).
-   * When omitted, falls back to `graphNeedsLayout(graph)`.
+   * Explicit layout-required signal (from Memory adapter / product host).
+   * Call site is the single source of truth — no graphNeedsLayout fallback.
    */
-  needsLayout?: boolean;
+  needsLayout: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -148,23 +143,9 @@ export function cloneGraphData(graph: GraphData): GraphData {
   };
 }
 
-function toPinnedIdSet(
-  pinned: SettleGraphOptions["pinnedNodeIds"],
-): Set<string> | null {
-  if (pinned == null) return null;
-  // ReadonlySet is not eliminated by `instanceof Set` in the false branch.
-  if (pinned instanceof Set) return pinned.size > 0 ? pinned : null;
-  const list = pinned as readonly string[];
-  return list.length > 0 ? new Set(list) : null;
-}
-
-function toSimNodes(
-  nodes: GraphNode[],
-  pinned: Set<string> | null,
-): ForceSimNode[] {
+function toSimNodes(nodes: GraphNode[]): ForceSimNode[] {
   return nodes.map((n) => {
     const { x, y } = seedXY(n);
-    const fixed = pinned != null && pinned.has(n.id);
     return {
       id: n.id,
       rank: n.rank,
@@ -173,7 +154,6 @@ function toSimNodes(
       y,
       vx: 0,
       vy: 0,
-      ...(fixed ? { fx: x, fy: y } : {}),
     };
   });
 }
@@ -221,8 +201,7 @@ export function buildForceSimulation(
   const partOfDist = options?.partOfDistance ?? PART_OF_DISTANCE;
   const relatesDist = options?.relatesDistance ?? RELATES_TO_DISTANCE;
 
-  const pinned = toPinnedIdSet(options?.pinnedNodeIds);
-  const nodes = toSimNodes(graph.nodes, pinned);
+  const nodes = toSimNodes(graph.nodes);
   const links = toSimLinks(graph);
 
   const linkForce: ForceLink<ForceSimNode, ForceSimLink> = forceLink<
@@ -326,39 +305,17 @@ export function applyColdStartJitter(
 }
 
 /**
- * GraphData collapse heuristic: ≥2 nodes, ≥1 edge, every node within
- * ORIGIN_EPSILON of (0,0). Defensive only — product cold path uses
- * `seedNodePosition` (non-origin). Prefer explicit adapter `needsLayout`
- * (fingerprint / cache miss).
- */
-export function graphNeedsLayout(graph: GraphData): boolean {
-  if (graph.nodes.length < 2 || graph.edges.length < 1) return false;
-  return graph.nodes.every(
-    (n) =>
-      Number.isFinite(n.x) &&
-      Number.isFinite(n.y) &&
-      Math.abs(n.x) <= ORIGIN_EPSILON &&
-      Math.abs(n.y) <= ORIGIN_EPSILON
-  );
-}
-
-/**
  * Settle only when layout is required.
- * Uses `options.needsLayout` when provided; otherwise `graphNeedsLayout`.
- * On cold-start / collapse: jitter-seed then run `settleGraphData`.
- * Ranks are never modified. When layout is not needed, returns `graph` as-is.
+ * Requires explicit `options.needsLayout` from the call site (adapter / host).
+ * On settle: jitter-seed then run `settleGraphData`. Ranks are never modified.
+ * When layout is not needed, returns `graph` as-is.
  * Forwards `saveCache` (default true) — pass false for subgraph callers.
  */
 export function settleIfNeeded(
   graph: GraphData,
-  options?: SettleIfNeededOptions
+  options: SettleIfNeededOptions
 ): GraphData {
-  const needs =
-    options?.needsLayout !== undefined
-      ? options.needsLayout
-      : graphNeedsLayout(graph);
-
-  if (!needs) return graph;
+  if (!options.needsLayout) return graph;
 
   const seeded = cloneGraphData(graph);
   applyColdStartJitter(seeded.nodes);

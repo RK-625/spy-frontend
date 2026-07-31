@@ -48,16 +48,6 @@ export type MemoryGraphNodeInput = {
   confidence?: number | null;
 };
 
-/** True when both world coords are finite numbers (raw; ignores origin seed). */
-export function hasFiniteLayoutXY(x: unknown, y: unknown): boolean {
-  return (
-    typeof x === "number" &&
-    Number.isFinite(x) &&
-    typeof y === "number" &&
-    Number.isFinite(y)
-  );
-}
-
 /**
  * Filter raw links to the same PART_OF / RELATES_TO edge set as GraphData:
  * valid type, both endpoints in the memory id set, de-duplicated.
@@ -88,7 +78,7 @@ export function filterTopologyLinks(
   return edges;
 }
 
-export type MemoryGraphMapResult = {
+export type GraphMapResult = {
   graph: GraphData;
   /**
    * True when the client placement cache is a miss (not every node has a valid
@@ -120,7 +110,7 @@ export function memoryGraphToGraphData(input: {
 export function memoryGraphToGraphDataWithMeta(input: {
   memories: MemoryGraphNodeInput[];
   links: Links[];
-}): MemoryGraphMapResult {
+}): GraphMapResult {
   // Filter first so load fingerprint matches settleGraphData save fingerprint.
   const edges = filterTopologyLinks(input.memories, input.links);
   const derivedRanks = deriveRanks(input.memories, edges);

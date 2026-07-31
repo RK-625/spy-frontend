@@ -86,17 +86,15 @@ async function main() {
   ).href;
 
   const { createMockGraphData } = await import(fixtureUrl);
+  const recipeMod = await import(recipeUrl);
   const {
     settleGraphData,
     buildForceSimulation,
     settleIfNeeded,
-    graphNeedsLayout,
     ORIGIN_EPSILON,
-  } = await import(recipeUrl);
-  const {
-    hasFiniteLayoutXY,
-    memoryGraphToGraphDataWithMeta,
-  } = await import(adapterUrl);
+  } = recipeMod;
+  const adapterMod = await import(adapterUrl);
+  const { memoryGraphToGraphDataWithMeta } = adapterMod;
 
   assert(
     typeof settleGraphData === "function",
@@ -107,7 +105,15 @@ async function main() {
     "buildForceSimulation exported"
   );
   assert(typeof settleIfNeeded === "function", "settleIfNeeded exported");
-  assert(typeof graphNeedsLayout === "function", "graphNeedsLayout exported");
+  // Fence: removed defensive / unused APIs must not reappear.
+  assert(
+    typeof recipeMod.graphNeedsLayout === "undefined",
+    "graphNeedsLayout removed (explicit needsLayout only)"
+  );
+  assert(
+    typeof adapterMod.hasFiniteLayoutXY === "undefined",
+    "hasFiniteLayoutXY removed (unused adapter helper)"
+  );
 
   const input = createMockGraphData();
   assert(input.nodes.length >= 2, `mock has ≥2 nodes (got ${input.nodes.length})`);
@@ -192,19 +198,6 @@ async function main() {
   // --- Slice 2: cold-start missing xy ------------------------------------
   console.log("\n--- Slice 2 cold-start ---");
 
-  assert(
-    !hasFiniteLayoutXY(undefined, undefined),
-    "hasFiniteLayoutXY(undefined, undefined) is false"
-  );
-  assert(
-    !hasFiniteLayoutXY(NaN, 0),
-    "hasFiniteLayoutXY(NaN, 0) is false"
-  );
-  assert(
-    hasFiniteLayoutXY(1, 2),
-    "hasFiniteLayoutXY(1, 2) is true"
-  );
-
   const coldMemories = [
     stubMemory({ id: "root", name: "Root", rank: 0 }),
     stubMemory({ id: "child-a", name: "Child A", rank: 1 }),
@@ -244,10 +237,12 @@ async function main() {
     seedXs.size > 1,
     "seedNodePosition yields distinct seeds across cold nodes"
   );
-  // graphNeedsLayout is the all-at-origin collapse heuristic (legacy); seeds
-  // intentionally avoid origin stack — settle uses explicit needsLayout flag.
+  // Seeds intentionally avoid an all-at-origin stack; settle uses explicit needsLayout.
   assert(
-    !graphNeedsLayout(coldGraph),
+    !coldGraph.nodes.every(
+      (n) =>
+        Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON
+    ),
     "seeded graph is not all-at-origin collapse (seeds spread)"
   );
 
@@ -377,6 +372,56 @@ async function main() {
     !/from\s+["'][^"']*force-recipe["']/.test(canvasSrc) &&
       !/from\s+["']d3-force["']/.test(canvasSrc),
     "graph-canvas.tsx does not statically import d3-force / force-recipe"
+  );
+
+  // Source fences: dead helpers / dual settle paths must stay deleted.
+  console.log("\n--- removed-API source fences ---");
+  const forceRecipeSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/placement/force-recipe.ts"),
+    "utf8"
+  );
+  const adapterSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/placement/from-memory-graph.ts"),
+    "utf8"
+  );
+  const cacheSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/placement/placement-cache.ts"),
+    "utf8"
+  );
+  const barrelSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/index.ts"),
+    "utf8"
+  );
+
+  assert(
+    !/export\s+function\s+graphNeedsLayout\b/.test(forceRecipeSrc) &&
+      !/function\s+graphNeedsLayout\b/.test(forceRecipeSrc),
+    "force-recipe: no graphNeedsLayout function"
+  );
+  assert(
+    !/\bpinnedNodeIds\b/.test(forceRecipeSrc) &&
+      !/\btoPinnedIdSet\b/.test(forceRecipeSrc),
+    "force-recipe: pinnedNodeIds / toPinnedIdSet removed"
+  );
+  assert(
+    /needsLayout:\s*boolean/.test(forceRecipeSrc),
+    "force-recipe: needsLayout required on SettleIfNeededOptions"
+  );
+  assert(
+    !/\bhasFiniteLayoutXY\b/.test(adapterSrc) &&
+      !/\bhasFiniteLayoutXY\b/.test(barrelSrc),
+    "adapter + barrel: hasFiniteLayoutXY removed"
+  );
+  assert(
+    !/\bgraphNeedsLayout\b/.test(barrelSrc),
+    "barrel: graphNeedsLayout not re-exported"
+  );
+  // deriveRanks must not reintroduce the post-computeRank zero-fill loop.
+  assert(
+    !/for\s*\(\s*const\s+m\s+of\s+memories\s*\)\s*\{\s*if\s*\(\s*!ranks\.has\(m\.id\)\s*\)\s*\{\s*ranks\.set\(m\.id,\s*0\)/.test(
+      cacheSrc.replace(/\s+/g, " ")
+    ),
+    "placement-cache: no dead deriveRanks zero-fill fallback loop"
   );
 
   if (failed > 0) {

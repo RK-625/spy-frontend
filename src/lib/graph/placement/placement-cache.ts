@@ -81,12 +81,6 @@ export function deriveRanks(
     }
   }
 
-  for (const m of memories) {
-    if (!ranks.has(m.id)) {
-      ranks.set(m.id, 0);
-    }
-  }
-
   return ranks;
 }
 

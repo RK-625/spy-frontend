@@ -35,11 +35,10 @@ export {
 
 // --- Memory / Links → GraphData (pure; no Falkor) -------------------------
 export {
-  hasFiniteLayoutXY,
   filterTopologyLinks,
   memoryGraphToGraphData,
   memoryGraphToGraphDataWithMeta,
-  type MemoryGraphMapResult,
+  type GraphMapResult,
   type MemoryGraphNodeInput,
 } from "./placement/from-memory-graph";
 
@@ -64,7 +63,6 @@ export {
   settleIfNeeded,
   cloneGraphData,
   applyColdStartJitter,
-  graphNeedsLayout,
   PART_OF_DISTANCE,
   PART_OF_STRENGTH,
   RELATES_TO_DISTANCE,
