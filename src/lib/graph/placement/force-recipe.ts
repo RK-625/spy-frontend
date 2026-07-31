@@ -15,8 +15,8 @@
  * - Product cold path seeds via adapter `seedNodePosition` (spread, not origin).
  * - `needsLayout` is fingerprint / full-cache-hit driven from the adapter;
  *   callers pass it explicitly into `settleIfNeeded` (required).
- * - After full-graph settle, optionally writes `localStorage` (`saveCache`, default
- *   true). Subgraph / incremental settles must pass `saveCache: false`.
+ * - Full settle always writes client placement cache under this graph's
+ *   fingerprint when browser storage exists (`typeof window !== "undefined"`).
  * - On settle, applies tiny cold-start jitter then runs the force recipe.
  */
 
@@ -32,7 +32,7 @@ import {
   type SimulationNodeDatum,
 } from "d3-force";
 
-import type { GraphData, GraphLinkType, GraphNode } from "../core/graph-data";
+import type { GraphData, GraphLinkType, GraphNode, GraphEdge } from "../core/graph-data";
 import { nodeScreenRadius } from "../core/graph-scale";
 import {
   computeTopoFingerprint,
@@ -103,12 +103,6 @@ export type ForceRecipeOptions = {
 export type SettleGraphOptions = ForceRecipeOptions & {
   /** Sync Verlet ticks (default DEFAULT_SETTLE_TICKS). */
   ticks?: number;
-  /**
-   * When true (default), write client placement cache after settle.
-   * Pass **false** for subgraph / incremental settles so a partial graph does
-   * not clobber the full-topology cache entry.
-   */
-  saveCache?: boolean;
 };
 
 export type SettleIfNeededOptions = SettleGraphOptions & {
@@ -158,8 +152,8 @@ function toSimNodes(nodes: GraphNode[]): ForceSimNode[] {
   });
 }
 
-function toSimLinks(graph: GraphData): ForceSimLink[] {
-  return graph.edges.map((e) => ({
+function toSimLinks(edges: GraphEdge[]): ForceSimLink[] {
+  return edges.map((e) => ({
     id: e.id,
     source: e.source,
     target: e.target,
@@ -202,7 +196,7 @@ export function buildForceSimulation(
   const relatesDist = options?.relatesDistance ?? RELATES_TO_DISTANCE;
 
   const nodes = toSimNodes(graph.nodes);
-  const links = toSimLinks(graph);
+  const links = toSimLinks(graph.edges);
 
   const linkForce: ForceLink<ForceSimNode, ForceSimLink> = forceLink<
     ForceSimNode,
@@ -231,9 +225,9 @@ export function buildForceSimulation(
  * One-shot settle: clone graph → run sync ticks → write finite x/y.
  * Preserves id, label, rank, and incidence fields; only positions change.
  *
- * Cache write (when `saveCache !== false` and `window` is defined) fingerprints
- * **this** graph’s nodes + edges — same filtered edge set the adapter uses when
- * mapping from topology (see `filterTopologyLinks`).
+ * After settle, when `window` is defined, writes client placement cache under
+ * **this** graph’s fingerprint (nodes + edges — same filtered edge set the
+ * adapter uses when mapping from topology; see `filterTopologyLinks`).
  */
 export function settleGraphData(
   graph: GraphData,
@@ -255,8 +249,7 @@ export function settleGraphData(
     node.y = typeof y === "number" && Number.isFinite(y) ? y : 0;
   }
 
-  const saveCache = options?.saveCache !== false;
-  if (saveCache && typeof window !== "undefined") {
+  if (typeof window !== "undefined") {
     const ranks = new Map(out.nodes.map((n) => [n.id, n.rank]));
     const fingerprint = computeTopoFingerprint(out.nodes, out.edges, ranks);
     const cachedNodes: Record<string, CachedPlacementNode> = {};
@@ -307,9 +300,9 @@ export function applyColdStartJitter(
 /**
  * Settle only when layout is required.
  * Requires explicit `options.needsLayout` from the call site (adapter / host).
- * On settle: jitter-seed then run `settleGraphData`. Ranks are never modified.
- * When layout is not needed, returns `graph` as-is.
- * Forwards `saveCache` (default true) — pass false for subgraph callers.
+ * On settle: jitter-seed then run `settleGraphData` (which persists placement
+ * cache under this graph’s fingerprint when browser storage exists).
+ * Ranks are never modified. When layout is not needed, returns `graph` as-is.
  */
 export function settleIfNeeded(
   graph: GraphData,
