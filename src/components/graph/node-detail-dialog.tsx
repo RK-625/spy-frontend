@@ -9,19 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import type { GraphNode } from "@/lib/graph";
 
-export type NodeDetail = Pick<
-  GraphNode,
-  | "id"
-  | "label"
-  | "content"
-  | "impression"
-  | "confidence"
-  | "rank"
-  | "childIds"
-  | "parentIds"
-  | "relateIds"
->;
-
 function formatConfidence(value: number | undefined): string | null {
   if (value == null || !Number.isFinite(value)) return null;
   const pct = Math.round(Math.min(1, Math.max(0, value)) * 100);
@@ -37,7 +24,7 @@ export function NodeDetailDialog({
   open,
   onOpenChange,
 }: {
-  node: NodeDetail | null;
+  node: GraphNode | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {

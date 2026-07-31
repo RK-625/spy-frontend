@@ -19,10 +19,7 @@ import {
   type RtcCamera,
 } from "@/lib/graph";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
-import {
-  NodeDetailDialog,
-  type NodeDetail,
-} from "@/components/graph/node-detail-dialog";
+import { NodeDetailDialog } from "@/components/graph/node-detail-dialog";
 import type { Links } from "@/types/graph-schema";
 
 type HudState = {
@@ -50,20 +47,6 @@ type GraphApiResponse = {
 const CLICK_MOVE_THRESHOLD_PX = 6;
 /** Extra hit slop around the visual node radius (screen px). */
 const NODE_HIT_PAD_PX = 6;
-
-function toNodeDetail(node: GraphNode): NodeDetail {
-  return {
-    id: node.id,
-    label: node.label,
-    content: node.content,
-    impression: node.impression,
-    confidence: node.confidence,
-    rank: node.rank,
-    childIds: node.childIds,
-    parentIds: node.parentIds,
-    relateIds: node.relateIds,
-  };
-}
 
 /**
  * Closest node under the pointer (world hit using bake-space radii × zoom).
@@ -158,7 +141,7 @@ export function GraphCanvas() {
   });
   /** Default on — ambient life on the web (not a loud lab dashboard). */
   const [pulsesOn, setPulsesOn] = useState(true);
-  const [selectedNode, setSelectedNode] = useState<NodeDetail | null>(null);
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [nodeDialogOpen, setNodeDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -166,18 +149,19 @@ export function GraphCanvas() {
     if (!canvasHost) return;
 
     let isCanvasDisposed = false;
-
+    // setup the camera
     const camera = createRtcCamera({ zoom: 1 });
     const viewportWidth = canvasHost.clientWidth || 1;
     const viewportHeight = canvasHost.clientHeight || 1;
     camera.setViewport(viewportWidth, viewportHeight);
     camera.lookAt(0, 0);
 
+    // setup the renderer
     const renderer = createPixiRenderer({
       background: 0x0a0a0c,
     });
     renderer.setCamera(camera);
-    renderer.setSignalPulsesEnabled(true);
+    renderer.setSignalPulsesEnabled(pulsesOn);
     rendererRef.current = renderer;
 
     let hudFrameId: number | null = null;
@@ -186,6 +170,7 @@ export function GraphCanvas() {
     /** Latest graph snapshot for hit-testing (updated on every renderOnGraphData). */
     let currentGraph: GraphData = { nodes: [], edges: [] };
 
+    // flush and set the hud state
     const flushHudState = () => {
       hudFrameId = null;
       setHud({
@@ -194,23 +179,26 @@ export function GraphCanvas() {
         zoom: camera.zoom,
       });
     };
-
+    // queue the hud update
     const queueHudUpdate = () => {
       if (hudFrameId !== null) return;
       hudFrameId = requestAnimationFrame(flushHudState);
     };
 
+    // flush the render frame and call the renderer.render()
     const flushRender = () => {
       renderFrameId = null;
       if (isCanvasDisposed) return;
       renderer.render();
     };
 
+    // queue the render
     const queueRender = () => {
       if (renderFrameId !== null) return;
       renderFrameId = requestAnimationFrame(flushRender);
     };
 
+    // setup the pointer variables
     let isPanning = false;
     let lastPointerX = 0;
     let lastPointerY = 0;
@@ -260,9 +248,9 @@ export function GraphCanvas() {
       const rect = canvasHost.getBoundingClientRect();
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
-      const hit = hitTestNode(currentGraph, camera, screenX, screenY);
-      if (!hit) return;
-      setSelectedNode(toNodeDetail(hit));
+      const node = hitTestNode(currentGraph, camera, screenX, screenY);
+      if (!node) return;
+      setSelectedNode(node);
       setNodeDialogOpen(true);
     };
     const handleWheel = (e: WheelEvent) => {
