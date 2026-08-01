@@ -7,7 +7,7 @@
  *
  * Cold-start / settle-gating contract (MVP C3):
  * - Filter/dedupe edges first (same set as GraphData), then derive ranks + fingerprint.
- * - localStorage cache hit (full) → paint cached poses; `needsLayout = false`.
+ * - localStorage fingerprint hit → paint cached poses; `needsLayout = false`.
  * - Cache miss → deterministic `seedNodePosition(id)` + `needsLayout = true`;
  *   callers run client `settleGraphData` (which saves the cache under the same
  *   filtered-edge fingerprint). No Falkor writes.
@@ -47,9 +47,9 @@ export type MemoryGraphNodeInput = {
   id: string;
   name: string;
   /** Memory body — shown in node-inspect modal; not used by bake. */
-  content?: string | null;
-  impression?: string | null;
-  confidence?: number | null;
+  content?: string;
+  impression?: string;
+  confidence?: number;
 };
 
 /**
@@ -85,9 +85,9 @@ export function filterTopologyLinks(
 export type GraphMapResult = {
   graph: GraphData;
   /**
-   * True when the client placement cache is a miss (not every node has a valid
-   * cached pose for this topology fingerprint). Caller should one-shot settle
-   * and let `settleGraphData` write localStorage. False → paint cache as-is.
+   * True when `loadPlacementCache(fingerprint)` misses (`null`).
+   * Caller should one-shot settle; `settleGraphData` writes localStorage.
+   * False → paint loaded poses (same fingerprint as last save).
    */
   needsLayout: boolean;
   /** Topology fingerprint used for cache load (algoVersion + ranks + filtered edges). */
@@ -97,7 +97,7 @@ export type GraphMapResult = {
 /**
  * Map product Memory nodes + Links into canvas GraphData + needsLayout.
  * Poses come from client placement cache or deterministic seeds — never API xy.
- * `needsLayout` is `!fullCacheHit` for live topology (API xy ignored).
+ * Hit/miss is fingerprint-keyed: `needsLayout = memories.length > 0 && cache == null`.
  *
  * Fingerprint uses the **filtered** edge set (same as GraphData / settle save).
  */
@@ -123,58 +123,25 @@ export function memoryGraphToGraphDataWithMeta(input: {
       ? bfsOrder
       : input.memories.map((m) => m.id);
 
-  let cachedPoseCount = 0;
   const nodes: GraphNode[] = orderedIds.map((id) => {
     const memory = memoryById.get(id)!;
-    const content =
-      typeof memory.content === "string" ? memory.content : undefined;
-    const impression =
-      typeof memory.impression === "string" ? memory.impression : undefined;
-    const confidence =
-      typeof memory.confidence === "number" &&
-      Number.isFinite(memory.confidence)
-        ? memory.confidence
-        : undefined;
-
     const cached = cache?.[memory.id];
-    const hasValidCachedPose =
-      cached !== undefined &&
-      typeof cached.x === "number" &&
-      Number.isFinite(cached.x) &&
-      typeof cached.y === "number" &&
-      Number.isFinite(cached.y);
-
-    if (hasValidCachedPose) {
-      cachedPoseCount += 1;
-    }
-
-    // Client cache or deterministic seed only — never API / Falkor xy.
     const seed = seedNodePosition(memory.id);
-    const x = hasValidCachedPose ? cached.x : seed.x;
-    const y = hasValidCachedPose ? cached.y : seed.y;
-    const rank =
-      hasValidCachedPose && typeof cached.rank === "number"
-        ? cached.rank
-        : (derivedRanks.get(memory.id) ?? 0);
-
     return {
       id: memory.id,
       label: memory.name,
-      ...(content !== undefined ? { content } : {}),
-      ...(impression !== undefined ? { impression } : {}),
-      ...(confidence !== undefined ? { confidence } : {}),
-      x,
-      y,
-      rank,
+      content: memory.content,
+      impression: memory.impression,
+      confidence: memory.confidence,
+      x: cached?.x ?? seed.x,
+      y: cached?.y ?? seed.y,
+      rank: cached?.rank ?? derivedRanks.get(memory.id) ?? 0,
       ...emptyNodeIncidence(),
     };
   });
 
-  const fullCacheHit =
-    input.memories.length > 0 && cachedPoseCount === input.memories.length;
-  // Empty graph: nothing to settle.
-  const needsLayout = input.memories.length > 0 && !fullCacheHit;
-
+  // Empty topology: nothing to settle. Hit = fingerprint matched in load.
+  const needsLayout = input.memories.length > 0 && cache == null;
   const graph: GraphData = { nodes, edges };
   recomputeIncidence(graph);
   return { graph, needsLayout, fingerprint };
