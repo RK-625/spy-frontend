@@ -7,13 +7,14 @@
  * Exit criteria (plans/d3-force-placement-slices.md S0):
  *   - all positions finite; ranks identical to input
  *   - mean PART_OF length < mean RELATES_TO length (soft tolerance)
- *   - static product path (layout-loop) does not import d3-force
+ *   - product layout-loop.ts does not statically import d3-force
  *
  * Exit criteria (S2 cold-start + client-placement-cache):
  *   - topology without cache → needsLayout true (fingerprint miss)
  *   - adapter seeds via seedNodePosition (not origin zeros)
- *   - settleIfNeeded → finite positions, not all near origin
+ *   - settleGraphData → finite positions, not all near origin
  *   - ranks unchanged
+ *   - settleIfNeeded / applyColdStartJitter removed (product uses settleGraphData)
  */
 
 import fs from "node:fs";
@@ -90,7 +91,6 @@ async function main() {
   const {
     settleGraphData,
     buildForceSimulation,
-    settleIfNeeded,
     ORIGIN_EPSILON,
   } = recipeMod;
   const adapterMod = await import(adapterUrl);
@@ -104,8 +104,19 @@ async function main() {
     typeof buildForceSimulation === "function",
     "buildForceSimulation exported"
   );
-  assert(typeof settleIfNeeded === "function", "settleIfNeeded exported");
   // Fence: removed defensive / unused APIs must not reappear.
+  assert(
+    typeof recipeMod.settleIfNeeded === "undefined",
+    "settleIfNeeded removed (host uses settleGraphData via layout loop)"
+  );
+  assert(
+    typeof recipeMod.applyColdStartJitter === "undefined",
+    "applyColdStartJitter removed (adapter seedNodePosition spreads cold nodes)"
+  );
+  assert(
+    typeof recipeMod.COLD_START_JITTER === "undefined",
+    "COLD_START_JITTER removed"
+  );
   assert(
     typeof recipeMod.graphNeedsLayout === "undefined",
     "graphNeedsLayout removed (host owns hit/miss via adapter)"
@@ -237,7 +248,7 @@ async function main() {
     seedXs.size > 1,
     "seedNodePosition yields distinct seeds across cold nodes"
   );
-  // Seeds intentionally avoid an all-at-origin stack; settleIfNeeded always settles.
+  // Seeds intentionally avoid an all-at-origin stack; product settles via settleGraphData.
   assert(
     !coldGraph.nodes.every(
       (n) =>
@@ -247,7 +258,7 @@ async function main() {
   );
 
   const coldRanks = new Map(coldGraph.nodes.map((n) => [n.id, n.rank]));
-  const coldSettled = settleIfNeeded(coldGraph, { ticks: 400 });
+  const coldSettled = settleGraphData(coldGraph, { ticks: 400 });
 
   for (const n of coldSettled.nodes) {
     assert(
@@ -341,7 +352,7 @@ async function main() {
     "clean vs dirty input links share fingerprint after filter/dedupe"
   );
 
-  // Static product path must not statically import d3-force (dynamic via layout-loop-d3).
+  // Product dispatcher must not statically import d3-force (dynamic via layout-loop-d3).
   const layoutLoopSrc = fs.readFileSync(
     path.join(root, "src/lib/graph/layout/layout-loop.ts"),
     "utf8"
@@ -355,6 +366,13 @@ async function main() {
   assert(
     layoutLoopSrc.includes("layout-loop-d3"),
     "layout-loop.ts dynamic-imports layout-loop-d3"
+  );
+  assert(
+    !/\bcreateStaticLayoutLoop\b/.test(layoutLoopSrc) &&
+      !/\bcreateLayoutLoop\b/.test(layoutLoopSrc.replace(/createLayoutLoopAsync/g, "")) &&
+      !/\blayoutEngine\b/.test(layoutLoopSrc) &&
+      !/\bambientMotion\b/.test(layoutLoopSrc),
+    "layout-loop.ts has no static engine / ambient surface"
   );
 
   const canvasSrc = fs.readFileSync(
@@ -387,6 +405,11 @@ async function main() {
   );
 
   assert(
+    !/export\s+function\s+memoryGraphToGraphData\b/.test(adapterSrc) &&
+      !/\bmemoryGraphToGraphData\b/.test(barrelSrc),
+    "adapter/barrel: thin memoryGraphToGraphData removed (use WithMeta only)"
+  );
+  assert(
     !/export\s+function\s+graphNeedsLayout\b/.test(forceRecipeSrc) &&
       !/function\s+graphNeedsLayout\b/.test(forceRecipeSrc),
     "force-recipe: no graphNeedsLayout function"
@@ -404,8 +427,21 @@ async function main() {
     "force-recipe: settle needsLayout gate / SettleIfNeededOptions removed"
   );
   assert(
-    !/\bSettleIfNeededOptions\b/.test(barrelSrc),
-    "barrel: SettleIfNeededOptions not re-exported"
+    !/export\s+function\s+settleIfNeeded\b/.test(forceRecipeSrc) &&
+      !/function\s+settleIfNeeded\b/.test(forceRecipeSrc) &&
+      !/export\s+function\s+applyColdStartJitter\b/.test(forceRecipeSrc) &&
+      !/function\s+applyColdStartJitter\b/.test(forceRecipeSrc) &&
+      !/function\s+hashNodeId\b/.test(forceRecipeSrc) &&
+      !/export\s+const\s+COLD_START_JITTER\b/.test(forceRecipeSrc) &&
+      !/const\s+COLD_START_JITTER\b/.test(forceRecipeSrc),
+    "force-recipe: settleIfNeeded / cold-start jitter removed"
+  );
+  assert(
+    !/\bsettleIfNeeded\b/.test(barrelSrc) &&
+      !/\bapplyColdStartJitter\b/.test(barrelSrc) &&
+      !/\bCOLD_START_JITTER\b/.test(barrelSrc) &&
+      !/\bSettleIfNeededOptions\b/.test(barrelSrc),
+    "barrel: settleIfNeeded / jitter / SettleIfNeededOptions not re-exported"
   );
   assert(
     !/\bhasFiniteLayoutXY\b/.test(adapterSrc) &&
@@ -415,6 +451,20 @@ async function main() {
   assert(
     !/\bgraphNeedsLayout\b/.test(barrelSrc),
     "barrel: graphNeedsLayout not re-exported"
+  );
+  assert(
+    !fs.existsSync(
+      path.join(root, "src/lib/graph/placement/memory-placement.ts")
+    ),
+    "memory-placement.ts is gone"
+  );
+  assert(
+    !/memory-placement/.test(barrelSrc) &&
+      !/\bisPlacedLayout\b/.test(barrelSrc) &&
+      !/\brankAfterParent\b/.test(barrelSrc) &&
+      !/\bPARENT_CHILD_RADIUS\b/.test(barrelSrc) &&
+      !/\bLAYOUT_ORIGIN_EPSILON\b/.test(barrelSrc),
+    "barrel: no memory-placement pose helpers re-exported"
   );
   // deriveRanks must not reintroduce the post-computeRank zero-fill loop.
   assert(

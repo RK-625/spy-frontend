@@ -10,8 +10,6 @@
 export const PLACEMENT_ALGO_VERSION = 1;
 export const PLACEMENT_CACHE_STORAGE_KEY = "spy:graph-placement:v1";
 
-import type { GraphEdge, GraphNode } from "../core/graph-data.ts";
-
 export type CachedPlacementNode = {
   x: number;
   y: number;

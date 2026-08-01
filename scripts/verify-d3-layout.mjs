@@ -1,14 +1,17 @@
 /**
- * verify-d3-layout.mjs — Slice 1: one-shot d3 settle layout loop vs static.
+ * verify-d3-layout.mjs — product-only one-shot d3 settle layout loop.
  *
  * Run: npm run verify:d3-layout
  *   → npx tsx scripts/verify-d3-layout.mjs
  *
- * Exit criteria (plans/d3-force-placement-slices.md S1):
- *   - settle moves ≥1 node vs static frozen path
- *   - positions finite; ranks preserved
- *   - createLayoutLoop rejects d3-settle sync (forces async dynamic import)
- *   - default layout-loop source still avoids static force-recipe / d3-force imports
+ * Product surface:
+ *   createLayoutLoopAsync({ graphData, renderOnGraphData })
+ *     → dynamic import layout-loop-d3
+ *     → createD3SettleLayoutLoop
+ *
+ * Checks: settle moves ≥1 node; finite positions; ranks preserved;
+ * setGraphData dirty opts; import guards; live-only canvas wiring;
+ * status stopped after start.
  */
 
 import fs from "node:fs";
@@ -43,62 +46,60 @@ async function main() {
   ).href;
 
   const { createMockGraphData } = await import(dataUrl);
-  const { createLayoutLoop, createLayoutLoopAsync } = await import(loopUrl);
+  const layout = await import(loopUrl);
+  const { createLayoutLoopAsync } = layout;
 
-  // Engines are static | d3-settle only (no continuous-sim soft-switch).
   assert(
-    typeof createLayoutLoop === "function" &&
-      typeof createLayoutLoopAsync === "function",
-    "layout-loop exports static + async d3-settle entry points"
+    typeof createLayoutLoopAsync === "function",
+    "createLayoutLoopAsync exported (product entry)"
+  );
+  assert(
+    typeof layout.createLayoutLoop === "undefined",
+    "createLayoutLoop removed (sync static factory gone)"
+  );
+  assert(
+    typeof layout.createStaticLayoutLoop === "undefined",
+    "createStaticLayoutLoop removed"
   );
 
   const mock = createMockGraphData();
-  const frozen = new Map(mock.nodes.map((n) => [n.id, { x: n.x, y: n.y, rank: n.rank }]));
+  const frozen = new Map(
+    mock.nodes.map((n) => [n.id, { x: n.x, y: n.y, rank: n.rank }])
+  );
 
-  // Sync path must reject d3-settle (dynamic import required).
-  let threw = false;
-  try {
-    createLayoutLoop({
-      graphData: createMockGraphData(),
-      layoutEngine: "d3-settle",
-    });
-  } catch (err) {
-    threw = true;
-    assert(
-      String(err?.message ?? err).includes("createLayoutLoopAsync"),
-      "sync createLayoutLoop error mentions createLayoutLoopAsync"
-    );
-  }
-  assert(threw, "createLayoutLoop throws for layoutEngine d3-settle");
-
-  // Static path: positions unchanged after start.
-  const staticLoop = createLayoutLoop({
-    graphData: createMockGraphData(),
-  });
-  staticLoop.start();
-  const staticAfter = staticLoop.getGraphData();
-  let staticMoved = 0;
-  for (const n of staticAfter.nodes) {
-    const f = frozen.get(n.id);
-    if (!f) continue;
-    if (f.x !== n.x || f.y !== n.y) staticMoved += 1;
-  }
-  assert(staticMoved === 0, `static path moves 0 nodes (got ${staticMoved})`);
-  staticLoop.stop();
-
-  // d3-settle path: ≥1 node moves; all finite; ranks preserved.
-  let dirtyEmits = 0;
+  // start() paints seed without settle; setGraphData settles.
+  let paintEmits = 0;
   const d3Loop = await createLayoutLoopAsync({
     graphData: createMockGraphData(),
-    layoutEngine: "d3-settle",
-    renderOnGraphData: (_g, opts) => {
-      if (opts?.movedNodeIds != null || opts?.dirtyEdges != null) {
-        dirtyEmits += 1;
-      }
+    renderOnGraphData: () => {
+      paintEmits += 1;
     },
   });
   d3Loop.start();
+  assert(
+    d3Loop.status() === "stopped",
+    "status() === stopped after start (product always stops)"
+  );
+  assert(paintEmits >= 1, `start paints full graph (paintEmits=${paintEmits})`);
+
+  // start() is paint-only — seed positions unchanged.
+  const afterStart = d3Loop.getGraphData();
+  let startMoved = 0;
+  for (const n of afterStart.nodes) {
+    const f = frozen.get(n.id);
+    if (f && (f.x !== n.x || f.y !== n.y)) startMoved += 1;
+  }
+  assert(startMoved === 0, `start() does not settle (moved=${startMoved})`);
+
+  // setGraphData (default settle) moves ≥1 node; finite; ranks preserved.
+  paintEmits = 0;
+  d3Loop.setGraphData(createMockGraphData());
   const settled = d3Loop.getGraphData();
+  assert(paintEmits >= 1, `setGraphData paints full graph (paintEmits=${paintEmits})`);
+  assert(
+    d3Loop.status() === "stopped",
+    "status() === stopped after setGraphData"
+  );
 
   let moved = 0;
   for (const n of settled.nodes) {
@@ -114,10 +115,28 @@ async function main() {
   assert(moved >= 1, `d3 settle moves ≥1 node vs mock (got ${moved})`);
   console.log(`  moved ${moved} / ${settled.nodes.length} nodes`);
 
-  // setGraphData should emit dirty opts when positions change.
-  d3Loop.setGraphData(createMockGraphData());
-  assert(dirtyEmits >= 1, `setGraphData emitted dirty opts (got ${dirtyEmits})`);
-
+  // settle: false installs without re-running force (positions unchanged + still paints).
+  let paintCount = 0;
+  const noSettleLoop = await createLayoutLoopAsync({
+    graphData: d3Loop.getGraphData(),
+    renderOnGraphData: () => {
+      paintCount += 1;
+    },
+  });
+  noSettleLoop.start(); // paint seed only
+  const baseline = noSettleLoop.getGraphData();
+  const baselineXY = new Map(baseline.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+  paintCount = 0;
+  noSettleLoop.setGraphData(baseline, { settle: false });
+  const noSettleAfter = noSettleLoop.getGraphData();
+  let noSettleMoved = 0;
+  for (const n of noSettleAfter.nodes) {
+    const p = baselineXY.get(n.id);
+    if (p && (p.x !== n.x || p.y !== n.y)) noSettleMoved += 1;
+  }
+  assert(noSettleMoved === 0, `settle:false keeps positions (moved=${noSettleMoved})`);
+  assert(paintCount >= 1, `settle:false still paints (paintCount=${paintCount})`);
+  noSettleLoop.stop();
   d3Loop.stop();
 
   // Import guard: dispatcher must not statically import recipe / d3-force.
@@ -134,6 +153,25 @@ async function main() {
     layoutLoopSrc.includes("layout-loop-d3"),
     "layout-loop.ts dynamic-imports layout-loop-d3"
   );
+  assert(
+    !layoutLoopSrc.includes("createStaticLayoutLoop") &&
+      !layoutLoopSrc.includes("createLayoutLoop(") &&
+      !/\blayoutEngine\b/.test(layoutLoopSrc) &&
+      !/\bambientMotion\b/.test(layoutLoopSrc) &&
+      !/\bstep\s*[:(]/.test(layoutLoopSrc),
+    "layout-loop.ts has no static engine / ambient / step surface"
+  );
+
+  const layoutD3Src = fs.readFileSync(
+    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts"),
+    "utf8"
+  );
+  assert(
+    !/\bambientMotion\b/.test(layoutD3Src) &&
+      !/\bAMBIENT_/.test(layoutD3Src) &&
+      !/\bstep\s*\(/.test(layoutD3Src),
+    "layout-loop-d3.ts has no ambient stack / step()"
+  );
 
   const canvasSrc = fs.readFileSync(
     path.join(root, "src/components/graph/graph-canvas.tsx"),
@@ -144,11 +182,17 @@ async function main() {
       !/from\s+["']d3-force["']/.test(canvasSrc),
     "graph-canvas does not statically import d3-force / force-recipe"
   );
-  // Live-only product path (plans/graph-live-only-pivot.md): no URL flags.
   assert(
-    canvasSrc.includes('layoutEngine: "d3-settle"') &&
-      canvasSrc.includes("ambientMotion: false"),
-    "graph-canvas always d3-settle with ambientMotion false"
+    canvasSrc.includes("createLayoutLoopAsync"),
+    "graph-canvas uses createLayoutLoopAsync"
+  );
+  assert(
+    !canvasSrc.includes("ambientMotion"),
+    "graph-canvas does not pass ambientMotion"
+  );
+  assert(
+    !canvasSrc.includes("layoutEngine"),
+    "graph-canvas does not pass layoutEngine"
   );
   assert(
     canvasSrc.includes('fetch("/api/graph")'),
@@ -159,8 +203,9 @@ async function main() {
     "graph-canvas maps live topology via memoryGraphToGraphDataWithMeta"
   );
   assert(
-    canvasSrc.includes("settle: false") || canvasSrc.includes("settle:false"),
-    "graph-canvas cache-hit path uses setGraphData settle: false"
+    canvasSrc.includes("settle: needsLayout") ||
+      canvasSrc.includes("setGraphData(graph, { settle: needsLayout })"),
+    "graph-canvas uses setGraphData(graph, { settle: needsLayout })"
   );
   assert(
     !canvasSrc.includes("createMockGraphData") &&
@@ -183,19 +228,6 @@ async function main() {
       !canvasSrc.includes("settleIfNeeded"),
     "graph-canvas dirty host / static settleIfNeeded path unplugged"
   );
-
-  // Ambient default off: d3-settle without ambientMotion stops after settle.
-  const ambientOff = await createLayoutLoopAsync({
-    graphData: createMockGraphData(),
-    layoutEngine: "d3-settle",
-    ambientMotion: false,
-  });
-  ambientOff.start();
-  assert(
-    ambientOff.status() === "stopped",
-    "ambientMotion false → status stopped after start (no continuous loop)"
-  );
-  ambientOff.stop();
 
   if (failed > 0) {
     console.error(`\n${failed} assertion(s) failed`);

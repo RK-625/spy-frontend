@@ -15,27 +15,12 @@ import {
 } from "@/lib/graph";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import { NodeDetailDialog } from "@/components/graph/node-detail-dialog";
-import type { Links } from "@/types/graph-schema";
+import type { GraphApiResponse } from "@/types/graph-topology";
 
 type HudState = {
   camX: number;
   camY: number;
   zoom: number;
-};
-
-/** Lean topology payload from GET /api/graph (no embeddings, no xy/rank). */
-type GraphApiResponse = {
-  ok?: boolean;
-  empty?: boolean;
-  memories?: Array<{
-    id: string;
-    name: string;
-    content?: string;
-    impression?: string;
-    confidence?: number;
-  }>;
-  links?: Links[];
-  error?: string;
 };
 
 /** Max pointer travel (screen px) still treated as a click, not a pan. */
@@ -91,10 +76,11 @@ function formatHudNumber(n: number): string {
  * - Single URL `/graph` — no `?stress` / `?source` / `?layout` / `?motion`.
  * - Always GET `/api/graph` on mount (topology: memories[] + links[]).
  * - Client maps via `memoryGraphToGraphDataWithMeta` (never GraphNode from API).
- * - Placement: localStorage fingerprint cache.
- *   - Cache hit → `setGraphData(graph, { settle: false })`.
- *   - Cache miss → `setGraphData(graph)` (d3 one-shot settle + save).
- * - Layout engine always `d3-settle` with `ambientMotion: false`.
+ * - Placement: localStorage fingerprint cache via memoryGraphToGraphDataWithMeta.
+ *   - Always `setGraphData(graph, { settle: needsLayout })`.
+ *   - Cache hit (needsLayout false) → paint without re-settle.
+ *   - Cache miss (needsLayout true) → one-shot d3 settle + placement cache save.
+ * - Layout: `createLayoutLoopAsync` → one-shot d3 settle (no ambient).
  * - Empty KB / fetch error → blank canvas (`console.warn` on error; no mock).
  * - Mock/stress fixtures stay under `lib/graph/fixtures/` for verify only.
  */
@@ -266,8 +252,6 @@ export function GraphCanvas() {
     void (async () => {
       layoutLoop = await createLayoutLoopAsync({
         graphData: initialGraph,
-        layoutEngine: "d3-settle",
-        ambientMotion: false,
         renderOnGraphData,
       });
       if (isCanvasDisposed) {
@@ -300,15 +284,8 @@ export function GraphCanvas() {
             memories: data.memories,
             links: Array.isArray(data.links) ? data.links : [],
           });
-
-          if (!needsLayout) {
-            // Cache hit — paint without re-settle.
-            layoutLoop.setGraphData(graph, { settle: false });
-            return;
-          }
-
-          // Cache miss: engine settles once and saves placement cache.
-          layoutLoop.setGraphData(graph);
+          // Cache hit → settle:false (paint poses); miss → settle:true (one-shot + save).
+          layoutLoop.setGraphData(graph, { settle: needsLayout });
           return;
         }
 

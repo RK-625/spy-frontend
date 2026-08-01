@@ -3,14 +3,14 @@
  *
  * Sub-domain structure:
  * - core/       (graph-data, graph-scale, graph-style, graph-diff)
- * - placement/  (placement-cache, from-memory-graph, force-recipe, memory-placement)
+ * - placement/  (placement-cache, from-memory-graph, force-recipe)
  * - render/     (pixi-renderer, dot-circle-batch, draw-arrow, edge-signal-pulse, bake-*)
  * - camera/     (rtc-camera)
  * - layout/     (layout-loop, layout-loop-d3, rim-lock, spatial-index)
  * - fixtures/   (mock-graph)
  *
  * Live topology via `/api/graph`; placement is client cache (`placement-cache`).
- * Pure Memory→GraphData mapper + pose helpers (`memory-placement`) exported below.
+ * Pure Memory→GraphData mapper + force settle exported below.
  */
 
 // --- Domain DTO -----------------------------------------------------------
@@ -36,11 +36,17 @@ export {
 // --- Memory / Links → GraphData (pure; no Falkor) -------------------------
 export {
   filterTopologyLinks,
-  memoryGraphToGraphData,
   memoryGraphToGraphDataWithMeta,
   type GraphMapResult,
   type MemoryGraphNodeInput,
 } from "./placement/from-memory-graph";
+
+// --- Shared wire / topology types (GET /api/graph; client-safe SoT) --------
+export type {
+  GraphApiResponse,
+  GraphTopology,
+  GraphTopologyMemory,
+} from "@/types/graph-topology";
 
 // --- Client placement cache (poses in localStorage; not Falkor) -----------
 export {
@@ -60,9 +66,7 @@ export {
 export {
   buildForceSimulation,
   settleGraphData,
-  settleIfNeeded,
   cloneGraphData,
-  applyColdStartJitter,
   PART_OF_DISTANCE,
   PART_OF_STRENGTH,
   RELATES_TO_DISTANCE,
@@ -72,23 +76,11 @@ export {
   CENTER_STRENGTH,
   DEFAULT_SETTLE_TICKS,
   ORIGIN_EPSILON,
-  COLD_START_JITTER,
   type ForceSimNode,
   type ForceSimLink,
   type ForceRecipeOptions,
   type SettleGraphOptions,
 } from "./placement/force-recipe";
-
-// --- Client pose helpers (rank / isPlacedLayout; no geometry engine) ------
-export {
-  PARENT_CHILD_RADIUS,
-  LAYOUT_ORIGIN_EPSILON,
-  rankAfterParent,
-  recomputeRankFromParent,
-  isPlacedLayout,
-  type LayoutCoords,
-  type LayoutWithRank,
-} from "./placement/memory-placement";
 
 // --- Diff / dirty for partial bake ----------------------------------------
 export {
@@ -107,16 +99,12 @@ export {
   type WorldPoint,
 } from "./camera/rtc-camera";
 
-// --- Layout (static default; d3 settle via createLayoutLoopAsync) ----------
+// --- Layout (product-only d3 settle via createLayoutLoopAsync) ------------
 export {
-  createLayoutLoop,
   createLayoutLoopAsync,
-  createStaticLayoutLoop,
-  type LayoutEngine,
   type LayoutLoopHandle,
   type LayoutLoopOptions,
   type LayoutLoopStatus,
-  type LayoutRenderOptions,
 } from "./layout/layout-loop";
 
 // --- Rim packing + spatial residency --------------------------------------

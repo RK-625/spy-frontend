@@ -38,6 +38,10 @@ import {
  * Lean node input for canvas mapping (full Memory or `/api/graph` topology rows).
  * Embeddings are not required. Pose comes from client cache / seeds only —
  * topology input has no layout fields (Falkor holds content + links only).
+ *
+ * Wire SoT for live topology rows is `GraphTopologyMemory` (`@/types/graph-topology`);
+ * that type is assignable here (required fields satisfy these optionals).
+ * Keep this type looser so full `Memory` rows still map without casting.
  */
 export type MemoryGraphNodeInput = {
   id: string;
@@ -91,18 +95,8 @@ export type GraphMapResult = {
 };
 
 /**
- * Map product Memory nodes + Links into canvas GraphData.
+ * Map product Memory nodes + Links into canvas GraphData + needsLayout.
  * Poses come from client placement cache or deterministic seeds — never API xy.
- */
-export function memoryGraphToGraphData(input: {
-  memories: MemoryGraphNodeInput[];
-  links: Links[];
-}): GraphData {
-  return memoryGraphToGraphDataWithMeta(input).graph;
-}
-
-/**
- * Same map as `memoryGraphToGraphData`, plus `needsLayout` / fingerprint.
  * `needsLayout` is `!fullCacheHit` for live topology (API xy ignored).
  *
  * Fingerprint uses the **filtered** edge set (same as GraphData / settle save).

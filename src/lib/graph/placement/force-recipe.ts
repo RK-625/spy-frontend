@@ -1,5 +1,5 @@
 /**
- * Pure d3-force placement recipe for GraphData (Slice 0 + client placement cache).
+ * Pure d3-force placement recipe for GraphData (client placement cache).
  *
  * One-shot / short settle only — not continuous ambient motion.
  * Mutates / outputs world `x` / `y` only. Never writes `rank` (topology-owned).
@@ -11,13 +11,13 @@
  *
  * Collide radii read `nodeScreenRadius(rank, 1)` so spacing tracks visual size.
  *
- * Placement cache (client-placement-cache MVP):
- * - Product cold path seeds via adapter `seedNodePosition` (spread, not origin).
- * - Adapter exposes `needsLayout` (fingerprint / full-cache-hit); the host
- *   decides whether to call `settleIfNeeded` (cache miss) or paint as-is (hit).
- * - `settleIfNeeded` always cold-starts + settles when called (no dual gate).
- * - Full settle always writes client placement cache under this graph's
- *   fingerprint when browser storage exists (`typeof window !== "undefined"`).
+ * Product placement path:
+ * - Adapter seeds cold nodes via `seedNodePosition` and exposes `needsLayout`
+ *   (fingerprint miss vs full-cache hit).
+ * - Host: `setGraphData(g, { settle: needsLayout })`.
+ * - Layout loop calls **`settleGraphData`** on miss (no intermediate settle wrapper).
+ * - Full settle writes client placement cache under this graph's fingerprint
+ *   when browser storage exists (`typeof window !== "undefined"`).
  */
 
 import {
@@ -44,7 +44,7 @@ import {
 // Tunable knobs (verify / later product — not UI)
 // ---------------------------------------------------------------------------
 
-/** Hierarchy spacing (matches client pose helper PARENT_CHILD_RADIUS). */
+/** Hierarchy spacing (preferred PART_OF link distance, world units). */
 export const PART_OF_DISTANCE = 56;
 export const PART_OF_STRENGTH = 0.9;
 
@@ -63,14 +63,8 @@ export const CENTER_STRENGTH = 0.03;
 /** Sync ticks when caller does not pass `ticks`. */
 export const DEFAULT_SETTLE_TICKS = 300;
 
-/** Near-origin epsilon for collapse / cold-start detection (world units). */
+/** Near-origin epsilon for collapse / near-origin asserts (world units). */
 export const ORIGIN_EPSILON = 1e-3;
-
-/**
- * Deterministic cold-start jitter magnitude (world units).
- * Large enough to break (0,0) symmetry; tiny vs link distances.
- */
-export const COLD_START_JITTER = 0.01;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -254,51 +248,5 @@ export function settleGraphData(
     }
     savePlacementCache(fingerprint, cachedNodes);
   }
-
   return out;
-}
-
-// ---------------------------------------------------------------------------
-// Cold-start (Slice 2)
-// ---------------------------------------------------------------------------
-
-/** Stable 32-bit hash of a node id (for deterministic jitter). */
-function hashNodeId(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) {
-    h ^= id.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-/**
- * Tiny deterministic xy offsets so an all-at-origin stack can separate under
- * many-body / link / collide. Does not change rank. Magnitude = COLD_START_JITTER.
- */
-export function applyColdStartJitter(
-  nodes: GraphNode[],
-  magnitude: number = COLD_START_JITTER
-): void {
-  for (const n of nodes) {
-    const h = hashNodeId(n.id);
-    const angle = ((h % 3600) / 3600) * Math.PI * 2;
-    const radius = magnitude * (0.5 + (h % 1000) / 1000);
-    n.x = (Number.isFinite(n.x) ? n.x : 0) + Math.cos(angle) * radius;
-    n.y = (Number.isFinite(n.y) ? n.y : 0) + Math.sin(angle) * radius;
-  }
-}
-
-/**
- * Always settles: clone → cold-start jitter → `settleGraphData`.
- * Host owns hit/miss (adapter `needsLayout`); call only when layout is needed.
- * Ranks are never modified. Placement cache write is browser-only (see settle).
- */
-export function settleIfNeeded(
-  graph: GraphData,
-  options?: SettleGraphOptions
-): GraphData {
-  const seeded = cloneGraphData(graph);
-  applyColdStartJitter(seeded.nodes);
-  return settleGraphData(seeded, options);
 }

@@ -7,7 +7,14 @@ import {
   type Memory,
   type Links,
 } from "@/types/graph-schema";
+import type {
+  GraphTopology,
+  GraphTopologyMemory,
+} from "@/types/graph-topology";
 import { z } from "zod";
+
+/** Re-export wire SoT from client-safe `@/types/graph-topology` (do not redefine). */
+export type { GraphTopology, GraphTopologyMemory } from "@/types/graph-topology";
 
 type FalkorNode<T> = {
   id: number; // FalkorDB's internal numeric node id — NOT your app id
@@ -223,24 +230,6 @@ function numOrNull(value: unknown): number | null {
   return null;
 }
 
-/**
- * Canvas / API topology row — no embeddings (keep `/api/graph` payloads small).
- * Topology + inspect fields only. Placement (x/y/rank) is client-only
- * (`plans/client-placement-cache.md`); never returned here.
- */
-export type GraphTopologyMemory = {
-  id: string;
-  name: string;
-  content: string;
-  impression: string;
-  confidence: number;
-};
-
-export type GraphTopology = {
-  memories: GraphTopologyMemory[];
-  links: Links[];
-};
-
 function strOr(value: unknown, fallback: string): string {
   if (typeof value === "string") return value;
   if (value == null) return fallback;
@@ -324,4 +313,3 @@ export async function listGraphTopology(): Promise<GraphTopology> {
     throw error;
   }
 }
-

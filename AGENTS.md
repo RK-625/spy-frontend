@@ -162,7 +162,7 @@ src/
 │   │   ├── camera/           — rtc-camera (never stage.scale for world camera)
 │   │   ├── core/             — graph-data, graph-diff, graph-scale, graph-style
 │   │   ├── layout/           — layout-loop (+ d3), rim-lock, spatial-index
-│   │   ├── placement/        — force-recipe, placement-cache, memory-placement, from-memory-graph
+│   │   ├── placement/        — force-recipe, placement-cache, from-memory-graph
 │   │   ├── render/           — pixi-renderer, bake stack, draw primitives, edge pulse
 │   │   ├── fixtures/mock-graph.ts — verify-only mock + stress fixtures
 │   │   └── index.ts          — public exports

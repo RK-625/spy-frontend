@@ -74,17 +74,23 @@ async function main() {
   const placementCacheUrl = pathToFileURL(
     path.join(root, "src/lib/graph/placement/placement-cache.ts")
   ).href;
-  const poseHelpersUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/memory-placement.ts")
-  ).href;
 
   const { memoryGraphToGraphDataWithMeta } = await import(adapterUrl);
-  const { settleGraphData, settleIfNeeded, ORIGIN_EPSILON } =
-    await import(recipeUrl);
+  const { settleGraphData, ORIGIN_EPSILON } = await import(recipeUrl);
   const { deriveRanks, computeTopoFingerprint, seedNodePosition } =
     await import(placementCacheUrl);
-  const { rankAfterParent, isPlacedLayout, LAYOUT_ORIGIN_EPSILON } =
-    await import(poseHelpersUrl);
+
+  /** Script-local: finite xy and not both near origin (was isPlacedLayout). */
+  function isPlacedPose(layout) {
+    if (layout == null) return false;
+    const { x, y } = layout;
+    if (x == null || y == null) return false;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    if (Math.abs(x) <= ORIGIN_EPSILON && Math.abs(y) <= ORIGIN_EPSILON) {
+      return false;
+    }
+    return true;
+  }
 
   // --- Product path: no server placement writes ----------------------------
   console.log("--- product path: no Falkor placement ---");
@@ -199,45 +205,86 @@ async function main() {
     "FA2 simulationEnabled / iterationsPerFrame options not resurrected"
   );
 
-  // --- Pure pose helpers (client-only; no place-on-upsert policy) ----------
-  console.log("\n--- client pose helpers ---");
-  assert(rankAfterParent(0) === 1, "rankAfterParent(0) === 1");
-  assert(rankAfterParent(2) === 3, "rankAfterParent(2) === 3");
-  assert(isPlacedLayout(null) === false, "isPlacedLayout(null) → false");
+  // Shared wire types SoT — GET /api/graph (client-safe; not only falkor).
+  console.log("\n--- GraphTopology wire types SoT ---");
+  const topoTypesPath = path.join(root, "src/types/graph-topology.ts");
   assert(
-    isPlacedLayout({ x: 0, y: 0 }) === false,
-    "isPlacedLayout near-origin (0,0) → false"
+    fs.existsSync(topoTypesPath),
+    "src/types/graph-topology.ts exists (client-safe wire SoT)"
+  );
+  const topoTypesSrc = fs.readFileSync(topoTypesPath, "utf8");
+  assert(
+    /export type GraphTopologyMemory\b/.test(topoTypesSrc) &&
+      /export type GraphTopology\b/.test(topoTypesSrc) &&
+      /export type GraphApiResponse\b/.test(topoTypesSrc),
+    "graph-topology.ts exports GraphTopologyMemory, GraphTopology, GraphApiResponse"
+  );
+  // Wire SoT must stay lean: no embeddings, no client placement fields.
+  assert(
+    !/\bsearchEmbedding\b/.test(topoTypesSrc) &&
+      !/\bcontentEmbedding\b/.test(topoTypesSrc),
+    "graph-topology.ts has no embedding fields (searchEmbedding/contentEmbedding)"
   );
   assert(
-    isPlacedLayout({
-      x: LAYOUT_ORIGIN_EPSILON,
-      y: LAYOUT_ORIGIN_EPSILON,
-    }) === false,
-    "isPlacedLayout both at epsilon → false"
+    !/\bx\s*:/.test(topoTypesSrc) &&
+      !/\by\s*:/.test(topoTypesSrc) &&
+      !/\brank\s*:/.test(topoTypesSrc),
+    "graph-topology.ts has no placement fields (x/y/rank) on type bodies"
+  );
+  const canvasSrc = fs.readFileSync(
+    path.join(root, "src/components/graph/graph-canvas.tsx"),
+    "utf8"
   );
   assert(
-    isPlacedLayout({ x: 10, y: 20 }) === true,
-    "isPlacedLayout finite far → true"
+    !/type GraphApiResponse\s*=/.test(canvasSrc),
+    "graph-canvas does not define local GraphApiResponse (uses shared SoT)"
+  );
+  assert(
+    /from ["']@\/types\/graph-topology["']/.test(canvasSrc) ||
+      /from ["']@\/types["']/.test(canvasSrc) ||
+      (/GraphApiResponse/.test(canvasSrc) &&
+        /from ["']@\/lib\/graph["']/.test(canvasSrc)),
+    "graph-canvas imports GraphApiResponse from shared module"
+  );
+  // falkor may re-export; must not redefine topology type bodies inline.
+  assert(
+    !/export type GraphTopologyMemory\s*=\s*\{/.test(falkorSrc) &&
+      !/export type GraphTopology\s*=\s*\{/.test(falkorSrc),
+    "falkor.ts does not redefine GraphTopologyMemory/GraphTopology bodies (re-export SoT only)"
+  );
+  assert(
+    /export type\s*\{\s*GraphTopology\s*,\s*GraphTopologyMemory\s*\}\s*from\s*["']@\/types\/graph-topology["']/.test(
+      falkorSrc
+    ) ||
+      /export type\s*\{\s*GraphTopologyMemory\s*,\s*GraphTopology\s*\}\s*from\s*["']@\/types\/graph-topology["']/.test(
+        falkorSrc
+      ),
+    "falkor.ts re-exports GraphTopology + GraphTopologyMemory from @/types/graph-topology"
   );
 
-  // No server place-policy gates remain; module lives under lib/graph/placement.
+  // --- memory-placement removed (product uses deriveRanks + settleGraphData) -
+  console.log("\n--- memory-placement gone / product rank APIs ---");
   assert(
-    fs.existsSync(path.join(root, "src/lib/graph/placement/memory-placement.ts")),
-    "memory-placement.ts lives under src/lib/graph/placement/"
+    !fs.existsSync(
+      path.join(root, "src/lib/graph/placement/memory-placement.ts")
+    ),
+    "memory-placement.ts is gone"
   );
   assert(
     !fs.existsSync(path.join(root, "src/lib/memory-placement.ts")),
     "legacy src/lib/memory-placement.ts is gone"
   );
-  const poseSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/placement/memory-placement.ts"),
-    "utf8"
-  );
+  // barrelSrc loaded earlier in Phase 1 fences.
   assert(
-    !/export function shouldPlaceOnUpsert/.test(poseSrc) &&
-      !/export function shouldPlaceOnLink/.test(poseSrc),
-    "memory-placement has no shouldPlaceOn* server-policy gates"
+    !/memory-placement/.test(barrelSrc) &&
+      !/\bisPlacedLayout\b/.test(barrelSrc) &&
+      !/\brankAfterParent\b/.test(barrelSrc) &&
+      !/\bPARENT_CHILD_RADIUS\b/.test(barrelSrc) &&
+      !/\bLAYOUT_ORIGIN_EPSILON\b/.test(barrelSrc),
+    "barrel does not re-export memory-placement symbols"
   );
+  // Rank depth is product-owned by deriveRanks (PART_OF child = parent + 1).
+  assert(typeof deriveRanks === "function", "deriveRanks exported (product rank)");
 
   // --- Adapter cold miss + force-recipe settle -----------------------------
   console.log("\n--- cold topology → needsLayout + settleGraphData ---");
@@ -317,8 +364,8 @@ async function main() {
 
   const childNode = settled.nodes.find((n) => n.id === "child");
   assert(
-    childNode != null && isPlacedLayout({ x: childNode.x, y: childNode.y }),
-    "child isPlacedLayout after full settle"
+    childNode != null && isPlacedPose({ x: childNode.x, y: childNode.y }),
+    "child has placed pose after full settle"
   );
 
   // --- RELATES_TO cold pair ------------------------------------------------
@@ -334,7 +381,7 @@ async function main() {
       links: relatesLinks,
     });
   assert(relatesNeeds === true, "topology without cache → needsLayout");
-  const relatesSettled = settleIfNeeded(relatesGraph, { ticks: 400 });
+  const relatesSettled = settleGraphData(relatesGraph, { ticks: 400 });
   for (const n of relatesSettled.nodes) {
     assert(
       Number.isFinite(n.x) && Number.isFinite(n.y),
@@ -343,8 +390,8 @@ async function main() {
   }
   const bAfter = relatesSettled.nodes.find((n) => n.id === "b");
   assert(
-    bAfter != null && isPlacedLayout({ x: bAfter.x, y: bAfter.y }),
-    "RELATES_TO settle: b isPlacedLayout"
+    bAfter != null && isPlacedPose({ x: bAfter.x, y: bAfter.y }),
+    "RELATES_TO settle: b has placed pose"
   );
 
   // --- Fingerprint + cache hit round-trip ----------------------------------

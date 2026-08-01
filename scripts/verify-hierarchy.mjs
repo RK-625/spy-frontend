@@ -69,19 +69,22 @@ async function main() {
     "stored ranks deepen down the PART_OF tree"
   );
 
-  // Layout clone path preserves stored ranks (no recompute)
+  // Product settle path preserves stored ranks (no recompute)
   const layoutUrl = pathToFileURL(
     path.join(root, "src/lib/graph/layout/layout-loop.ts")
   ).href;
   const layout = await import(layoutUrl);
-  const loop = layout.createLayoutLoop({
+  const loop = await layout.createLayoutLoopAsync({
     graphData: mock,
   });
+  loop.start();
+  loop.setGraphData(mock); // product settle path; ranks must not recompute
   const after = loop.getGraphData();
   for (const n of after.nodes) {
     const expected = ranks.get(n.id);
     assert(n.rank === expected, `layout preserves rank for ${n.id} (${n.rank} === ${expected})`);
   }
+  loop.stop();
 
   if (failed > 0) {
     console.error(`\n${failed} check(s) failed`);

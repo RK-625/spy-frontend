@@ -61,9 +61,9 @@
  * - After RimLock, expand dirty to **all edges on affected hubs** (moved nodes +
  *   endpoints of caller dirty) so multi-spoke packing never leaves stale sockets.
  * - setGraphData(data, { dirtyEdges, movedNodeIds }) for position-only; topology → "all".
- * - Partial dirty is optional renderer API; layout can emit dirtyEdges /
- *   movedNodeIds. Product graph-canvas unplugged dirty host (always full
- *   setGraphData). graph-diff module remains for lib consumers / verify.
+ * - Partial dirty is optional renderer API (setGraphData options). Layout
+ *   always emits full GraphData; product graph-canvas always full setGraphData.
+ *   graph-diff module remains for lib consumers / verify.
  * - Worker mode "partial" | "full"; seq still drops stale results.
  *
  * F — Durable merged buffer + dirty splice (B1):
@@ -91,7 +91,7 @@
  * - Optional createLargeStressGraphData export (not default mock)
  *
  * Deferred / residual risks:
- * - Continuous ambient opt-in only (`ambientMotion` option; product off; no URL flag; FA2 removed)
+ * - Continuous ambient motion removed (not product; one-shot d3 settle only)
  * - Multi-mesh per-tile GPU (B3) not landed — full mesh rebuild from durable buffer
  * - Server viewport graph slices / hierarchy drill out of scope
  * - Mid-sample worker abort depends on cooperative yield; very short jobs may finish

@@ -3,10 +3,8 @@ import {
   ChatStatus,
   CreateUIMessage,
   FileUIPart,
-  TextUIPart,
   UIMessage,
 } from "ai";
-import React from "react";
 
 export type { ChatStatus };
 
@@ -42,4 +40,3 @@ export interface ChatContextValue {
   ) => Promise<void>;
   addToolOutput: ReturnType<typeof import("@ai-sdk/react").useChat>["addToolOutput"];
 }
-

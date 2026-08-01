@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { listGraphTopology } from "@/lib/falkor";
+import type { GraphApiResponse } from "@/types/graph-topology";
 
 /**
  * GET /api/graph — read-only Memory + Links topology for `/graph`.
@@ -8,7 +9,8 @@ import { listGraphTopology } from "@/lib/falkor";
  * - No embeddings in the payload.
  * - Topology only (no x/y/rank). Client owns placement via localStorage cache
  *   (`plans/client-placement-cache.md`); this route never reads/writes poses.
- * - Wire shape: `memories[]` + `links[]` (not GraphNode). Client maps via
+ * - Wire SoT: `GraphApiResponse` / `GraphTopology` in `@/types/graph-topology`
+ *   (`memories[]` + `links[]`, not GraphNode). Client maps via
  *   `memoryGraphToGraphDataWithMeta`.
  * - Empty DB → `{ ok: true, empty: true, memories: [], links: [] }`.
  *
@@ -21,25 +23,24 @@ export const runtime = "nodejs";
 export async function GET() {
   try {
     const { memories, links } = await listGraphTopology();
-    return NextResponse.json({
+    const body: GraphApiResponse = {
       ok: true,
       source: "falkor",
       empty: memories.length === 0,
       memories,
       links,
-    });
+    };
+    return NextResponse.json(body);
   } catch (error) {
     console.error("GET /api/graph:", error);
-    return NextResponse.json(
-      {
-        ok: false,
-        source: "falkor",
-        empty: true,
-        memories: [],
-        links: [],
-        error: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    );
+    const body: GraphApiResponse = {
+      ok: false,
+      source: "falkor",
+      empty: true,
+      memories: [],
+      links: [],
+      error: error instanceof Error ? error.message : String(error),
+    };
+    return NextResponse.json(body, { status: 500 });
   }
 }
