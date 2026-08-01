@@ -159,9 +159,7 @@ export function GraphCanvas() {
     let pointerDownY = 0;
     let pointerTravel = 0;
 
-    // setInteractionQuality is a no-op on the renderer (world-bake + GPU batches);
-    // do not schedule settle timers / extra rAFs for quality toggles. Pan/zoom
-    // still queueRender so the camera transform applies every frame.
+    // Pan/zoom queueRender so the camera transform applies every frame.
 
     const handlePointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;

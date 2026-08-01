@@ -1,9 +1,9 @@
 /**
  * Pure GraphData dirty diff — position-only vs topology / replace.
  *
- * Used by graph-canvas and layout paths to pass `{ dirtyEdges, movedNodeIds }`
- * into Pixi setGraphData so partial DotStream merge is safe (with rim expansion).
- * Topology change → `"all"`. Same identity + coords → empty dirty (no-op paint).
+ * Lib utility (not wired on the product path). Product Pixi always full
+ * setGraphData; this module remains for verify / future partial re-hosting.
+ * Topology change → `"all"`. Same identity + coords → empty dirty.
  */
 
 import type { GraphData, GraphEdge } from "./graph-data.ts";

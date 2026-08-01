@@ -177,9 +177,7 @@ export {
 export {
   createPixiRenderer,
   type CreatePixiRendererOptions,
-  type PerfStats,
   type PixiRendererHandle,
-  type SetGraphDataOptions,
 } from "./render/pixi-renderer";
 
 // --- Palette + signal tokens ----------------------------------------------

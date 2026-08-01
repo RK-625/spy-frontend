@@ -46,13 +46,25 @@ export type BakeWorkerResponse = {
   edgeRangesPacked: Uint32Array;
 };
 
-// Check if running inside a Web Worker context
-const isWorkerContext =
-  typeof self !== "undefined" &&
-  typeof (self as unknown as Worker).postMessage === "function" &&
-  typeof window === "undefined";
+/**
+ * Detect dedicated worker context.
+ *
+ * Do NOT use `typeof window === "undefined"` — Turbopack client-folds that to
+ * `"object"` even inside worker chunks, which made isWorkerContext always false,
+ * so onmessage never registered and DotStream bake hung forever (underlay-only UI).
+ *
+ * Workers have postMessage + no `document`; the Window object has `document`.
+ */
+function isDedicatedWorkerContext(): boolean {
+  if (typeof self === "undefined") return false;
+  const g = self as unknown as {
+    postMessage?: unknown;
+    document?: unknown;
+  };
+  return typeof g.postMessage === "function" && !("document" in self);
+}
 
-if (isWorkerContext) {
+if (isDedicatedWorkerContext()) {
   const ctx = self as unknown as DedicatedWorkerGlobalScope;
 
   /** Newest request waiting to be sampled per client. */

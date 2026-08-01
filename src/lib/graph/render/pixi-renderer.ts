@@ -1,16 +1,20 @@
 /**
- * Pixi v8 graph renderer — A′ world-space bake + B SDF discs + C worker + universal residency.
+ * Pixi v8 graph renderer — world-space bake + SDF discs + worker + overscan residency.
  *
- * Module map (single file; light-cleanup keep — split only when data adapter lands):
+ * Product path (only path):
+ * - setGraphData(graph) — always full install → full dirty → full bake → full resident replace
+ * - Finite overscan residency (OVERSCAN_MARGIN=2.0); no bake-all dual path
+ * - Worker bake (hang → sync forever); seq drops stale results
+ * - Full RimLock + spatial rebuild on topology; durable merged buffer full rebuild
+ * - Nodes paint independent of bake; signal wave colors via rAF
+ *
+ * Module map (single file):
  * - World AABB / overscan helpers
- * - Topology prep (incidence, RimLock, spatial index)
- * - Bake request (payload, worker/sync, resident merge, GPU upload)
+ * - Topology prep (incidence, full RimLock, spatial index)
+ * - Bake request (payload, worker/sync, full resident replace, GPU upload)
  * - Signal wave color pass (throttled rAF)
  * - Camera transform + underlay + nodes
- * - Public handle: setGraphData, render, destroy, setSignalPulsesEnabled
- *
- * Universal residency: all sizes use viewport+overscan+index+worker (+ tile buckets).
- * Absolute cost ∝ visible set, not total graph. Same DotStream look at every scale.
+ * - Public handle: setGraphData, render, destroy, setSignalPulsesEnabled, setCamera
  *
  * HARD RULE: camera stays outside Pixi.
  * - Never pan/zoom with stage.scale / stage.position for world camera.
@@ -18,7 +22,7 @@
  * - Every frame: scale graphContent by camera.zoom and position via RTC formula.
  * - Camera only transforms inside overscan; leave overscan → rebake candidates.
  *
- * A′ (world-space bake):
+ * A' (world-space bake):
  * - bake at reference zoom 1: nodeR_world = nodeScreenRadius(rank, 1),
  *   band_world = edgeBandWidth(1, ...)
  * - applyCameraTransform() sets graphContent.scale = z, position = RTC offset.
@@ -27,84 +31,48 @@
  *   Underlay is world-space under graphContent — pan-decoupled (rebuild on zoom /
  *   graph / overscan residency only, not every camX/camY).
  * - No re-bake on pan/zoom while the tight viewport stays inside baked overscan.
- * - screen stroke width = z * ringWidth(1) ≈ correct under pure scale.
  *
  * B — SDF disc quads (dot-circle-batch.ts):
  * - DotCircleBatch emits 4-vert AA quads + GlProgram fragment disc (fwidth AA).
  * - Fan fallback (MIN_SEGMENTS=32) if Shader/GlProgram init or first Mesh fails.
  *
  * C — Shared bake worker (bake-worker-pool.ts + bake-worker.ts + bake-sample.ts):
- * - Main: recomputeIncidence + RimLock (full or incremental) + spatial index + payload.
+ * - Main: recomputeIncidence + full RimLock + spatial rebuild + candidate payload.
  * - Worker: pure DotStream sampling → transferable exact-size dots + packed edgeRanges.
  * - Latest-only: worker pending queue keeps newest seq per client; cooperative
  *   abort mid-sample after each edge when a newer bake supersedes.
- * - Main: partial or full merge into resident + durable merged buffer → GPU.
+ * - Main: full replace of residents + rebuild durable merged buffer → GPU.
  * - Sequence numbers drop stale worker results. Worker construct fail → sync forever.
- * - Payload transfers only spatial candidates (edges + endpoint nodes + rim slots).
  *
- * D — Universal product path (all graph sizes):
- * - ALWAYS cullAabb = worldViewportAabb(camera, OVERSCAN_MARGIN) with
- *   OVERSCAN_MARGIN = 2.0 (+200% viewport extent each side — free pan/zoom
- *   inside the overscan without re-sampling DotStream).
- * - ALWAYS bakedOverscan = that finite AABB (never infinite bake-all as product path).
- * - GraphSpatialIndex: rebuild on topology; incremental updateNodePositions when
- *   only a few nodes moved (setGraphData positions-only path). Int cell keys +
- *   edge incidence map for O(moved×degree) position updates.
- * - Node draw: only when nodesDirty (position/set change), not every edge-only partial.
- * - Underlay: O(candidates) via spatial index + O(1) edgesById map.
- * - drawFrame rebakes when tight viewport escapes bakedOverscan (small hysteresis
- *   slack against floating thrash), or when dirtyEdgeIds is set.
- * - FORCE_BAKE_ALL = false debug escape hatch only (tests / diagnostics); default false.
+ * D — Universal residency (all graph sizes):
+ * - ALWAYS cullAabb = worldViewportAabb(camera, OVERSCAN_MARGIN)
+ * - ALWAYS bakedOverscan = that finite AABB (never infinite bake-all)
+ * - GraphSpatialIndex: full rebuild on topology
+ * - Underlay: O(candidates) via spatial index + O(1) edgesById map
+ * - drawFrame rebakes when tight viewport escapes bakedOverscan (hysteresis),
+ *   or when edges are dirty (setGraphData / markAllEdgesDirty)
  *
- * E — Partial dirty + rim-coupled expansion (large-KB pure-perf):
- * - dirtyEdgeIds: Set<string> | "all" | null.
- * - After RimLock, expand dirty to **all edges on affected hubs** (moved nodes +
- *   endpoints of caller dirty) so multi-spoke packing never leaves stale sockets.
- * - setGraphData(data, { dirtyEdges, movedNodeIds }) for position-only; topology → "all".
- * - Partial dirty is optional renderer API (setGraphData options). Layout
- *   always emits full GraphData; product graph-canvas always full setGraphData.
- *   graph-diff module remains for lib consumers / verify.
- * - Worker mode "partial" | "full"; seq still drops stale results.
+ * E — Durable merged buffer:
+ * - Packed resident Float32Array (mergedDotBuffer) rebuilt fully after each bake apply.
+ * - GPU DotCircleBatch fed from the durable buffer (single tight pass).
  *
- * F — Durable merged buffer + dirty splice (B1):
- * - Packed resident Float32Array (mergedDotBuffer) + per-edge layout (startDot, count).
- * - Partial merge: when dirty edges keep the same dotCount, splice floats in place
- *   without re-walking clean edges into the arena; length change / prune → compact rebuild.
- * - GPU DotCircleBatch still rebuilt from the durable buffer (single tight pass).
- * - Multi-mesh tiles (B3) deferred — one mesh preferred while B1 suffices.
- *
- * G — Tile / multi-region residency (bookkeeping, appearance-neutral):
+ * F — Tile / multi-region residency (bookkeeping, appearance-neutral):
  * - Edges owned by one tile via midpoint hash into stable world tile grid.
  * - Single merged mesh from union of resident edge chunks; dedupe by edge id.
- * - Far tiles dropped when outside overscan (+ tile margin). OVERSCAN_MARGIN 2.0 kept.
+ * - Far tiles dropped when outside overscan (+ tile margin).
  *
  * Signal wave (ambient weave):
  * - No free-flying pulse discs. Baked DotStream dots store t ∈ [0,1] along travel.
  * - When Signals on: rAF re-uploads DotCircleBatch colors only (base + soft peak mix).
  * - PART_OF parent→child; RELATES quieter. Toggle off restores base edge tokens.
  *
- * Landed (this pure-perf track):
- * - Rim-coupled dirty expansion, host dirty plumbing (settle/ambient emit dirty)
- * - Durable buffer + dirty splice, worker latest-only cancel
- * - Incremental RimLock for moved∪neighbors, spatial incidence + int keys
- * - Node layer redraw only when nodes dirty
- * - Optional createLargeStressGraphData export (not default mock)
- *
- * Deferred / residual risks:
- * - Continuous ambient motion removed (not product; one-shot d3 settle only)
- * - Multi-mesh per-tile GPU (B3) not landed — full mesh rebuild from durable buffer
- * - Server viewport graph slices / hierarchy drill out of scope
- * - Mid-sample worker abort depends on cooperative yield; very short jobs may finish
- *   before a superseding message is processed
- *
  * Never (hard bans):
  * - lodMul, maxDots, skipOuterLats, density LOD, half-res, soft sprites
  * - EDGE_BASE_BAND / alpha / packing-floor / densify / SDF look changes
  * - hierarchy expand-on-drill that silently hides loaded content
- * - setInteractionQuality that lowers quality; scale stage/root (only graphContent)
+ * - scale stage/root for world camera (only graphContent)
  * - re-sample DotStream every zoom step (only on overscan leave / dirty)
  */
-
 import { Application, Container, Graphics } from "pixi.js";
 
 import type { RtcCamera } from "../camera/rtc-camera";
@@ -124,7 +92,6 @@ import {
   type BakeSamplePayload,
 } from "./bake-sample";
 import type {
-  BakeWorkerMode,
   BakeWorkerRequest,
   BakeWorkerResponse,
 } from "./bake-worker";
@@ -144,12 +111,7 @@ import {
   nodeScreenRadius,
   usableZoom,
 } from "../core/graph-scale";
-import {
-  applyRimLock,
-  applyRimLockForNodes,
-  rimLockNodesForMoves,
-} from "../layout/rim-lock";
-import { expandDirtyEdgesForHubs } from "../core/graph-diff";
+import { applyRimLock } from "../layout/rim-lock";
 import {
   GRAPH_BG,
   GRAPH_EDGE_PART_OF,
@@ -182,21 +144,6 @@ import {
  * without re-sampling DotStream; rebake only when tight viewport escapes.
  */
 const OVERSCAN_MARGIN = 2.0;
-
-/**
- * Debug-only: bake entire graph with infinite overscan (tests / diagnostics).
- * Product default is false — geometry residency always follows camera.
- * Must never be enabled as a size-threshold product fork.
- */
-const FORCE_BAKE_ALL = false;
-
-/** Infinite AABB for FORCE_BAKE_ALL only (tight viewport always "contained"). */
-const BAKE_ALL_OVERSCAN: WorldAabb = {
-  minX: -1e30,
-  minY: -1e30,
-  maxX: 1e30,
-  maxY: 1e30,
-};
 
 /**
  * needsBake hysteresis: treat baked overscan as slightly larger when testing
@@ -342,62 +289,22 @@ type ResidentEdgeChunk = {
   dotCount: number;
 };
 
-export type PerfStats = {
-  lastBakeMs: number;
-  bakeCount: number;
-  p95BakeMs: number;
-  mode: "transform" | "bake";
-};
-
-export type SetGraphDataOptions = {
-  /**
-   * Edge dirty scope after this graph swap.
-   * - "all" (default): full candidate rebake
-   * - Iterable of edge ids: partial merge (positions-only / incident edges)
-   * Topology identity change should use "all".
-   */
-  dirtyEdges?: "all" | Iterable<string>;
-  /**
-   * When set, spatial index uses updateNodePositions for these nodes instead
-   * of full rebuild (same topology, positions only). Ignored when dirty is "all"
-   * and moved set is omitted — full rebuild via topologyDirty.
-   */
-  movedNodeIds?: Iterable<string>;
-};
-
 export type PixiRendererHandle = {
   mount: (host: HTMLElement) => void | Promise<void>;
   destroy: () => void;
-  setGraphData: (
-    graphData: GraphData,
-    options?: SetGraphDataOptions
-  ) => void;
-  /** Merge edge ids into dirty Set (no-op if already "all"). */
-  markEdgesDirty: (edgeIds: Iterable<string>) => void;
+  setGraphData: (graphData: GraphData) => void;
   setCamera: (camera: RtcCamera) => void;
   render: () => void;
-  /** Returns bake timing stats. */
-  getPerfStats: () => PerfStats;
-  /**
-   * Interaction quality toggle (API kept for graph-canvas settle path).
-   * No-op: world-bake + GPU vector batches already make interaction cheap.
-   */
-  setInteractionQuality: (mode: "full" | "fast") => void;
   /**
    * Continuous neural-style signal wave through DotStream edge dots (ambient).
    * When enabled, renderer owns an internal rAF so the wave runs while idle.
    */
   setSignalPulsesEnabled: (enabled: boolean) => void;
-  /** Current signal-wave toggle state. */
-  getSignalPulsesEnabled: () => boolean;
 };
 
 export type CreatePixiRendererOptions = {
   background?: number;
 };
-
-/** Max bake timing samples for P95. */
-const PERF_SAMPLE_MAX = 64;
 
 export function createPixiRenderer(
   options: CreatePixiRendererOptions = {}
@@ -414,7 +321,7 @@ export function createPixiRenderer(
   let graphData: GraphData | null = null;
   let camera: RtcCamera | null = null;
   let nodesByIdCache: Map<string, GraphNode> = new Map();
-  /** O(1) edge id → edge for underlay / partial payload (rebuilt on setGraphData). */
+  /** O(1) edge id → edge for underlay / bake payload (rebuilt on setGraphData). */
   let edgesByIdCache: Map<string, GraphEdge> = new Map();
   let rimSlotCache: Map<string, Map<string, RimSlot>> = new Map();
   /** Broad-phase for viewport+overscan edge residency (rebuilt with topology). */
@@ -437,24 +344,17 @@ export function createPixiRenderer(
    * Separate from edge-dot dirty so we can prepare rim while worker samples.
    */
   let topologyDirty = true;
-  /**
-   * When topologyDirty and this is set, spatial index uses incremental path.
-   * Cleared after ensureTopologyPrepared.
-   */
-  let pendingMovedNodeIds: Set<string> | null = null;
 
   /**
-   * Edge-dot sample dirty flag.
-   * - "all": full rebake (setGraphData default, markAllEdgesDirty, overscan miss)
-   * - Set<edgeId>: partial re-sample + merge into resident chunks
-   * - null: clean
+   * Edge-dot sample dirty: "all" needs full candidate rebake; null is clean.
+   * Product path is full-only (setGraphData, markAllEdgesDirty, overscan miss).
    */
-  let dirtyEdgeIds: Set<string> | "all" | null = "all";
+  let dirtyEdgeIds: "all" | null = "all";
   /**
-   * Dirty accumulated while a bake is in flight (cleared dirty on post).
-   * Applied after the in-flight result so partial merges do not drop edges.
+   * Full dirty requested while a bake is in flight (dirty cleared on post).
+   * Promoted after apply so mid-flight invalidations are not dropped.
    */
-  let coalescedDirty: Set<string> | "all" | null = null;
+  let dirtyWhileInFlight = false;
 
   /**
    * Resident edge → packed dots (tile ownership). Single GPU mesh is the
@@ -463,8 +363,8 @@ export function createPixiRenderer(
   const residentEdges = new Map<string, ResidentEdgeChunk>();
 
   /**
-   * Durable packed buffer for GPU feed (B1). Concatenation of resident edges
-   * in `mergedEdgeOrder`; layout map gives O(1) dirty splice when counts match.
+   * Durable packed buffer for GPU feed. Concatenation of resident edges
+   * in `mergedEdgeOrder`; rebuilt fully after each full bake apply.
    */
   let mergedDotBuffer: Float32Array | null = null;
   let mergedDotCount = 0;
@@ -476,8 +376,7 @@ export function createPixiRenderer(
   /** Stable draw order for merged buffer (Map insertion order of residents). */
   let mergedEdgeOrder: string[] = [];
   /**
-   * Node Graphics dirty — redraw only when positions/set change, not on
-   * edge-only partial merges (C3).
+   * Node Graphics dirty — redraw when positions/set change (full setGraphData).
    */
   let nodesDirty = true;
 
@@ -502,10 +401,6 @@ export function createPixiRenderer(
   let inFlightCullAabb: WorldAabb | null = null;
   /** Graph identity at request time — stale if setGraphData swapped mid-flight. */
   let inFlightGraphRef: GraphData | null = null;
-  /** Mode of in-flight bake for merge path. */
-  let inFlightMode: BakeWorkerMode = "full";
-  /** Main-thread t0 for worker bake timing (post → apply). */
-  let inFlightT0 = 0;
 
   /** Shared worker lease (null = sync forever after failure / unavailability). */
   let bakeLease: BakeWorkerLease | null | undefined;
@@ -525,6 +420,50 @@ export function createPixiRenderer(
     return lease;
   }
 
+  /**
+   * If the worker never replies (e.g. historical Turbopack typeof-window fold),
+   * fall back to main-thread sample so DotStream is not stuck forever.
+   */
+  const BAKE_WORKER_HANG_MS = 2500;
+  let bakeHangTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearBakeHangTimer(): void {
+    if (bakeHangTimer !== null) {
+      clearTimeout(bakeHangTimer);
+      bakeHangTimer = null;
+    }
+  }
+
+  function armBakeHangTimer(seq: number): void {
+    clearBakeHangTimer();
+    bakeHangTimer = setTimeout(() => {
+      bakeHangTimer = null;
+      if (isDestroyed || !isMounted) return;
+      if (inFlightSeq !== seq || hasBaked) return;
+      console.warn(
+        "[graph] bake worker hang — falling back to sync sample forever",
+      );
+      if (bakeLease) {
+        try {
+          bakeLease.release();
+        } catch {
+          // ignore
+        }
+      }
+      bakeLease = null;
+      inFlightSeq = 0;
+      inFlightOverscan = null;
+      inFlightCullAabb = null;
+      inFlightGraphRef = null;
+      markAllEdgesDirty();
+      // Next host render / pulse frame will sync-bake via getBakeLease() === null.
+      requestBake();
+      if (app?.renderer && app.stage) {
+        app.renderer.render(app.stage);
+      }
+    }, BAKE_WORKER_HANG_MS);
+  }
+
   // -----------------------------------------------------------------------
   // Underlay hygiene — world-space geometry under graphContent (pan is free
   // via RTC transform). Rebuild only on graph / zoom-fade-stroke / overscan
@@ -539,75 +478,21 @@ export function createPixiRenderer(
   /** True when last draw left underlay empty (no strokes) — skip clear(). */
   let lastUnderlayEmpty = true;
 
-  // -----------------------------------------------------------------------
-  // Perf instrumentation (Phase 1)
-  // -----------------------------------------------------------------------
-  let lastBakeMs = 0;
-  let bakeCount = 0;
-  let bakeSamples: number[] = [];
-  /** Last drawFrame path — for getPerfStats().mode */
-  let lastMode: "transform" | "bake" = "bake";
-
-  function recordBakeTiming(ms: number): void {
-    lastBakeMs = ms;
-    bakeCount++;
-    bakeSamples.push(ms);
-    if (bakeSamples.length > PERF_SAMPLE_MAX) {
-      bakeSamples.shift();
-    }
-    if (ms > 8) {
-      console.debug(`[graph] bake took ${ms.toFixed(1)}ms (#${bakeCount})`);
-    }
-  }
-
-  /** P95 from the sorted sample window. */
-  function p95BakeMs(): number {
-    const n = bakeSamples.length;
-    if (n === 0) return 0;
-    const sorted = [...bakeSamples].sort((a, b) => a - b);
-    const idx = Math.ceil(n * 0.95) - 1;
-    return sorted[Math.max(0, Math.min(idx, n - 1))];
-  }
-
-  /** Force full edge re-sample on next bake (positions-only updates, etc.). */
+  /** Force full edge re-sample on next bake. */
   function markAllEdgesDirty(): void {
     dirtyEdgeIds = "all";
-    // If a bake is in flight it will clear dirty on post; keep "all" coalesced
+    // If a bake is in flight it will clear dirty on post; remember full redirty
     // so flush after apply re-requests a full candidate bake.
     if (inFlightSeq !== 0) {
-      coalescedDirty = "all";
+      dirtyWhileInFlight = true;
     }
   }
 
-  function addDirtyEdgeIds(edgeIds: Iterable<string>): void {
-    if (dirtyEdgeIds === "all" || coalescedDirty === "all") return;
-    if (inFlightSeq !== 0) {
-      // Bake already posted with a snapshot of dirty — accumulate for after apply.
-      if (coalescedDirty === null) coalescedDirty = new Set();
-      for (const id of edgeIds) coalescedDirty.add(id);
-      return;
-    }
-    if (dirtyEdgeIds === null) {
-      dirtyEdgeIds = new Set();
-    }
-    for (const id of edgeIds) {
-      dirtyEdgeIds.add(id);
-    }
-  }
-
-  /** After apply: promote coalesced mid-flight dirty onto dirtyEdgeIds. */
-  function flushCoalescedDirty(): void {
-    if (coalescedDirty === null) return;
-    if (coalescedDirty === "all") {
-      dirtyEdgeIds = "all";
-    } else if (coalescedDirty.size > 0 && dirtyEdgeIds !== "all") {
-      if (dirtyEdgeIds === null) {
-        dirtyEdgeIds = coalescedDirty;
-      } else {
-        for (const id of coalescedDirty) dirtyEdgeIds.add(id);
-      }
-    }
-    coalescedDirty = null;
+  /** After apply: promote mid-flight full dirty onto dirtyEdgeIds. */
+  function flushDirtyWhileInFlight(): void {
+    if (!dirtyWhileInFlight) return;
+    dirtyEdgeIds = "all";
+    dirtyWhileInFlight = false;
   }
 
   /** Rebuild rimSlotCache from current graphData node rimOccupations. */
@@ -631,87 +516,15 @@ export function createPixiRenderer(
   }
 
   /**
-   * Patch rimSlotCache for a subset of nodes after incremental RimLock.
-   */
-  function patchRimSlotCache(nodeIds: ReadonlySet<string>): void {
-    if (!graphData) return;
-    for (const id of nodeIds) {
-      const node = nodesByIdCache.get(id);
-      if (!node) {
-        rimSlotCache.delete(id);
-        continue;
-      }
-      const slotMap = new Map<string, RimSlot>();
-      for (const occ of node.rimOccupations) {
-        slotMap.set(occ.edgeId, {
-          midAngle: occ.midAngle,
-          halfSpan: occ.halfSpan,
-        });
-      }
-      rimSlotCache.set(id, slotMap);
-    }
-  }
-
-  /**
-   * After RimLock: expand partial dirty to all edges on affected hubs so
-   * multi-spoke packing never leaves stale DotStream vs new sockets (A1).
-   * Also expands coalescedDirty (mid-flight) so hub edges are not dropped.
-   */
-  function expandDirtyAfterRimLock(
-    moved: ReadonlySet<string> | null
-  ): void {
-    if (!graphData) return;
-    if (dirtyEdgeIds instanceof Set) {
-      dirtyEdgeIds = expandDirtyEdgesForHubs(
-        graphData,
-        dirtyEdgeIds,
-        moved
-      );
-    }
-    if (coalescedDirty instanceof Set) {
-      coalescedDirty = expandDirtyEdgesForHubs(
-        graphData,
-        coalescedDirty,
-        moved
-      );
-    }
-  }
-
-  /**
-   * Main-thread incidence + RimLock + spatial index when topology dirty.
-   * Prefer incremental RimLock + spatial update when only a few nodes moved.
-   * Always rim-expands partial dirty after lock (hub correctness).
+   * Main-thread incidence + full RimLock + spatial rebuild when topology dirty.
+   * Product path always full (no incremental / positions-only partial).
    */
   function ensureTopologyPrepared(): void {
     if (!graphData || !topologyDirty) return;
     recomputeIncidence(graphData);
-
-    const moved = pendingMovedNodeIds;
-    const useIncrementalRim =
-      moved !== null &&
-      moved.size > 0 &&
-      dirtyEdgeIds !== "all" &&
-      hasBaked;
-
-    if (useIncrementalRim && moved) {
-      // Re-lock movers + neighbors (preferred rays change at both ends).
-      const lockSet = rimLockNodesForMoves(graphData, moved);
-      applyRimLockForNodes(graphData, lockSet, 1);
-      patchRimSlotCache(lockSet);
-    } else {
-      applyRimLock(graphData, 1);
-      rebuildRimSlotCache();
-    }
-
-    // A1: rim-coupled dirty expansion (partial only).
-    expandDirtyAfterRimLock(moved);
-
-    if (moved && moved.size > 0) {
-      spatialIndex.updateNodePositions(graphData, moved, edgePadWorld);
-    } else {
-      spatialIndex.rebuild(graphData, edgePadWorld);
-    }
-    pendingMovedNodeIds = null;
+    applyRimLock(graphData, 1);
+    rebuildRimSlotCache();
+    spatialIndex.rebuild(graphData, edgePadWorld);
     topologyDirty = false;
   }
 
@@ -728,15 +541,11 @@ export function createPixiRenderer(
   }
 
   /**
-   * Build packed sample payload for a subset of edges (or all candidates).
-   * Product path: spatial candidates for viewport+overscan; FORCE_BAKE_ALL: full.
-   * O(candidates) when edgeIdSet/filter known — iterates ids via edgesByIdCache
-   * (same pattern as underlay), never scans full graph.edges.
+   * Build packed sample payload for overscan candidates (or all edges if no cull).
+   * Product path: spatial candidates for viewport+overscan; bakeAll only when
+   * cullAabb is null. O(candidates) via edgesByIdCache — never full E scan when culled.
    */
-  function buildSamplePayload(
-    cullAabb: WorldAabb | null,
-    edgeIdFilter: Set<string> | null
-  ): BakeSamplePayload {
+  function buildSamplePayload(cullAabb: WorldAabb | null): BakeSamplePayload {
     const colors = {
       partOfColor: GRAPH_EDGE_PART_OF,
       partOfAlpha: GRAPH_EDGE_PART_OF_ALPHA,
@@ -748,7 +557,7 @@ export function createPixiRenderer(
       return emptyBakePayload(colors, null);
     }
 
-    const bakeAll = FORCE_BAKE_ALL || cullAabb === null;
+    const bakeAll = cullAabb === null;
 
     let edgeIdSet: Set<string> | null = null;
     if (!bakeAll && cullAabb) {
@@ -756,37 +565,17 @@ export function createPixiRenderer(
       edgeIdSet = new Set(spatialIndex.queryEdgeIds(cullAabb));
     }
 
-    // Resolve which edge ids to pack — iterate candidates / filter, not all E.
     const selectedEdges: GraphEdge[] = [];
     const nodeIdSet = new Set<string>();
 
-    if (bakeAll && !edgeIdFilter) {
+    if (bakeAll) {
       for (const e of graphData.edges) {
         selectedEdges.push(e);
         nodeIdSet.add(e.source);
         nodeIdSet.add(e.target);
       }
     } else {
-      // Candidate ids (or filter-only when bake-all partial).
-      let idIter: Iterable<string>;
-      if (edgeIdFilter && edgeIdSet) {
-        // Intersection without scanning full graph.
-        const smaller =
-          edgeIdFilter.size <= edgeIdSet.size ? edgeIdFilter : edgeIdSet;
-        const larger = smaller === edgeIdFilter ? edgeIdSet : edgeIdFilter;
-        const inter: string[] = [];
-        for (const id of smaller) {
-          if (larger.has(id)) inter.push(id);
-        }
-        idIter = inter;
-      } else if (edgeIdFilter) {
-        idIter = edgeIdFilter;
-      } else if (edgeIdSet) {
-        idIter = edgeIdSet;
-      } else {
-        idIter = graphData.edges.map((e) => e.id);
-      }
-
+      const idIter = edgeIdSet ?? graphData.edges.map((e) => e.id);
       for (const id of idIter) {
         const e = edgesByIdCache.get(id);
         if (!e) continue;
@@ -796,7 +585,7 @@ export function createPixiRenderer(
       }
     }
 
-    // Pack nodes (only endpoints + bake-all full set).
+    // Pack nodes (endpoints only under cull; full set when bakeAll).
     const nodeIds: string[] = [];
     if (bakeAll) {
       for (const n of graphData.nodes) {
@@ -842,7 +631,6 @@ export function createPixiRenderer(
       if (!bakeAll && !nodeIdSet.has(nodeId)) continue;
       for (const [edgeId, slot] of slotMap) {
         if (edgeIdSet && !edgeIdSet.has(edgeId)) continue;
-        if (edgeIdFilter && !edgeIdFilter.has(edgeId)) continue;
         rimNodeIds.push(nodeId);
         rimEdgeIds.push(edgeId);
         rimAngleVals.push(slot.midAngle, slot.halfSpan);
@@ -875,13 +663,12 @@ export function createPixiRenderer(
    * Drop resident edge chunks whose owner tile is far from overscan.
    * Keeps edges whose tiles intersect expanded overscan (tile margin).
    * Candidate edges whose owner is outside overscan but still needed are
-   * re-added by full/partial sample paths (not dropped if still candidates).
+   * re-added by full sample path (not dropped if still candidates).
    */
   function pruneFarTiles(
     overscan: WorldAabb,
     keepEdgeIds: ReadonlySet<string> | null
   ): void {
-    if (FORCE_BAKE_ALL) return;
     const ts = RESIDENT_TILE_SIZE;
     const ix0 = tileIndex(overscan.minX, ts) - TILE_DROP_MARGIN;
     const ix1 = tileIndex(overscan.maxX, ts) + TILE_DROP_MARGIN;
@@ -988,7 +775,7 @@ export function createPixiRenderer(
 
   /**
    * Rebuild durable mergedDotBuffer from all residentEdges (compact).
-   * Used after full sample, prune, or when dirty splice cannot preserve layout.
+   * Used after every full bake apply (and when residents are cleared).
    */
   function rebuildMergedBufferFromResidents(): void {
     let totalDots = 0;
@@ -1029,69 +816,6 @@ export function createPixiRenderer(
       cursor += chunk.dotCount;
     }
     mergedDotCount = cursor;
-  }
-
-  /**
-   * Try to splice dirty edges into durable buffer without walking clean edges.
-   * Returns true if splice succeeded; false → caller should full rebuild.
-   */
-  function trySpliceDirtyIntoMerged(dirtyEdgeIdsList: readonly string[]): boolean {
-    if (!mergedDotBuffer || mergedEdgeLayout.size === 0) return false;
-
-    for (const edgeId of dirtyEdgeIdsList) {
-      const chunk = residentEdges.get(edgeId);
-      const layout = mergedEdgeLayout.get(edgeId);
-
-      if (!chunk || chunk.dotCount <= 0) {
-        // Edge removed from residents — need compact rebuild.
-        if (layout) return false;
-        continue;
-      }
-
-      if (!layout) {
-        // New edge not in layout — need rebuild.
-        return false;
-      }
-
-      if (layout.dotCount !== chunk.dotCount) {
-        // Length change — cannot in-place splice.
-        return false;
-      }
-
-      // Same-size: overwrite floats only for this edge.
-      const floatOff = layout.startDot * FLOATS_PER_DOT;
-      const nFloats = chunk.dotCount * FLOATS_PER_DOT;
-      mergedDotBuffer.set(chunk.dots.subarray(0, nFloats), floatOff);
-    }
-
-    // Dropped residents that still have layout → need compact.
-    for (const edgeId of mergedEdgeLayout.keys()) {
-      if (!residentEdges.has(edgeId)) return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Sync durable buffer after resident map update.
-   * Partial path: splice when possible; else full compact rebuild.
-   */
-  function syncMergedBuffer(
-    mode: BakeWorkerMode,
-    touchedEdgeIds: readonly string[]
-  ): void {
-    if (mode === "full" || mergedDotBuffer === null || mergedEdgeLayout.size === 0) {
-      rebuildMergedBufferFromResidents();
-      return;
-    }
-    // After prune, resident set may be smaller — detect via layout keys.
-    if (residentEdges.size !== mergedEdgeLayout.size) {
-      rebuildMergedBufferFromResidents();
-      return;
-    }
-    if (!trySpliceDirtyIntoMerged(touchedEdgeIds)) {
-      rebuildMergedBufferFromResidents();
-    }
   }
 
   /**
@@ -1222,7 +946,7 @@ export function createPixiRenderer(
   }
 
   /**
-   * Redraw node Graphics only when nodesDirty (C3).
+   * Redraw node Graphics only when nodesDirty.
    */
   function uploadNodesIfDirty(cullAabb: WorldAabb | null): void {
     if (!nodeLayer || !graphData) return;
@@ -1232,7 +956,7 @@ export function createPixiRenderer(
     gNode.clear();
 
     let nodeIter: Iterable<GraphNode>;
-    if (cullAabb && !FORCE_BAKE_ALL) {
+    if (cullAabb) {
       ensureSpatialIndexReady();
       const nodeQuery = expandAabb(cullAabb, NODE_BASE_PX);
       const candidateIds = spatialIndex.queryNodeIds(nodeQuery);
@@ -1271,7 +995,7 @@ export function createPixiRenderer(
 
   /**
    * Concatenate resident edge chunks → DotCircleBatch + optional node redraw.
-   * Uses durable merged buffer (B1); nodes only when nodesDirty (C3).
+   * Uses durable merged buffer; nodes only when nodesDirty.
    */
   function uploadResidentToGpu(cullAabb: WorldAabb | null): void {
     if (!edgeLayer || !nodeLayer || !graphData || !edgeDotBatch) return;
@@ -1294,41 +1018,21 @@ export function createPixiRenderer(
     dots: Float32Array,
     _dotCount: number,
     ranges: BakeEdgeDotRange[],
-    mode: BakeWorkerMode,
     cullAabb: WorldAabb | null,
     overscan: WorldAabb
   ): void {
-    let touched: string[] = [];
-    if (mode === "full") {
-      let candidateIds: Set<string> | null = null;
-      if (cullAabb && !FORCE_BAKE_ALL) {
-        ensureSpatialIndexReady();
-        candidateIds = new Set(spatialIndex.queryEdgeIds(cullAabb));
-      }
-      replaceResidentFromFullSample(dots, ranges, candidateIds);
-      if (candidateIds) {
-        pruneFarTiles(overscan, candidateIds);
-      }
-      // Full candidate residency change may reveal new nodes in cull.
-      nodesDirty = true;
-      rebuildMergedBufferFromResidents();
-    } else {
-      touched = mergeEdgeRangesIntoResident(dots, ranges);
-      if (cullAabb && !FORCE_BAKE_ALL) {
-        ensureSpatialIndexReady();
-        const candidateIds = new Set(spatialIndex.queryEdgeIds(cullAabb));
-        const beforeSize = residentEdges.size;
-        pruneFarTiles(overscan, candidateIds);
-        if (residentEdges.size !== beforeSize) {
-          // Prune changed set — force compact.
-          rebuildMergedBufferFromResidents();
-        } else {
-          syncMergedBuffer(mode, touched);
-        }
-      } else {
-        syncMergedBuffer(mode, touched);
-      }
+    let candidateIds: Set<string> | null = null;
+    if (cullAabb) {
+      ensureSpatialIndexReady();
+      candidateIds = new Set(spatialIndex.queryEdgeIds(cullAabb));
     }
+    replaceResidentFromFullSample(dots, ranges, candidateIds);
+    if (candidateIds) {
+      pruneFarTiles(overscan, candidateIds);
+    }
+    // Full candidate residency change may reveal new nodes in cull.
+    nodesDirty = true;
+    rebuildMergedBufferFromResidents();
     uploadResidentToGpu(cullAabb);
   }
 
@@ -1338,8 +1042,21 @@ export function createPixiRenderer(
     if (msg.seq !== bakeSeq) return;
     if (inFlightGraphRef !== graphData) return;
 
-    const mode = msg.mode ?? inFlightMode;
-    const overscan = inFlightOverscan ?? BAKE_ALL_OVERSCAN;
+    clearBakeHangTimer();
+
+    // Finite overscan only — never infinite AABB. Prefer in-flight snapshot;
+    // fall back to current camera overscan if the snapshot was cleared.
+    const overscan =
+      inFlightOverscan ??
+      (camera ? worldViewportAabb(camera, OVERSCAN_MARGIN) : null);
+    if (!overscan) {
+      inFlightSeq = 0;
+      inFlightOverscan = null;
+      inFlightCullAabb = null;
+      inFlightGraphRef = null;
+      flushDirtyWhileInFlight();
+      return;
+    }
     const ranges = msg.edgeRangesPacked
       ? unpackEdgeRanges(msg.edgeRangesPacked)
       : [];
@@ -1347,26 +1064,27 @@ export function createPixiRenderer(
       msg.dots,
       msg.dotCount,
       ranges,
-      mode,
       inFlightCullAabb,
       overscan
     );
-    bakedOverscan = inFlightOverscan;
+    bakedOverscan = overscan;
     hasBaked = true;
     dirtyEdgeIds = null;
     inFlightSeq = 0;
     inFlightOverscan = null;
     inFlightCullAabb = null;
     inFlightGraphRef = null;
-    flushCoalescedDirty();
-    lastMode = "bake";
-    recordBakeTiming(performance.now() - inFlightT0);
+    flushDirtyWhileInFlight();
 
     applyCameraTransform();
+    // Worker results arrive off the host rAF path — paint immediately.
+    if (app?.renderer && app.stage) {
+      app.renderer.render(app.stage);
+    }
   }
 
   /**
-   * Request edge-dot bake. Sync path samples on main; worker path posts and
+   * Request full edge-dot bake. Sync path samples on main; worker path posts and
    * returns immediately so pan/zoom keep prior geometry + camera transform.
    */
   function requestBake(): void {
@@ -1383,48 +1101,10 @@ export function createPixiRenderer(
 
     ensureTopologyPrepared();
 
-    const cullAabb: WorldAabb | null = FORCE_BAKE_ALL
-      ? null
-      : worldViewportAabb(camera, OVERSCAN_MARGIN);
-    const overscan: WorldAabb = FORCE_BAKE_ALL
-      ? BAKE_ALL_OVERSCAN
-      : (cullAabb as WorldAabb);
+    const cullAabb = worldViewportAabb(camera, OVERSCAN_MARGIN);
+    const overscan = cullAabb;
 
-    // Resolve bake mode: Set → partial (if we already have resident mesh);
-    // "all" / first bake → full.
-    let mode: BakeWorkerMode = "full";
-    let edgeIdFilter: Set<string> | null = null;
-
-    if (
-      dirtyEdgeIds instanceof Set &&
-      dirtyEdgeIds.size > 0 &&
-      hasBaked &&
-      residentEdges.size > 0
-    ) {
-      mode = "partial";
-      // Only re-sample dirty edges that are overscan candidates.
-      if (cullAabb && !FORCE_BAKE_ALL) {
-        ensureSpatialIndexReady();
-        const candidates = new Set(spatialIndex.queryEdgeIds(cullAabb));
-        edgeIdFilter = new Set<string>();
-        for (const id of dirtyEdgeIds) {
-          if (candidates.has(id)) edgeIdFilter.add(id);
-        }
-        // If nothing to sample, still prune + clear dirty.
-        if (edgeIdFilter.size === 0) {
-          pruneFarTiles(overscan, candidates);
-          uploadResidentToGpu(cullAabb);
-          bakedOverscan = overscan;
-          dirtyEdgeIds = null;
-          lastMode = "transform";
-          return;
-        }
-      } else {
-        edgeIdFilter = new Set(dirtyEdgeIds);
-      }
-    }
-
-    const payload = buildSamplePayload(cullAabb, edgeIdFilter);
+    const payload = buildSamplePayload(cullAabb);
     const lease = getBakeLease();
 
     if (lease) {
@@ -1434,43 +1114,38 @@ export function createPixiRenderer(
       inFlightOverscan = overscan;
       inFlightCullAabb = cullAabb;
       inFlightGraphRef = graphData;
-      inFlightMode = mode;
-      inFlightT0 = performance.now();
-      // Snapshot dirty into this request; further dirty while in-flight coalesces.
+      // Snapshot dirty into this request; further full dirty while in-flight
+      // is tracked by dirtyWhileInFlight / markAllEdgesDirty.
       dirtyEdgeIds = null;
-      if (mode === "full") {
-        // Full sample covers all candidates — drop partial coalesce backlog.
-        coalescedDirty = null;
-      }
+      dirtyWhileInFlight = false;
 
       const req: BakeWorkerRequest = {
         type: "bake",
         seq,
         clientId: lease.clientId,
-        mode,
+        mode: "full",
         payload,
       };
       lease.postBake(req);
-      lastMode = hasBaked ? "transform" : "bake";
+      // First bake must not hang forever if the worker is a no-op (compile fold).
+      if (!hasBaked) {
+        armBakeHangTimer(seq);
+      }
       return;
     }
 
     // ---- Sync fallback (no Worker) ----
-    const t0 = performance.now();
     const result = sampleGraphEdgeDots(payload);
     applyBakeResult(
       result.dots,
       result.dotCount,
       result.edgeRanges,
-      mode,
       cullAabb,
       overscan
     );
     bakedOverscan = overscan;
     hasBaked = true;
     dirtyEdgeIds = null;
-    lastMode = "bake";
-    recordBakeTiming(performance.now() - t0);
   }
 
   function onWorkerError(err: ErrorEvent): void {
@@ -1478,6 +1153,7 @@ export function createPixiRenderer(
       "[graph] bake worker error, using sync bake forever",
       err.message
     );
+    clearBakeHangTimer();
     if (bakeLease) {
       try {
         bakeLease.release();
@@ -1502,7 +1178,6 @@ export function createPixiRenderer(
     if (!camera || !graphData) return false;
 
     if (dirtyEdgeIds === "all") return true;
-    if (dirtyEdgeIds instanceof Set && dirtyEdgeIds.size > 0) return true;
 
     if (!hasBaked) {
       return inFlightSeq === 0;
@@ -1640,7 +1315,6 @@ export function createPixiRenderer(
     const graphUnchanged = lastUnderlayGraphRef === graphData;
 
     if (
-      !FORCE_BAKE_ALL &&
       graphUnchanged &&
       zoomUnchanged &&
       vpUnchanged &&
@@ -1659,19 +1333,9 @@ export function createPixiRenderer(
         // (including the empty-candidate case: no clear/redraw thrash).
         return;
       }
-    } else if (
-      FORCE_BAKE_ALL &&
-      graphUnchanged &&
-      zoomUnchanged &&
-      vpUnchanged
-    ) {
-      // Full-graph underlay has no pan residency dependency.
-      return;
     }
 
-    const underlayAabb = FORCE_BAKE_ALL
-      ? null
-      : worldViewportAabb(camera, OVERSCAN_MARGIN);
+    const underlayAabb = worldViewportAabb(camera, OVERSCAN_MARGIN);
 
     edgeUnderlay.clear();
     lastUnderlayZoom = z;
@@ -1684,23 +1348,19 @@ export function createPixiRenderer(
     const nodesById = nodesByIdCache;
     const g = edgeUnderlay;
 
+    // Overscan residency: O(candidates) via spatial index + O(1) edge id map.
     let edgeList: GraphEdge[];
-    if (FORCE_BAKE_ALL || !underlayAabb) {
+    ensureSpatialIndexReady();
+    const candidateIds = spatialIndex.queryEdgeIds(underlayAabb);
+    if (candidateIds.length === 0) {
+      edgeList = [];
+    } else if (candidateIds.length >= graphData.edges.length) {
       edgeList = graphData.edges;
     } else {
-      ensureSpatialIndexReady();
-      const candidateIds = spatialIndex.queryEdgeIds(underlayAabb);
-      if (candidateIds.length === 0) {
-        edgeList = [];
-      } else if (candidateIds.length >= graphData.edges.length) {
-        edgeList = graphData.edges;
-      } else {
-        // O(candidates) via O(1) edge id map — never scan full list.
-        edgeList = [];
-        for (const id of candidateIds) {
-          const e = edgesByIdCache.get(id);
-          if (e) edgeList.push(e);
-        }
+      edgeList = [];
+      for (const id of candidateIds) {
+        const e = edgesByIdCache.get(id);
+        if (e) edgeList.push(e);
       }
     }
 
@@ -1811,25 +1471,18 @@ export function createPixiRenderer(
       if (dirtyEdgeIds === null) {
         markAllEdgesDirty();
       }
-      // If partial dirty but overscan escaped, upgrade to full.
-      if (
-        dirtyEdgeIds instanceof Set &&
-        bakedOverscan &&
-        camera
-      ) {
-        const tight = worldViewportAabb(camera, 0);
-        if (!aabbContains(bakedOverscan, tight)) {
-          markAllEdgesDirty();
-          nodesDirty = true;
-        }
-      }
-      if (dirtyEdgeIds === "all") {
-        // Full residency change may reveal new nodes in cull.
-        nodesDirty = true;
-      }
+      // Full residency change may reveal new nodes in cull.
+      nodesDirty = true;
       requestBake();
-    } else if (inFlightSeq === 0) {
-      lastMode = "transform";
+    }
+
+    // Nodes are independent of DotStream bake — paint even while worker is in-flight
+    // so a hung/failed bake never leaves underlay-only (wireframe) UI.
+    if (nodesDirty) {
+      const nodeCull = !camera
+        ? null
+        : worldViewportAabb(camera, OVERSCAN_MARGIN);
+      uploadNodesIfDirty(nodeCull);
     }
 
     applyCameraTransform();
@@ -1888,6 +1541,7 @@ export function createPixiRenderer(
       isDestroyed = true;
       isMounted = false;
       stopPulseLoop();
+      clearBakeHangTimer();
 
       if (bakeLease) {
         try {
@@ -1926,9 +1580,8 @@ export function createPixiRenderer(
       nodesDirty = true;
       spatialIndex.clear();
       topologyDirty = true;
-      pendingMovedNodeIds = null;
       dirtyEdgeIds = "all";
-      coalescedDirty = null;
+      dirtyWhileInFlight = false;
       hasBaked = false;
       bakedOverscan = null;
       bakeSeq = 0;
@@ -1944,66 +1597,29 @@ export function createPixiRenderer(
       lastUnderlayEmpty = true;
     },
 
-    setGraphData(
-      nextGraphData: GraphData,
-      setOptions?: SetGraphDataOptions
-    ): void {
+    setGraphData(nextGraphData: GraphData): void {
       graphData = nextGraphData;
       nodesByIdCache = new Map(nextGraphData.nodes.map((n) => [n.id, n]));
       edgesByIdCache = new Map(nextGraphData.edges.map((e) => [e.id, e]));
       topologyDirty = true;
 
-      const dirtyOpt = setOptions?.dirtyEdges;
-      if (dirtyOpt === undefined || dirtyOpt === "all") {
-        // Invalidate in-flight: bump seq so stale result is dropped.
-        if (inFlightSeq !== 0) {
-          bakeSeq += 1;
-          inFlightSeq = 0;
-          inFlightOverscan = null;
-          inFlightCullAabb = null;
-          inFlightGraphRef = null;
-        }
-        dirtyEdgeIds = "all";
-        coalescedDirty = null;
-        pendingMovedNodeIds = null;
-        residentEdges.clear();
-        mergedDotBuffer = null;
-        mergedDotCount = 0;
-        mergedEdgeLayout.clear();
-        mergedEdgeOrder = [];
-        nodesDirty = true;
-      } else {
-        const set = new Set<string>();
-        for (const id of dirtyOpt) set.add(id);
-        // Nodes moved → redraw node layer (C3). Edge-only partial keeps nodes.
-        if (setOptions?.movedNodeIds) {
-          nodesDirty = true;
-        }
-        // If we have no resident mesh yet, partial is meaningless → full.
-        if (!hasBaked || residentEdges.size === 0) {
-          dirtyEdgeIds = "all";
-          pendingMovedNodeIds = null;
-          nodesDirty = true;
-        } else if (inFlightSeq !== 0) {
-          addDirtyEdgeIds(set);
-          if (setOptions?.movedNodeIds) {
-            const nextMoved = new Set(pendingMovedNodeIds ?? []);
-            for (const id of setOptions.movedNodeIds) nextMoved.add(id);
-            pendingMovedNodeIds = nextMoved;
-          }
-        } else {
-          dirtyEdgeIds = set;
-          if (setOptions?.movedNodeIds) {
-            pendingMovedNodeIds = new Set(setOptions.movedNodeIds);
-          } else {
-            pendingMovedNodeIds = null;
-          }
-        }
+      // Full invalidate: drop in-flight bake, clear residents, full dirty.
+      if (inFlightSeq !== 0) {
+        bakeSeq += 1;
+        inFlightSeq = 0;
+        inFlightOverscan = null;
+        inFlightCullAabb = null;
+        inFlightGraphRef = null;
       }
-    },
-
-    markEdgesDirty(edgeIds: Iterable<string>): void {
-      addDirtyEdgeIds(edgeIds);
+      clearBakeHangTimer();
+      dirtyEdgeIds = "all";
+      dirtyWhileInFlight = false;
+      residentEdges.clear();
+      mergedDotBuffer = null;
+      mergedDotCount = 0;
+      mergedEdgeLayout.clear();
+      mergedEdgeOrder = [];
+      nodesDirty = true;
     },
 
     setCamera(nextCamera: RtcCamera): void {
@@ -2013,23 +1629,6 @@ export function createPixiRenderer(
     render(): void {
       if (!isMounted || isDestroyed) return;
       drawFrame();
-    },
-
-    getPerfStats(): PerfStats {
-      return {
-        lastBakeMs,
-        bakeCount,
-        p95BakeMs: p95BakeMs(),
-        mode: lastMode,
-      };
-    },
-
-    /**
-     * No-op by design. A′ world-bake + GPU vector batches handle perf;
-     * resolution downscale or quality toggle is unnecessary.
-     */
-    setInteractionQuality(_mode: "full" | "fast"): void {
-      // intentionally empty — see file header
     },
 
     setSignalPulsesEnabled(enabled: boolean): void {
@@ -2045,10 +1644,6 @@ export function createPixiRenderer(
       if (isMounted && !isDestroyed) {
         startPulseLoop();
       }
-    },
-
-    getSignalPulsesEnabled(): boolean {
-      return signalPulsesEnabled;
     },
   };
 }
