@@ -2,21 +2,20 @@
  * One-shot d3-force settle layout loop (Slice 1) + optional ambient (Slice 8).
  *
  * Loaded only via `createLayoutLoopAsync({ layoutEngine: "d3-settle" })`.
- * Static product path must NOT import this module (keeps d3-force out of the
- * default chunk).
+ * Product `/graph` always uses this engine with `ambientMotion: false`
+ * (`plans/graph-live-only-pivot.md`). Static verify/lab path must NOT import
+ * this module (keeps d3-force out of the static-only chunk).
  *
  * Placement: settle once on start / setGraphData, then idle (default).
- * Ambient (`ambientMotion: true` / `?motion=1`): after settle, continuous
- * low-alpha rAF ticks — separate from placement; default off.
+ * Ambient (`ambientMotion: true` option only): after settle, continuous
+ * low-alpha rAF ticks — separate from placement; product keeps ambient off
+ * (no URL flag).
  *
  * Emits `renderOnGraphData` with `movedNodeIds` + incident `dirtyEdges` when
  * positions change so Pixi can partial-merge DotStream.
  */
 
-import {
-  type GraphData,
-  createMockGraphData,
-} from "../core/graph-data";
+import { type GraphData } from "../core/graph-data";
 import { incidentEdgeIds } from "../core/graph-diff";
 import {
   buildForceSimulation,

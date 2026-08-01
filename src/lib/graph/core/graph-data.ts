@@ -14,7 +14,7 @@
  * `edges[]` via `recomputeIncidence`. `rimOccupations` is filled by RimLock
  * (angles need radii/bands) — not by incidence recompute.
  *
- * Fixtures (mock / stress) live in `../fixtures/mock-graph` — re-exported below
+ * Fixtures (mock / stress, verify-only) live in `../fixtures/mock-graph` — re-exported below
  * for stable import paths used by layout + verify scripts.
  */
 

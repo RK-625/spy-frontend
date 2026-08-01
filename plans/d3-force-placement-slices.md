@@ -4,6 +4,8 @@
 > **COMPLETED (historical sequencing).** S0–S8 are implemented.  
 > **Live placement product policy** is [`client-placement-cache.md`](./client-placement-cache.md)  
 > (client d3 + `localStorage` fingerprint cache; Falkor topology only).  
+> **Product host (2026-07-31):** [`graph-live-only-pivot.md`](./graph-live-only-pivot.md) — single `/graph`, always live topology + d3-settle, no product URL flags (`?stress` / `?source` / `?layout` / `?motion`), no mock fallback.  
+> Sections below that document mock default or query overrides are **historical** only.  
 > Do **not** treat P-A server persist sections below as current product policy.  
 > FA2 dual-authority history: [`archive/D3-FORCE-LAYOUT-PLAN.md`](./archive/D3-FORCE-LAYOUT-PLAN.md).  
 > Deprecated cleanup: [`safe-deprecated-cleanup.md`](./safe-deprecated-cleanup.md).

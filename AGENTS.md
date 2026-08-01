@@ -14,7 +14,7 @@ Spy is an agent-first knowledge base. The user doesn't organize their own notes.
 
 The **landing page** is shipped. **Primary product surface is chat** at `/home` — conversation, sidebar, prompt shell, streaming, and agent tools. The chat should feel like talking to an alien intelligence that's already weaving your knowledge.
 
-**Knowledge graph canvas** lives at `/graph` (Pixi v8 + RTC camera) — a living knowledge-graph spike and path toward a navigable graph UI. Default mock is ~23 nodes / ~41 edges; opt-in stress: `/graph?stress=1` (`hubs`, `spokes` query params). Client pure-perf under quality bans has hit its product ceiling for static mock / large-loaded-graph tracks; full DB-scale residency is not achieved (see **What's left**).
+**Knowledge graph canvas** lives at `/graph` (Pixi v8 + RTC camera) — live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client maps topology → `GraphData`, places via localStorage fingerprint cache, and always uses one-shot d3 settle on cache miss (`ambientMotion` off). Empty KB / fetch error → blank canvas (no mock product path). Mock/stress fixtures remain under `src/lib/graph/fixtures/` for verify scripts only. Client pure-perf under quality bans has hit its product ceiling for loaded-graph pan/zoom; full DB-scale residency is not achieved (see **What's left**).
 
 **Not in live chat UI:** the in-prompt multiple-choice / morphing “ask user question” widget was removed from production `prompt-input` and parked under `src/deprecated/ask-user-question-widget/` for a future redesign.
 
@@ -80,7 +80,7 @@ These are things a new engineer might not guess. They must be followed:
 
 Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
 
-**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). Client pure-perf ceiling for static mock pan/zoom and large-loaded-graph tracks is **achieved** under quality bans. Continuous layout is **off** by default (static engine; FA2/graphology path removed). Opt-in placement: `/graph?layout=d3` (one-shot d3 settle); optional ambient: `?motion=1`. Active placement architecture follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client placement cache, Falkor holds topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Do not re-litigate ban-safe pure-perf; next graph work is product modes (ambient when wanted, full KB residency). Details under **What's left**.
+**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). **Live-only product path** (see [`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): single URL `/graph` — no product `?stress` / `?source` / `?layout` / `?motion`. Always fetches `/api/graph`; layout engine always `d3-settle` with ambient off; cache hit paints without re-settle, miss settles once and saves. Client pure-perf ceiling for loaded-graph pan/zoom is **achieved** under quality bans. FA2/graphology path removed. Placement architecture: [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client cache, Falkor topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Do not re-litigate ban-safe pure-perf; next graph work is full KB residency / live dirty. Details under **What's left**.
 
 **Prompt input:** production SoT is `src/components/chat/prompt/prompt-input.tsx` (chat-only shell). `ai-elements/prompt-input` is a compat re-export. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
 
@@ -123,7 +123,7 @@ src/
 │   ├── home/
 │   │   └── page.tsx          — Chat UI (conversation, messages, input, suggestions)
 │   ├── graph/
-│   │   └── page.tsx          — Knowledge graph canvas route (`/graph`, stress query params)
+│   │   └── page.tsx          — Knowledge graph canvas route (`/graph`, live-only)
 │   ├── layout.tsx            — Root layout + fonts + metadata + hydration fix
 │   └── globals.css           — Tailwind v4 @theme tokens + design tokens + chat styles
 ├── components/
@@ -164,7 +164,7 @@ src/
 │   │   ├── layout/           — layout-loop (+ d3), rim-lock, spatial-index
 │   │   ├── placement/        — force-recipe, placement-cache, memory-placement, from-memory-graph
 │   │   ├── render/           — pixi-renderer, bake stack, draw primitives, edge pulse
-│   │   ├── fixtures/mock-graph.ts — default mock + stress fixture
+│   │   ├── fixtures/mock-graph.ts — verify-only mock + stress fixtures
 │   │   └── index.ts          — public exports
 │   ├── ask-user-question.ts  — Pending-ask client helpers (no morph UI)
 │   ├── models.ts             — Client model catalog (id / provider list)
@@ -236,15 +236,15 @@ Client pure-perf under quality bans — **ceiling status:**
 - World-space DotStream bake @ z=1; camera only transforms `graphContent` (never `stage.scale` for world camera)
 - Universal residency: viewport + `OVERSCAN_MARGIN=2.0` + GraphSpatialIndex + bake worker (all graph sizes)
 - Wave 2: underlay pan-decouple, packed bake payloads/transferables, O(candidates) payload, resident buffer pooling, RimLock O(E), dynamic-import layout-loop-d3 (d3-force not on static path), strip no-op setInteractionQuality settle timers
-- Large-KB track: rim-coupled dirty expansion, host `diffGraphDirty` + dirtyEdges/movedNodeIds, durable mergedDotBuffer splice, worker latest-only/cancel, incremental RimLock, spatial incidence + int keys, node redraw only when nodes dirty
-- Layout: static product default; FA2/graphology **removed** (S7); d3 one-shot settle + optional ambient (`?motion=1`)
+- Large-KB track: rim-coupled dirty expansion, durable mergedDotBuffer splice, worker latest-only/cancel, incremental RimLock, spatial incidence + int keys, node redraw only when nodes dirty (`diffGraphDirty` remains in lib; product host uses full `setGraphData`)
+- Layout: product always d3 one-shot settle on cache miss; ambient off; FA2/graphology **removed** (S7). Static layout-loop impl kept for verify/labs.
 
 Hard bans remain in force (see Constraints). Do not re-open pure-perf by relaxing quality bans.
 
 ### Left (next product modes — not unfinished mock pan work)
 
-1. **Client placement cache (MVP)** — **Achieved (C0–C5 MVP)**: Falkor topology only; client d3 + `localStorage` pose cache; toolset never settles/persists layout; live `/graph` cache-hit paints / cache-miss one-shot settle. **C3b deferred:** progressive BFS stream (invisible-until-posed growth animation). See [`plans/client-placement-cache.md`](plans/client-placement-cache.md). C6 live dirty / C7 reparent later.
-2. **Opt-in ambient / settle when product wants motion** — `?layout=d3` settle + `?motion=1` ambient (default off). Do not claim continuous motion is live until product enables it.
+1. **Client placement cache (MVP)** — **Achieved (C0–C5 MVP)**: Falkor topology only; client d3 + `localStorage` pose cache; toolset never settles/persists layout; live `/graph` cache-hit paints / cache-miss one-shot settle. **Live-only host** — **Achieved** ([`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): no mock product path, no URL layout flags. **C3b deferred:** progressive BFS stream (invisible-until-posed growth animation). See [`plans/client-placement-cache.md`](plans/client-placement-cache.md). C6 live dirty / C7 reparent later.
+2. **Ambient / continuous motion** — product ambient remains **off**. Re-enable only with an explicit product decision (impl + types still exist; no URL flag).
 3. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
 4. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
 5. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
@@ -255,7 +255,7 @@ Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 ## Getting started
 
 1. Read **`brief.md`** — design constitution
-2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` knowledge graph; stress: `/graph?stress=1`)
+2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` live knowledge graph)
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
 5. Prefer domain imports: `@/components/chat/prompt|conversation|shell/...` (or `@/components/chat` barrel), `@/ai/agent|models|tools|schemas/...`, `@/components/graph/...`, `@/lib/graph/{camera,core,layout,placement,render}/...`, `@/components/dotmatrix/icons`, `@/components/ui/...`. Root/`ai-elements` paths are compat re-exports.

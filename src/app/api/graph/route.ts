@@ -8,10 +8,13 @@ import { listGraphTopology } from "@/lib/falkor";
  * - No embeddings in the payload.
  * - Topology only (no x/y/rank). Client owns placement via localStorage cache
  *   (`plans/client-placement-cache.md`); this route never reads/writes poses.
+ * - Wire shape: `memories[]` + `links[]` (not GraphNode). Client maps via
+ *   `memoryGraphToGraphDataWithMeta`.
  * - Empty DB → `{ ok: true, empty: true, memories: [], links: [] }`.
  *
- * Canvas: default `/graph` attempts this feed (non-empty → live; empty/error →
- * mock). Overrides: `?source=live` (empty stays empty), `?source=mock`.
+ * Product canvas (`/graph`, live-only — `plans/graph-live-only-pivot.md`):
+ * always fetches this route on mount. Empty KB / error → blank canvas (no mock).
+ * No product URL flags for source/mock/stress/layout/motion.
  */
 export const runtime = "nodejs";
 

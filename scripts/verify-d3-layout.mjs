@@ -144,17 +144,44 @@ async function main() {
       !/from\s+["']d3-force["']/.test(canvasSrc),
     "graph-canvas does not statically import d3-force / force-recipe"
   );
+  // Live-only product path (plans/graph-live-only-pivot.md): no URL flags.
   assert(
-    canvasSrc.includes('get("layout") === "d3"'),
-    "graph-canvas reads layout=d3 opt-in"
+    canvasSrc.includes('layoutEngine: "d3-settle"') &&
+      canvasSrc.includes("ambientMotion: false"),
+    "graph-canvas always d3-settle with ambientMotion false"
   );
   assert(
-    canvasSrc.includes('get("motion") === "1"'),
-    "graph-canvas reads motion=1 ambient opt-in (S8)"
+    canvasSrc.includes('fetch("/api/graph")'),
+    "graph-canvas always fetches live /api/graph"
   );
   assert(
-    canvasSrc.includes("ambientMotion: wantMotion"),
-    "graph-canvas passes ambientMotion (default off unless motion=1)"
+    canvasSrc.includes("memoryGraphToGraphDataWithMeta"),
+    "graph-canvas maps live topology via memoryGraphToGraphDataWithMeta"
+  );
+  assert(
+    canvasSrc.includes("settle: false") || canvasSrc.includes("settle:false"),
+    "graph-canvas cache-hit path uses setGraphData settle: false"
+  );
+  assert(
+    !canvasSrc.includes("createMockGraphData") &&
+      !canvasSrc.includes("createLargeStressGraphData") &&
+      !canvasSrc.includes("initialGraphFromSearch"),
+    "graph-canvas has no mock/stress product path"
+  );
+  assert(
+    !canvasSrc.includes("URLSearchParams") &&
+      !canvasSrc.includes("location.search") &&
+      !canvasSrc.includes('get("layout")') &&
+      !canvasSrc.includes('get("motion")') &&
+      !canvasSrc.includes('get("source")') &&
+      !canvasSrc.includes('get("stress")') &&
+      !canvasSrc.includes('params.has("stress")'),
+    "graph-canvas does not parse product URL query params"
+  );
+  assert(
+    !canvasSrc.includes("diffGraphDirty") &&
+      !canvasSrc.includes("settleIfNeeded"),
+    "graph-canvas dirty host / static settleIfNeeded path unplugged"
   );
 
   // Ambient default off: d3-settle without ambientMotion stops after settle.

@@ -6,15 +6,10 @@ import {
   createLayoutLoopAsync,
   createPixiRenderer,
   createRtcCamera,
-  createLargeStressGraphData,
-  createMockGraphData,
   memoryGraphToGraphDataWithMeta,
   nodeScreenRadius,
-  diffGraphDirty,
   type GraphData,
   type GraphNode,
-  type LayoutEngine,
-  type LayoutRenderOptions,
   type PixiRendererHandle,
   type RtcCamera,
 } from "@/lib/graph";
@@ -28,10 +23,10 @@ type HudState = {
   zoom: number;
 };
 
+/** Lean topology payload from GET /api/graph (no embeddings, no xy/rank). */
 type GraphApiResponse = {
   ok?: boolean;
   empty?: boolean;
-  /** Topology only — placement lives in client localStorage cache. */
   memories?: Array<{
     id: string;
     name: string;
@@ -89,47 +84,19 @@ function formatHudNumber(n: number): string {
 }
 
 /**
- * Resolve initial fixture from query:
- * - `?stress=1` → large stress fixture (wins)
- * - `?source=mock` / default paint seed → mock (default may swap to live after fetch)
- * Explicit live starts empty until fetch (see GraphCanvas effect).
- */
-function initialGraphFromSearch(search: string): GraphData {
-  const params = new URLSearchParams(search);
-  if (params.has("stress")) {
-    const hubs = Number(params.get("hubs") ?? "40");
-    const spokes = Number(params.get("spokes") ?? "12");
-    return createLargeStressGraphData({
-      hubCount: Number.isFinite(hubs) ? hubs : 40,
-      spokesPerHub: Number.isFinite(spokes) ? spokes : 12,
-    });
-  }
-  return createMockGraphData();
-}
-
-/**
  * Full-viewport graph host: RTC camera + layout + Pixi DotStream edges.
  * Header chrome: ambient signal-pulse toggle (product weave metaphor).
  *
- * Data source (Slice 3 + product default live):
- * - Default `/graph` → GET `/api/graph` first; non-empty → live; empty or
- *   fetch/DB error → keep mock (offline / empty DB still works).
- * - `?source=mock` → mock only (no live fetch).
- * - `?stress=1` → stress fixture (wins over live).
- * - `?source=live` → GET `/api/graph`; empty DB → empty canvas; fetch/DB
- *   error → fall back to mock so the page is not blank.
- * - Client **never** writes Falkor placement. Poses live in browser
- *   `localStorage` (`placement-cache.ts` / `plans/client-placement-cache.md`).
- *
- * Layout (client placement cache MVP — C3):
- * - Default → static positions after install (no continuous sim).
- * - Live topology: adapter loads cache by topo fingerprint.
- *   - Cache hit → paint cached poses; skip settle (also for `?layout=d3`).
- *   - Cache miss → seedNodePosition + one-shot settle (saves cache).
- * - `?layout=d3` → miss settles via d3 engine; hit still paints cache (no force recompute).
- * - `?motion=1` → opt-in continuous ambient (S8; separate from settle; default off).
- * - Progressive BFS growth (invisible-until-posed) deferred as C3b.
- * - Engines: static (default) or opt-in d3-settle; no continuous FA2 sim.
+ * Product path (live-only — `plans/graph-live-only-pivot.md`):
+ * - Single URL `/graph` — no `?stress` / `?source` / `?layout` / `?motion`.
+ * - Always GET `/api/graph` on mount (topology: memories[] + links[]).
+ * - Client maps via `memoryGraphToGraphDataWithMeta` (never GraphNode from API).
+ * - Placement: localStorage fingerprint cache.
+ *   - Cache hit → `setGraphData(graph, { settle: false })`.
+ *   - Cache miss → `setGraphData(graph)` (d3 one-shot settle + save).
+ * - Layout engine always `d3-settle` with `ambientMotion: false`.
+ * - Empty KB / fetch error → blank canvas (`console.warn` on error; no mock).
+ * - Mock/stress fixtures stay under `lib/graph/fixtures/` for verify only.
  */
 export function GraphCanvas() {
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
@@ -280,68 +247,15 @@ export function GraphCanvas() {
     });
     resizeObserver.observe(canvasHost);
 
-    /**
-     * Optional stress fixture via `?stress=1` (or hub/spoke counts).
-     * Default `/graph` attempts live KB then falls back to mock.
-     * Overrides: `?source=mock`, `?source=live`, `?stress=1` (wins).
-     * One-shot settle: `?layout=d3` (S1/S4; dynamic import, default stays static).
-     * Ambient motion: `?motion=1` (S8; implies d3 path; default off).
-     */
-    const search =
-      typeof window !== "undefined" ? window.location.search : "";
-    const params = new URLSearchParams(search);
-    const sourceParam = params.get("source");
-    const forceLive = sourceParam === "live";
-    const forceMock = sourceParam === "mock";
-    // Default + explicit live attempt Falkor; mock/stress skip fetch.
-    const wantLive =
-      !params.has("stress") && !forceMock && (forceLive || sourceParam == null);
-    const wantLayoutD3 = params.get("layout") === "d3";
-    const wantMotion = params.get("motion") === "1";
-    // motion=1 loads d3 settle path (ambient ticks after settle); layout=d3 alone is one-shot.
-    const layoutEngine: LayoutEngine =
-      wantLayoutD3 || wantMotion ? "d3-settle" : "static";
-    // Explicit live starts empty (no mock flash). Default seeds mock until
-    // fetch proves a non-empty KB (empty/error keep mock).
-    const initialGraph = forceLive
-      ? { nodes: [], edges: [] }
-      : initialGraphFromSearch(search);
+    // Product starts empty until live topology arrives (no mock/stress seed).
+    const initialGraph: GraphData = { nodes: [], edges: [] };
     currentGraph = initialGraph;
 
-    let prevGraphForDirty: GraphData | null = null;
-
-    const renderOnGraphData = (
-      graphData: GraphData,
-      renderOpts?: LayoutRenderOptions
-    ) => {
+    /** Always full setGraphData (partial dirty host unplugged on product path). */
+    const renderOnGraphData = (graphData: GraphData) => {
       if (isCanvasDisposed) return;
-
       currentGraph = graphData;
-
-      // Prefer explicit dirty from layout/sim; else diff against previous snapshot.
-      if (renderOpts?.dirtyEdges !== undefined) {
-        renderer.setGraphData(graphData, {
-          dirtyEdges: renderOpts.dirtyEdges,
-          movedNodeIds: renderOpts.movedNodeIds,
-        });
-      } else {
-        const diff = diffGraphDirty(prevGraphForDirty, graphData);
-        if (diff.kind === "all") {
-          renderer.setGraphData(graphData);
-        } else if (diff.kind === "position") {
-          renderer.setGraphData(graphData, {
-            dirtyEdges: diff.dirtyEdges,
-            movedNodeIds: diff.movedNodeIds,
-          });
-        } else {
-          // Identical positions — skip setGraphData (no topology/dirty work).
-          prevGraphForDirty = graphData;
-          queueRender();
-          queueHudUpdate();
-          return;
-        }
-      }
-      prevGraphForDirty = graphData;
+      renderer.setGraphData(graphData);
       queueRender();
       queueHudUpdate();
     };
@@ -352,8 +266,8 @@ export function GraphCanvas() {
     void (async () => {
       layoutLoop = await createLayoutLoopAsync({
         graphData: initialGraph,
-        layoutEngine,
-        ambientMotion: wantMotion,
+        layoutEngine: "d3-settle",
+        ambientMotion: false,
         renderOnGraphData,
       });
       if (isCanvasDisposed) {
@@ -370,12 +284,8 @@ export function GraphCanvas() {
       layoutLoop.start();
       queueHudUpdate();
 
-      // Live topology (read-only). Default attempts live; empty/error → mock.
-      // Explicit ?source=live + empty DB → empty canvas.
-      // Placement: client localStorage cache (fingerprint hit → paint; miss → settle+save).
-      // Client never writes Falkor x/y/rank.
-      if (!wantLive) return;
-
+      // Always live topology. Client never writes Falkor placement.
+      // Poses: localStorage fingerprint cache (hit → paint; miss → settle+save).
       try {
         const res = await fetch("/api/graph");
         const data = (await res.json()) as GraphApiResponse;
@@ -383,7 +293,7 @@ export function GraphCanvas() {
 
         if (data.ok && Array.isArray(data.memories)) {
           if (data.memories.length === 0) {
-            // Explicit live → empty canvas (already empty). Default → keep mock seed.
+            // Empty KB → blank canvas (already empty).
             return;
           }
           const { graph, needsLayout } = memoryGraphToGraphDataWithMeta({
@@ -392,37 +302,23 @@ export function GraphCanvas() {
           });
 
           if (!needsLayout) {
-            // Full cache hit — paint without re-settle (including layout=d3).
+            // Cache hit — paint without re-settle.
             layoutLoop.setGraphData(graph, { settle: false });
             return;
           }
 
-          // Cache miss MVP: seed poses already on GraphData; one-shot settle
-          // writes localStorage via settleGraphData. No Falkor placement writes.
-          // Progressive BFS reveal is C3b (deferred).
-          if (layoutEngine === "d3-settle") {
-            // Engine settle on install (also saves placement cache).
-            layoutLoop.setGraphData(graph);
-            return;
-          }
-
-          const { settleIfNeeded } = await import("@/lib/graph");
-          if (isCanvasDisposed || !layoutLoop) return;
-          layoutLoop.setGraphData(settleIfNeeded(graph));
+          // Cache miss: engine settles once and saves placement cache.
+          layoutLoop.setGraphData(graph);
           return;
         }
 
-        // Non-ok payload — fall back to mock so the page is not blank.
-        // Default already showing mock; explicit live may still be empty.
         console.warn(
-          "[graph] live feed unavailable, using mock:",
+          "[graph] live feed unavailable:",
           data.error ?? res.status,
         );
-        layoutLoop.setGraphData(createMockGraphData());
       } catch (err) {
         if (isCanvasDisposed || !layoutLoop) return;
-        console.warn("[graph] live feed fetch failed, using mock:", err);
-        layoutLoop.setGraphData(createMockGraphData());
+        console.warn("[graph] live feed fetch failed:", err);
       }
     })();
 

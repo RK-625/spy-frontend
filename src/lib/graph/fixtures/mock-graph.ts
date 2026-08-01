@@ -1,8 +1,8 @@
 /**
- * Local mock / stress fixtures for the graph spike — not live Falkor I/O.
- *
- * Default `/graph` uses `createMockGraphData()`. Opt-in stress via host query
- * or explicit import of `createLargeStressGraphData`.
+ * Local mock / stress fixtures for verify scripts and layout labs — not live
+ * Falkor I/O. Product `/graph` is live-only (GET `/api/graph`); these fixtures
+ * are not mounted by `graph-canvas`. Import `createMockGraphData` /
+ * `createLargeStressGraphData` from tests or scripts only.
  */
 
 import {

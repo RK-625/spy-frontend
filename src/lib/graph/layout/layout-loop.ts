@@ -1,11 +1,13 @@
 /**
- * Layout loop dispatcher — static store + opt-in one-shot d3 settle.
+ * Layout loop dispatcher — static store + one-shot d3 settle.
  *
- * Product default: static GraphData passthrough (no force).
- * Opt-in: `createLayoutLoopAsync({ layoutEngine: "d3-settle" })` dynamic-imports
- * `layout-loop-d3.ts` (keeps d3-force out of the default chunk).
- * Optional ambient: `ambientMotion: true` (or `/graph?motion=1`) — continuous
- * low-alpha ticks after settle; default off (Slice 8).
+ * Product host (`/graph`, live-only — `plans/graph-live-only-pivot.md`) always
+ * uses `createLayoutLoopAsync({ layoutEngine: "d3-settle", ambientMotion: false })`.
+ * That path dynamic-imports `layout-loop-d3.ts` (keeps d3-force out of the
+ * static-only chunk used by verify/labs).
+ *
+ * Optional ambient: `ambientMotion: true` — continuous low-alpha ticks after
+ * settle; product keeps this **off** (option only; no product URL flag).
  *
  * FA2 / graphology path removed (Slice 7). Engines are only `"static"` |
  * `"d3-settle"` — no continuous-sim soft-switch.
@@ -34,8 +36,9 @@ export type LayoutRenderOptions = {
 
 /**
  * Layout engine selection for createLayoutLoopAsync.
- * - `"static"` — passthrough store (default product engine)
+ * - `"static"` — passthrough store (verify/labs only; not product host)
  * - `"d3-settle"` — one-shot d3 settle on install/start ± optional ambient
+ *   (product host always uses this with ambientMotion false)
  */
 export type LayoutEngine = "static" | "d3-settle";
 

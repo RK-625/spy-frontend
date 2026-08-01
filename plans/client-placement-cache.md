@@ -51,7 +51,7 @@ Leaner server: **delete** product-path settle/persist for placement. Cleaner mod
 | PART_OF shape | **Tree:** one child → at most one parent (LLM + app-level enforce) |
 | Visual size | Still `nodeScreenRadius(rank, …)` using **client-derived** rank |
 | LLM | Never authors x/y/rank |
-| Continuous ambient | Off by default (`?motion=1` only) |
+| Continuous ambient | Off on product path (option-only; see [`graph-live-only-pivot.md`](./graph-live-only-pivot.md)) |
 | Quality bans | Unchanged |
 | Live multi-surface | **v1:** no live patch; reopen/refetch `/graph` uses fingerprint |
 | Progressive first paint | **C3b deferred** — MVP: one-shot settle paints all nodes; warm open = full cache paint |
