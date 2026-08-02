@@ -77,28 +77,6 @@ export type DrawEdgeOptions = {
   targetRim?: RimSlot;
 };
 
-export function insetSegment(
-  from: ScreenPoint,
-  to: ScreenPoint,
-  insetFrom: number,
-  insetTo: number
-): { start: ScreenPoint; end: ScreenPoint } | null {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const length = Math.hypot(dx, dy);
-  const padFrom = Math.max(0, insetFrom);
-  const padTo = Math.max(0, insetTo);
-  if (!Number.isFinite(length) || length <= padFrom + padTo) {
-    return null;
-  }
-  const ux = dx / length;
-  const uy = dy / length;
-  return {
-    start: { x: from.x + ux * padFrom, y: from.y + uy * padFrom },
-    end: { x: to.x - ux * padTo, y: to.y - uy * padTo },
-  };
-}
-
 function unitAlong(
   from: ScreenPoint,
   to: ScreenPoint

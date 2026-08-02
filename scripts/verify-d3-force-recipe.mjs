@@ -474,6 +474,35 @@ async function main() {
     "placement-cache: no dead deriveRanks zero-fill fallback loop"
   );
 
+  // Pixi dead-surface fences (hang timer / bakeAll dual path / insetSegment).
+  const rendererSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/render/pixi-renderer.ts"),
+    "utf8"
+  );
+  const drawArrowSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/render/draw-arrow.ts"),
+    "utf8"
+  );
+  assert(
+    !/\barmBakeHangTimer\b/.test(rendererSrc) &&
+      !/\bclearBakeHangTimer\b/.test(rendererSrc) &&
+      !/BAKE_WORKER_HANG_MS/.test(rendererSrc) &&
+      !/\bbakeHangTimer\b/.test(rendererSrc),
+    "pixi-renderer: no bake-worker hang timer"
+  );
+  assert(
+    !/\bbakeAll\b/.test(rendererSrc) &&
+      !/function\s+buildSamplePayload\s*\(\s*cullAabb\s*:\s*WorldAabb\s*\|\s*null/.test(
+        rendererSrc
+      ),
+    "pixi-renderer: no bakeAll / nullable cull dual path in buildSamplePayload"
+  );
+  assert(
+    !/export\s+function\s+insetSegment\b/.test(drawArrowSrc) &&
+      !/\binsetSegment\b/.test(barrelSrc),
+    "draw-arrow + barrel: insetSegment removed (was verify-only)"
+  );
+
   if (failed > 0) {
     console.error(`\n${failed} assertion(s) failed`);
     process.exit(1);

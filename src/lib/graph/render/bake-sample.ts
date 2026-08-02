@@ -55,8 +55,8 @@ export type BakeSamplePayload = BakeColorsPayload & {
   rimEdgeIds: string[];
   /** Packed Float32Array: [midAngle, halfSpan] * rimNodeIds.length */
   rimAngles: Float32Array;
-  /** Null when baking full graph without spatial cull */
-  cullAabb: BakeWorldAabbPayload | null;
+  /** Overscan cull AABB (product always finite viewport+overscan). */
+  cullAabb: BakeWorldAabbPayload;
 };
 
 export type BakeSampleResult = {
@@ -70,7 +70,7 @@ export type BakeSampleResult = {
 
 export function emptyBakePayload(
   colors: BakeColorsPayload,
-  cullAabb: BakeWorldAabbPayload | null
+  cullAabb: BakeWorldAabbPayload
 ): BakeSamplePayload {
   return {
     nodeIds: [],

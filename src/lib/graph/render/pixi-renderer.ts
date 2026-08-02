@@ -4,7 +4,7 @@
  * Product path (only path):
  * - setGraphData(graph) — always full install → full dirty → full bake → full resident replace
  * - Finite overscan residency (OVERSCAN_MARGIN=2.0); no bake-all dual path
- * - Worker bake (hang → sync forever); seq drops stale results
+ * - Worker bake (onerror → sync forever); seq drops stale results
  * - Full RimLock + spatial rebuild on topology; durable merged buffer full rebuild
  * - Nodes paint independent of bake; signal wave colors via rAF
  *
@@ -42,11 +42,11 @@
  * - Latest-only: worker pending queue keeps newest seq per client; cooperative
  *   abort mid-sample after each edge when a newer bake supersedes.
  * - Main: full replace of residents + rebuild durable merged buffer → GPU.
- * - Sequence numbers drop stale worker results. Worker construct fail → sync forever.
+ * - Sequence numbers drop stale worker results. Worker onerror / construct fail → sync forever.
  *
  * D — Universal residency (all graph sizes):
  * - ALWAYS cullAabb = worldViewportAabb(camera, OVERSCAN_MARGIN)
- * - ALWAYS bakedOverscan = that finite AABB (never infinite bake-all)
+ * - ALWAYS bakedOverscan = that finite AABB (never bake-all / null cull)
  * - GraphSpatialIndex: full rebuild on topology
  * - Underlay: O(candidates) via spatial index + O(1) edgesById map
  * - drawFrame rebakes when tight viewport escapes bakedOverscan (hysteresis),
@@ -85,7 +85,6 @@ import {
   EDGE_TYPE_RELATES,
   FLOATS_PER_DOT,
   FLOATS_PER_NODE,
-  emptyBakePayload,
   sampleGraphEdgeDots,
   unpackEdgeRanges,
   type BakeEdgeDotRange,
@@ -420,50 +419,6 @@ export function createPixiRenderer(
     return lease;
   }
 
-  /**
-   * If the worker never replies (e.g. historical Turbopack typeof-window fold),
-   * fall back to main-thread sample so DotStream is not stuck forever.
-   */
-  const BAKE_WORKER_HANG_MS = 2500;
-  let bakeHangTimer: ReturnType<typeof setTimeout> | null = null;
-
-  function clearBakeHangTimer(): void {
-    if (bakeHangTimer !== null) {
-      clearTimeout(bakeHangTimer);
-      bakeHangTimer = null;
-    }
-  }
-
-  function armBakeHangTimer(seq: number): void {
-    clearBakeHangTimer();
-    bakeHangTimer = setTimeout(() => {
-      bakeHangTimer = null;
-      if (isDestroyed || !isMounted) return;
-      if (inFlightSeq !== seq || hasBaked) return;
-      console.warn(
-        "[graph] bake worker hang — falling back to sync sample forever",
-      );
-      if (bakeLease) {
-        try {
-          bakeLease.release();
-        } catch {
-          // ignore
-        }
-      }
-      bakeLease = null;
-      inFlightSeq = 0;
-      inFlightOverscan = null;
-      inFlightCullAabb = null;
-      inFlightGraphRef = null;
-      markAllEdgesDirty();
-      // Next host render / pulse frame will sync-bake via getBakeLease() === null.
-      requestBake();
-      if (app?.renderer && app.stage) {
-        app.renderer.render(app.stage);
-      }
-    }, BAKE_WORKER_HANG_MS);
-  }
-
   // -----------------------------------------------------------------------
   // Underlay hygiene — world-space geometry under graphContent (pan is free
   // via RTC transform). Rebuild only on graph / zoom-fade-stroke / overscan
@@ -541,11 +496,11 @@ export function createPixiRenderer(
   }
 
   /**
-   * Build packed sample payload for overscan candidates (or all edges if no cull).
-   * Product path: spatial candidates for viewport+overscan; bakeAll only when
-   * cullAabb is null. O(candidates) via edgesByIdCache — never full E scan when culled.
+   * Build packed sample payload for overscan spatial candidates.
+   * Caller always passes worldViewportAabb(camera, OVERSCAN_MARGIN).
+   * O(candidates) via edgesByIdCache — never full-E bake-all.
    */
-  function buildSamplePayload(cullAabb: WorldAabb | null): BakeSamplePayload {
+  function buildSamplePayload(cullAabb: WorldAabb): BakeSamplePayload {
     const colors = {
       partOfColor: GRAPH_EDGE_PART_OF,
       partOfAlpha: GRAPH_EDGE_PART_OF_ALPHA,
@@ -553,48 +508,24 @@ export function createPixiRenderer(
       relatesAlpha: GRAPH_EDGE_RELATES_ALPHA,
     };
 
-    if (!graphData) {
-      return emptyBakePayload(colors, null);
-    }
-
-    const bakeAll = cullAabb === null;
-
-    let edgeIdSet: Set<string> | null = null;
-    if (!bakeAll && cullAabb) {
-      ensureSpatialIndexReady();
-      edgeIdSet = new Set(spatialIndex.queryEdgeIds(cullAabb));
-    }
+    // requestBake already requires graphData; topology must be ready.
+    ensureSpatialIndexReady();
+    const edgeIdSet = new Set(spatialIndex.queryEdgeIds(cullAabb));
 
     const selectedEdges: GraphEdge[] = [];
     const nodeIdSet = new Set<string>();
-
-    if (bakeAll) {
-      for (const e of graphData.edges) {
-        selectedEdges.push(e);
-        nodeIdSet.add(e.source);
-        nodeIdSet.add(e.target);
-      }
-    } else {
-      const idIter = edgeIdSet ?? graphData.edges.map((e) => e.id);
-      for (const id of idIter) {
-        const e = edgesByIdCache.get(id);
-        if (!e) continue;
-        selectedEdges.push(e);
-        nodeIdSet.add(e.source);
-        nodeIdSet.add(e.target);
-      }
+    for (const id of edgeIdSet) {
+      const e = edgesByIdCache.get(id);
+      if (!e) continue;
+      selectedEdges.push(e);
+      nodeIdSet.add(e.source);
+      nodeIdSet.add(e.target);
     }
 
-    // Pack nodes (endpoints only under cull; full set when bakeAll).
+    // Pack endpoint nodes only (overscan candidates).
     const nodeIds: string[] = [];
-    if (bakeAll) {
-      for (const n of graphData.nodes) {
-        nodeIds.push(n.id);
-      }
-    } else {
-      for (const id of nodeIdSet) {
-        if (nodesByIdCache.has(id)) nodeIds.push(id);
-      }
+    for (const id of nodeIdSet) {
+      if (nodesByIdCache.has(id)) nodeIds.push(id);
     }
     const nodeIndexById = new Map<string, number>();
     const nodeXYR = new Float32Array(nodeIds.length * FLOATS_PER_NODE);
@@ -628,9 +559,9 @@ export function createPixiRenderer(
     const rimEdgeIds: string[] = [];
     const rimAngleVals: number[] = [];
     for (const [nodeId, slotMap] of rimSlotCache) {
-      if (!bakeAll && !nodeIdSet.has(nodeId)) continue;
+      if (!nodeIdSet.has(nodeId)) continue;
       for (const [edgeId, slot] of slotMap) {
-        if (edgeIdSet && !edgeIdSet.has(edgeId)) continue;
+        if (!edgeIdSet.has(edgeId)) continue;
         rimNodeIds.push(nodeId);
         rimEdgeIds.push(edgeId);
         rimAngleVals.push(slot.midAngle, slot.halfSpan);
@@ -647,14 +578,12 @@ export function createPixiRenderer(
       rimNodeIds,
       rimEdgeIds,
       rimAngles,
-      cullAabb: cullAabb
-        ? {
-            minX: cullAabb.minX,
-            minY: cullAabb.minY,
-            maxX: cullAabb.maxX,
-            maxY: cullAabb.maxY,
-          }
-        : null,
+      cullAabb: {
+        minX: cullAabb.minX,
+        minY: cullAabb.minY,
+        maxX: cullAabb.maxX,
+        maxY: cullAabb.maxY,
+      },
       ...colors,
     };
   }
@@ -754,21 +683,17 @@ export function createPixiRenderer(
 
   /**
    * Full replace of resident set from a full-sample result.
-   * Drops edges not present in ranges (0-dot ranges remove).
+   * Drops edges outside the overscan candidate set; merges sampled ranges.
    */
   function replaceResidentFromFullSample(
     dots: Float32Array,
     ranges: BakeEdgeDotRange[],
-    candidateIds: ReadonlySet<string> | null
+    candidateIds: ReadonlySet<string>
   ): void {
-    if (candidateIds) {
-      for (const id of [...residentEdges.keys()]) {
-        if (!candidateIds.has(id)) {
-          residentEdges.delete(id);
-        }
+    for (const id of [...residentEdges.keys()]) {
+      if (!candidateIds.has(id)) {
+        residentEdges.delete(id);
       }
-    } else {
-      residentEdges.clear();
     }
     mergeEdgeRangesIntoResident(dots, ranges);
   }
@@ -946,37 +871,28 @@ export function createPixiRenderer(
   }
 
   /**
-   * Redraw node Graphics only when nodesDirty.
+   * Redraw node Graphics only when nodesDirty (overscan candidates).
    */
-  function uploadNodesIfDirty(cullAabb: WorldAabb | null): void {
+  function uploadNodesIfDirty(cullAabb: WorldAabb): void {
     if (!nodeLayer || !graphData) return;
     if (!nodesDirty) return;
 
     const gNode = nodeLayer;
     gNode.clear();
 
-    let nodeIter: Iterable<GraphNode>;
-    if (cullAabb) {
-      ensureSpatialIndexReady();
-      const nodeQuery = expandAabb(cullAabb, NODE_BASE_PX);
-      const candidateIds = spatialIndex.queryNodeIds(nodeQuery);
-      const list: GraphNode[] = [];
-      for (const id of candidateIds) {
-        const n = nodesByIdCache.get(id);
-        if (n) list.push(n);
-      }
-      nodeIter = list;
-    } else {
-      nodeIter = graphData.nodes;
+    ensureSpatialIndexReady();
+    const nodeQuery = expandAabb(cullAabb, NODE_BASE_PX);
+    const candidateIds = spatialIndex.queryNodeIds(nodeQuery);
+    const nodeIter: GraphNode[] = [];
+    for (const id of candidateIds) {
+      const n = nodesByIdCache.get(id);
+      if (n) nodeIter.push(n);
     }
 
     for (const node of nodeIter) {
       const radius = nodeScreenRadius(node.rank, 1);
       if (!Number.isFinite(radius) || radius < NODE_DRAW_MIN_PX) continue;
-      if (
-        cullAabb &&
-        circleOutsideAabb(node.x, node.y, radius, cullAabb)
-      ) {
+      if (circleOutsideAabb(node.x, node.y, radius, cullAabb)) {
         continue;
       }
 
@@ -997,7 +913,7 @@ export function createPixiRenderer(
    * Concatenate resident edge chunks → DotCircleBatch + optional node redraw.
    * Uses durable merged buffer; nodes only when nodesDirty.
    */
-  function uploadResidentToGpu(cullAabb: WorldAabb | null): void {
+  function uploadResidentToGpu(cullAabb: WorldAabb): void {
     if (!edgeLayer || !nodeLayer || !graphData || !edgeDotBatch) return;
 
     uploadEdgesFromMergedBuffer(signalWaveTimeSeconds());
@@ -1016,20 +932,14 @@ export function createPixiRenderer(
 
   function applyBakeResult(
     dots: Float32Array,
-    _dotCount: number,
     ranges: BakeEdgeDotRange[],
-    cullAabb: WorldAabb | null,
+    cullAabb: WorldAabb,
     overscan: WorldAabb
   ): void {
-    let candidateIds: Set<string> | null = null;
-    if (cullAabb) {
-      ensureSpatialIndexReady();
-      candidateIds = new Set(spatialIndex.queryEdgeIds(cullAabb));
-    }
+    ensureSpatialIndexReady();
+    const candidateIds = new Set(spatialIndex.queryEdgeIds(cullAabb));
     replaceResidentFromFullSample(dots, ranges, candidateIds);
-    if (candidateIds) {
-      pruneFarTiles(overscan, candidateIds);
-    }
+    pruneFarTiles(overscan, candidateIds);
     // Full candidate residency change may reveal new nodes in cull.
     nodesDirty = true;
     rebuildMergedBufferFromResidents();
@@ -1042,14 +952,15 @@ export function createPixiRenderer(
     if (msg.seq !== bakeSeq) return;
     if (inFlightGraphRef !== graphData) return;
 
-    clearBakeHangTimer();
-
     // Finite overscan only — never infinite AABB. Prefer in-flight snapshot;
     // fall back to current camera overscan if the snapshot was cleared.
     const overscan =
       inFlightOverscan ??
       (camera ? worldViewportAabb(camera, OVERSCAN_MARGIN) : null);
-    if (!overscan) {
+    const cullAabb =
+      inFlightCullAabb ??
+      (camera ? worldViewportAabb(camera, OVERSCAN_MARGIN) : null);
+    if (!overscan || !cullAabb) {
       inFlightSeq = 0;
       inFlightOverscan = null;
       inFlightCullAabb = null;
@@ -1060,13 +971,7 @@ export function createPixiRenderer(
     const ranges = msg.edgeRangesPacked
       ? unpackEdgeRanges(msg.edgeRangesPacked)
       : [];
-    applyBakeResult(
-      msg.dots,
-      msg.dotCount,
-      ranges,
-      inFlightCullAabb,
-      overscan
-    );
+    applyBakeResult(msg.dots, ranges, cullAabb, overscan);
     bakedOverscan = overscan;
     hasBaked = true;
     dirtyEdgeIds = null;
@@ -1127,22 +1032,12 @@ export function createPixiRenderer(
         payload,
       };
       lease.postBake(req);
-      // First bake must not hang forever if the worker is a no-op (compile fold).
-      if (!hasBaked) {
-        armBakeHangTimer(seq);
-      }
       return;
     }
 
     // ---- Sync fallback (no Worker) ----
     const result = sampleGraphEdgeDots(payload);
-    applyBakeResult(
-      result.dots,
-      result.dotCount,
-      result.edgeRanges,
-      cullAabb,
-      overscan
-    );
+    applyBakeResult(result.dots, result.edgeRanges, cullAabb, overscan);
     bakedOverscan = overscan;
     hasBaked = true;
     dirtyEdgeIds = null;
@@ -1153,7 +1048,6 @@ export function createPixiRenderer(
       "[graph] bake worker error, using sync bake forever",
       err.message
     );
-    clearBakeHangTimer();
     if (bakeLease) {
       try {
         bakeLease.release();
@@ -1477,12 +1371,9 @@ export function createPixiRenderer(
     }
 
     // Nodes are independent of DotStream bake — paint even while worker is in-flight
-    // so a hung/failed bake never leaves underlay-only (wireframe) UI.
+    // so a failed worker never leaves underlay-only (wireframe) UI.
     if (nodesDirty) {
-      const nodeCull = !camera
-        ? null
-        : worldViewportAabb(camera, OVERSCAN_MARGIN);
-      uploadNodesIfDirty(nodeCull);
+      uploadNodesIfDirty(worldViewportAabb(camera, OVERSCAN_MARGIN));
     }
 
     applyCameraTransform();
@@ -1541,7 +1432,6 @@ export function createPixiRenderer(
       isDestroyed = true;
       isMounted = false;
       stopPulseLoop();
-      clearBakeHangTimer();
 
       if (bakeLease) {
         try {
@@ -1611,7 +1501,6 @@ export function createPixiRenderer(
         inFlightCullAabb = null;
         inFlightGraphRef = null;
       }
-      clearBakeHangTimer();
       dirtyEdgeIds = "all";
       dirtyWhileInFlight = false;
       residentEdges.clear();

@@ -161,7 +161,6 @@ export {
 export {
   drawEdge,
   drawEdgeDots,
-  insetSegment,
   type DotEmit,
   type DrawEdgeOptions,
   type RimSlot,
