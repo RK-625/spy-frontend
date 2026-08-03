@@ -1,21 +1,16 @@
 /**
  * Plain serializable graph DTO — nodes/edges arrays for render + I/O.
  *
- * `GraphData` is our domain type (plain objects). Graphology lives only in
- * the layout module for ForceAtlas2 simulation — never treat a Graphology
- * instance as GraphData or vice versa.
- *
  * Hierarchy: PART_OF edges define parent (source=child, target=parent).
- * `GraphNode.rank` is a **stored** field on the node (mock now; DB later).
- * Roots (no PART_OF parent) have rank 0. Child = parent.rank + 1 is a
- * write-time rule on the authoring path — not recomputed on the canvas.
+ * `GraphNode.rank` is client-derived via `deriveRanks` (PART_OF depth);
+ * roots (no PART_OF parent) are rank 0. Placement poses (x/y) are client-only
+ * (`placeTopology` + localStorage cache) — not stored in Falkor.
  *
  * Incidence lists (`childIds` / `parentIds` / `relateIds`) are derived from
  * `edges[]` via `recomputeIncidence`. `rimOccupations` is filled by RimLock
  * (angles need radii/bands) — not by incidence recompute.
  *
- * Fixtures (mock / stress, verify-only) live in `../fixtures/mock-graph` — re-exported below
- * for stable import paths used by layout + verify scripts.
+ * Fixtures (mock / stress, verify-only) live in `../fixtures/mock-graph`.
  */
 
 /** Aligns with Links.type in `src/types/graph-schema.ts`. */
@@ -67,11 +62,28 @@ export type GraphEdge = {
   type: GraphLinkType;
 };
 
-/** Plain nodes/edges for render + I/O (not a Graphology instance). */
+/** Plain nodes/edges for render + I/O. */
 export type GraphData = {
   nodes: GraphNode[];
   edges: GraphEdge[];
 };
+
+/**
+ * Deep-clone GraphData (nodes, edges, incidence arrays, rim occupations).
+ * Shared by pure settle and the paint layout store so neither mutates callers.
+ */
+export function cloneGraphData(graph: GraphData): GraphData {
+  return {
+    nodes: graph.nodes.map((n) => ({
+      ...n,
+      childIds: [...n.childIds],
+      parentIds: [...n.parentIds],
+      relateIds: [...n.relateIds],
+      rimOccupations: n.rimOccupations.map((r) => ({ ...r })),
+    })),
+    edges: graph.edges.map((e) => ({ ...e })),
+  };
+}
 
 /** Empty incidence + rim fields for a new node (edges remain topology SoT). */
 export function emptyNodeIncidence(): Pick<

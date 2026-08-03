@@ -7,14 +7,11 @@ import {
   type Memory,
   type Links,
 } from "@/types/graph-schema";
-import type {
-  GraphTopology,
-  GraphTopologyMemory,
-} from "@/types/graph-topology";
+import type { GraphTopology, MemoryNode } from "@/types/graph-topology";
 import { z } from "zod";
 
 /** Re-export wire SoT from client-safe `@/types/graph-topology` (do not redefine). */
-export type { GraphTopology, GraphTopologyMemory } from "@/types/graph-topology";
+export type { GraphTopology, MemoryNode } from "@/types/graph-topology";
 
 type FalkorNode<T> = {
   id: number; // FalkorDB's internal numeric node id — NOT your app id
@@ -221,29 +218,9 @@ export async function createLink(link: Links) {
   }
 }
 
-function numOrNull(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
-
-function strOr(value: unknown, fallback: string): string {
-  if (typeof value === "string") return value;
-  if (value == null) return fallback;
-  return String(value);
-}
-
-function numOr(value: unknown, fallback: number): number {
-  const n = numOrNull(value);
-  return n == null ? fallback : n;
-}
-
 /**
  * Read-only: all Memory nodes + PART_OF / RELATES_TO links for the graph canvas.
- * Omits embeddings. Does not write layout.
+ * Omits embeddings. Does not write layout. Trusts write-path shape (no row filters).
  */
 export async function listGraphTopology(): Promise<GraphTopology> {
   const graph = await getDb();
@@ -266,46 +243,35 @@ export async function listGraphTopology(): Promise<GraphTopology> {
   try {
     const memResult = (await graph.query(memoryQuery)) as {
       data: Array<{
-        id: unknown;
-        name: unknown;
-        content: unknown;
-        impression: unknown;
-        confidence: unknown;
+        id: string;
+        name: string;
+        content: string;
+        impression: string;
+        confidence: number;
       }>;
     };
 
     const linkResult = (await graph.query(linkQuery)) as {
-      data: Array<{ source: unknown; target: unknown; type: unknown }>;
+      data: Array<{
+        source: string;
+        target: string;
+        type: Links["type"];
+      }>;
     };
 
-    const memories: GraphTopologyMemory[] = (memResult.data ?? [])
-      .map((row) => {
-        const id = strOr(row.id, "").trim();
-        if (!id) return null;
-        const out: GraphTopologyMemory = {
-          id,
-          name: strOr(row.name, id),
-          content: strOr(row.content, ""),
-          impression: strOr(row.impression, ""),
-          confidence: numOr(row.confidence, 0.5),
-        };
-        return out;
-      })
-      .filter((row): row is GraphTopologyMemory => row != null);
+    const memories: MemoryNode[] = (memResult.data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      content: row.content,
+      impression: row.impression,
+      confidence: row.confidence,
+    }));
 
-    const links: Links[] = [];
-    const seen = new Set<string>();
-    for (const row of linkResult.data ?? []) {
-      const source = strOr(row.source, "").trim();
-      const target = strOr(row.target, "").trim();
-      const type = strOr(row.type, "");
-      if (!source || !target) continue;
-      if (type !== "PART_OF" && type !== "RELATES_TO") continue;
-      const key = `${type}:${source}->${target}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      links.push({ source, target, type });
-    }
+    const links: Links[] = (linkResult.data ?? []).map((row) => ({
+      source: row.source,
+      target: row.target,
+      type: row.type,
+    }));
 
     return { memories, links };
   } catch (error) {

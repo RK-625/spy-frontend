@@ -1,74 +1,62 @@
 /**
- * One-shot d3-force settle layout loop (product engine).
+ * Product graph paint store (layout-loop).
  *
- * Loaded only via `createLayoutLoopAsync` (dynamic import from layout-loop.ts).
- * Product `/graph`: start() paints the seed store (usually empty) without
- * settling; live `setGraphData(g, { settle: needsLayout })` does one-shot
- * settle when needed, then status → "stopped". No ambient motion.
+ * Dynamic-imported by `/graph` host so d3-force stays out of the static chunk
+ * of unrelated modules (this file does not import force-recipe).
  *
- * Always emits full GraphData via `renderOnGraphData` (no partial dirty opts —
- * product host paints full setGraphData).
+ * Product path:
+ *   start() paints the empty/initial graph store;
+ *   setGraphData(graph) paints poses from placeTopology (hit/miss + settle
+ *   owned by placement — this loop never settles).
+ *
+ * Always emits full GraphData via `renderOnGraphData`.
+ * One deep clone per setGraphData/start store update; emit shares that snapshot
+ * (product renderer treats GraphData as read-only).
  */
 
-import { type GraphData } from "../core/graph-data";
-import { settleGraphData } from "../placement/force-recipe";
-import type {
-  LayoutLoopHandle,
-  LayoutLoopOptions,
-  LayoutLoopStatus,
-} from "./layout-loop";
+import { cloneGraphData, type GraphData } from "../core/graph-data";
 
-function cloneGraphData(source: GraphData): GraphData {
-  return {
-    nodes: source.nodes.map((n) => ({ ...n })),
-    edges: source.edges.map((e) => ({ ...e })),
-  };
-}
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-export function createD3SettleLayoutLoop(
+export type LayoutLoopOptions = {
+  graphData?: GraphData;
+  renderOnGraphData?: (graphData: GraphData) => void;
+};
+
+/** Minimal paint handle — product host uses start / setGraphData / stop only. */
+export type LayoutLoopHandle = {
+  start: () => void;
+  stop: () => void;
+  setGraphData: (graphData: GraphData) => void;
+};
+
+// ---------------------------------------------------------------------------
+// Product entry
+// ---------------------------------------------------------------------------
+
+export function createGraphPaintLoop(
   options: LayoutLoopOptions = {}
 ): LayoutLoopHandle {
   const { renderOnGraphData } = options;
 
-  let status: LayoutLoopStatus = "idle";
   let latestGraphData: GraphData = options.graphData
     ? cloneGraphData(options.graphData)
     : { nodes: [], edges: [] };
 
   return {
     start(): void {
-      status = "running";
-      // Paint seed only — product settles via setGraphData({ settle: needsLayout }).
-      latestGraphData = cloneGraphData(latestGraphData);
-      renderOnGraphData?.(cloneGraphData(latestGraphData));
-      status = "stopped";
+      renderOnGraphData?.(latestGraphData);
     },
 
     stop(): void {
-      status = "stopped";
+      // no ambient timers / simulation to tear down
     },
 
-    status(): LayoutLoopStatus {
-      return status;
-    },
-
-    getGraphData(): GraphData {
-      return cloneGraphData(latestGraphData);
-    },
-
-    setGraphData(
-      graphData: GraphData,
-      options?: { settle?: boolean }
-    ): void {
-      const doSettle = options?.settle !== false;
-      // settleGraphData clones internally; no-settle clones once into the store.
-      const next = doSettle
-        ? settleGraphData(graphData)
-        : cloneGraphData(graphData);
-      latestGraphData = next;
-      // Defensive emit clone so host/renderer cannot mutate the store.
-      renderOnGraphData?.(cloneGraphData(next));
-      status = "stopped";
+    setGraphData(graphData: GraphData): void {
+      latestGraphData = cloneGraphData(graphData);
+      renderOnGraphData?.(latestGraphData);
     },
   };
 }

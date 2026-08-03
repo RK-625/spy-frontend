@@ -1,8 +1,8 @@
 /**
- * verify-mock-layout.mjs — mock graph shape + product d3-settle layout loop.
+ * verify-mock-layout.mjs — mock graph shape + product paint layout loop.
  *
- * Product surface only: createLayoutLoopAsync settles mock; ranks preserved;
- * status stopped after start. Static engine / step() removed.
+ * Product surface: createGraphPaintLoop paints mock; ranks preserved;
+ * settle via settleGraphData (force-recipe subpath). Static engine / step() gone.
  *
  * Run: npm run verify:mock-layout
  *   → npx tsx scripts/verify-mock-layout.mjs
@@ -35,18 +35,22 @@ async function main() {
     path.join(root, "src/lib/graph/core/graph-data.ts")
   ).href;
   const layoutUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/layout/layout-loop.ts")
+    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts")
+  ).href;
+  const recipeUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/placement/force-recipe.ts")
   ).href;
 
   const graphDataModule = await import(graphDataUrl);
   const layout = await import(layoutUrl);
+  const { settleGraphData } = await import(recipeUrl);
 
   const { createMockGraphData } = graphDataModule;
-  const { createLayoutLoopAsync } = layout;
+  const { createGraphPaintLoop } = layout;
 
   assert(
-    typeof createLayoutLoopAsync === "function",
-    "createLayoutLoopAsync exported (product d3 settle path)"
+    typeof createGraphPaintLoop === "function",
+    "createGraphPaintLoop exported (product paint path)"
   );
   assert(
     typeof layout.createLayoutLoop === "undefined",
@@ -55,6 +59,10 @@ async function main() {
   assert(
     typeof layout.createStaticLayoutLoop === "undefined",
     "createStaticLayoutLoop removed"
+  );
+  assert(
+    typeof layout.createLayoutLoopAsync === "undefined",
+    "createLayoutLoopAsync removed"
   );
 
   const g0 = createMockGraphData();
@@ -84,33 +92,46 @@ async function main() {
 
   const initial = new Map(g0.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
 
-  // Product path: start paints seed; setGraphData settles via d3.
-  const loop = await createLayoutLoopAsync({
+  // Paint path: start paints initial graph; setGraphData paints without settle.
+  let lastPaint = null;
+  const loop = createGraphPaintLoop({
     graphData: g0,
+    renderOnGraphData: (g) => {
+      lastPaint = g;
+    },
   });
   loop.start();
-  assert(loop.status() === "stopped", "status stopped after start");
+  assert(lastPaint != null, "start paints");
+  loop.setGraphData(g0);
+  assert(lastPaint.nodes.length === g0.nodes.length, "node count preserved on paint");
 
-  loop.setGraphData(g0); // default settle: true
-  const after = loop.getGraphData();
-  assert(after.nodes.length === g0.nodes.length, "node count preserved");
-
-  let moved = 0;
-  for (const n of after.nodes) {
-    assert(Number.isFinite(n.x) && Number.isFinite(n.y), `finite after layout ${n.id}`);
+  let paintMoved = 0;
+  for (const n of lastPaint.nodes) {
+    assert(Number.isFinite(n.x) && Number.isFinite(n.y), `finite after paint ${n.id}`);
     const prev = initial.get(n.id);
-    if (prev && (n.x !== prev.x || n.y !== prev.y)) moved += 1;
+    if (prev && (n.x !== prev.x || n.y !== prev.y)) paintMoved += 1;
     const beforeRank = g0.nodes.find((p) => p.id === n.id)?.rank;
     assert(n.rank === beforeRank, `rank preserved for ${n.id}`);
   }
+  assert(paintMoved === 0, `paint path does not settle (moved=${paintMoved})`);
+
+  // Settle path (force-recipe): moves ≥1 node.
+  const after = settleGraphData(g0, { ticks: 300 });
+  let moved = 0;
+  for (const n of after.nodes) {
+    assert(Number.isFinite(n.x) && Number.isFinite(n.y), `finite after settle ${n.id}`);
+    const prev = initial.get(n.id);
+    if (prev && (n.x !== prev.x || n.y !== prev.y)) moved += 1;
+    const beforeRank = g0.nodes.find((p) => p.id === n.id)?.rank;
+    assert(n.rank === beforeRank, `settle preserves rank for ${n.id}`);
+  }
   assert(moved >= 1, `at least one node moved after d3 settle (moved=${moved})`);
 
-  assert(typeof loop.getGraphData === "function", "handle exposes getGraphData");
   assert(typeof loop.setGraphData === "function", "handle exposes setGraphData");
+  assert(typeof loop.getGraphData === "undefined", "handle has no getGraphData");
+  assert(typeof loop.status === "undefined", "handle has no status");
   assert(typeof loop.step === "undefined", "handle has no step()");
-  assert(loop.status() === "stopped", "status stopped after setGraphData settle");
   loop.stop();
-  assert(loop.status() === "stopped", "status stopped after stop");
 
   if (failed > 0) {
     console.error(`\n${failed} check(s) failed`);

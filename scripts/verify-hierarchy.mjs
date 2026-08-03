@@ -69,20 +69,32 @@ async function main() {
     "stored ranks deepen down the PART_OF tree"
   );
 
-  // Product settle path preserves stored ranks (no recompute)
+  // Paint path preserves ranks (no recompute); settle also preserves ranks.
   const layoutUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/layout/layout-loop.ts")
+    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts")
+  ).href;
+  const recipeUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/placement/force-recipe.ts")
   ).href;
   const layout = await import(layoutUrl);
-  const loop = await layout.createLayoutLoopAsync({
+  const { settleGraphData } = await import(recipeUrl);
+  let after = null;
+  const loop = layout.createGraphPaintLoop({
     graphData: mock,
+    renderOnGraphData: (g) => {
+      after = g;
+    },
   });
   loop.start();
-  loop.setGraphData(mock); // product settle path; ranks must not recompute
-  const after = loop.getGraphData();
+  loop.setGraphData(mock);
   for (const n of after.nodes) {
     const expected = ranks.get(n.id);
-    assert(n.rank === expected, `layout preserves rank for ${n.id} (${n.rank} === ${expected})`);
+    assert(n.rank === expected, `paint preserves rank for ${n.id} (${n.rank} === ${expected})`);
+  }
+  const settled = settleGraphData(mock, { ticks: 100 });
+  for (const n of settled.nodes) {
+    const expected = ranks.get(n.id);
+    assert(n.rank === expected, `settle preserves rank for ${n.id} (${n.rank} === ${expected})`);
   }
   loop.stop();
 

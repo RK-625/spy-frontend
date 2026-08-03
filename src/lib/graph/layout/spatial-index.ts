@@ -1,7 +1,7 @@
 /**
- * Spatial broad-phase index for GraphData nodes and edges (Slice 0 & universal residency).
+ * Spatial broad-phase index for GraphData nodes and edges (universal residency).
  *
- * Invariants & optimization (Phase 2):
+ * Invariants & optimization:
  * - Int cell keys `(ix, iy)` packed as `(iy << 16) | (ix & 0xffff)` — no string concat.
  * - `rebuild(graph, edgePad)` populates grid and internal node/edge incidence index.
  * - `updateNodePositions(graph, movedNodeIds, edgePad)` updates moved nodes and their

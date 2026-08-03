@@ -161,8 +161,8 @@ src/
 │   ├── graph/                — Graph pure logic (Pixi pure-perf + client placement)
 │   │   ├── camera/           — rtc-camera (never stage.scale for world camera)
 │   │   ├── core/             — graph-data, graph-diff, graph-scale, graph-style
-│   │   ├── layout/           — layout-loop (+ d3), rim-lock, spatial-index
-│   │   ├── placement/        — force-recipe, placement-cache, from-memory-graph
+│   │   ├── layout/           — layout-loop-d3 (`createGraphPaintLoop`; dynamic import), rim-lock, spatial-index
+│   │   ├── placement/        — place-topology (hit/miss), force-recipe (pure settle), placement-cache
 │   │   ├── render/           — pixi-renderer, bake stack, draw primitives, edge pulse
 │   │   ├── fixtures/mock-graph.ts — verify-only mock + stress fixtures
 │   │   └── index.ts          — public exports
@@ -187,7 +187,7 @@ src/
 
 **Note:** Chat prompt SoT is `chat/prompt/prompt-input.tsx` (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts` without a live morph UI.
 
-**Graph note:** Continuous layout off by default (static engine). FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client d3 compute + `localStorage` pose cache, Falkor holds topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
+**Graph note:** Continuous layout off by default. FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md). **`placeTopology`** owns fingerprint hit/miss (hit → cached `{x,y}`; miss → assemble at `(0,0)` → pure `settleGraphData` → save poses). Host dynamic-imports `createGraphPaintLoop` from `layout-loop-d3` (`setGraphData(graph)` only; no settle option). Falkor holds topology only — no server placement writes. Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
 
 **Agent rules:** project instruction rules live under `.grok/rules/` (e.g. `code-perferences/`, `orchestration/`). Historical folder name `code-perferences` is intentional; do not rename without verifying the rules loader.
 

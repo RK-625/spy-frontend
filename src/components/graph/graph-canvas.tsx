@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
-  createLayoutLoopAsync,
   createPixiRenderer,
   createRtcCamera,
-  memoryGraphToGraphDataWithMeta,
+  placeTopology,
   nodeScreenRadius,
   type GraphData,
   type GraphNode,
+  type LayoutLoopHandle,
   type PixiRendererHandle,
   type RtcCamera,
 } from "@/lib/graph";
@@ -69,18 +69,17 @@ function formatHudNumber(n: number): string {
 }
 
 /**
- * Full-viewport graph host: RTC camera + layout + Pixi DotStream edges.
+ * Full-viewport graph host: RTC camera + paint store + Pixi DotStream edges.
  * Header chrome: ambient signal-pulse toggle (product weave metaphor).
  *
  * Product path (live-only — `plans/graph-live-only-pivot.md`):
  * - Single URL `/graph` — no `?stress` / `?source` / `?layout` / `?motion`.
  * - Always GET `/api/graph` on mount (topology: memories[] + links[]).
- * - Client maps via `memoryGraphToGraphDataWithMeta` (never GraphNode from API).
- * - Placement: localStorage fingerprint cache via memoryGraphToGraphDataWithMeta.
- *   - Always `setGraphData(graph, { settle: needsLayout })`.
- *   - Cache hit (needsLayout false) → paint without re-settle.
- *   - Cache miss (needsLayout true) → one-shot d3 settle + placement cache save.
- * - Layout: `createLayoutLoopAsync` → one-shot d3 settle (no ambient).
+ * - Client maps via `placeTopology` (never GraphNode from API).
+ * - Placement: `placeTopology` owns fingerprint hit/miss + settle + cache save.
+ *   - Hit → assemble cached poses; miss → (0,0) settle + save.
+ *   - Host only `setGraphData(graph)` (paint store; no settle option).
+ * - Layout: dynamic-import `layout-loop-d3` paint handle (no ambient).
  * - Empty KB / fetch error → blank canvas (`console.warn` on error; no mock).
  * - Mock/stress fixtures stay under `lib/graph/fixtures/` for verify only.
  */
@@ -244,11 +243,13 @@ export function GraphCanvas() {
       queueHudUpdate();
     };
 
-    let layoutLoop: Awaited<ReturnType<typeof createLayoutLoopAsync>> | null =
-      null;
+    let layoutLoop: LayoutLoopHandle | null = null;
 
     void (async () => {
-      layoutLoop = await createLayoutLoopAsync({
+      const { createGraphPaintLoop } = await import(
+        "@/lib/graph/layout/layout-loop-d3"
+      );
+      layoutLoop = createGraphPaintLoop({
         graphData: initialGraph,
         renderOnGraphData,
       });
@@ -273,17 +274,17 @@ export function GraphCanvas() {
         const data = (await res.json()) as GraphApiResponse;
         if (isCanvasDisposed || !layoutLoop) return;
 
-        if (data.ok && Array.isArray(data.memories)) {
+        if (data.ok) {
           if (data.memories.length === 0) {
             // Empty KB → blank canvas (already empty).
             return;
           }
-          const { graph, needsLayout } = memoryGraphToGraphDataWithMeta({
+          const graph = placeTopology({
             memories: data.memories,
-            links: Array.isArray(data.links) ? data.links : [],
+            links: data.links,
           });
-          // Cache hit → settle:false (paint poses); miss → settle:true (one-shot + save).
-          layoutLoop.setGraphData(graph, { settle: needsLayout });
+          // placeTopology already settled on miss; paint only.
+          layoutLoop.setGraphData(graph);
           return;
         }
 

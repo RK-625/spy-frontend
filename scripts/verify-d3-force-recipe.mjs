@@ -1,5 +1,5 @@
 /**
- * verify-d3-force-recipe.mjs — Slice 0 + Slice 2 cold-start.
+ * verify-d3-force-recipe.mjs — pure settle + placeTopology cold-start.
  *
  * Run: npm run verify:d3-force-recipe
  *   → npx tsx scripts/verify-d3-force-recipe.mjs
@@ -7,14 +7,14 @@
  * Exit criteria (plans/d3-force-placement-slices.md S0):
  *   - all positions finite; ranks identical to input
  *   - mean PART_OF length < mean RELATES_TO length (soft tolerance)
- *   - product layout-loop.ts does not statically import d3-force
+ *   - product layout-loop-d3 paint store does not import d3-force
  *
  * Exit criteria (S2 cold-start + client-placement-cache):
- *   - topology without cache → needsLayout true (fingerprint miss)
- *   - adapter seeds via seedNodePosition (not origin zeros)
- *   - settleGraphData → finite positions, not all near origin
+ *   - placeTopology cache miss → settle from (0,0) + save
+ *   - settleGraphData pure (no localStorage)
+ *   - placeTopology hit → paint cached poses without re-settle
  *   - ranks unchanged
- *   - settleIfNeeded / applyColdStartJitter removed (product uses settleGraphData)
+ *   - settleIfNeeded / applyColdStartJitter / seedNodePosition removed
  */
 
 import fs from "node:fs";
@@ -68,8 +68,6 @@ function stubMemory(partial) {
     name: partial.name ?? partial.id,
     content: "",
     impression: "",
-    searchEmbedding: [],
-    contentEmbedding: [],
     confidence: 1,
     ...partial,
   };
@@ -82,8 +80,11 @@ async function main() {
   const recipeUrl = pathToFileURL(
     path.join(root, "src/lib/graph/placement/force-recipe.ts")
   ).href;
-  const adapterUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/from-memory-graph.ts")
+  const placeUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/placement/place-topology.ts")
+  ).href;
+  const cacheUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/placement/placement-cache.ts")
   ).href;
 
   const { createMockGraphData } = await import(fixtureUrl);
@@ -93,8 +94,9 @@ async function main() {
     buildForceSimulation,
     ORIGIN_EPSILON,
   } = recipeMod;
-  const adapterMod = await import(adapterUrl);
-  const { memoryGraphToGraphDataWithMeta } = adapterMod;
+  const { placeTopology } = await import(placeUrl);
+  const { loadPlacementCache, computeTopoFingerprint, deriveRanks } =
+    await import(cacheUrl);
 
   assert(
     typeof settleGraphData === "function",
@@ -104,14 +106,15 @@ async function main() {
     typeof buildForceSimulation === "function",
     "buildForceSimulation exported"
   );
+  assert(typeof placeTopology === "function", "placeTopology exported");
   // Fence: removed defensive / unused APIs must not reappear.
   assert(
     typeof recipeMod.settleIfNeeded === "undefined",
-    "settleIfNeeded removed (host uses settleGraphData via layout loop)"
+    "settleIfNeeded removed (host uses placeTopology)"
   );
   assert(
     typeof recipeMod.applyColdStartJitter === "undefined",
-    "applyColdStartJitter removed (adapter seedNodePosition spreads cold nodes)"
+    "applyColdStartJitter removed (miss starts at origin)"
   );
   assert(
     typeof recipeMod.COLD_START_JITTER === "undefined",
@@ -119,11 +122,7 @@ async function main() {
   );
   assert(
     typeof recipeMod.graphNeedsLayout === "undefined",
-    "graphNeedsLayout removed (host owns hit/miss via adapter)"
-  );
-  assert(
-    typeof adapterMod.hasFiniteLayoutXY === "undefined",
-    "hasFiniteLayoutXY removed (unused adapter helper)"
+    "graphNeedsLayout removed (placeTopology owns hit/miss)"
   );
 
   const input = createMockGraphData();
@@ -206,15 +205,41 @@ async function main() {
     `  lengths: PART_OF mean=${meanPo.toFixed(2)} RELATES_TO mean=${meanRt.toFixed(2)}`
   );
 
-  // --- Slice 2: cold-start missing xy ------------------------------------
-  console.log("\n--- Slice 2 cold-start ---");
+  // --- settleGraphData is pure (no localStorage write) --------------------
+  console.log("\n--- settleGraphData purity ---");
+  const purityStore = new Map();
+  const purityLs = {
+    getItem(k) {
+      return purityStore.get(k) ?? null;
+    },
+    setItem(k, v) {
+      purityStore.set(k, String(v));
+    },
+    removeItem(k) {
+      purityStore.delete(k);
+    },
+  };
+  globalThis.localStorage = purityLs;
+  globalThis.window = globalThis.window || { localStorage: purityLs };
+  globalThis.window.localStorage = purityLs;
+  settleGraphData(input, { ticks: 50 });
+  assert(
+    purityStore.size === 0,
+    "settleGraphData does not write localStorage (pure)"
+  );
+
+  // --- placeTopology cold miss from origin -------------------------------
+  console.log("\n--- cold-start placeTopology ---");
+
+  // Clear storage for cold path.
+  purityStore.clear();
 
   const coldMemories = [
-    stubMemory({ id: "root", name: "Root", rank: 0 }),
-    stubMemory({ id: "child-a", name: "Child A", rank: 1 }),
-    stubMemory({ id: "child-b", name: "Child B", rank: 1 }),
-    stubMemory({ id: "leaf", name: "Leaf", rank: 2 }),
-    stubMemory({ id: "side", name: "Side", rank: 0 }),
+    stubMemory({ id: "root", name: "Root" }),
+    stubMemory({ id: "child-a", name: "Child A" }),
+    stubMemory({ id: "child-b", name: "Child B" }),
+    stubMemory({ id: "leaf", name: "Leaf" }),
+    stubMemory({ id: "side", name: "Side" }),
   ];
   const coldLinks = [
     { source: "child-a", target: "root", type: "PART_OF" },
@@ -224,70 +249,44 @@ async function main() {
     { source: "child-a", target: "child-b", type: "RELATES_TO" },
   ];
 
-  const { graph: coldGraph, needsLayout } = memoryGraphToGraphDataWithMeta({
+  const coldGraph = placeTopology({
     memories: coldMemories,
     links: coldLinks,
   });
 
-  assert(needsLayout === true, "memoryGraphToGraphDataWithMeta needsLayout true (cache miss)");
   assert(coldGraph.nodes.length === 5, "cold graph has 5 nodes");
   assert(coldGraph.edges.length === 5, "cold graph has 5 edges");
-  // Client placement cache: adapter uses seedNodePosition(id), not origin zeros.
-  assert(
-    coldGraph.nodes.every(
-      (n) =>
-        Number.isFinite(n.x) &&
-        Number.isFinite(n.y) &&
-        Math.abs(n.x) <= 200 &&
-        Math.abs(n.y) <= 200
-    ),
-    "adapter seeds missing xy via seedNodePosition (finite, in seed range)"
-  );
-  const seedXs = new Set(coldGraph.nodes.map((n) => n.x));
-  assert(
-    seedXs.size > 1,
-    "seedNodePosition yields distinct seeds across cold nodes"
-  );
-  // Seeds intentionally avoid an all-at-origin stack; product settles via settleGraphData.
-  assert(
-    !coldGraph.nodes.every(
-      (n) =>
-        Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON
-    ),
-    "seeded graph is not all-at-origin collapse (seeds spread)"
-  );
 
-  const coldRanks = new Map(coldGraph.nodes.map((n) => [n.id, n.rank]));
-  const coldSettled = settleGraphData(coldGraph, { ticks: 400 });
-
-  for (const n of coldSettled.nodes) {
+  for (const n of coldGraph.nodes) {
     assert(
       Number.isFinite(n.x) && Number.isFinite(n.y),
-      `cold-start finite ${n.id} (x=${n.x}, y=${n.y})`
-    );
-    assert(
-      coldRanks.get(n.id) === n.rank,
-      `cold-start rank unchanged for ${n.id}`
+      `cold placeTopology finite ${n.id} (x=${n.x}, y=${n.y})`
     );
   }
 
-  const allNearOrigin = coldSettled.nodes.every(
+  const allNearOrigin = coldGraph.nodes.every(
     (n) => Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON
   );
   assert(
     !allNearOrigin,
-    "cold-start settle: nodes not all within ORIGIN_EPSILON of origin"
+    "placeTopology miss settle: nodes not all within ORIGIN_EPSILON of origin"
   );
 
-  const spread = maxPairwiseDistance(coldSettled.nodes);
+  const spread = maxPairwiseDistance(coldGraph.nodes);
   assert(
     spread > 1,
     `cold-start max pairwise distance > 1 (got ${spread.toFixed(4)})`
   );
   console.log(`  cold-start spread (max pairwise)=${spread.toFixed(2)}`);
 
-  // --- Client placement cache hit + dirty-link fingerprint ----------------
-  console.log("\n--- placement cache round-trip + dirty links ---");
+  // Cache was saved on miss.
+  const coldRanks = deriveRanks(coldMemories, coldLinks);
+  const coldFp = computeTopoFingerprint(coldMemories, coldLinks, coldRanks);
+  const coldCache = loadPlacementCache(coldFp);
+  assert(coldCache != null, "placeTopology miss saves placement cache");
+
+  // --- Client placement cache hit ----------------------------------------
+  console.log("\n--- placement cache hit round-trip ---");
   const store = new Map();
   const mockLs = {
     getItem(k) {
@@ -302,7 +301,6 @@ async function main() {
   };
   globalThis.localStorage = mockLs;
   globalThis.window = globalThis.window || { localStorage: mockLs };
-  // Ensure window.localStorage is the same mock (force-recipe checks window).
   globalThis.window.localStorage = mockLs;
 
   const cacheMemories = [
@@ -310,31 +308,19 @@ async function main() {
     stubMemory({ id: "c", name: "C" }),
   ];
   const cleanLinks = [{ source: "c", target: "r", type: "PART_OF" }];
-  const dirtyLinks = [
-    ...cleanLinks,
-    // Dangling / unknown — must not change fingerprint vs clean filtered set.
-    { source: "ghost", target: "r", type: "RELATES_TO" },
-    { source: "c", target: "r", type: "PART_OF" }, // duplicate
-  ];
 
-  const firstMap = memoryGraphToGraphDataWithMeta({
+  const firstGraph = placeTopology({
     memories: cacheMemories,
-    links: dirtyLinks,
+    links: cleanLinks,
   });
-  assert(firstMap.needsLayout === true, "cold map with dirty links → needsLayout true");
+  assert(firstGraph.nodes.length === 2, "cold placeTopology yields 2 nodes");
+  const settledById = new Map(firstGraph.nodes.map((n) => [n.id, n]));
 
-  const settledCache = settleGraphData(firstMap.graph, { ticks: 200 });
-  const settledById = new Map(settledCache.nodes.map((n) => [n.id, n]));
-
-  const secondMap = memoryGraphToGraphDataWithMeta({
+  const secondGraph = placeTopology({
     memories: cacheMemories,
-    links: dirtyLinks,
+    links: cleanLinks,
   });
-  assert(
-    secondMap.needsLayout === false,
-    "after settle+save: dirty-link topology reloads as cache hit (needsLayout false)"
-  );
-  for (const n of secondMap.graph.nodes) {
+  for (const n of secondGraph.nodes) {
     const s = settledById.get(n.id);
     assert(
       s != null && n.x === s.x && n.y === s.y && n.rank === s.rank,
@@ -342,37 +328,26 @@ async function main() {
     );
   }
 
-  const cleanMap = memoryGraphToGraphDataWithMeta({
-    memories: cacheMemories,
-    links: cleanLinks,
-  });
+  // Paint store + canvas: no d3-force on product host static path.
   assert(
-    cleanMap.needsLayout === false &&
-      cleanMap.fingerprint === secondMap.fingerprint,
-    "clean vs dirty input links share fingerprint after filter/dedupe"
+    !fs.existsSync(path.join(root, "src/lib/graph/layout/layout-loop.ts")),
+    "layout-loop.ts thin wrapper deleted"
   );
-
-  // Product dispatcher must not statically import d3-force (dynamic via layout-loop-d3).
-  const layoutLoopSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/layout/layout-loop.ts"),
+  const layoutLoopD3Src = fs.readFileSync(
+    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts"),
     "utf8"
   );
   assert(
-    !/from\s+["']d3-force["']/.test(layoutLoopSrc) &&
-      !/from\s+["'][^"']*force-recipe["']/.test(layoutLoopSrc) &&
-      !/require\(["']d3-force["']\)/.test(layoutLoopSrc),
-    "layout-loop.ts does not statically import d3-force / force-recipe"
+    !/from\s+["']d3-force["']/.test(layoutLoopD3Src) &&
+      !/from\s+["'][^"']*force-recipe["']/.test(layoutLoopD3Src),
+    "layout-loop-d3 does not import d3-force / force-recipe"
   );
   assert(
-    layoutLoopSrc.includes("layout-loop-d3"),
-    "layout-loop.ts dynamic-imports layout-loop-d3"
-  );
-  assert(
-    !/\bcreateStaticLayoutLoop\b/.test(layoutLoopSrc) &&
-      !/\bcreateLayoutLoop\b/.test(layoutLoopSrc.replace(/createLayoutLoopAsync/g, "")) &&
-      !/\blayoutEngine\b/.test(layoutLoopSrc) &&
-      !/\bambientMotion\b/.test(layoutLoopSrc),
-    "layout-loop.ts has no static engine / ambient surface"
+    !/\bcreateStaticLayoutLoop\b/.test(layoutLoopD3Src) &&
+      !/\blayoutEngine\b/.test(layoutLoopD3Src) &&
+      !/\bambientMotion\b/.test(layoutLoopD3Src) &&
+      !/settle\s*\?/.test(layoutLoopD3Src),
+    "layout-loop-d3 has no ambient / settle option surface"
   );
 
   const canvasSrc = fs.readFileSync(
@@ -384,6 +359,15 @@ async function main() {
       !/from\s+["']d3-force["']/.test(canvasSrc),
     "graph-canvas.tsx does not statically import d3-force / force-recipe"
   );
+  assert(
+    canvasSrc.includes("placeTopology") &&
+      canvasSrc.includes("layout-loop-d3"),
+    "graph-canvas uses placeTopology + dynamic layout-loop-d3"
+  );
+  assert(
+    !canvasSrc.includes("createLayoutLoopAsync"),
+    "graph-canvas does not use createLayoutLoopAsync"
+  );
 
   // Source fences: dead helpers / dual settle paths must stay deleted.
   console.log("\n--- removed-API source fences ---");
@@ -391,8 +375,8 @@ async function main() {
     path.join(root, "src/lib/graph/placement/force-recipe.ts"),
     "utf8"
   );
-  const adapterSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/placement/from-memory-graph.ts"),
+  const placeSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/placement/place-topology.ts"),
     "utf8"
   );
   const cacheSrc = fs.readFileSync(
@@ -405,9 +389,45 @@ async function main() {
   );
 
   assert(
-    !/export\s+function\s+memoryGraphToGraphData\b/.test(adapterSrc) &&
-      !/\bmemoryGraphToGraphData\b/.test(barrelSrc),
-    "adapter/barrel: thin memoryGraphToGraphData removed (use WithMeta only)"
+    !fs.existsSync(
+      path.join(root, "src/lib/graph/placement/from-memory-graph.ts")
+    ),
+    "from-memory-graph.ts deleted (replaced by place-topology)"
+  );
+  assert(
+    !/\bmemoryGraphToGraphDataWithMeta\b/.test(barrelSrc) &&
+      !/\bneedsLayout\b/.test(barrelSrc) &&
+      !/\bseedNodePosition\b/.test(barrelSrc) &&
+      !/\bcomputeBfsOrder\b/.test(barrelSrc) &&
+      !/\bfilterTopologyLinks\b/.test(barrelSrc) &&
+      !/\bMemoryGraphNodeInput\b/.test(barrelSrc) &&
+      !/\bGraphMapResult\b/.test(barrelSrc) &&
+      !/\bcreateLayoutLoopAsync\b/.test(barrelSrc) &&
+      !/\bsettleGraphData\b/.test(barrelSrc) &&
+      !/\bseedXY\b/.test(forceRecipeSrc),
+    "barrel/force-recipe: deleted symbols not present"
+  );
+  assert(
+    !/\bseedNodePosition\b/.test(cacheSrc) &&
+      !/\bcomputeBfsOrder\b/.test(cacheSrc) &&
+      !/\brank\s*:\s*number/.test(cacheSrc.replace(/deriveRanks[\s\S]*?^}/m, "")),
+    "placement-cache: no seeds/BFS; CachedPlacementNode is xy-only"
+  );
+  // Stronger: type body has no rank field
+  assert(
+    /export type CachedPlacementNode\s*=\s*\{\s*x:\s*number;\s*y:\s*number;\s*\}/.test(
+      cacheSrc.replace(/\s+/g, " ")
+    ),
+    "CachedPlacementNode is { x, y } only"
+  );
+  assert(
+    !/savePlacementCache/.test(forceRecipeSrc),
+    "force-recipe: no savePlacementCache (pure settle)"
+  );
+  assert(
+    !/settle\s*\?/.test(layoutLoopD3Src) &&
+      !/\bgetGraphData\b/.test(layoutLoopD3Src),
+    "layout-loop-d3: no settle option / getGraphData"
   );
   assert(
     !/export\s+function\s+graphNeedsLayout\b/.test(forceRecipeSrc) &&
@@ -444,11 +464,6 @@ async function main() {
     "barrel: settleIfNeeded / jitter / SettleIfNeededOptions not re-exported"
   );
   assert(
-    !/\bhasFiniteLayoutXY\b/.test(adapterSrc) &&
-      !/\bhasFiniteLayoutXY\b/.test(barrelSrc),
-    "adapter + barrel: hasFiniteLayoutXY removed"
-  );
-  assert(
     !/\bgraphNeedsLayout\b/.test(barrelSrc),
     "barrel: graphNeedsLayout not re-exported"
   );
@@ -472,6 +487,12 @@ async function main() {
       cacheSrc.replace(/\s+/g, " ")
     ),
     "placement-cache: no dead deriveRanks zero-fill fallback loop"
+  );
+  // placeTopology miss origin lock
+  assert(
+    /x:\s*cached\?\.x\s*\?\?\s*0/.test(placeSrc) ||
+      /cached\?\.x\s*\?\?\s*0/.test(placeSrc),
+    "placeTopology miss starts at x=0 (no seeds)"
   );
 
   // Pixi dead-surface fences (hang timer / bakeAll dual path / insetSegment).

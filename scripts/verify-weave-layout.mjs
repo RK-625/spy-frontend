@@ -5,9 +5,9 @@
  *   → npx tsx scripts/verify-weave-layout.mjs
  *
  * Always pure (required CI gate — **no** Falkor/Redis):
- *   - adapter cache miss → needsLayout + seedNodePosition spread
- *   - settleGraphData (force-recipe) → finite xy, ranks from PART_OF
- *   - fingerprint + localStorage cache hit after settle
+ *   - placeTopology cache miss → settle from (0,0) + save
+ *   - settleGraphData pure (no localStorage)
+ *   - placeTopology hit → paint cached poses
  *   - toolset has no server settle/persist
  *   - listGraphTopology does not select m.x/m.y/m.rank
  *   - falkor has no product placement read/write exports
@@ -15,8 +15,8 @@
  *   - Phase 1 removals stay gone (memoryNeedsLayout*, EDGE_SYNAPSE_GAP_MIN,
  *     LAYOUT_SIMULATION_ENABLED, simulationEnabled / iterationsPerFrame)
  *
- * Product placement: client localStorage (`placement-cache.ts`). This script
- * never opens Falkor (avoids hang on missing Redis / falkordblite).
+ * Product placement: client localStorage (`placeTopology` + `placement-cache`).
+ * This script never opens Falkor (avoids hang on missing Redis / falkordblite).
  */
 
 import fs from "node:fs";
@@ -43,8 +43,6 @@ function stubMemory(partial) {
     name: partial.name ?? partial.id,
     content: "",
     impression: "",
-    searchEmbedding: [],
-    contentEmbedding: [],
     confidence: 1,
     ...partial,
   };
@@ -65,8 +63,8 @@ function maxPairwiseDistance(nodes) {
 }
 
 async function main() {
-  const adapterUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/from-memory-graph.ts")
+  const placeUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/placement/place-topology.ts")
   ).href;
   const recipeUrl = pathToFileURL(
     path.join(root, "src/lib/graph/placement/force-recipe.ts")
@@ -75,9 +73,9 @@ async function main() {
     path.join(root, "src/lib/graph/placement/placement-cache.ts")
   ).href;
 
-  const { memoryGraphToGraphDataWithMeta } = await import(adapterUrl);
+  const { placeTopology } = await import(placeUrl);
   const { settleGraphData, ORIGIN_EPSILON } = await import(recipeUrl);
-  const { deriveRanks, computeTopoFingerprint, seedNodePosition } =
+  const { deriveRanks, computeTopoFingerprint, loadPlacementCache } =
     await import(placementCacheUrl);
 
   /** Script-local: finite xy and not both near origin (was isPlacedLayout). */
@@ -166,16 +164,22 @@ async function main() {
 
   // Phase 1 removals — source fences (no soft-switch / API-xy helper resurrection).
   console.log("\n--- Phase 1 removal fences ---");
-  const adapterSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/placement/from-memory-graph.ts"),
+  assert(
+    !fs.existsSync(
+      path.join(root, "src/lib/graph/placement/from-memory-graph.ts")
+    ),
+    "from-memory-graph.ts deleted"
+  );
+  const placeSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/placement/place-topology.ts"),
     "utf8"
   );
   const barrelSrc = fs.readFileSync(
     path.join(root, "src/lib/graph/index.ts"),
     "utf8"
   );
-  const layoutLoopSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/layout/layout-loop.ts"),
+  const layoutLoopD3Src = fs.readFileSync(
+    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts"),
     "utf8"
   );
   const graphScaleSrc = fs.readFileSync(
@@ -183,11 +187,15 @@ async function main() {
     "utf8"
   );
   assert(
-    !/export function memoryNeedsLayout/.test(adapterSrc) &&
-      !/export function memoriesNeedLayout/.test(adapterSrc) &&
+    !fs.existsSync(path.join(root, "src/lib/graph/layout/layout-loop.ts")),
+    "layout-loop.ts thin wrapper deleted"
+  );
+  assert(
+    !/\bmemoryNeedsLayout\b/.test(placeSrc) &&
+      !/\bmemoriesNeedLayout\b/.test(placeSrc) &&
       !/\bmemoryNeedsLayout\b/.test(barrelSrc) &&
       !/\bmemoriesNeedLayout\b/.test(barrelSrc),
-    "memoryNeedsLayout / memoriesNeedLayout not re-exported (adapter/barrel)"
+    "memoryNeedsLayout / memoriesNeedLayout not re-exported (place/barrel)"
   );
   assert(
     !/\bEDGE_SYNAPSE_GAP_MIN\b/.test(graphScaleSrc) &&
@@ -195,13 +203,13 @@ async function main() {
     "EDGE_SYNAPSE_GAP_MIN not resurrected (graph-scale/barrel)"
   );
   assert(
-    !/\bLAYOUT_SIMULATION_ENABLED\b/.test(layoutLoopSrc) &&
+    !/\bLAYOUT_SIMULATION_ENABLED\b/.test(layoutLoopD3Src) &&
       !/\bLAYOUT_SIMULATION_ENABLED\b/.test(barrelSrc),
-    "LAYOUT_SIMULATION_ENABLED not resurrected (layout-loop/barrel)"
+    "LAYOUT_SIMULATION_ENABLED not resurrected (layout-loop-d3/barrel)"
   );
   assert(
-    !/\bsimulationEnabled\b/.test(layoutLoopSrc) &&
-      !/\biterationsPerFrame\b/.test(layoutLoopSrc),
+    !/\bsimulationEnabled\b/.test(layoutLoopD3Src) &&
+      !/\biterationsPerFrame\b/.test(layoutLoopD3Src),
     "FA2 simulationEnabled / iterationsPerFrame options not resurrected"
   );
 
@@ -213,11 +221,24 @@ async function main() {
     "src/types/graph-topology.ts exists (client-safe wire SoT)"
   );
   const topoTypesSrc = fs.readFileSync(topoTypesPath, "utf8");
+  const schemaSrc = fs.readFileSync(
+    path.join(root, "src/types/graph-schema.ts"),
+    "utf8"
+  );
   assert(
-    /export type GraphTopologyMemory\b/.test(topoTypesSrc) &&
-      /export type GraphTopology\b/.test(topoTypesSrc) &&
+    /export type MemoryNode\b/.test(schemaSrc) ||
+      /export type MemoryNode\b/.test(topoTypesSrc),
+    "MemoryNode type exported (graph-schema or graph-topology)"
+  );
+  assert(
+    /export type GraphTopology\b/.test(topoTypesSrc) &&
       /export type GraphApiResponse\b/.test(topoTypesSrc),
-    "graph-topology.ts exports GraphTopologyMemory, GraphTopology, GraphApiResponse"
+    "graph-topology.ts exports GraphTopology, GraphApiResponse"
+  );
+  assert(
+    /MemoryNode/.test(topoTypesSrc) &&
+      !/GraphTopologyMemory/.test(topoTypesSrc),
+    "graph-topology uses MemoryNode (GraphTopologyMemory collapsed)"
   );
   // Wire SoT must stay lean: no embeddings, no client placement fields.
   assert(
@@ -248,21 +269,21 @@ async function main() {
   );
   // falkor may re-export; must not redefine topology type bodies inline.
   assert(
-    !/export type GraphTopologyMemory\s*=\s*\{/.test(falkorSrc) &&
+    !/export type MemoryNode\s*=\s*\{/.test(falkorSrc) &&
       !/export type GraphTopology\s*=\s*\{/.test(falkorSrc),
-    "falkor.ts does not redefine GraphTopologyMemory/GraphTopology bodies (re-export SoT only)"
+    "falkor.ts does not redefine MemoryNode/GraphTopology bodies (re-export SoT only)"
   );
   assert(
-    /export type\s*\{\s*GraphTopology\s*,\s*GraphTopologyMemory\s*\}\s*from\s*["']@\/types\/graph-topology["']/.test(
+    /export type\s*\{\s*GraphTopology\s*,\s*MemoryNode\s*\}\s*from\s*["']@\/types\/graph-topology["']/.test(
       falkorSrc
     ) ||
-      /export type\s*\{\s*GraphTopologyMemory\s*,\s*GraphTopology\s*\}\s*from\s*["']@\/types\/graph-topology["']/.test(
+      /export type\s*\{\s*MemoryNode\s*,\s*GraphTopology\s*\}\s*from\s*["']@\/types\/graph-topology["']/.test(
         falkorSrc
       ),
-    "falkor.ts re-exports GraphTopology + GraphTopologyMemory from @/types/graph-topology"
+    "falkor.ts re-exports GraphTopology + MemoryNode from @/types/graph-topology"
   );
 
-  // --- memory-placement removed (product uses deriveRanks + settleGraphData) -
+  // --- memory-placement removed (product uses deriveRanks + placeTopology) -
   console.log("\n--- memory-placement gone / product rank APIs ---");
   assert(
     !fs.existsSync(
@@ -286,116 +307,9 @@ async function main() {
   // Rank depth is product-owned by deriveRanks (PART_OF child = parent + 1).
   assert(typeof deriveRanks === "function", "deriveRanks exported (product rank)");
 
-  // --- Adapter cold miss + force-recipe settle -----------------------------
-  console.log("\n--- cold topology → needsLayout + settleGraphData ---");
+  // --- placeTopology cold miss + settle ------------------------------------
+  console.log("\n--- cold topology → placeTopology settle ---");
 
-  const memories = [
-    stubMemory({ id: "root", name: "Root" }),
-    stubMemory({ id: "sib-a", name: "Sib A" }),
-    stubMemory({ id: "sib-b", name: "Sib B" }),
-    stubMemory({ id: "cousin", name: "Cousin" }),
-    stubMemory({ id: "child", name: "Child" }),
-  ];
-  const links = [
-    { source: "sib-a", target: "root", type: "PART_OF" },
-    { source: "sib-b", target: "root", type: "PART_OF" },
-    { source: "child", target: "root", type: "PART_OF" },
-    { source: "cousin", target: "root", type: "RELATES_TO" },
-  ];
-
-  const {
-    graph,
-    needsLayout,
-    fingerprint,
-  } = memoryGraphToGraphDataWithMeta({ memories, links });
-
-  assert(needsLayout === true, "no placement cache → needsLayout (cache miss)");
-  assert(typeof fingerprint === "string" && fingerprint.length > 0, "fingerprint non-empty");
-  assert(graph.nodes.length === 5, "graph has 5 nodes");
-  assert(graph.edges.length === 4, "graph has 4 edges");
-
-  // Seeds via seedNodePosition (not origin stack).
-  assert(
-    graph.nodes.every(
-      (n) =>
-        Number.isFinite(n.x) &&
-        Number.isFinite(n.y) &&
-        Math.abs(n.x) <= 200 &&
-        Math.abs(n.y) <= 200
-    ),
-    "adapter seeds via seedNodePosition (finite, in seed range)"
-  );
-  const seedXs = new Set(graph.nodes.map((n) => n.x));
-  assert(seedXs.size > 1, "seedNodePosition yields distinct seeds");
-
-  // Client-derived ranks from PART_OF (child = parent + 1).
-  const ranks = deriveRanks(memories, graph.edges);
-  assert(ranks.get("root") === 0, "root rank is 0");
-  assert(ranks.get("child") === 1, "PART_OF child rank = parent+1");
-  assert(ranks.get("sib-a") === 1, "sib-a rank is 1");
-  assert(ranks.get("cousin") === 0, "RELATES_TO cousin rank stays 0");
-
-  for (const n of graph.nodes) {
-    assert(
-      n.rank === ranks.get(n.id),
-      `adapter node ${n.id} rank matches deriveRanks`
-    );
-  }
-
-  // Full-graph pure settle (product cold path uses force-recipe, not server).
-  const settled = settleGraphData(graph, { ticks: 400 });
-  for (const n of settled.nodes) {
-    assert(
-      Number.isFinite(n.x) && Number.isFinite(n.y),
-      `settled finite ${n.id} (${n.x}, ${n.y})`
-    );
-    assert(
-      n.rank === ranks.get(n.id),
-      `settle preserves rank for ${n.id}`
-    );
-  }
-  const allNearOrigin = settled.nodes.every(
-    (n) => Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON
-  );
-  assert(!allNearOrigin, "after settle: not all nodes within origin epsilon");
-  const spread = maxPairwiseDistance(settled.nodes);
-  assert(spread > 1, `settled spread > 1 (got ${spread.toFixed(4)})`);
-  console.log(`  settled spread (max pairwise)=${spread.toFixed(2)}`);
-
-  const childNode = settled.nodes.find((n) => n.id === "child");
-  assert(
-    childNode != null && isPlacedPose({ x: childNode.x, y: childNode.y }),
-    "child has placed pose after full settle"
-  );
-
-  // --- RELATES_TO cold pair ------------------------------------------------
-  console.log("\n--- RELATES_TO cold pair settle ---");
-  const relatesMemories = [
-    stubMemory({ id: "a", name: "A" }),
-    stubMemory({ id: "b", name: "B" }),
-  ];
-  const relatesLinks = [{ source: "b", target: "a", type: "RELATES_TO" }];
-  const { graph: relatesGraph, needsLayout: relatesNeeds } =
-    memoryGraphToGraphDataWithMeta({
-      memories: relatesMemories,
-      links: relatesLinks,
-    });
-  assert(relatesNeeds === true, "topology without cache → needsLayout");
-  const relatesSettled = settleGraphData(relatesGraph, { ticks: 400 });
-  for (const n of relatesSettled.nodes) {
-    assert(
-      Number.isFinite(n.x) && Number.isFinite(n.y),
-      `RELATES_TO finite ${n.id}`
-    );
-  }
-  const bAfter = relatesSettled.nodes.find((n) => n.id === "b");
-  assert(
-    bAfter != null && isPlacedPose({ x: bAfter.x, y: bAfter.y }),
-    "RELATES_TO settle: b has placed pose"
-  );
-
-  // --- Fingerprint + cache hit round-trip ----------------------------------
-  console.log("\n--- placement cache fingerprint round-trip ---");
   const store = new Map();
   const mockLs = {
     getItem(k) {
@@ -412,54 +326,140 @@ async function main() {
   globalThis.window = globalThis.window || { localStorage: mockLs };
   globalThis.window.localStorage = mockLs;
 
+  const memories = [
+    stubMemory({ id: "root", name: "Root" }),
+    stubMemory({ id: "sib-a", name: "Sib A" }),
+    stubMemory({ id: "sib-b", name: "Sib B" }),
+    stubMemory({ id: "cousin", name: "Cousin" }),
+    stubMemory({ id: "child", name: "Child" }),
+  ];
+  const links = [
+    { source: "sib-a", target: "root", type: "PART_OF" },
+    { source: "sib-b", target: "root", type: "PART_OF" },
+    { source: "child", target: "root", type: "PART_OF" },
+    { source: "cousin", target: "root", type: "RELATES_TO" },
+  ];
+
+  const graph = placeTopology({ memories, links });
+
+  assert(graph.nodes.length === 5, "graph has 5 nodes");
+  assert(graph.edges.length === 4, "graph has 4 edges");
+
+  // Miss path settles from origin — result is spread, not origin stack.
+  for (const n of graph.nodes) {
+    assert(
+      Number.isFinite(n.x) && Number.isFinite(n.y),
+      `placeTopology finite ${n.id}`
+    );
+  }
+  const allNearOrigin = graph.nodes.every(
+    (n) => Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON
+  );
+  assert(!allNearOrigin, "after placeTopology miss: not all at origin");
+  const spread = maxPairwiseDistance(graph.nodes);
+  assert(spread > 1, `settled spread > 1 (got ${spread.toFixed(4)})`);
+  console.log(`  settled spread (max pairwise)=${spread.toFixed(2)}`);
+
+  // Client-derived ranks from PART_OF (child = parent + 1).
+  const ranks = deriveRanks(memories, graph.edges);
+  assert(ranks.get("root") === 0, "root rank is 0");
+  assert(ranks.get("child") === 1, "PART_OF child rank = parent+1");
+  assert(ranks.get("sib-a") === 1, "sib-a rank is 1");
+  assert(ranks.get("cousin") === 0, "RELATES_TO cousin rank stays 0");
+
+  for (const n of graph.nodes) {
+    assert(
+      n.rank === ranks.get(n.id),
+      `placeTopology node ${n.id} rank matches deriveRanks`
+    );
+  }
+
+  const childNode = graph.nodes.find((n) => n.id === "child");
+  assert(
+    childNode != null && isPlacedPose({ x: childNode.x, y: childNode.y }),
+    "child has placed pose after placeTopology miss"
+  );
+
+  // Cache saved under fingerprint.
+  const fp = computeTopoFingerprint(memories, links, ranks);
+  assert(
+    loadPlacementCache(fp) != null,
+    "placeTopology miss saves placement cache"
+  );
+
+  // --- settleGraphData purity ----------------------------------------------
+  console.log("\n--- settleGraphData purity ---");
+  const purityStore = new Map();
+  const purityLs = {
+    getItem(k) {
+      return purityStore.get(k) ?? null;
+    },
+    setItem(k, v) {
+      purityStore.set(k, String(v));
+    },
+    removeItem(k) {
+      purityStore.delete(k);
+    },
+  };
+  // Temporarily swap storage so pure settle cannot write the product key.
+  globalThis.localStorage = purityLs;
+  globalThis.window.localStorage = purityLs;
+  settleGraphData(graph, { ticks: 50 });
+  assert(
+    purityStore.size === 0,
+    "settleGraphData does not write localStorage (pure)"
+  );
+  // Restore mock for hit path.
+  globalThis.localStorage = mockLs;
+  globalThis.window.localStorage = mockLs;
+
+  // --- RELATES_TO cold pair ------------------------------------------------
+  console.log("\n--- RELATES_TO cold pair settle ---");
+  // Fresh storage so this topology is a miss.
+  store.clear();
+  const relatesMemories = [
+    stubMemory({ id: "a", name: "A" }),
+    stubMemory({ id: "b", name: "B" }),
+  ];
+  const relatesLinks = [{ source: "b", target: "a", type: "RELATES_TO" }];
+  const relatesGraph = placeTopology({
+    memories: relatesMemories,
+    links: relatesLinks,
+  });
+  for (const n of relatesGraph.nodes) {
+    assert(
+      Number.isFinite(n.x) && Number.isFinite(n.y),
+      `RELATES_TO finite ${n.id}`
+    );
+  }
+  const bAfter = relatesGraph.nodes.find((n) => n.id === "b");
+  assert(
+    bAfter != null && isPlacedPose({ x: bAfter.x, y: bAfter.y }),
+    "RELATES_TO placeTopology: b has placed pose"
+  );
+
+  // --- Fingerprint + cache hit round-trip ----------------------------------
+  console.log("\n--- placement cache fingerprint round-trip ---");
+  store.clear();
+
   const cacheMemories = [
     stubMemory({ id: "r", name: "R" }),
     stubMemory({ id: "c", name: "C" }),
   ];
   const cleanLinks = [{ source: "c", target: "r", type: "PART_OF" }];
-  const dirtyLinks = [
-    ...cleanLinks,
-    { source: "ghost", target: "r", type: "RELATES_TO" },
-    { source: "c", target: "r", type: "PART_OF" },
-  ];
 
-  const firstMap = memoryGraphToGraphDataWithMeta({
+  const firstGraph = placeTopology({
     memories: cacheMemories,
-    links: dirtyLinks,
+    links: cleanLinks,
   });
-  assert(firstMap.needsLayout === true, "cold map → needsLayout true");
-  assert(
-    typeof firstMap.fingerprint === "string" && firstMap.fingerprint.length > 0,
-    "cold map fingerprint present"
-  );
+  assert(firstGraph.nodes.length === 2, "cold placeTopology yields 2 nodes");
+  const settledById = new Map(firstGraph.nodes.map((n) => [n.id, n]));
 
-  // Fingerprint is filter/dedupe stable (same as clean filtered edge set).
-  const fpDirty = computeTopoFingerprint(
-    cacheMemories,
-    firstMap.graph.edges,
-    deriveRanks(cacheMemories, firstMap.graph.edges)
-  );
-  assert(
-    fpDirty === firstMap.fingerprint,
-    "adapter fingerprint matches computeTopoFingerprint on filtered edges"
-  );
-
-  const settledCache = settleGraphData(firstMap.graph, { ticks: 200 });
-  const settledById = new Map(settledCache.nodes.map((n) => [n.id, n]));
-
-  const secondMap = memoryGraphToGraphDataWithMeta({
+  const secondGraph = placeTopology({
     memories: cacheMemories,
-    links: dirtyLinks,
+    links: cleanLinks,
   });
-  assert(
-    secondMap.needsLayout === false,
-    "after settle+save: reloads as cache hit (needsLayout false)"
-  );
-  assert(
-    secondMap.fingerprint === firstMap.fingerprint,
-    "cache hit preserves topology fingerprint"
-  );
-  for (const n of secondMap.graph.nodes) {
+  for (const n of secondGraph.nodes) {
     const s = settledById.get(n.id);
     assert(
       s != null && n.x === s.x && n.y === s.y && n.rank === s.rank,
@@ -467,26 +467,14 @@ async function main() {
     );
   }
 
-  const cleanMap = memoryGraphToGraphDataWithMeta({
-    memories: cacheMemories,
-    links: cleanLinks,
-  });
-  assert(
-    cleanMap.needsLayout === false &&
-      cleanMap.fingerprint === secondMap.fingerprint,
-    "clean vs dirty input links share fingerprint after filter/dedupe"
-  );
-
-  // seedNodePosition is deterministic and pure.
-  const s1 = seedNodePosition("node-z");
-  const s2 = seedNodePosition("node-z");
-  assert(
-    s1.x === s2.x && s1.y === s2.y,
-    "seedNodePosition is deterministic"
-  );
-
   console.log("\n--- client-placement product path (static) ---");
   assert(true, "no Falkor open in verify:weave-layout (pure-only gate)");
+  assert(
+    !/\bseedNodePosition\b/.test(placeSrc) &&
+      !/\bneedsLayout\b/.test(placeSrc) &&
+      !/\bcomputeBfsOrder\b/.test(placeSrc),
+    "place-topology has no seedNodePosition / needsLayout / computeBfsOrder"
+  );
 
   if (failed > 0) {
     console.error(`\n${failed} assertion(s) failed`);

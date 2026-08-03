@@ -1,5 +1,5 @@
 /**
- * verify-placement-cache.mjs — Verification tests for Slice C2: Client rank + fingerprint + localStorage cache.
+ * verify-placement-cache.mjs — Client rank + fingerprint + localStorage cache.
  *
  * Tests:
  * 1. deriveRanks: root=0, child=parent+1, cycle handling, orphan nodes.
@@ -57,8 +57,6 @@ async function main() {
     computeTopoFingerprint,
     loadPlacementCache,
     savePlacementCache,
-    seedNodePosition,
-    computeBfsOrder,
   } = placementCache;
 
   // --------------------------------------------------------------------------
@@ -181,82 +179,7 @@ async function main() {
     "loadPlacementCache returns null on fingerprint mismatch"
   );
 
-  // --------------------------------------------------------------------------
-  // Test 4: seedNodePosition
-  // --------------------------------------------------------------------------
-  console.log("\n--- Test 4: seedNodePosition ---");
-  const pos1a = seedNodePosition("node-1");
-  const pos1b = seedNodePosition("node-1");
-  const pos2 = seedNodePosition("node-2");
-
-  assert(
-    typeof pos1a.x === "number" &&
-      Number.isFinite(pos1a.x) &&
-      pos1a.x >= -200 &&
-      pos1a.x <= 200 &&
-      typeof pos1a.y === "number" &&
-      Number.isFinite(pos1a.y) &&
-      pos1a.y >= -200 &&
-      pos1a.y <= 200,
-    "seedNodePosition returns finite coords within [-200, 200]"
-  );
-
-  assert(
-    pos1a.x === pos1b.x && pos1a.y === pos1b.y,
-    "seedNodePosition is deterministic for identical node ID"
-  );
-
-  assert(
-    pos1a.x !== pos2.x || pos1a.y !== pos2.y,
-    "seedNodePosition yields distinct positions for different node IDs"
-  );
-
-  // --------------------------------------------------------------------------
-  // Test 5: computeBfsOrder
-  // --------------------------------------------------------------------------
-  console.log("\n--- Test 5: computeBfsOrder ---");
-  // Subtest 5a: Max degree root selection & BFS traversal
-  const memoriesBfs1 = [{ id: "A" }, { id: "B" }, { id: "C" }, { id: "D" }];
-  const linksBfs1 = [
-    { source: "A", target: "B", type: "PART_OF" },
-    { source: "A", target: "C", type: "RELATES_TO" },
-    { source: "A", target: "D", type: "PART_OF" },
-    { source: "B", target: "C", type: "RELATES_TO" },
-  ];
-  // Degrees: A=3, B=2, C=2, D=1. Root = A.
-  const bfsOrder1 = computeBfsOrder(memoriesBfs1, linksBfs1);
-  assert(
-    bfsOrder1[0] === "A",
-    `computeBfsOrder picks max-degree root A (got ${bfsOrder1[0]})`
-  );
-  assert(
-    JSON.stringify(bfsOrder1) === JSON.stringify(["A", "B", "C", "D"]),
-    `computeBfsOrder traverses in expected BFS order (got ${JSON.stringify(bfsOrder1)})`
-  );
-
-  // Subtest 5b: Alphabetical tie breaking for root
-  const memoriesBfs2 = [{ id: "Z" }, { id: "A" }];
-  const linksBfs2 = [{ source: "Z", target: "A", type: "PART_OF" }];
-  // Degrees: Z=1, A=1. Alphabetical tie breaker picks A.
-  const bfsOrder2 = computeBfsOrder(memoriesBfs2, linksBfs2);
-  assert(
-    bfsOrder2[0] === "A" && bfsOrder2[1] === "Z",
-    `computeBfsOrder breaks ties deterministically by alphabetical ID (got ${JSON.stringify(bfsOrder2)})`
-  );
-
-  // Subtest 5c: Orphan handling appended sorted by ID
-  const memoriesBfs3 = [
-    { id: "hub" },
-    { id: "spoke1" },
-    { id: "orphan2" },
-    { id: "orphan1" },
-  ];
-  const linksBfs3 = [{ source: "spoke1", target: "hub", type: "PART_OF" }];
-  const bfsOrder3 = computeBfsOrder(memoriesBfs3, linksBfs3);
-  assert(
-    JSON.stringify(bfsOrder3) === JSON.stringify(["hub", "spoke1", "orphan1", "orphan2"]),
-    `computeBfsOrder appends unvisited orphans sorted by ID (got ${JSON.stringify(bfsOrder3)})`
-  );
+  // seedNodePosition / computeBfsOrder removed — miss path uses (0,0) via placeTopology.
 
   if (failed > 0) {
     console.error(`\n${failed} check(s) failed`);

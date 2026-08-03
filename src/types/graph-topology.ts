@@ -3,31 +3,21 @@
  *
  * Client-safe SoT (no Node, Falkor, or embeddings). Used by:
  * - server: `listGraphTopology` (falkor), `GET /api/graph`
- * - client: `/graph` host (`graph-canvas`) → `memoryGraphToGraphDataWithMeta`
+ * - client: `/graph` host (`graph-canvas`) → `placeTopology`
  *
  * Full product `Memory` is NOT the wire type (embeddings required on Memory).
  * Placement (x/y/rank) is client-only — never on this wire shape.
  *
- * `GraphTopologyMemory` is assignable to `MemoryGraphNodeInput` (placement adapter).
+ * `MemoryNode` is the lean row SoT (`@/types/graph-schema`).
  */
 
-import type { Links } from "@/types/graph-schema";
+import type { Links, MemoryNode } from "@/types/graph-schema";
 
-/**
- * Lean Memory row for topology transfer — no embeddings, no placement.
- * Matches fields selected by `listGraphTopology` / returned by GET /api/graph.
- */
-export type GraphTopologyMemory = {
-  id: string;
-  name: string;
-  content: string;
-  impression: string;
-  confidence: number;
-};
+export type { MemoryNode };
 
 /** Topology payload: memories + PART_OF / RELATES_TO links. */
 export type GraphTopology = {
-  memories: GraphTopologyMemory[];
+  memories: MemoryNode[];
   links: Links[];
 };
 

@@ -1,19 +1,18 @@
 /**
- * Placement Cache & Rank Derivation (Slice C2)
+ * Placement cache & rank derivation.
  *
- * Provides:
- * - Deterministic tree rank derivation from PART_OF links (roots = 0, children = parent + 1)
- * - Deterministic topology fingerprint hashing
- * - LocalStorage persistence for client graph placement poses
+ * - Deterministic tree ranks from PART_OF links (roots = 0, children = parent + 1)
+ * - Deterministic topology fingerprint (algoVersion + ranks + links)
+ * - localStorage poses `{ x, y }` only — ranks always re-derived on assemble
  */
 
 export const PLACEMENT_ALGO_VERSION = 1;
 export const PLACEMENT_CACHE_STORAGE_KEY = "spy:graph-placement:v1";
 
+/** Cached world pose — ranks are never stored (always deriveRanks). */
 export type CachedPlacementNode = {
   x: number;
   y: number;
-  rank: number;
 };
 
 export type PlacementCacheData = {
@@ -23,17 +22,17 @@ export type PlacementCacheData = {
 };
 
 /**
- * Derive hierarchical ranks for memory nodes based on PART_OF links (source=child, target=parent).
- * Root nodes (no outgoing PART_OF link) get rank 0.
- * Children get parent.rank + 1.
- * Cycle guard / unvisited fallback to rank 0.
+ * Derive hierarchical ranks for memory nodes based on PART_OF links
+ * (source=child, target=parent). Roots get rank 0; children get parent + 1.
+ * Cycles return 0 for the cyclic edge.
  */
 export function deriveRanks(
   memories: ReadonlyArray<{ id: string }>,
   links: ReadonlyArray<{ source: string; target: string; type: string }>
 ): Map<string, number> {
-  const ranks = new Map<string, number>(); // node id to rank
-  const parentMap = new Map<string, string>(); // parent node to child node
+  const ranks = new Map<string, number>();
+  /** child id → parent id */
+  const parentMap = new Map<string, string>();
   const memoryIds = new Set(memories.map((m) => m.id));
 
   for (const link of links) {
@@ -54,7 +53,6 @@ export function deriveRanks(
     }
 
     if (visiting.has(id)) {
-      // Cycle detected: return 0 for cyclic edge
       return 0;
     }
 
@@ -83,7 +81,7 @@ export function deriveRanks(
 }
 
 /**
- * Compute a deterministic topology fingerprint string.
+ * Deterministic topology fingerprint.
  * Format: `${algoVersion}|${nodesWithRanks.join(";")}|${sortedLinks.join(";")}`
  */
 export function computeTopoFingerprint(
@@ -105,7 +103,8 @@ export function computeTopoFingerprint(
 }
 
 /**
- * Safely load placement cache from localStorage if fingerprint and algoVersion match.
+ * Load placement poses from localStorage when fingerprint + algoVersion match.
+ * Parse / mismatch errors → null (cache miss).
  */
 export function loadPlacementCache(
   fingerprint: string
@@ -136,7 +135,7 @@ export function loadPlacementCache(
 }
 
 /**
- * Safely save placement cache to localStorage.
+ * Save placement poses to localStorage. Warns only on QuotaExceededError.
  */
 export function savePlacementCache(
   fingerprint: string,
@@ -153,112 +152,11 @@ export function savePlacementCache(
       nodes,
     };
     localStorage.setItem(PLACEMENT_CACHE_STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // Storage writing errors ignored (quota/disabled)
-  }
-}
-
-/**
- * Simple deterministic hash from `id` mapping to x in [-200, 200] and y in [-200, 200].
- * Ensures cold/unposed nodes get deterministic seed positions instead of hardcoded (0, 0).
- */
-export function seedNodePosition(id: string): { x: number; y: number } {
-  let h1 = 2166136261;
-  for (let i = 0; i < id.length; i++) {
-    h1 ^= id.charCodeAt(i);
-    h1 = Math.imul(h1, 16777619);
-  }
-  const u1 = (h1 >>> 0) / 4294967295;
-
-  let h2 = Math.imul(h1 ^ 0x85ebca6b, 0xc2b2ae35);
-  h2 = (h2 ^ (h2 >>> 16)) >>> 0;
-  const u2 = h2 / 4294967295;
-
-  const x = -200 + u1 * 400;
-  const y = -200 + u2 * 400;
-  return { x, y };
-}
-
-/**
- * Compute BFS traversal placement order starting from the node with maximum total degree.
- * Across PART_OF and RELATES_TO links. Ties broken deterministically by alphabetical ID.
- * Appends any unvisited orphan nodes at the end sorted by ID.
- */
-export function computeBfsOrder(
-  memories: ReadonlyArray<{ id: string }>,
-  links: ReadonlyArray<{ source: string; target: string; type?: string }>
-): string[] {
-  const memoryIds = new Set(memories.map((m) => m.id));
-  const degree = new Map<string, number>();
-  const adj = new Map<string, Set<string>>();
-
-  for (const m of memories) {
-    degree.set(m.id, 0);
-    adj.set(m.id, new Set<string>());
-  }
-
-  for (const link of links) {
-    const isTypeValid =
-      !link.type || link.type === "PART_OF" || link.type === "RELATES_TO";
-    if (
-      isTypeValid &&
-      memoryIds.has(link.source) &&
-      memoryIds.has(link.target) &&
-      link.source !== link.target
-    ) {
-      degree.set(link.source, (degree.get(link.source) ?? 0) + 1);
-      degree.set(link.target, (degree.get(link.target) ?? 0) + 1);
-      adj.get(link.source)?.add(link.target);
-      adj.get(link.target)?.add(link.source);
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "QuotaExceededError") {
+      console.warn(
+        "[placement-cache] localStorage quota exceeded; pose cache not saved"
+      );
     }
   }
-
-  const visited = new Set<string>();
-  const order: string[] = [];
-
-  while (visited.size < memories.length) {
-    let bestId: string | null = null;
-    let maxDeg = -1;
-
-    for (const m of memories) {
-      if (visited.has(m.id)) continue;
-      const deg = degree.get(m.id) ?? 0;
-      if (deg > maxDeg || (deg === maxDeg && (bestId === null || m.id < bestId))) {
-        maxDeg = deg;
-        bestId = m.id;
-      }
-    }
-
-    if (bestId === null) break;
-
-    if (maxDeg === 0) {
-      const orphans = memories
-        .map((m) => m.id)
-        .filter((id) => !visited.has(id))
-        .sort();
-      for (const orphan of orphans) {
-        visited.add(orphan);
-        order.push(orphan);
-      }
-      break;
-    }
-
-    const queue: string[] = [bestId];
-    visited.add(bestId);
-
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      order.push(current);
-
-      const neighbors = Array.from(adj.get(current) ?? []).sort();
-      for (const neighbor of neighbors) {
-        if (!visited.has(neighbor)) {
-          visited.add(neighbor);
-          queue.push(neighbor);
-        }
-      }
-    }
-  }
-
-  return order;
 }

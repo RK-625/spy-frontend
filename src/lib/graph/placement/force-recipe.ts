@@ -1,9 +1,9 @@
 /**
- * Pure d3-force placement recipe for GraphData (client placement cache).
+ * Pure d3-force placement recipe for GraphData.
  *
- * One-shot / short settle only — not continuous ambient motion.
- * Mutates / outputs world `x` / `y` only. Never writes `rank` (topology-owned).
- * No Pixi, React, Falkor, or layout-loop imports.
+ * One-shot settle only — not continuous ambient motion.
+ * Writes world `x` / `y` only. Never writes `rank` (topology-owned via deriveRanks).
+ * No Pixi, React, Falkor, layout-loop, or localStorage.
  *
  * Edge semantics:
  *   PART_OF     — stiff, short links (hierarchy)
@@ -11,13 +11,8 @@
  *
  * Collide radii read `nodeScreenRadius(rank, 1)` so spacing tracks visual size.
  *
- * Product placement path:
- * - Adapter seeds cold nodes via `seedNodePosition` and exposes `needsLayout`
- *   (fingerprint miss vs full-cache hit).
- * - Host: `setGraphData(g, { settle: needsLayout })`.
- * - Layout loop calls **`settleGraphData`** on miss (no intermediate settle wrapper).
- * - Full settle writes client placement cache under this graph's fingerprint
- *   when browser storage exists (`typeof window !== "undefined"`).
+ * Product path: `placeTopology` calls settle on cache miss, then saves poses.
+ * Layout paint loop does not settle.
  */
 
 import {
@@ -32,13 +27,14 @@ import {
   type SimulationNodeDatum,
 } from "d3-force";
 
-import type { GraphData, GraphLinkType, GraphNode, GraphEdge } from "../core/graph-data";
-import { nodeScreenRadius } from "../core/graph-scale";
 import {
-  computeTopoFingerprint,
-  savePlacementCache,
-  type CachedPlacementNode,
-} from "./placement-cache";
+  cloneGraphData,
+  type GraphData,
+  type GraphLinkType,
+  type GraphNode,
+  type GraphEdge,
+} from "../core/graph-data";
+import { nodeScreenRadius } from "../core/graph-scale";
 
 // ---------------------------------------------------------------------------
 // Tunable knobs (verify / later product — not UI)
@@ -57,7 +53,7 @@ export const COLLIDE_PAD = 3;
 /** Mild charge — avoid blowing the web apart. */
 export const MANY_BODY_STRENGTH = -45;
 
-/** Weak origin pull (replaces FA2 recenter drift fix for settle). */
+/** Weak origin pull for settle stability. */
 export const CENTER_STRENGTH = 0.03;
 
 /** Sync ticks when caller does not pass `ticks`. */
@@ -100,42 +96,19 @@ export type SettleGraphOptions = ForceRecipeOptions & {
 };
 
 // ---------------------------------------------------------------------------
-// Clone / seed helpers
+// Internals
 // ---------------------------------------------------------------------------
 
-function seedXY(n: GraphNode): { x: number; y: number } {
-  const x = typeof n.x === "number" && Number.isFinite(n.x) ? n.x : 0;
-  const y = typeof n.y === "number" && Number.isFinite(n.y) ? n.y : 0;
-  return { x, y };
-}
-
-/** Shallow-clone nodes/edges so settle does not mutate the caller's GraphData. */
-export function cloneGraphData(graph: GraphData): GraphData {
-  return {
-    nodes: graph.nodes.map((n) => ({
-      ...n,
-      childIds: [...n.childIds],
-      parentIds: [...n.parentIds],
-      relateIds: [...n.relateIds],
-      rimOccupations: n.rimOccupations.map((r) => ({ ...r })),
-    })),
-    edges: graph.edges.map((e) => ({ ...e })),
-  };
-}
-
 function toSimNodes(nodes: GraphNode[]): ForceSimNode[] {
-  return nodes.map((n) => {
-    const { x, y } = seedXY(n);
-    return {
-      id: n.id,
-      rank: n.rank,
-      label: n.label,
-      x,
-      y,
-      vx: 0,
-      vy: 0,
-    };
-  });
+  return nodes.map((n) => ({
+    id: n.id,
+    rank: n.rank,
+    label: n.label,
+    x: n.x,
+    y: n.y,
+    vx: 0,
+    vy: 0,
+  }));
 }
 
 function toSimLinks(edges: GraphEdge[]): ForceSimLink[] {
@@ -208,12 +181,10 @@ export function buildForceSimulation(
 }
 
 /**
- * One-shot settle: clone graph → run sync ticks → write finite x/y.
+ * One-shot settle: deep-clone graph → run sync ticks → write finite x/y.
  * Preserves id, label, rank, and incidence fields; only positions change.
  *
- * After settle, when `window` is defined, writes client placement cache under
- * **this** graph’s fingerprint (nodes + edges — same filtered edge set the
- * adapter uses when mapping from topology; see `filterTopologyLinks`).
+ * Pure — no localStorage. `placeTopology` saves poses after miss-path settle.
  */
 export function settleGraphData(
   graph: GraphData,
@@ -235,18 +206,5 @@ export function settleGraphData(
     node.y = typeof y === "number" && Number.isFinite(y) ? y : 0;
   }
 
-  if (typeof window !== "undefined") {
-    const ranks = new Map(out.nodes.map((n) => [n.id, n.rank]));
-    const fingerprint = computeTopoFingerprint(out.nodes, out.edges, ranks);
-    const cachedNodes: Record<string, CachedPlacementNode> = {};
-    for (const node of out.nodes) {
-      cachedNodes[node.id] = {
-        x: node.x,
-        y: node.y,
-        rank: node.rank,
-      };
-    }
-    savePlacementCache(fingerprint, cachedNodes);
-  }
   return out;
 }

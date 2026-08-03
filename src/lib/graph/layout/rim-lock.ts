@@ -1,5 +1,5 @@
 /**
- * Rim-locking allocation for multi-spoke packing (Slice 0).
+ * Rim-locking allocation for multi-spoke packing.
  *
  * Distributes incident edges around a node's rim to prevent overlapping
  * sockets and maintain clean DotStream entry/exit angles.

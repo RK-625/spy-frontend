@@ -10,8 +10,8 @@ import type { GraphApiResponse } from "@/types/graph-topology";
  * - Topology only (no x/y/rank). Client owns placement via localStorage cache
  *   (`plans/client-placement-cache.md`); this route never reads/writes poses.
  * - Wire SoT: `GraphApiResponse` / `GraphTopology` in `@/types/graph-topology`
- *   (`memories[]` + `links[]`, not GraphNode). Client maps via
- *   `memoryGraphToGraphDataWithMeta`.
+ *   (`MemoryNode[]` + `links[]`, not GraphNode). Client maps via
+ *   `placeTopology`.
  * - Empty DB → `{ ok: true, empty: true, memories: [], links: [] }`.
  *
  * Product canvas (`/graph`, live-only — `plans/graph-live-only-pivot.md`):

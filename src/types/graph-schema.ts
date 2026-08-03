@@ -30,6 +30,12 @@ export const Memory = z.object({
 /** Inferred product Memory row (value `Memory` is the Zod schema). */
 export type Memory = z.infer<typeof Memory>;
 
+/**
+ * Lean Memory row for topology transfer / placement (no embeddings).
+ * Wire shape for GET `/api/graph` and `placeTopology` input.
+ */
+export type MemoryNode = Omit<Memory, "searchEmbedding" | "contentEmbedding">;
+
 export const Concept = z.object({
   id: z.string().describe("A unique identifier to the node"),
   name: z.string().describe("The main title of the node"),

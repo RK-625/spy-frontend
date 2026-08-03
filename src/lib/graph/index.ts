@@ -3,20 +3,22 @@
  *
  * Sub-domain structure:
  * - core/       (graph-data, graph-scale, graph-style, graph-diff)
- * - placement/  (placement-cache, from-memory-graph, force-recipe)
+ * - placement/  (place-topology, placement-cache, force-recipe)
  * - render/     (pixi-renderer, dot-circle-batch, draw-arrow, edge-signal-pulse, bake-*)
  * - camera/     (rtc-camera)
- * - layout/     (layout-loop, layout-loop-d3, rim-lock, spatial-index)
+ * - layout/     (layout-loop-d3 paint store, rim-lock, spatial-index)
  * - fixtures/   (mock-graph)
  *
- * Live topology via `/api/graph`; placement is client cache (`placement-cache`).
- * Pure Memory→GraphData mapper + force settle exported below.
+ * Live topology via `/api/graph`; `placeTopology` owns hit/miss + settle + cache.
+ * Force knobs / settle / placement-cache helpers: import subpaths (verify only).
+ * Layout factory: dynamic-import `createGraphPaintLoop` from `@/lib/graph/layout/layout-loop-d3`.
  */
 
 // --- Domain DTO -----------------------------------------------------------
 export {
   recomputeIncidence,
   emptyNodeIncidence,
+  cloneGraphData,
   type GraphNode,
   type GraphEdge,
   type GraphData,
@@ -33,54 +35,15 @@ export {
   type LargeStressFixtureOptions,
 } from "./fixtures/mock-graph";
 
-// --- Memory / Links → GraphData (pure; no Falkor) -------------------------
-export {
-  filterTopologyLinks,
-  memoryGraphToGraphDataWithMeta,
-  type GraphMapResult,
-  type MemoryGraphNodeInput,
-} from "./placement/from-memory-graph";
+// --- MemoryNode / Links → GraphData (hit/miss + settle; no Falkor) --------
+export { placeTopology } from "./placement/place-topology";
 
 // --- Shared wire / topology types (GET /api/graph; client-safe SoT) --------
 export type {
   GraphApiResponse,
   GraphTopology,
-  GraphTopologyMemory,
+  MemoryNode,
 } from "@/types/graph-topology";
-
-// --- Client placement cache (poses in localStorage; not Falkor) -----------
-export {
-  PLACEMENT_ALGO_VERSION,
-  PLACEMENT_CACHE_STORAGE_KEY,
-  deriveRanks,
-  computeTopoFingerprint,
-  loadPlacementCache,
-  savePlacementCache,
-  seedNodePosition,
-  computeBfsOrder,
-  type CachedPlacementNode,
-  type PlacementCacheData,
-} from "./placement/placement-cache";
-
-// --- Force recipe / settle ------------------------------------------------
-export {
-  buildForceSimulation,
-  settleGraphData,
-  cloneGraphData,
-  PART_OF_DISTANCE,
-  PART_OF_STRENGTH,
-  RELATES_TO_DISTANCE,
-  RELATES_TO_STRENGTH,
-  COLLIDE_PAD,
-  MANY_BODY_STRENGTH,
-  CENTER_STRENGTH,
-  DEFAULT_SETTLE_TICKS,
-  ORIGIN_EPSILON,
-  type ForceSimNode,
-  type ForceSimLink,
-  type ForceRecipeOptions,
-  type SettleGraphOptions,
-} from "./placement/force-recipe";
 
 // --- Diff / dirty for partial bake ----------------------------------------
 export {
@@ -99,13 +62,11 @@ export {
   type WorldPoint,
 } from "./camera/rtc-camera";
 
-// --- Layout (product-only d3 settle via createLayoutLoopAsync) ------------
-export {
-  createLayoutLoopAsync,
-  type LayoutLoopHandle,
-  type LayoutLoopOptions,
-  type LayoutLoopStatus,
-} from "./layout/layout-loop";
+// --- Layout paint types (factory: createGraphPaintLoop via dynamic import) -
+export type {
+  LayoutLoopHandle,
+  LayoutLoopOptions,
+} from "./layout/layout-loop-d3";
 
 // --- Rim packing + spatial residency --------------------------------------
 export {
