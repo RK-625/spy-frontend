@@ -11,8 +11,11 @@ import { spawnSync } from "node:child_process";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const moduleRel = "src/lib/ask-user-question.ts";
-const schemaRel = "src/ai/schemas/ask-user-question.ts";
-const toolsetRel = "src/ai/toolset.ts";
+// Schema SoT is ask-schema.ts; ask-user-question.ts is a compat re-export shim.
+const schemaRel = "src/ai/schemas/ask-schema.ts";
+const schemaShimRel = "src/ai/schemas/ask-user-question.ts";
+// Toolset SoT is tools/toolset.ts; root toolset.ts is a compat re-export shim.
+const toolsetRel = "src/ai/tools/toolset.ts";
 const moduleAbs = path.join(root, moduleRel);
 const schemaAbs = path.join(root, schemaRel);
 const toolsetAbs = path.join(root, toolsetRel);
@@ -31,6 +34,11 @@ function assert(cond, msg) {
 // ── Structural ──────────────────────────────────────────────────────
 assert(fs.existsSync(moduleAbs), `${moduleRel} exists`);
 assert(fs.existsSync(schemaAbs), `${schemaRel} exists`);
+assert(
+  fs.existsSync(path.join(root, schemaShimRel)),
+  `${schemaShimRel} exists (compat re-export)`,
+);
+assert(fs.existsSync(toolsetAbs), `${toolsetRel} exists`);
 
 const src = fs.readFileSync(moduleAbs, "utf8");
 const schemaSrc = fs.readFileSync(schemaAbs, "utf8");
@@ -46,17 +54,22 @@ assert(
 );
 assert(
   /from\s+["']@\/ai\/schemas\/ask-user-question["']/.test(src) ||
-    /from\s+["']\.\.\/ai\/schemas\/ask-user-question["']/.test(src),
+    /from\s+["']@\/ai\/schemas\/ask-schema["']/.test(src) ||
+    /from\s+["']\.\.\/ai\/schemas\/ask-user-question["']/.test(src) ||
+    /from\s+["']\.\.\/ai\/schemas\/ask-schema["']/.test(src),
   "lib imports schema module (not toolset)",
 );
 assert(
   !/from\s+["']@\/ai\/toolset["']/.test(src) &&
-    !/from\s+["']\.\.\/ai\/toolset["']/.test(src),
+    !/from\s+["']@\/ai\/tools\/toolset["']/.test(src) &&
+    !/from\s+["']\.\.\/ai\/toolset["']/.test(src) &&
+    !/from\s+["']\.\.\/ai\/tools\/toolset["']/.test(src),
   "lib does not import toolset (Exa/server)",
 );
 assert(
-  /from\s+["']@\/ai\/schemas\/ask-user-question["']/.test(toolsetSrc),
-  "toolset imports schema from @/ai/schemas/ask-user-question",
+  /from\s+["']@\/ai\/schemas\/ask-schema["']/.test(toolsetSrc) ||
+    /from\s+["']@\/ai\/schemas\/ask-user-question["']/.test(toolsetSrc),
+  "toolset imports schema from @/ai/schemas/ask-schema (or compat ask-user-question)",
 );
 assert(
   /askUserQuestionInputSchema/.test(toolsetSrc) &&

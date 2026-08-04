@@ -2,13 +2,16 @@ import {
   ChatRequestOptions,
   ChatStatus,
   CreateUIMessage,
-  TextUIPart,
+  FileUIPart,
   UIMessage,
 } from "ai";
-import React from "react";
-import type { PromptInputMessage } from "@/components/chat/ai-elements/prompt-input";
 
 export type { ChatStatus };
+
+export interface PromptInputMessage {
+  text: string;
+  files: FileUIPart[];
+}
 
 export interface ChatContextValue {
   // State
@@ -17,11 +20,11 @@ export interface ChatContextValue {
   mode: string;
   setMode: (mode: string) => void;
   modelSelectorOpen: boolean;
-  setModelSelectorOpen: (b: boolean) => void;
+  setModelSelectorOpen: (open: boolean) => void;
   modeSelectorOpen: boolean;
-  setModeSelectorOpen: (b: boolean) => void;
+  setModeSelectorOpen: (open: boolean) => void;
   useWebSearch: boolean;
-  setUseWebSearch: (b: boolean) => void;
+  setUseWebSearch: (enabled: boolean) => void;
   status: ChatStatus;
   messages: UIMessage[];
 

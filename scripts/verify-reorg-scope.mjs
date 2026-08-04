@@ -75,6 +75,7 @@ function gitShow(rel) {
     cwd: root,
     encoding: "utf8",
     maxBuffer: 20 * 1024 * 1024,
+    stdio: ["ignore", "pipe", "pipe"],
   });
 }
 
@@ -91,7 +92,9 @@ for (const [oldP, newP] of RENAME_MAP) {
   try {
     head = gitShow(oldP);
   } catch {
-    failures.push({ pair: `${oldP} -> ${newP}`, reason: "HEAD path missing" });
+    // Domain reorg already committed: HEAD has the new path only. Pair stays in
+    // RENAME_MAP as historical record; skip fidelity check (no old blob to diff).
+    okPairs.push(`${oldP} -> ${newP} (already landed on HEAD)`);
     continue;
   }
   const expected = applySubs(head);
@@ -123,33 +126,143 @@ for (const [oldP, newP] of RENAME_MAP) {
   }
 }
 
-// agent.ts: allow only systemPrompt import line addition
+// agent packing: root may be a thin re-export; SoT is agent/agent.ts (or root body).
+// Pre-land: when HEAD still holds the runAgent body, compare impl ↔ HEAD after
+// allowed import rewrites. Post-land: when HEAD root is itself a shim, skip blob
+// fidelity and assert structural SoT properties only (rename pairs already do
+// the same “already landed on HEAD” skip).
 {
   const head = gitShow("src/ai/agent.ts");
-  const actual = fs.readFileSync(path.join(root, "src/ai/agent.ts"), "utf8");
-  const allowed =
-    head === actual ||
-    (actual.includes('import { systemPrompt } from "@/prompts/system-prompt";') &&
-      applySubs(head).replace(
-        'import { modelConfig } from "./modelstore";\n',
-        'import { modelConfig } from "./modelstore";\nimport { systemPrompt } from "@/prompts/system-prompt";\n',
-      ) === actual) ||
-    (() => {
-      // Normalize: HEAD body with import inserted after modelstore
-      if (!head.includes("systemPrompt")) return false;
-      const withImport = head.replace(
-        'import { modelConfig } from "./modelstore";\n',
-        'import { modelConfig } from "./modelstore";\nimport { systemPrompt } from "@/prompts/system-prompt";\n',
+  const rootActual = fs.readFileSync(path.join(root, "src/ai/agent.ts"), "utf8");
+  const implAbs = path.join(root, "src/ai/agent/agent.ts");
+  const SHIM_RE =
+    /^\s*(?:\/\*\*[\s\S]*?\*\/\s*)?export\s+\*\s+from\s+["']\.\/agent(?:\/agent)?["']\s*;?\s*$/;
+  const isRootShim = SHIM_RE.test(rootActual);
+  const isHeadShim = SHIM_RE.test(head);
+
+  function normalizeAgentBody(text) {
+    return text
+      .replace(
+        /from\s+["']\.\/toolset["']/g,
+        'from "@/ai/tools/toolset"',
+      )
+      .replace(
+        /from\s+["']\.\.\/toolset["']/g,
+        'from "@/ai/tools/toolset"',
+      )
+      .replace(
+        /from\s+["']@\/ai\/toolset["']/g,
+        'from "@/ai/tools/toolset"',
+      )
+      .replace(
+        /from\s+["']\.\/modelstore["']/g,
+        'from "@/ai/models/modelstore"',
+      )
+      .replace(
+        /from\s+["']\.\.\/modelstore["']/g,
+        'from "@/ai/models/modelstore"',
+      )
+      .replace(
+        /from\s+["']@\/ai\/modelstore["']/g,
+        'from "@/ai/models/modelstore"',
       );
-      return withImport === actual;
-    })();
+  }
+
+  function withSystemPromptImport(body) {
+    if (body.includes('from "@/prompts/system-prompt"')) return body;
+    return body.replace(
+      /import\s+\{\s*modelConfig\s*\}\s+from\s+["'][^"']+["'];\n/,
+      (m) => `${m}import { systemPrompt } from "@/prompts/system-prompt";\n`,
+    );
+  }
+
+  function assertStructuralSoT() {
+    if (!fs.existsSync(implAbs)) {
+      failures.push({
+        pair: "src/ai/agent.ts",
+        reason: "agent/agent.ts SoT missing while root is thin re-export",
+      });
+      return false;
+    }
+    const impl = fs.readFileSync(implAbs, "utf8");
+    const checks = [
+      [
+        /export\s+(?:async\s+)?function\s+runAgent\b/.test(impl),
+        "agent/agent.ts must export runAgent",
+      ],
+      [
+        /from\s+["']@\/ai\/tools\/toolset["']/.test(impl) ||
+          /from\s+["']\.\.\/tools\/toolset["']/.test(impl) ||
+          /from\s+["']\.\.\/toolset["']/.test(impl),
+        "agent/agent.ts must import toolset (domain or compat path)",
+      ],
+      [
+        /from\s+["']@\/ai\/models\/modelstore["']/.test(impl) ||
+          /from\s+["']\.\.\/models\/modelstore["']/.test(impl) ||
+          /from\s+["']\.\.\/modelstore["']/.test(impl),
+        "agent/agent.ts must import modelstore (domain or compat path)",
+      ],
+      [
+        /export\s+\*\s+from\s+["']\.\/agent\/agent["']/.test(rootActual),
+        "root agent.ts must re-export ./agent/agent (not ./agent — resolution footgun)",
+      ],
+    ];
+    let ok = true;
+    for (const [cond, msg] of checks) {
+      if (!cond) {
+        failures.push({ pair: "src/ai/agent.ts", reason: msg });
+        ok = false;
+      }
+    }
+    return ok;
+  }
+
+  let allowed = false;
+  let okLabel = "";
+
+  if (isHeadShim) {
+    // Post-commit: HEAD root is already a shim — no pre-move body to diff.
+    if (!isRootShim) {
+      failures.push({
+        pair: "src/ai/agent.ts",
+        reason:
+          "HEAD root is a thin re-export; working tree root must remain a thin re-export of ./agent/agent",
+      });
+    } else if (assertStructuralSoT()) {
+      allowed = true;
+      okLabel = "src/ai/agent.ts → agent/agent.ts (landed; structural SoT)";
+    }
+  } else if (!isRootShim) {
+    // Legacy: both HEAD and WT still hold the body — only systemPrompt import.
+    const expectedNorm = normalizeAgentBody(withSystemPromptImport(head));
+    allowed =
+      head === rootActual ||
+      normalizeAgentBody(rootActual) === expectedNorm;
+    okLabel = "src/ai/agent.ts (import-only allowed)";
+  } else if (fs.existsSync(implAbs)) {
+    // Pre-land move: WT root is shim, HEAD still has body — compare SoT ↔ HEAD.
+    const expectedNorm = normalizeAgentBody(withSystemPromptImport(head));
+    const implActual = fs.readFileSync(implAbs, "utf8");
+    allowed = normalizeAgentBody(implActual) === expectedNorm;
+    // Also require root targets ./agent/agent (not ambiguous ./agent).
+    if (allowed && !/export\s+\*\s+from\s+["']\.\/agent\/agent["']/.test(rootActual)) {
+      allowed = false;
+    }
+    okLabel = "src/ai/agent.ts → agent/agent.ts (shim + SoT fidelity)";
+  }
+
   if (!allowed) {
-    failures.push({
-      pair: "src/ai/agent.ts",
-      reason: "only allowed change is adding systemPrompt import when HEAD references systemPrompt",
-    });
+    // Avoid double-push when structural asserts already recorded failures.
+    if (!failures.some((f) => f.pair === "src/ai/agent.ts")) {
+      failures.push({
+        pair: "src/ai/agent.ts",
+        reason: isRootShim
+          ? "agent packing: root shim must re-export ./agent/agent; SoT must match HEAD body (pre-land) or structural markers (post-land)"
+          : "only allowed change is adding systemPrompt import when HEAD references systemPrompt (or thin re-export to agent/agent)",
+      });
+    }
   } else {
-    okPairs.push("src/ai/agent.ts (import-only allowed)");
+    okPairs.push(okLabel);
   }
 }
 

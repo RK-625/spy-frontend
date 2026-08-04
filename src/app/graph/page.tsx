@@ -6,7 +6,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * Product-shaped graph spike sandbox (Step 3).
+ * Live-only knowledge graph product route (`/graph`).
  * Client boundary is GraphCanvas ("use client") — Pixi + RTC + layout mount there only.
  */
 export default function GraphPage() {

@@ -1,8 +1,18 @@
 # d3-force placement — atomic slice plan
 
-**Status:** S0–S8 implemented (2026-07-29).  
+> [!NOTE]
+> **COMPLETED (historical sequencing).** S0–S8 are implemented.  
+> **Live placement product policy** is [`client-placement-cache.md`](./client-placement-cache.md)  
+> (client d3 + `localStorage` fingerprint cache; Falkor topology only).  
+> **Product host (2026-07-31):** [`graph-live-only-pivot.md`](./graph-live-only-pivot.md) — single `/graph`, always live topology + d3-settle, no product URL flags (`?stress` / `?source` / `?layout` / `?motion`), no mock fallback.  
+> Sections below that document mock default or query overrides are **historical** only.  
+> Do **not** treat P-A server persist sections below as current product policy.  
+> FA2 dual-authority history: [`archive/D3-FORCE-LAYOUT-PLAN.md`](./archive/D3-FORCE-LAYOUT-PLAN.md).  
+> Deprecated cleanup: [`safe-deprecated-cleanup.md`](./safe-deprecated-cleanup.md).
+
+**Status:** S0–S8 implemented (2026-07-29). **Placement product policy:** `client-placement-cache.md` (not P-A persist).  
 **Date:** 2026-07-29  
-**Supersedes for sequencing:** `D3-FORCE-LAYOUT-PLAN.md` dual-authority FA2→d3 polish path.  
+**Supersedes for sequencing:** `plans/archive/D3-FORCE-LAYOUT-PLAN.md` dual-authority FA2→d3 polish path.  
 **Direction locked for this plan:** d3-force is the **placement** engine (one-shot / short settle). Visual **size** stays rank-driven in `graph-scale.ts`. Continuous ambient motion stays **off** until a later optional slice.
 
 ---

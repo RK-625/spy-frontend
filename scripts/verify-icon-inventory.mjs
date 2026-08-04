@@ -27,12 +27,13 @@ function assert(cond, msg) {
 const globals = read("src/app/globals.css");
 const iconTokens = read("src/lib/icon-tokens.ts");
 const home = read("src/app/home/page.tsx");
-const sidebar = read("src/components/chat/chat-sidebar.tsx");
-const attachments = read("src/components/chat/ai-elements/attachments.tsx");
-const palette = read("src/components/chat/command-palette.tsx");
-const conversation = read("src/components/chat/ai-elements/conversation.tsx");
-const promptInput = read("src/components/chat/ai-elements/prompt-input.tsx");
-const speechInput = read("src/components/chat/ai-elements/speech-input.tsx");
+// Domain SoT paths (not ai-elements / root shell re-export shims).
+const sidebar = read("src/components/chat/shell/chat-sidebar.tsx");
+const attachments = read("src/components/chat/prompt/attachments.tsx");
+const palette = read("src/components/chat/shell/command-palette.tsx");
+const conversation = read("src/components/chat/conversation/conversation.tsx");
+const promptInput = read("src/components/chat/prompt/prompt-input.tsx");
+const speechInput = read("src/components/chat/prompt/speech-input.tsx");
 
 // ── CSS + TS tokens (Plan B 3-role system) ──────────────────────────
 assert(

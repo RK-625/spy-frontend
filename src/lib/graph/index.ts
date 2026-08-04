@@ -1,27 +1,31 @@
 /**
  * Graph library barrel — product-shaped `/graph` spike.
  *
- * Layout (dependency-friendly sections):
- * 1. Domain DTO + fixtures
- * 2. Camera + layout loop
- * 3. Spatial / rim / bake pipeline
- * 4. Pixi renderer + DotStream batch
- * 5. Style tokens + signal wave
+ * Sub-domain structure:
+ * - core/       (graph-data, graph-scale, graph-style, graph-diff)
+ * - placement/  (place-topology, placement-cache, force-recipe)
+ * - render/     (pixi-renderer, dot-circle-batch, draw-arrow, edge-signal-pulse, bake-*)
+ * - camera/     (rtc-camera)
+ * - layout/     (layout-loop-d3 paint store, rim-lock, spatial-index)
+ * - fixtures/   (mock-graph)
  *
- * Live Falkor fetch is later; pure Memory→GraphData mapper is exported below.
+ * Live topology via `/api/graph`; `placeTopology` owns hit/miss + settle + cache.
+ * Force knobs / settle / placement-cache helpers: import subpaths (verify only).
+ * Layout factory: dynamic-import `createGraphPaintLoop` from `@/lib/graph/layout/layout-loop-d3`.
  */
 
 // --- Domain DTO -----------------------------------------------------------
 export {
   recomputeIncidence,
   emptyNodeIncidence,
+  cloneGraphData,
   type GraphNode,
   type GraphEdge,
   type GraphData,
   type GraphLinkType,
   type RimOccupation,
   type RimOccupationKind,
-} from "@/lib/graph/graph-data";
+} from "./core/graph-data";
 
 // --- Fixtures (mock / stress; not live DB) --------------------------------
 export {
@@ -29,18 +33,17 @@ export {
   createLargeStressGraphData,
   HUB_SPOKE_COUNT,
   type LargeStressFixtureOptions,
-} from "@/lib/graph/fixtures/mock-graph";
+} from "./fixtures/mock-graph";
 
-// --- Memory / Links → GraphData (pure; no Falkor) -------------------------
-export {
-  hasFiniteLayoutXY,
-  memoryNeedsLayout,
-  memoriesNeedLayout,
-  memoryGraphToGraphData,
-  memoryGraphToGraphDataWithMeta,
-  type MemoryGraphMapResult,
-  type MemoryGraphNodeInput,
-} from "@/lib/graph/from-memory-graph";
+// --- MemoryNode / Links → GraphData (hit/miss + settle; no Falkor) --------
+export { placeTopology } from "./placement/place-topology";
+
+// --- Shared wire / topology types (GET /api/graph; client-safe SoT) --------
+export type {
+  GraphApiResponse,
+  GraphTopology,
+  MemoryNode,
+} from "@/types/graph-topology";
 
 // --- Diff / dirty for partial bake ----------------------------------------
 export {
@@ -48,7 +51,7 @@ export {
   expandDirtyEdgesForHubs,
   incidentEdgeIds,
   type GraphDirtyDiff,
-} from "@/lib/graph/graph-diff";
+} from "./core/graph-diff";
 
 // --- Camera ---------------------------------------------------------------
 export {
@@ -57,33 +60,31 @@ export {
   type RtcCameraState,
   type ScreenPoint,
   type WorldPoint,
-} from "@/lib/graph/rtc-camera";
+} from "./camera/rtc-camera";
 
-// --- Layout (static default; d3 settle via createLayoutLoopAsync) ----------
-export {
-  createLayoutLoop,
-  createLayoutLoopAsync,
-  LAYOUT_SIMULATION_ENABLED,
-  type LayoutLoopHandle,
-  type LayoutLoopOptions,
-  type LayoutLoopStatus,
-  type LayoutRenderOptions,
-  type LayoutEngine,
-} from "@/lib/graph/layout-loop";
+// --- Layout paint types (factory: createGraphPaintLoop via dynamic import) -
+export type {
+  LayoutLoopHandle,
+  LayoutLoopOptions,
+} from "./layout/layout-loop-d3";
 
 // --- Rim packing + spatial residency --------------------------------------
 export {
   applyRimLock,
   applyRimLockForNodes,
   rimLockNodesForMoves,
-  findRimSlot,
-  RIM_FILL_FRAC,
-} from "@/lib/graph/rim-lock";
+  computeRimLockForNode,
+  angleToPoint,
+  DEFAULT_RIM_HALF_SPAN,
+} from "./layout/rim-lock";
 
 export {
   GraphSpatialIndex,
+  packCellKey,
+  DEFAULT_CELL_SIZE,
   type WorldAabb,
-} from "@/lib/graph/spatial-index";
+  type EdgePadResolver,
+} from "./layout/spatial-index";
 
 // --- Scale formulas -------------------------------------------------------
 export {
@@ -98,7 +99,6 @@ export {
   DOT_RADIUS_FRAC,
   DOT_STEP_FRAC,
   NODE_DRAW_MIN_PX,
-  EDGE_SYNAPSE_GAP_MIN,
   EDGE_SYNAPSE_GAP_FRAC,
   EDGE_DOT_FLARE_GAIN,
   EDGE_DOT_DENSIFY_GAIN,
@@ -116,32 +116,29 @@ export {
   nodeScreenRadius,
   edgeScreenWidth,
   nodeRingWidth,
-} from "@/lib/graph/graph-scale";
+} from "./core/graph-scale";
 
 // --- DotStream sampling / batch / arrow -----------------------------------
 export {
   drawEdge,
   drawEdgeDots,
-  insetSegment,
   type DotEmit,
   type DrawEdgeOptions,
   type RimSlot,
   type ScreenPoint as EdgeScreenPoint,
-} from "@/lib/graph/draw-arrow";
+} from "./render/draw-arrow";
 
 export {
   DotCircleBatch,
   circleSegmentCount,
-} from "@/lib/graph/dot-circle-batch";
+} from "./render/dot-circle-batch";
 
 // --- Pixi host ------------------------------------------------------------
 export {
   createPixiRenderer,
   type CreatePixiRendererOptions,
-  type PerfStats,
   type PixiRendererHandle,
-  type SetGraphDataOptions,
-} from "@/lib/graph/pixi-renderer";
+} from "./render/pixi-renderer";
 
 // --- Palette + signal tokens ----------------------------------------------
 export {
@@ -187,7 +184,7 @@ export {
   GRAPH_PULSE_SPEED_PART_OF,
   GRAPH_PULSE_SPEED_RELATES,
   GRAPH_PULSE_UPLOAD_INTERVAL_MS,
-} from "@/lib/graph/graph-style";
+} from "./core/graph-style";
 
 // --- Signal wave helpers --------------------------------------------------
 export {
@@ -213,4 +210,4 @@ export {
   projectLateralU,
   type SignalWaveStyle,
   type WaveGeomContext,
-} from "@/lib/graph/edge-signal-pulse";
+} from "./render/edge-signal-pulse";

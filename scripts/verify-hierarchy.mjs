@@ -31,7 +31,7 @@ function rankById(graphData) {
 
 async function main() {
   const graphDataUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/graph-data.ts")
+    path.join(root, "src/lib/graph/core/graph-data.ts")
   ).href;
 
   const graphDataModule = await import(graphDataUrl);
@@ -69,20 +69,34 @@ async function main() {
     "stored ranks deepen down the PART_OF tree"
   );
 
-  // Layout clone path preserves stored ranks (no recompute)
+  // Paint path preserves ranks (no recompute); settle also preserves ranks.
   const layoutUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/layout-loop.ts")
+    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts")
+  ).href;
+  const recipeUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/placement/force-recipe.ts")
   ).href;
   const layout = await import(layoutUrl);
-  const loop = layout.createLayoutLoop({
+  const { settleGraphData } = await import(recipeUrl);
+  let after = null;
+  const loop = layout.createGraphPaintLoop({
     graphData: mock,
-    simulationEnabled: false,
+    renderOnGraphData: (g) => {
+      after = g;
+    },
   });
-  const after = loop.getGraphData();
+  loop.start();
+  loop.setGraphData(mock);
   for (const n of after.nodes) {
     const expected = ranks.get(n.id);
-    assert(n.rank === expected, `layout preserves rank for ${n.id} (${n.rank} === ${expected})`);
+    assert(n.rank === expected, `paint preserves rank for ${n.id} (${n.rank} === ${expected})`);
   }
+  const settled = settleGraphData(mock, { ticks: 100 });
+  for (const n of settled.nodes) {
+    const expected = ranks.get(n.id);
+    assert(n.rank === expected, `settle preserves rank for ${n.id} (${n.rank} === ${expected})`);
+  }
+  loop.stop();
 
   if (failed > 0) {
     console.error(`\n${failed} check(s) failed`);

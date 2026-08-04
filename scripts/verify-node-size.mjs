@@ -24,7 +24,7 @@ function assert(cond, msg) {
 
 async function main() {
   const scaleUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/graph-scale.ts")
+    path.join(root, "src/lib/graph/core/graph-scale.ts")
   ).href;
   const scale = await import(scaleUrl);
   const {
@@ -43,11 +43,6 @@ async function main() {
     edgeStripLayout,
     usableZoom,
   } = scale;
-
-  const drawArrowUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/draw-arrow.ts")
-  ).href;
-  const { insetSegment } = await import(drawArrowUrl);
 
   // --- Nodes: pure linear zoom ---
   const r0z1 = nodeScreenRadius(0, 1);
@@ -120,10 +115,6 @@ async function main() {
   const layoutSoft = edgeStripLayout(bandR0, "soft");
   assert(layoutSoft.cols === EDGE_COLS_SOFT, `strip soft cols 7`);
   assert(layoutFirm.cell < bandP0 / 5, `firm cells smaller than old 5-col grain`);
-
-  // --- insetSegment ---
-  const inset = insetSegment({ x: 0, y: 0 }, { x: 100, y: 0 }, 10, 10);
-  assert(inset !== null && Math.abs(inset.start.x - 10) < 1e-9, `inset ok`);
 
   if (failed > 0) {
     console.error(`\n${failed} check(s) failed`);

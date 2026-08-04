@@ -3,27 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
-  createLayoutLoopAsync,
   createPixiRenderer,
   createRtcCamera,
-  createLargeStressGraphData,
-  createMockGraphData,
-  memoryGraphToGraphDataWithMeta,
+  placeTopology,
   nodeScreenRadius,
   type GraphData,
   type GraphNode,
-  type LayoutEngine,
-  type LayoutRenderOptions,
+  type LayoutLoopHandle,
   type PixiRendererHandle,
   type RtcCamera,
 } from "@/lib/graph";
-import { diffGraphDirty } from "@/lib/graph/graph-diff";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
-import {
-  NodeDetailDialog,
-  type NodeDetail,
-} from "@/components/graph/node-detail-dialog";
-import type { Links } from "@/types/graph-schema";
+import { NodeDetailDialog } from "@/components/graph/node-detail-dialog";
+import type { GraphApiResponse } from "@/types/graph-topology";
 
 type HudState = {
   camX: number;
@@ -31,41 +23,10 @@ type HudState = {
   zoom: number;
 };
 
-type GraphApiResponse = {
-  ok?: boolean;
-  empty?: boolean;
-  memories?: Array<{
-    id: string;
-    name: string;
-    content?: string;
-    impression?: string;
-    confidence?: number;
-    x?: number;
-    y?: number;
-    rank?: number;
-  }>;
-  links?: Links[];
-  error?: string;
-};
-
 /** Max pointer travel (screen px) still treated as a click, not a pan. */
 const CLICK_MOVE_THRESHOLD_PX = 6;
 /** Extra hit slop around the visual node radius (screen px). */
 const NODE_HIT_PAD_PX = 6;
-
-function toNodeDetail(node: GraphNode): NodeDetail {
-  return {
-    id: node.id,
-    label: node.label,
-    content: node.content,
-    impression: node.impression,
-    confidence: node.confidence,
-    rank: node.rank,
-    childIds: node.childIds,
-    parentIds: node.parentIds,
-    relateIds: node.relateIds,
-  };
-}
 
 /**
  * Closest node under the pointer (world hit using bake-space radii × zoom).
@@ -108,45 +69,19 @@ function formatHudNumber(n: number): string {
 }
 
 /**
- * Resolve initial fixture from query:
- * - `?stress=1` → large stress fixture (wins)
- * - `?source=mock` / default paint seed → mock (default may swap to live after fetch)
- * Explicit live starts empty until fetch (see GraphCanvas effect).
- */
-function initialGraphFromSearch(search: string): GraphData {
-  const params = new URLSearchParams(search);
-  if (params.has("stress")) {
-    const hubs = Number(params.get("hubs") ?? "40");
-    const spokes = Number(params.get("spokes") ?? "12");
-    return createLargeStressGraphData({
-      hubCount: Number.isFinite(hubs) ? hubs : 40,
-      spokesPerHub: Number.isFinite(spokes) ? spokes : 12,
-    });
-  }
-  return createMockGraphData();
-}
-
-/**
- * Full-viewport graph host: RTC camera + layout + Pixi DotStream edges.
+ * Full-viewport graph host: RTC camera + paint store + Pixi DotStream edges.
  * Header chrome: ambient signal-pulse toggle (product weave metaphor).
  *
- * Data source (Slice 3 + product default live):
- * - Default `/graph` → GET `/api/graph` first; non-empty → live; empty or
- *   fetch/DB error → keep mock (offline / empty DB still works).
- * - `?source=mock` → mock only (no live fetch).
- * - `?stress=1` → stress fixture (wins over live).
- * - `?source=live` → GET `/api/graph`; empty DB → empty canvas; fetch/DB
- *   error → fall back to mock so the page is not blank.
- * - Client never calls setMemoryLayout; placement writes stay server-side (P-A).
- *
- * Layout (Slice 1 + S4):
- * - Default → static positions (no settle). Product `/graph` unchanged.
- * - `?layout=d3` → one-shot settle via createLayoutLoopAsync({ layoutEngine: "d3-settle" }).
- * - Live + `layout=d3`: settle runs on feed install (engine setGraphData).
- * - Live + unplaced xy (`needsLayout`: missing / near-origin): session settle
- *   only unplaced nodes (placed nodes pinned); no client persist.
- * - `?motion=1` → opt-in continuous ambient (S8; separate from settle; default off).
- * - Does not flip LAYOUT_SIMULATION_ENABLED.
+ * Product path (live-only — `plans/graph-live-only-pivot.md`):
+ * - Single URL `/graph` — no `?stress` / `?source` / `?layout` / `?motion`.
+ * - Always GET `/api/graph` on mount (topology: memories[] + links[]).
+ * - Client maps via `placeTopology` (never GraphNode from API).
+ * - Placement: `placeTopology` owns fingerprint hit/miss + settle + cache save.
+ *   - Hit → assemble cached poses; miss → (0,0) settle + save.
+ *   - Host only `setGraphData(graph)` (paint store; no settle option).
+ * - Layout: dynamic-import `layout-loop-d3` paint handle (no ambient).
+ * - Empty KB / fetch error → blank canvas (`console.warn` on error; no mock).
+ * - Mock/stress fixtures stay under `lib/graph/fixtures/` for verify only.
  */
 export function GraphCanvas() {
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
@@ -158,7 +93,7 @@ export function GraphCanvas() {
   });
   /** Default on — ambient life on the web (not a loud lab dashboard). */
   const [pulsesOn, setPulsesOn] = useState(true);
-  const [selectedNode, setSelectedNode] = useState<NodeDetail | null>(null);
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [nodeDialogOpen, setNodeDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -166,18 +101,19 @@ export function GraphCanvas() {
     if (!canvasHost) return;
 
     let isCanvasDisposed = false;
-
+    // setup the camera
     const camera = createRtcCamera({ zoom: 1 });
     const viewportWidth = canvasHost.clientWidth || 1;
     const viewportHeight = canvasHost.clientHeight || 1;
     camera.setViewport(viewportWidth, viewportHeight);
     camera.lookAt(0, 0);
 
+    // setup the renderer
     const renderer = createPixiRenderer({
       background: 0x0a0a0c,
     });
     renderer.setCamera(camera);
-    renderer.setSignalPulsesEnabled(true);
+    renderer.setSignalPulsesEnabled(pulsesOn);
     rendererRef.current = renderer;
 
     let hudFrameId: number | null = null;
@@ -186,6 +122,7 @@ export function GraphCanvas() {
     /** Latest graph snapshot for hit-testing (updated on every renderOnGraphData). */
     let currentGraph: GraphData = { nodes: [], edges: [] };
 
+    // flush and set the hud state
     const flushHudState = () => {
       hudFrameId = null;
       setHud({
@@ -194,23 +131,26 @@ export function GraphCanvas() {
         zoom: camera.zoom,
       });
     };
-
+    // queue the hud update
     const queueHudUpdate = () => {
       if (hudFrameId !== null) return;
       hudFrameId = requestAnimationFrame(flushHudState);
     };
 
+    // flush the render frame and call the renderer.render()
     const flushRender = () => {
       renderFrameId = null;
       if (isCanvasDisposed) return;
       renderer.render();
     };
 
+    // queue the render
     const queueRender = () => {
       if (renderFrameId !== null) return;
       renderFrameId = requestAnimationFrame(flushRender);
     };
 
+    // setup the pointer variables
     let isPanning = false;
     let lastPointerX = 0;
     let lastPointerY = 0;
@@ -218,9 +158,7 @@ export function GraphCanvas() {
     let pointerDownY = 0;
     let pointerTravel = 0;
 
-    // setInteractionQuality is a no-op on the renderer (world-bake + GPU batches);
-    // do not schedule settle timers / extra rAFs for quality toggles. Pan/zoom
-    // still queueRender so the camera transform applies every frame.
+    // Pan/zoom queueRender so the camera transform applies every frame.
 
     const handlePointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
@@ -260,9 +198,9 @@ export function GraphCanvas() {
       const rect = canvasHost.getBoundingClientRect();
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
-      const hit = hitTestNode(currentGraph, camera, screenX, screenY);
-      if (!hit) return;
-      setSelectedNode(toNodeDetail(hit));
+      const node = hitTestNode(currentGraph, camera, screenX, screenY);
+      if (!node) return;
+      setSelectedNode(node);
       setNodeDialogOpen(true);
     };
     const handleWheel = (e: WheelEvent) => {
@@ -292,80 +230,27 @@ export function GraphCanvas() {
     });
     resizeObserver.observe(canvasHost);
 
-    /**
-     * Optional stress fixture via `?stress=1` (or hub/spoke counts).
-     * Default `/graph` attempts live KB then falls back to mock.
-     * Overrides: `?source=mock`, `?source=live`, `?stress=1` (wins).
-     * One-shot settle: `?layout=d3` (S1/S4; dynamic import, default stays static).
-     * Ambient motion: `?motion=1` (S8; implies d3 path; default off).
-     */
-    const search =
-      typeof window !== "undefined" ? window.location.search : "";
-    const params = new URLSearchParams(search);
-    const sourceParam = params.get("source");
-    const forceLive = sourceParam === "live";
-    const forceMock = sourceParam === "mock";
-    // Default + explicit live attempt Falkor; mock/stress skip fetch.
-    const wantLive =
-      !params.has("stress") && !forceMock && (forceLive || sourceParam == null);
-    const wantLayoutD3 = params.get("layout") === "d3";
-    const wantMotion = params.get("motion") === "1";
-    // motion=1 loads d3 settle path (ambient ticks after settle); layout=d3 alone is one-shot.
-    const layoutEngine: LayoutEngine =
-      wantLayoutD3 || wantMotion ? "d3-settle" : "static";
-    // Explicit live starts empty (no mock flash). Default seeds mock until
-    // fetch proves a non-empty KB (empty/error keep mock).
-    const initialGraph = forceLive
-      ? { nodes: [], edges: [] }
-      : initialGraphFromSearch(search);
+    // Product starts empty until live topology arrives (no mock/stress seed).
+    const initialGraph: GraphData = { nodes: [], edges: [] };
     currentGraph = initialGraph;
 
-    let prevGraphForDirty: GraphData | null = null;
-
-    const renderOnGraphData = (
-      graphData: GraphData,
-      renderOpts?: LayoutRenderOptions
-    ) => {
+    /** Always full setGraphData (partial dirty host unplugged on product path). */
+    const renderOnGraphData = (graphData: GraphData) => {
       if (isCanvasDisposed) return;
-
       currentGraph = graphData;
-
-      // Prefer explicit dirty from layout/sim; else diff against previous snapshot.
-      if (renderOpts?.dirtyEdges !== undefined) {
-        renderer.setGraphData(graphData, {
-          dirtyEdges: renderOpts.dirtyEdges,
-          movedNodeIds: renderOpts.movedNodeIds,
-        });
-      } else {
-        const diff = diffGraphDirty(prevGraphForDirty, graphData);
-        if (diff.kind === "all") {
-          renderer.setGraphData(graphData);
-        } else if (diff.kind === "position") {
-          renderer.setGraphData(graphData, {
-            dirtyEdges: diff.dirtyEdges,
-            movedNodeIds: diff.movedNodeIds,
-          });
-        } else {
-          // Identical positions — skip setGraphData (no topology/dirty work).
-          prevGraphForDirty = graphData;
-          queueRender();
-          queueHudUpdate();
-          return;
-        }
-      }
-      prevGraphForDirty = graphData;
+      renderer.setGraphData(graphData);
       queueRender();
       queueHudUpdate();
     };
 
-    let layoutLoop: Awaited<ReturnType<typeof createLayoutLoopAsync>> | null =
-      null;
+    let layoutLoop: LayoutLoopHandle | null = null;
 
     void (async () => {
-      layoutLoop = await createLayoutLoopAsync({
+      const { createGraphPaintLoop } = await import(
+        "@/lib/graph/layout/layout-loop-d3"
+      );
+      layoutLoop = createGraphPaintLoop({
         graphData: initialGraph,
-        layoutEngine,
-        ambientMotion: wantMotion,
         renderOnGraphData,
       });
       if (isCanvasDisposed) {
@@ -382,85 +267,34 @@ export function GraphCanvas() {
       layoutLoop.start();
       queueHudUpdate();
 
-      // Live topology (read-only). Default attempts live; empty/error → mock.
-      // Explicit ?source=live + empty DB → empty canvas. Settle:
-      // - layout=d3 / motion=1 → engine settles on setGraphData
-      // - needsLayout (missing xy) → session settle even on static engine (dynamic import)
-      // Client never persists (P-A writes stay server/toolset).
-      if (!wantLive) return;
-
+      // Always live topology. Client never writes Falkor placement.
+      // Poses: localStorage fingerprint cache (hit → paint; miss → settle+save).
       try {
         const res = await fetch("/api/graph");
         const data = (await res.json()) as GraphApiResponse;
         if (isCanvasDisposed || !layoutLoop) return;
 
-        if (data.ok && Array.isArray(data.memories)) {
+        if (data.ok) {
           if (data.memories.length === 0) {
-            // Explicit live → empty canvas (already empty). Default → keep mock seed.
+            // Empty KB → blank canvas (already empty).
             return;
           }
-          const { graph, needsLayout } = memoryGraphToGraphDataWithMeta({
+          const graph = placeTopology({
             memories: data.memories,
-            links: Array.isArray(data.links) ? data.links : [],
+            links: data.links,
           });
-
-          if (layoutEngine === "d3-settle") {
-            // Intentional S4 path: live + layout=d3 (or motion) → one-shot settle in engine.
-            layoutLoop.setGraphData(graph);
-            return;
-          }
-
-          if (needsLayout) {
-            // Session paint only: pin placed nodes; move only unplaced (F4).
-            // No client setMemoryLayout (P-A stays server/toolset).
-            const {
-              settleGraphData,
-              applyColdStartJitter,
-              cloneGraphData,
-              ORIGIN_EPSILON,
-            } = await import("@/lib/graph/force-recipe");
-            const { isPlacedLayout } = await import("@/lib/memory-placement");
-            if (isCanvasDisposed || !layoutLoop) return;
-
-            const pinnedNodeIds = data.memories
-              .filter((m) => isPlacedLayout(m))
-              .map((m) => m.id);
-            const pinnedSet = new Set(pinnedNodeIds);
-            const working = cloneGraphData(graph);
-            const movable = working.nodes.filter((n) => !pinnedSet.has(n.id));
-            if (
-              movable.some(
-                (n) =>
-                  Math.abs(n.x) <= ORIGIN_EPSILON &&
-                  Math.abs(n.y) <= ORIGIN_EPSILON,
-              )
-            ) {
-              applyColdStartJitter(movable);
-            }
-            layoutLoop.setGraphData(
-              settleGraphData(working, {
-                pinnedNodeIds:
-                  pinnedNodeIds.length > 0 ? pinnedNodeIds : undefined,
-              }),
-            );
-            return;
-          }
-
+          // placeTopology already settled on miss; paint only.
           layoutLoop.setGraphData(graph);
           return;
         }
 
-        // Non-ok payload — fall back to mock so the page is not blank.
-        // Default already showing mock; explicit live may still be empty.
         console.warn(
-          "[graph] live feed unavailable, using mock:",
+          "[graph] live feed unavailable:",
           data.error ?? res.status,
         );
-        layoutLoop.setGraphData(createMockGraphData());
       } catch (err) {
         if (isCanvasDisposed || !layoutLoop) return;
-        console.warn("[graph] live feed fetch failed, using mock:", err);
-        layoutLoop.setGraphData(createMockGraphData());
+        console.warn("[graph] live feed fetch failed:", err);
       }
     })();
 
@@ -493,7 +327,7 @@ export function GraphCanvas() {
 
   return (
     <div
-      className="relative h-dvh w-dvw overflow-hidden bg-black text-[#ded4f0]"
+      className="relative h-dvh w-dvw overflow-hidden bg-background text-text-primary"
       data-graph-spike="step-3"
     >
       <div
@@ -514,21 +348,21 @@ export function GraphCanvas() {
         style={{ fontFamily: "var(--font-vt323), ui-monospace, monospace" }}
       >
         <div className="pointer-events-none max-w-[min(100%,20rem)] select-none">
-          <div className="text-[15px] tracking-wide text-[#ded4f0]">
+          <div className="text-[15px] tracking-wide text-text-primary">
             Spy graph
           </div>
-          <div className="mt-1 text-[11px] leading-snug tracking-wide text-[#4a4658]">
+          <div className="mt-1 text-[11px] leading-snug tracking-wide text-text-dim">
             Click a node · drag to pan · wheel to zoom
           </div>
           {/* Compact camera readout — product-secondary, not debug dump */}
           <div
-            className="mt-2 font-mono text-[10px] tabular-nums tracking-wide text-[#4a4658]/90"
+            className="mt-2 font-mono text-[10px] tabular-nums tracking-wide text-text-dim/90"
             aria-hidden
           >
-            <span className="text-[#7a7685]">z</span>{" "}
+            <span className="text-text-secondary">z</span>{" "}
             {hud.zoom.toFixed(2)}
-            <span className="mx-1.5 text-[#4a4658]">·</span>
-            <span className="text-[#7a7685]">xy</span>{" "}
+            <span className="mx-1.5 text-text-dim">·</span>
+            <span className="text-text-secondary">xy</span>{" "}
             {formatHudNumber(hud.camX)}, {formatHudNumber(hud.camY)}
           </div>
         </div>
@@ -548,30 +382,30 @@ export function GraphCanvas() {
               "inline-flex items-center gap-2 rounded-[var(--radius)] border px-3 py-1.5",
               "text-[14px] tracking-wide transition-[color,background-color,border-color] duration-150",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
-              "focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0c]",
+              "focus-visible:ring-offset-2 focus-visible:ring-offset-accent-ink",
               pulsesOn
-                ? "border-[#c8acfb]/50 bg-[#c8acfb]/14 text-[#e8dff8] shadow-[0_0_0_1px_rgba(200,172,251,0.08)]"
-                : "border-[#4a4658]/90 bg-[#0a0a0c]/85 text-[#7a7685] hover:border-[#7a7685] hover:text-[#ded4f0]",
+                ? "border-lavender/50 bg-lavender/14 text-primary shadow-[0_0_0_1px_var(--border-subtle)]"
+                : "border-text-dim/90 bg-accent-ink/85 text-text-secondary hover:border-text-secondary hover:text-text-primary",
             ].join(" ")}
           >
             <DotMatrixIcon
               name="bulb"
               size={15}
-              className={pulsesOn ? "text-[#c8acfb]" : "text-[#7a7685]"}
+              className={pulsesOn ? "text-lavender" : "text-text-secondary"}
             />
             <span className="font-medium">Signals</span>
             <span
               className={[
                 "rounded-[calc(var(--radius)-2px)] px-1.5 py-0.5 text-[11px] uppercase tracking-wider",
                 pulsesOn
-                  ? "bg-[#c8acfb]/20 text-[#c8acfb]"
-                  : "bg-[#4a4658]/25 text-[#4a4658]",
+                  ? "bg-lavender/20 text-lavender"
+                  : "bg-text-dim/25 text-text-dim",
               ].join(" ")}
             >
               {pulsesOn ? "on" : "off"}
             </span>
           </button>
-          <p className="max-w-[11rem] text-right text-[10px] leading-snug tracking-wide text-[#4a4658]">
+          <p className="max-w-[11rem] text-right text-[10px] leading-snug tracking-wide text-text-dim">
             {pulsesOn
               ? "Pulse along the web"
               : "Turn on edge weave"}

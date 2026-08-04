@@ -24,35 +24,17 @@ export const Memory = z.object({
     .describe(
       "The confidence score of the memory of how well the user understands and grasps the content",
     ),
-  /**
-   * Server-owned canvas layout storage (world space). Written by placement /
-   * toolset after create or PART_OF link — not model-authored tool input.
-   * Optional on schema so reads/writes without layout stay valid.
-   * Not used for search; do not put incidence/rim/edge ids on Memory.
-   */
-  x: z
-    .number()
-    .optional()
-    .describe(
-      "Server-owned world X on the knowledge-graph canvas (system placement only; never LLM tool input)",
-    ),
-  y: z
-    .number()
-    .optional()
-    .describe(
-      "Server-owned world Y on the knowledge-graph canvas (system placement only; never LLM tool input)",
-    ),
-  rank: z
-    .number()
-    .int()
-    .min(0)
-    .optional()
-    .describe(
-      "Server-owned hierarchy depth from PART_OF: 0 = root; child = parent.rank + 1 (system-derived, not model-authored)",
-    ),
+  // Layout (x/y/rank) is client-only via placement-cache — not part of Memory.
+  // Falkor may still hold orphan physical props on disk; product never reads them.
 });
 /** Inferred product Memory row (value `Memory` is the Zod schema). */
 export type Memory = z.infer<typeof Memory>;
+
+/**
+ * Lean Memory row for topology transfer / placement (no embeddings).
+ * Wire shape for GET `/api/graph` and `placeTopology` input.
+ */
+export type MemoryNode = Omit<Memory, "searchEmbedding" | "contentEmbedding">;
 
 export const Concept = z.object({
   id: z.string().describe("A unique identifier to the node"),
@@ -82,3 +64,7 @@ export const Links = z.object({
 });
 /** Inferred product link row (value `Links` is the Zod schema). */
 export type Links = z.infer<typeof Links>;
+
+export const Link = Links;
+export type Link = Links;
+

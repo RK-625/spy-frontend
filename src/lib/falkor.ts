@@ -6,8 +6,12 @@ import {
   Links as LinksSchema,
   type Memory,
   type Links,
-} from "../types/graph-schema";
+} from "@/types/graph-schema";
+import type { GraphTopology, MemoryNode } from "@/types/graph-topology";
 import { z } from "zod";
+
+/** Re-export wire SoT from client-safe `@/types/graph-topology` (do not redefine). */
+export type { GraphTopology, MemoryNode } from "@/types/graph-topology";
 
 type FalkorNode<T> = {
   id: number; // FalkorDB's internal numeric node id — NOT your app id
@@ -42,12 +46,62 @@ type FalkorClient = Awaited<ReturnType<typeof FalkorDB.open>>;
 type FalkorGraph = ReturnType<FalkorClient["selectGraph"]>;
 
 let db: FalkorClient | null = null;
+/** Single-flight open so concurrent getDb() callers share one FalkorDB.open(). */
+let dbOpenPromise: Promise<FalkorClient> | null = null;
 /** Set after ensureSchema succeeds once per process (indexes are durable on disk). */
 let schemaReady = false;
+/** Single-flight schema so concurrent getDb() callers share one ensureSchema(). */
+let schemaReadyPromise: Promise<void> | null = null;
 
 async function ensureFalkorDataDir(): Promise<string> {
   await mkdir(FALKOR_PATH, { recursive: true });
   return FALKOR_PATH;
+}
+
+/**
+ * Process-singleton open. Concurrent callers await the same promise; failed opens
+ * reset so the next call can retry (do not leave a rejected promise cached forever).
+ */
+function openDbClient(): Promise<FalkorClient> {
+  if (db) {
+    return Promise.resolve(db);
+  }
+  if (!dbOpenPromise) {
+    dbOpenPromise = (async () => {
+      const dataDir = await ensureFalkorDataDir();
+      // falkordblite: embedded server — use open(), not falkordb client connect()
+      const client = await FalkorDB.open({ path: dataDir });
+      db = client;
+      console.log(`FalkorDBLite open at ${dataDir}`);
+      return client;
+    })().catch((error: unknown) => {
+      dbOpenPromise = null;
+      db = null;
+      throw error;
+    });
+  }
+  return dbOpenPromise;
+}
+
+/**
+ * Process-singleton schema ensure. Concurrent callers await the same promise;
+ * failure resets so the next getDb() can retry.
+ */
+function ensureSchemaOnce(graph: FalkorGraph): Promise<void> {
+  if (schemaReady) {
+    return Promise.resolve();
+  }
+  if (!schemaReadyPromise) {
+    schemaReadyPromise = ensureSchema(graph)
+      .then(() => {
+        schemaReady = true;
+      })
+      .catch((error: unknown) => {
+        schemaReadyPromise = null;
+        throw error;
+      });
+  }
+  return schemaReadyPromise;
 }
 
 function isAlreadyExistsError(error: unknown): boolean {
@@ -84,18 +138,9 @@ export function isSchemaReady(): boolean {
 }
 
 export async function getDb() {
-  if (!db) {
-    const dataDir = await ensureFalkorDataDir();
-    // falkordblite: embedded server — use open(), not falkordb client connect()
-    db = await FalkorDB.open({ path: dataDir });
-    console.log(`FalkorDBLite open at ${dataDir}`);
-  }
-
-  const graph = db.selectGraph(GRAPH_NAME);
-  if (!schemaReady) {
-    await ensureSchema(graph);
-    schemaReady = true;
-  }
+  const client = await openDbClient();
+  const graph = client.selectGraph(GRAPH_NAME);
+  await ensureSchemaOnce(graph);
   return graph;
 }
 
@@ -126,11 +171,34 @@ export async function vectorSearch(embedding: number[], topK: number = 10) {
   }
 }
 
+export async function hasOutgoingLink(
+  source: string,
+  type: "PART_OF" | "RELATES_TO",
+): Promise<boolean> {
+  const validSource = z.string().min(1).parse(source);
+  const graph = await getDb();
+  const query = `
+    MATCH (s:Memory {id: $source})-[r:${type}]->()
+    RETURN count(r) AS count
+  `;
+  try {
+    const result = (await graph.query(query, {
+      params: { source: validSource },
+    })) as { data: Array<{ count: unknown }> };
+    const countVal = result.data?.[0]?.count;
+    const count =
+      typeof countVal === "number" ? countVal : Number(countVal ?? 0);
+    return count > 0;
+  } catch (error) {
+    console.error("hasOutgoingLink error:", error);
+    throw error;
+  }
+}
+
 export async function upsertMemory(memory: Memory) {
   const parsed = MemorySchema.parse(memory);
   const graph = await getDb();
 
-  // coalesce layout props so content-only upserts do not wipe stored x/y/rank
   const query = `
     MERGE (m:Memory {id: $id})
     SET m.name = $name,
@@ -138,20 +206,20 @@ export async function upsertMemory(memory: Memory) {
         m.impression = $impression,
         m.confidence = $confidence,
         m.searchEmbedding = vecf32($searchEmbedding),
-        m.contentEmbedding = vecf32($contentEmbedding),
-        m.x = coalesce($x, m.x),
-        m.y = coalesce($y, m.y),
-        m.rank = coalesce($rank, m.rank)
+        m.contentEmbedding = vecf32($contentEmbedding)
     RETURN m.id AS id
   `;
 
   try {
     const result = (await graph.query(query, {
       params: {
-        ...parsed,
-        x: parsed.x ?? null,
-        y: parsed.y ?? null,
-        rank: parsed.rank ?? null,
+        id: parsed.id,
+        name: parsed.name,
+        content: parsed.content,
+        impression: parsed.impression,
+        confidence: parsed.confidence,
+        searchEmbedding: parsed.searchEmbedding,
+        contentEmbedding: parsed.contentEmbedding,
       },
     })) as { data: Array<{ id: string }> };
 
@@ -191,113 +259,9 @@ export async function createLink(link: Links) {
   }
 }
 
-/** Layout fields used for canvas placement (no embeddings / content). */
-export type MemoryLayout = {
-  id: string;
-  x: number | null;
-  y: number | null;
-  rank: number | null;
-};
-
-function numOrNull(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
-
-/**
- * All Memory nodes with layout props (for collision / cluster placement).
- */
-export async function listMemoryLayouts(): Promise<MemoryLayout[]> {
-  const graph = await getDb();
-  const query = `
-    MATCH (m:Memory)
-    RETURN m.id AS id, m.x AS x, m.y AS y, m.rank AS rank
-  `;
-  try {
-    const result = (await graph.query(query)) as {
-      data: Array<{ id: unknown; x: unknown; y: unknown; rank: unknown }>;
-    };
-    return (result.data ?? [])
-      .map((row) => ({
-        id: String(row.id ?? ""),
-        x: numOrNull(row.x),
-        y: numOrNull(row.y),
-        rank: numOrNull(row.rank),
-      }))
-      .filter((row) => row.id.length > 0);
-  } catch (error) {
-    console.error("listMemoryLayouts error:", error);
-    throw error;
-  }
-}
-
-export async function getMemoryLayout(
-  id: string,
-): Promise<MemoryLayout | null> {
-  const validId = z.string().min(1).parse(id);
-  const graph = await getDb();
-  const query = `
-    MATCH (m:Memory {id: $id})
-    RETURN m.id AS id, m.x AS x, m.y AS y, m.rank AS rank
-  `;
-  try {
-    const result = (await graph.query(query, {
-      params: { id: validId },
-    })) as {
-      data: Array<{ id: unknown; x: unknown; y: unknown; rank: unknown }>;
-    };
-    const row = result.data?.[0];
-    if (row == null) return null;
-    return {
-      id: String(row.id ?? validId),
-      x: numOrNull(row.x),
-      y: numOrNull(row.y),
-      rank: numOrNull(row.rank),
-    };
-  } catch (error) {
-    console.error("getMemoryLayout error:", error);
-    throw error;
-  }
-}
-
-/**
- * Canvas / API topology row — no embeddings (keep `/api/graph` payloads small).
- * Enough for `memoryGraphToGraphData` + HUD labels.
- */
-export type GraphTopologyMemory = {
-  id: string;
-  name: string;
-  content: string;
-  impression: string;
-  confidence: number;
-  x?: number;
-  y?: number;
-  rank?: number;
-};
-
-export type GraphTopology = {
-  memories: GraphTopologyMemory[];
-  links: Links[];
-};
-
-function strOr(value: unknown, fallback: string): string {
-  if (typeof value === "string") return value;
-  if (value == null) return fallback;
-  return String(value);
-}
-
-function numOr(value: unknown, fallback: number): number {
-  const n = numOrNull(value);
-  return n == null ? fallback : n;
-}
-
 /**
  * Read-only: all Memory nodes + PART_OF / RELATES_TO links for the graph canvas.
- * Omits embeddings. Does not write layout.
+ * Omits embeddings. Does not write layout. Trusts write-path shape (no row filters).
  */
 export async function listGraphTopology(): Promise<GraphTopology> {
   const graph = await getDb();
@@ -308,10 +272,7 @@ export async function listGraphTopology(): Promise<GraphTopology> {
            m.name AS name,
            m.content AS content,
            m.impression AS impression,
-           m.confidence AS confidence,
-           m.x AS x,
-           m.y AS y,
-           m.rank AS rank
+           m.confidence AS confidence
   `;
 
   const linkQuery = `
@@ -323,92 +284,39 @@ export async function listGraphTopology(): Promise<GraphTopology> {
   try {
     const memResult = (await graph.query(memoryQuery)) as {
       data: Array<{
-        id: unknown;
-        name: unknown;
-        content: unknown;
-        impression: unknown;
-        confidence: unknown;
-        x: unknown;
-        y: unknown;
-        rank: unknown;
+        id: string;
+        name: string;
+        content: string;
+        impression: string;
+        confidence: number;
       }>;
     };
 
     const linkResult = (await graph.query(linkQuery)) as {
-      data: Array<{ source: unknown; target: unknown; type: unknown }>;
+      data: Array<{
+        source: string;
+        target: string;
+        type: Links["type"];
+      }>;
     };
 
-    const memories: GraphTopologyMemory[] = (memResult.data ?? [])
-      .map((row) => {
-        const id = strOr(row.id, "").trim();
-        if (!id) return null;
-        const x = numOrNull(row.x);
-        const y = numOrNull(row.y);
-        const rank = numOrNull(row.rank);
-        const out: GraphTopologyMemory = {
-          id,
-          name: strOr(row.name, id),
-          content: strOr(row.content, ""),
-          impression: strOr(row.impression, ""),
-          confidence: numOr(row.confidence, 0.5),
-        };
-        if (x != null) out.x = x;
-        if (y != null) out.y = y;
-        if (rank != null) out.rank = Math.max(0, Math.floor(rank));
-        return out;
-      })
-      .filter((row): row is GraphTopologyMemory => row != null);
+    const memories: MemoryNode[] = (memResult.data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      content: row.content,
+      impression: row.impression,
+      confidence: row.confidence,
+    }));
 
-    const links: Links[] = [];
-    const seen = new Set<string>();
-    for (const row of linkResult.data ?? []) {
-      const source = strOr(row.source, "").trim();
-      const target = strOr(row.target, "").trim();
-      const type = strOr(row.type, "");
-      if (!source || !target) continue;
-      if (type !== "PART_OF" && type !== "RELATES_TO") continue;
-      const key = `${type}:${source}->${target}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      links.push({ source, target, type });
-    }
+    const links: Links[] = (linkResult.data ?? []).map((row) => ({
+      source: row.source,
+      target: row.target,
+      type: row.type,
+    }));
 
     return { memories, links };
   } catch (error) {
     console.error("listGraphTopology error:", error);
-    throw error;
-  }
-}
-
-/**
- * Force-write canvas layout (does not coalesce).
- * Used after shared d3 settle (P-A persist). Fan/spiral place* removed (S6).
- */
-export async function setMemoryLayout(input: {
-  id: string;
-  x: number;
-  y: number;
-  rank: number;
-}): Promise<void> {
-  const id = z.string().min(1).parse(input.id);
-  const x = z.number().finite().parse(input.x);
-  const y = z.number().finite().parse(input.y);
-  const rank = z.number().int().min(0).parse(input.rank);
-  const graph = await getDb();
-  const query = `
-    MATCH (m:Memory {id: $id})
-    SET m.x = $x, m.y = $y, m.rank = $rank
-    RETURN m.id AS id
-  `;
-  try {
-    const result = (await graph.query(query, {
-      params: { id, x, y, rank },
-    })) as { data: Array<{ id: string }> };
-    if (result.data.length === 0) {
-      throw new Error(`setMemoryLayout: Memory not found (${id})`);
-    }
-  } catch (error) {
-    console.error("setMemoryLayout error:", error);
     throw error;
   }
 }

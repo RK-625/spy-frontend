@@ -14,7 +14,7 @@ Spy is an agent-first knowledge base. The user doesn't organize their own notes.
 
 The **landing page** is shipped. **Primary product surface is chat** at `/home` — conversation, sidebar, prompt shell, streaming, and agent tools. The chat should feel like talking to an alien intelligence that's already weaving your knowledge.
 
-**Knowledge graph canvas** lives at `/graph` (Pixi v8 + RTC camera) — a living knowledge-graph spike and path toward a navigable graph UI. Default mock is ~23 nodes / ~41 edges; opt-in stress: `/graph?stress=1` (`hubs`, `spokes` query params). Client pure-perf under quality bans has hit its product ceiling for static mock / large-loaded-graph tracks; full DB-scale residency is not achieved (see **What's left**).
+**Knowledge graph canvas** lives at `/graph` (Pixi v8 + RTC camera) — live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client maps topology → `GraphData`, places via localStorage fingerprint cache, and always uses one-shot d3 settle on cache miss (`ambientMotion` off). Empty KB / fetch error → blank canvas (no mock product path). Mock/stress fixtures remain under `src/lib/graph/fixtures/` for verify scripts only. Client pure-perf under quality bans has hit its product ceiling for loaded-graph pan/zoom; full DB-scale residency is not achieved (see **What's left**).
 
 **Not in live chat UI:** the in-prompt multiple-choice / morphing “ask user question” widget was removed from production `prompt-input` and parked under `src/deprecated/ask-user-question-widget/` for a future redesign.
 
@@ -80,11 +80,11 @@ These are things a new engineer might not guess. They must be followed:
 
 Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
 
-**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). Client pure-perf ceiling for static mock pan/zoom and large-loaded-graph tracks is **achieved** under quality bans. Continuous layout is **off** by default (`LAYOUT_SIMULATION_ENABLED = false`; FA2/graphology path removed). Opt-in placement: `/graph?layout=d3` (one-shot d3 settle); optional ambient: `?motion=1`. Do not re-litigate ban-safe pure-perf; next graph work is product modes (ambient when wanted, full KB residency). Details under **What's left**.
+**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). **Live-only product path** (see [`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): single URL `/graph` — no product `?stress` / `?source` / `?layout` / `?motion`. Always fetches `/api/graph`; layout engine always `d3-settle` with ambient off; cache hit paints without re-settle, miss settles once and saves. Client pure-perf ceiling for loaded-graph pan/zoom is **achieved** under quality bans. FA2/graphology path removed. Placement architecture: [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client cache, Falkor topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Do not re-litigate ban-safe pure-perf; next graph work is full KB residency / live dirty. Details under **What's left**.
 
-**Prompt input:** production `src/components/chat/ai-elements/prompt-input.tsx` is a **chat-only** shell. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
+**Prompt input:** production SoT is `src/components/chat/prompt/prompt-input.tsx` (chat-only shell). `ai-elements/prompt-input` is a compat re-export. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
 
-**Attachment accept allowlist:** single source of truth is `PROMPT_INPUT_ACCEPT` in `src/components/chat/ai-elements/prompt-input-files.ts` (wired from `/home` via `accept={PROMPT_INPUT_ACCEPT}`). Drag-drop and the file picker both enforce it via `filterIncomingFiles` / `matchesAccept`. Edit only that constant when expanding types. Full accepted list + intentionally excluded formats (e.g. `.html`, Office binaries, archives) are documented in that file’s module header — read it before changing.
+**Attachment accept allowlist:** single source of truth is `PROMPT_INPUT_ACCEPT` in `src/components/chat/prompt/prompt-input-files.ts` (wired from `/home` via `accept={PROMPT_INPUT_ACCEPT}`; `ai-elements` path remains a compat re-export). Drag-drop and the file picker both enforce it via `filterIncomingFiles` / `matchesAccept`. Edit only that constant when expanding types. Full accepted list + intentionally excluded formats (e.g. `.html`, Office binaries, archives) are documented in that file’s module header — read it before changing.
 
 **Attachment chips:** preview tiles use restrained `--radius`. The remove control is a **small rectangular badge** (tighter radius than full `--radius` so it does not read as a circle on an ~18px hit target), DotMatrix `x`, palette `bg-background/85` + muted foreground — not a pill.
 
@@ -96,40 +96,56 @@ Right now the door is open; the work is making the chat workspace feel like walk
 
 ## Current architecture
 
+```
 src/
 ├── ai/
-│   ├── agent.ts              — Server-side model streaming logic
-│   ├── embeddings.ts         — Gemini-embedding-2 generation (1536 dim)
-│   ├── retrieval.ts          — FalkorDB vector similarity search
-│   └── schema.ts             — (Legacy/WIP) AI extraction schemas
+│   ├── agent/                — Server-side model streaming (runAgent)
+│   │   └── agent.ts          — Implementation SoT
+│   ├── models/               — Model config + embeddings
+│   │   ├── modelstore.ts     — Model / embed model wiring
+│   │   └── embeddings.ts     — Gemini-embedding-2 generation (1536 dim)
+│   ├── tools/                — Agent tools SoT
+│   │   └── toolset.ts        — upsert/link/search/ask; never settles layout
+│   ├── schemas/              — Zod tool input schemas (SoT: *-schema.ts)
+│   │   ├── ask-schema.ts / upsert-schema.ts / link-schema.ts / web-search-schema.ts
+│   │   └── ask-user-question.ts / … — compat re-export shims
+│   ├── agent.ts / toolset.ts / modelstore.ts / embeddings.ts — root compat re-exports
+│   └── index.ts              — public ai barrel
+├── animation/
+│   ├── spider-mascot.tsx     — Mascot React host
+│   └── spider/               — GSAP behaviors + mascot timeline
 ├── app/
 │   ├── api/                  — Backend API routes (Node.js runtime)
 │   │   ├── chat/route.ts     — Streaming chat & memory extraction loop
-│   │   └── prep-session/route.ts — Pre-fetches graph context for session
+│   │   ├── graph/route.ts    — Live topology for `/graph` (Falkor; no xy)
+│   │   └── test-db/route.ts  — DB connectivity check
 │   ├── page.tsx              — Landing page (composes hero components)
 │   ├── home/
 │   │   └── page.tsx          — Chat UI (conversation, messages, input, suggestions)
 │   ├── graph/
-│   │   └── page.tsx          — Knowledge graph canvas route (`/graph`, stress query params)
+│   │   └── page.tsx          — Knowledge graph canvas route (`/graph`, live-only)
 │   ├── layout.tsx            — Root layout + fonts + metadata + hydration fix
 │   └── globals.css           — Tailwind v4 @theme tokens + design tokens + chat styles
 ├── components/
 │   ├── ui/                   — Design-system primitives only (shadcn-style Button, Dialog, Input, …)
 │   ├── chat/                 — Chat product shell + AI message chrome
-│   │   ├── chat-sidebar.tsx  — Collapsible navigation drawer (Recents + Search)
-│   │   ├── settings-dialog.tsx — Session settings overlay (trigger + optional shortcut)
-│   │   ├── command-palette.tsx — ⌘K command palette (product chrome, not a primitive)
-│   │   └── ai-elements/      — Conversation, message, prompt-input, suggestions, CoT, …
-│   ├── graph/
-│   │   └── graph-canvas.tsx  — Host for `/graph` (Pixi renderer + camera + bake)
+│   │   ├── prompt/           — Prompt shell SoT (prompt-input, attachments, files, controls)
+│   │   ├── conversation/     — Message stream SoT (conversation, message, CoT, sources, …)
+│   │   ├── shell/            — Product chrome SoT (sidebar, settings, command palette)
+│   │   ├── ai-elements/      — Compat re-exports → prompt + conversation (do not add new impl)
+│   │   ├── chat-sidebar.tsx / settings-dialog.tsx / command-palette.tsx — shell compat shims
+│   │   └── index.ts          — chat barrel (prefer domain folders or this barrel)
+│   ├── graph/                — Graph React host (not pure logic)
+│   │   ├── graph-canvas.tsx  — Host for `/graph` (Pixi renderer + camera + bake)
+│   │   └── node-detail-dialog.tsx — Node inspector overlay
 │   ├── landing/              — Landing/marketing surfaces
 │   │   ├── hero-section.tsx  — Hero layout
 │   │   └── shiny-text.tsx    — Glint sweep text animation
 │   ├── dotmatrix/            — Shared pixel / dot-matrix system
-│   │   ├── icons.tsx         — Pixel-art icon registry (DotMatrixIcon)
-│   │   ├── core.tsx / hooks.ts — Grid utilities + animation hooks
-│   │   ├── hex-9 / square-18 / triangle-16 — Shape loaders
-│   │   └── loader.css
+│   │   ├── core/             — Grid utilities + animation hooks (SoT)
+│   │   ├── icons/            — Pixel-art icon registry (DotMatrixIcon SoT)
+│   │   ├── loaders/          — hex-9 / square-18 / triangle-16 + loader.css (SoT)
+│   │   └── *.tsx / loader.css — root compat re-exports
 │   └── brand/
 │       └── logos/            — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
 ├── deprecated/               — Not production routes; do not wire into / or /home without intent
@@ -141,32 +157,39 @@ src/
 ├── hooks/
 │   └── use-mobile.ts         — Responsive layout breakpoint state hook
 ├── lib/
-│   ├── falkor.ts             — Native FalkorDB graph connection & Cypher queries
-│   ├── graph/                — Knowledge graph client (Pixi pure-perf stack)
-│   │   ├── pixi-renderer.ts  — World-space DotStream bake; camera → graphContent only
-│   │   ├── bake-sample.ts / bake-worker.ts / bake-worker-pool.ts — Bake + residency
-│   │   ├── spatial-index.ts  — GraphSpatialIndex (viewport + OVERSCAN_MARGIN=2.0)
-│   │   ├── rim-lock.ts       — RimLock (O(E) / incremental)
-│   │   ├── graph-diff.ts     — host diffGraphDirty + dirtyEdges / movedNodeIds
-│   │   ├── layout-loop.ts / layout-loop-d3.ts — static + opt-in d3 settle (± ambient)
-│   │   ├── force-recipe.ts   — pure d3-force placement (shared server/client)
-│   │   ├── draw-arrow.ts / dot-circle-batch.ts — DotStream draw primitives
-│   │   ├── graph-scale.ts / graph-style.ts — scale + visual tokens
-│   │   ├── rtc-camera.ts     — RTC camera (never stage.scale for world camera)
-│   │   ├── graph-data.ts     — default mock + stress fixture
+│   ├── falkor.ts             — Server DB: FalkorDB connection & Cypher (topology only; no xy)
+│   ├── graph/                — Graph pure logic (Pixi pure-perf + client placement)
+│   │   ├── camera/           — rtc-camera (never stage.scale for world camera)
+│   │   ├── core/             — graph-data, graph-diff, graph-scale, graph-style
+│   │   ├── layout/           — layout-loop-d3 (`createGraphPaintLoop`; dynamic import), rim-lock, spatial-index
+│   │   ├── placement/        — place-topology (hit/miss), force-recipe (pure settle), placement-cache
+│   │   ├── render/           — pixi-renderer, bake stack, draw primitives, edge pulse
+│   │   ├── fixtures/mock-graph.ts — verify-only mock + stress fixtures
 │   │   └── index.ts          — public exports
+│   ├── ask-user-question.ts  — Pending-ask client helpers (no morph UI)
+│   ├── models.ts             — Client model catalog (id / provider list)
 │   └── utils.ts              — cn() helper for Tailwind class merging
 ├── prompts/
 │   └── system-prompt.ts      — Agent system prompt export
 └── types/
     ├── chat.ts               — Type declarations for ChatContextValue
     ├── graph-schema.ts       — Zod Schemas for Memory Nodes & Edges
+    ├── models.ts             — Model id / provider types
     └── index.ts              — Main TypeScript module definitions entrypoint
 ```
 
-**Note:** `prompt-input.tsx` under `chat/ai-elements` is chat-only (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/toolset.ts` without a live morph UI.
+**Placement policy (where code lives):**
+- **Graph pure logic** → `src/lib/graph/` subdomains (`placement/`, `layout/`, `render/`, `camera/`, `core/`)
+- **Graph React host** → `src/components/graph/` (`graph-canvas`, node-detail dialog)
+- **Server DB** → `src/lib/falkor.ts` (topology only — not under the client graph package; no product `x`/`y`/`rank` writes)
+- **Agent tools / schemas** → `src/ai/tools/`, `src/ai/schemas/*-schema.ts` (root `ai/*.ts` shims are compat only)
+- **Chat UI** → `src/components/chat/{prompt,conversation,shell}/` (ai-elements + root shell files are compat re-exports)
 
-**Graph note:** Continuous layout off by default (`LAYOUT_SIMULATION_ENABLED = false`). FA2/graphology removed; placement SoT is d3 settle (opt-in `layout=d3`; ambient `motion=1`). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
+**Note:** Chat prompt SoT is `chat/prompt/prompt-input.tsx` (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts` without a live morph UI.
+
+**Graph note:** Continuous layout off by default. FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md). **`placeTopology`** owns fingerprint hit/miss (hit → cached `{x,y}`; miss → assemble at `(0,0)` → pure `settleGraphData` → save poses). Host dynamic-imports `createGraphPaintLoop` from `layout-loop-d3` (`setGraphData(graph)` only; no settle option). Falkor holds topology only — no server placement writes. Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
+
+**Agent rules:** project instruction rules live under `.grok/rules/` (e.g. `code-perferences/`, `orchestration/`). Historical folder name `code-perferences` is intentional; do not rename without verifying the rules loader.
 
 ## Design files
 
@@ -213,28 +236,29 @@ Client pure-perf under quality bans — **ceiling status:**
 - World-space DotStream bake @ z=1; camera only transforms `graphContent` (never `stage.scale` for world camera)
 - Universal residency: viewport + `OVERSCAN_MARGIN=2.0` + GraphSpatialIndex + bake worker (all graph sizes)
 - Wave 2: underlay pan-decouple, packed bake payloads/transferables, O(candidates) payload, resident buffer pooling, RimLock O(E), dynamic-import layout-loop-d3 (d3-force not on static path), strip no-op setInteractionQuality settle timers
-- Large-KB track: rim-coupled dirty expansion, host `diffGraphDirty` + dirtyEdges/movedNodeIds, durable mergedDotBuffer splice, worker latest-only/cancel, incremental RimLock, spatial incidence + int keys, node redraw only when nodes dirty
-- Layout: static product default; FA2/graphology **removed** (S7); d3 one-shot settle + optional ambient (`?motion=1`)
+- Large-KB track: rim-coupled dirty expansion, durable mergedDotBuffer splice, worker latest-only/cancel, incremental RimLock, spatial incidence + int keys, node redraw only when nodes dirty (`diffGraphDirty` remains in lib; product host uses full `setGraphData`)
+- Layout: product always d3 one-shot settle on cache miss; ambient off; FA2/graphology **removed** (S7). Static layout-loop impl kept for verify/labs.
 
 Hard bans remain in force (see Constraints). Do not re-open pure-perf by relaxing quality bans.
 
 ### Left (next product modes — not unfinished mock pan work)
 
-1. **Opt-in ambient / settle when product wants motion** — `?layout=d3` settle + `?motion=1` ambient (default off). Do not claim continuous motion is live until product enables it.
-2. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
-3. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
-4. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
-5. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; do not resurrect ask-user-question morph without redesign.
+1. **Client placement cache (MVP)** — **Achieved (C0–C5 MVP)**: Falkor topology only; client d3 + `localStorage` pose cache; toolset never settles/persists layout; live `/graph` cache-hit paints / cache-miss one-shot settle. **Live-only host** — **Achieved** ([`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): no mock product path, no URL layout flags. **C3b deferred:** progressive BFS stream (invisible-until-posed growth animation). See [`plans/client-placement-cache.md`](plans/client-placement-cache.md). C6 live dirty / C7 reparent later.
+2. **Ambient / continuous motion** — product ambient remains **off**. Re-enable only with an explicit product decision (impl + types still exist; no URL flag).
+3. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
+4. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
+5. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
+6. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; do not resurrect ask-user-question morph without redesign.
 
 Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 
 ## Getting started
 
 1. Read **`brief.md`** — design constitution
-2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` knowledge graph; stress: `/graph?stress=1`)
+2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` live knowledge graph)
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
-5. Prefer domain imports: `@/components/chat/...`, `@/components/graph/...`, `@/lib/graph/...`, `@/components/dotmatrix/icons`, `@/components/ui/...`
+5. Prefer domain imports: `@/components/chat/prompt|conversation|shell/...` (or `@/components/chat` barrel), `@/ai/agent|models|tools|schemas/...`, `@/components/graph/...`, `@/lib/graph/{camera,core,layout,placement,render}/...`, `@/components/dotmatrix/icons`, `@/components/ui/...`. Root/`ai-elements` paths are compat re-exports.
 6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
 7. Do not resurrect deprecated ask-user-question morph into production without a redesign task
 

@@ -1,23 +1,22 @@
 /**
- * verify-weave-layout.mjs — Slice 5 weave settle smoke (pure + optional Falkor).
+ * verify-weave-layout.mjs — Client-placement product invariants (pure; no Falkor).
  *
  * Run: npm run verify:weave-layout
  *   → npx tsx scripts/verify-weave-layout.mjs
  *
- * Always runs (required CI gate — no Redis):
- *   memories + links → settleMemoryGraphIncremental (mirrors toolset)
- *   → finite xy, not all at origin, PART_OF child rank = parent+1
- *   → focus pins outsiders (no ≥50% free-settle blow-up)
- *   → PART_OF parent anchor: parent xy unchanged when placed
- *   → RELATES_TO after create-with-null-xy settles to finite
- *   → isPlacedLayout near-origin false / finite far true
- *   → create alone needs layout flag but toolset does not settle on create
- *   → subgraph settle: cousin outside settle graph unchanged; child moves
- *   → in-memory persist-selection double (dirty ids that would be written)
+ * Always pure (required CI gate — **no** Falkor/Redis):
+ *   - placeTopology cache miss → settle from (0,0) + save
+ *   - settleGraphData pure (no localStorage)
+ *   - placeTopology hit → paint cached poses
+ *   - toolset has no server settle/persist
+ *   - listGraphTopology does not select m.x/m.y/m.rank
+ *   - falkor has no product placement read/write exports
+ *   - memory-layout-settle dual-path module is gone
+ *   - Phase 1 removals stay gone (memoryNeedsLayout*, EDGE_SYNAPSE_GAP_MIN,
+ *     LAYOUT_SIMULATION_ENABLED, simulationEnabled / iterationsPerFrame)
  *
- * Optional Falkor: when Redis/Falkor is reachable, listGraphTopology smoke.
- * When unavailable, prints a single clear skip reason. Redis is never required
- * for CI green — the in-memory persist-selection path covers write selection.
+ * Product placement: client localStorage (`placeTopology` + `placement-cache`).
+ * This script never opens Falkor (avoids hang on missing Redis / falkordblite).
  */
 
 import fs from "node:fs";
@@ -28,9 +27,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
 let failed = 0;
-
-/** Match memory-layout-settle XY_PERSIST_EPSILON */
-const XY_PERSIST_EPSILON = 1e-6;
 
 function assert(cond, msg) {
   if (!cond) {
@@ -47,193 +43,295 @@ function stubMemory(partial) {
     name: partial.name ?? partial.id,
     content: "",
     impression: "",
-    searchEmbedding: [],
-    contentEmbedding: [],
     confidence: 1,
     ...partial,
   };
 }
 
-/** Mirror settleAndPersist dirty-write selection without touching Falkor (F6). */
-function selectPersistIds(beforeGraph, settled, dirtyIds, rankOverrides) {
-  const beforeById = new Map(
-    beforeGraph.nodes.map((n) => [n.id, { x: n.x, y: n.y, rank: n.rank }]),
-  );
-  const wouldWrite = [];
-  for (const node of settled.nodes) {
-    if (!dirtyIds.has(node.id)) continue;
-    const prev = beforeById.get(node.id);
-    const rankChanged = prev == null || prev.rank !== node.rank;
-    const xyChanged =
-      prev == null ||
-      Math.abs(prev.x - node.x) > XY_PERSIST_EPSILON ||
-      Math.abs(prev.y - node.y) > XY_PERSIST_EPSILON;
-    // F6: rankOverrides do not force write when rank+xy unchanged
-    if (!rankChanged && !xyChanged) continue;
-    wouldWrite.push(node.id);
+function maxPairwiseDistance(nodes) {
+  let max = 0;
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const d = Math.hypot(
+        nodes[i].x - nodes[j].x,
+        nodes[i].y - nodes[j].y
+      );
+      if (d > max) max = d;
+    }
   }
-  return wouldWrite;
+  return max;
 }
 
 async function main() {
-  const adapterUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/from-memory-graph.ts")
-  ).href;
-  const settleUrl = pathToFileURL(
-    path.join(root, "src/lib/memory-layout-settle.ts")
-  ).href;
-  const placementUrl = pathToFileURL(
-    path.join(root, "src/lib/memory-placement.ts")
+  const placeUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/placement/place-topology.ts")
   ).href;
   const recipeUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/force-recipe.ts")
+    path.join(root, "src/lib/graph/placement/force-recipe.ts")
+  ).href;
+  const placementCacheUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/placement/placement-cache.ts")
   ).href;
 
-  const { memoryGraphToGraphDataWithMeta } = await import(adapterUrl);
-  const {
-    settleMemoryGraphIncremental,
-    expandFocusNeighborhood,
-    expandAnchorRing,
-    buildSettleSubgraph,
-  } = await import(settleUrl);
-  const {
-    rankAfterParent,
-    shouldPlaceOnUpsert,
-    shouldPlaceOnLink,
-    isPlacedLayout,
-    partOfRankNeedsUpdate,
-    LAYOUT_ORIGIN_EPSILON,
-  } = await import(placementUrl);
-  const { ORIGIN_EPSILON } = await import(recipeUrl);
+  const { placeTopology } = await import(placeUrl);
+  const { settleGraphData, ORIGIN_EPSILON } = await import(recipeUrl);
+  const { deriveRanks, computeTopoFingerprint, loadPlacementCache } =
+    await import(placementCacheUrl);
 
-  console.log("--- pure weave settle (no Falkor) ---");
+  /** Script-local: finite xy and not both near origin (was isPlacedLayout). */
+  function isPlacedPose(layout) {
+    if (layout == null) return false;
+    const { x, y } = layout;
+    if (x == null || y == null) return false;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    if (Math.abs(x) <= ORIGIN_EPSILON && Math.abs(y) <= ORIGIN_EPSILON) {
+      return false;
+    }
+    return true;
+  }
 
-  assert(typeof settleMemoryGraphIncremental === "function", "settleMemoryGraphIncremental exported");
-  assert(typeof expandFocusNeighborhood === "function", "expandFocusNeighborhood exported");
-  assert(typeof expandAnchorRing === "function", "expandAnchorRing exported");
-  assert(typeof buildSettleSubgraph === "function", "buildSettleSubgraph exported");
-  assert(rankAfterParent(0) === 1, "rankAfterParent(0) === 1");
-  assert(rankAfterParent(2) === 3, "rankAfterParent(2) === 3");
+  // --- Product path: no server placement writes ----------------------------
+  console.log("--- product path: no Falkor placement ---");
 
-  // --- F5 isPlacedLayout -------------------------------------------------
-  console.log("\n--- isPlacedLayout (F5) ---");
-  assert(isPlacedLayout(null) === false, "isPlacedLayout(null) → false");
+  // SoT implementation is tools/toolset.ts; root toolset.ts is a re-export shim.
+  // Fence the implementation (and the shim) so a hollow re-export cannot pass.
+  // Positive markers ensure SoT is real tool wiring, not export * only.
+  const toolsetImplPath = path.join(root, "src/ai/tools/toolset.ts");
+  const toolsetShimPath = path.join(root, "src/ai/toolset.ts");
+  assert(fs.existsSync(toolsetImplPath), "src/ai/tools/toolset.ts exists (SoT)");
+  const toolsetSrc = fs.readFileSync(toolsetImplPath, "utf8");
+  const toolsetShimSrc = fs.existsSync(toolsetShimPath)
+    ? fs.readFileSync(toolsetShimPath, "utf8")
+    : "";
   assert(
-    isPlacedLayout({ x: undefined, y: undefined }) === false,
-    "isPlacedLayout missing → false"
+    /export\s+const\s+toolSet\b/.test(toolsetSrc),
+    "tools/toolset.ts exports const toolSet (not hollow re-export)"
   );
   assert(
-    isPlacedLayout({ x: 0, y: 0 }) === false,
-    "isPlacedLayout near-origin (0,0) → false"
+    /\bupsertMemory\b/.test(toolsetSrc) &&
+      /\baskUserQuestion\b/.test(toolsetSrc) &&
+      /\blinkMemories\b/.test(toolsetSrc),
+    "tools/toolset.ts defines upsertMemory / askUserQuestion / linkMemories"
   );
   assert(
-    isPlacedLayout({
-      x: LAYOUT_ORIGIN_EPSILON,
-      y: LAYOUT_ORIGIN_EPSILON,
-    }) === false,
-    "isPlacedLayout both at epsilon → false"
+    !/^\s*export\s+\*\s+from\s+/m.test(toolsetSrc) ||
+      /export\s+const\s+toolSet\b/.test(toolsetSrc),
+    "tools/toolset.ts is implementation SoT (has toolSet body)"
+  );
+  for (const [label, src] of [
+    ["tools/toolset.ts", toolsetSrc],
+    ["toolset.ts (shim)", toolsetShimSrc],
+  ]) {
+    if (!src) continue;
+    assert(
+      !/settleAndPersistMemoryPlacements/.test(src),
+      `settleAndPersistMemoryPlacements is NOT called in ${label}`
+    );
+    assert(
+      !/setMemoryPlacement/.test(src) &&
+        !/settleGraphData/.test(src) &&
+        !/settleMemoryGraphIncremental/.test(src),
+      `${label} does not import/call placement settle or setMemoryPlacement`
+    );
+  }
+
+  const falkorSrc = fs.readFileSync(
+    path.join(root, "src/lib/falkor.ts"),
+    "utf8"
+  );
+  const listStart = falkorSrc.indexOf("function listGraphTopology");
+  const listGraphTopologyBody =
+    listStart >= 0 ? falkorSrc.slice(listStart, listStart + 2500) : "";
+  assert(
+    listStart >= 0 &&
+      !/m\.x\s+AS\s+x/i.test(listGraphTopologyBody) &&
+      !/m\.y\s+AS\s+y/i.test(listGraphTopologyBody) &&
+      !/m\.rank\s+AS\s+rank/i.test(listGraphTopologyBody),
+    "listGraphTopology in falkor.ts does NOT select m.x, m.y, or m.rank"
   );
   assert(
-    isPlacedLayout({ x: 10, y: 20 }) === true,
-    "isPlacedLayout finite far → true"
-  );
-  assert(
-    isPlacedLayout({ x: 0, y: 5 }) === true,
-    "isPlacedLayout one axis far → true"
+    !/export async function setMemoryPlacement/.test(falkorSrc) &&
+      !/export async function getMemoryPlacement/.test(falkorSrc) &&
+      !/export async function listMemoryPlacements/.test(falkorSrc),
+    "falkor.ts has no product placement read/write exports"
   );
 
-  // --- Policy: create / upsert / link gates ------------------------------
-  console.log("\n--- place policy gates ---");
+  // Dual-path incremental settle module must stay deleted.
   assert(
-    shouldPlaceOnUpsert({ isCreate: true, existing: null }) === true,
-    "shouldPlaceOnUpsert create → true (needs layout later; toolset does not settle on create)"
+    !fs.existsSync(path.join(root, "src/lib/memory-layout-settle.ts")),
+    "memory-layout-settle.ts is deleted (client force-recipe only)"
   );
+
+  // Phase 1 removals — source fences (no soft-switch / API-xy helper resurrection).
+  console.log("\n--- Phase 1 removal fences ---");
   assert(
-    shouldPlaceOnUpsert({
-      isCreate: false,
-      existing: { x: 10, y: 20 },
-    }) === false,
-    "shouldPlaceOnUpsert content-only with placed xy → false"
+    !fs.existsSync(
+      path.join(root, "src/lib/graph/placement/from-memory-graph.ts")
+    ),
+    "from-memory-graph.ts deleted"
   );
-  assert(
-    shouldPlaceOnUpsert({
-      isCreate: false,
-      existing: { x: 0, y: 0 },
-    }) === true,
-    "shouldPlaceOnUpsert near-origin existing → true (cold path)"
+  const placeSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/placement/place-topology.ts"),
+    "utf8"
   );
-  assert(
-    shouldPlaceOnUpsert({
-      isCreate: false,
-      existing: null,
-    }) === true,
-    "shouldPlaceOnUpsert missing existing → true (cold path)"
+  const barrelSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/index.ts"),
+    "utf8"
   );
-  // Create alone: flag true but toolset must not settle on create (F1/F10).
-  const toolsetSrc = fs.readFileSync(
-    path.join(root, "src/ai/toolset.ts"),
+  const layoutLoopD3Src = fs.readFileSync(
+    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts"),
+    "utf8"
+  );
+  const graphScaleSrc = fs.readFileSync(
+    path.join(root, "src/lib/graph/core/graph-scale.ts"),
     "utf8"
   );
   assert(
-    /!isCreate\s*&&\s*needsSettle/.test(toolsetSrc),
-    "create alone does not settle (toolset: !isCreate && needsSettle only)"
+    !fs.existsSync(path.join(root, "src/lib/graph/layout/layout-loop.ts")),
+    "layout-loop.ts thin wrapper deleted"
   );
   assert(
-    /anchorIds:\s*\[target\]/.test(toolsetSrc),
-    "toolset PART_OF pins parent via anchorIds: [target]"
+    !/\bmemoryNeedsLayout\b/.test(placeSrc) &&
+      !/\bmemoriesNeedLayout\b/.test(placeSrc) &&
+      !/\bmemoryNeedsLayout\b/.test(barrelSrc) &&
+      !/\bmemoriesNeedLayout\b/.test(barrelSrc),
+    "memoryNeedsLayout / memoriesNeedLayout not re-exported (place/barrel)"
   );
   assert(
-    !/settleAndPersistMemoryLayouts\(\{\s*focusIds:\s*\[id\]\s*\}\)/.test(
-      toolsetSrc.replace(/\s+/g, " ")
-    ) || /!isCreate && needsSettle/.test(toolsetSrc),
-    "upsert create path does not blindly settle focusIds:[id]"
+    !/\bEDGE_SYNAPSE_GAP_MIN\b/.test(graphScaleSrc) &&
+      !/\bEDGE_SYNAPSE_GAP_MIN\b/.test(barrelSrc),
+    "EDGE_SYNAPSE_GAP_MIN not resurrected (graph-scale/barrel)"
+  );
+  assert(
+    !/\bLAYOUT_SIMULATION_ENABLED\b/.test(layoutLoopD3Src) &&
+      !/\bLAYOUT_SIMULATION_ENABLED\b/.test(barrelSrc),
+    "LAYOUT_SIMULATION_ENABLED not resurrected (layout-loop-d3/barrel)"
+  );
+  assert(
+    !/\bsimulationEnabled\b/.test(layoutLoopD3Src) &&
+      !/\biterationsPerFrame\b/.test(layoutLoopD3Src),
+    "FA2 simulationEnabled / iterationsPerFrame options not resurrected"
   );
 
+  // Shared wire types SoT — GET /api/graph (client-safe; not only falkor).
+  console.log("\n--- GraphTopology wire types SoT ---");
+  const topoTypesPath = path.join(root, "src/types/graph-topology.ts");
   assert(
-    shouldPlaceOnLink({
-      type: "PART_OF",
-      sourceLayout: { x: 1, y: 2, rank: 0 },
-    }) === false,
-    "shouldPlaceOnLink PART_OF placed child → false (no force; rank-only separate)"
+    fs.existsSync(topoTypesPath),
+    "src/types/graph-topology.ts exists (client-safe wire SoT)"
+  );
+  const topoTypesSrc = fs.readFileSync(topoTypesPath, "utf8");
+  const schemaSrc = fs.readFileSync(
+    path.join(root, "src/types/graph-schema.ts"),
+    "utf8"
   );
   assert(
-    shouldPlaceOnLink({
-      type: "PART_OF",
-      sourceLayout: { x: null, y: null, rank: 0 },
-    }) === true,
-    "shouldPlaceOnLink PART_OF unplaced child → true"
+    /export type MemoryNode\b/.test(schemaSrc) ||
+      /export type MemoryNode\b/.test(topoTypesSrc),
+    "MemoryNode type exported (graph-schema or graph-topology)"
   );
   assert(
-    shouldPlaceOnLink({
-      type: "RELATES_TO",
-      sourceLayout: { x: 10, y: 20, rank: 0 },
-    }) === true,
-    "shouldPlaceOnLink RELATES_TO always → true (topology)"
+    /export type GraphTopology\b/.test(topoTypesSrc) &&
+      /export type GraphApiResponse\b/.test(topoTypesSrc),
+    "graph-topology.ts exports GraphTopology, GraphApiResponse"
   );
   assert(
-    partOfRankNeedsUpdate({
-      sourceLayout: { x: 10, y: 20, rank: 0 },
-      parentRank: 0,
-    }) === true,
-    "partOfRankNeedsUpdate rank 0 vs parent+1 → true"
+    /MemoryNode/.test(topoTypesSrc) &&
+      !/GraphTopologyMemory/.test(topoTypesSrc),
+    "graph-topology uses MemoryNode (GraphTopologyMemory collapsed)"
+  );
+  // Wire SoT must stay lean: no embeddings, no client placement fields.
+  assert(
+    !/\bsearchEmbedding\b/.test(topoTypesSrc) &&
+      !/\bcontentEmbedding\b/.test(topoTypesSrc),
+    "graph-topology.ts has no embedding fields (searchEmbedding/contentEmbedding)"
   );
   assert(
-    partOfRankNeedsUpdate({
-      sourceLayout: { x: 10, y: 20, rank: 1 },
-      parentRank: 0,
-    }) === false,
-    "partOfRankNeedsUpdate rank already parent+1 → false"
+    !/\bx\s*:/.test(topoTypesSrc) &&
+      !/\by\s*:/.test(topoTypesSrc) &&
+      !/\brank\s*:/.test(topoTypesSrc),
+    "graph-topology.ts has no placement fields (x/y/rank) on type bodies"
+  );
+  const canvasSrc = fs.readFileSync(
+    path.join(root, "src/components/graph/graph-canvas.tsx"),
+    "utf8"
+  );
+  assert(
+    !/type GraphApiResponse\s*=/.test(canvasSrc),
+    "graph-canvas does not define local GraphApiResponse (uses shared SoT)"
+  );
+  assert(
+    /from ["']@\/types\/graph-topology["']/.test(canvasSrc) ||
+      /from ["']@\/types["']/.test(canvasSrc) ||
+      (/GraphApiResponse/.test(canvasSrc) &&
+        /from ["']@\/lib\/graph["']/.test(canvasSrc)),
+    "graph-canvas imports GraphApiResponse from shared module"
+  );
+  // falkor may re-export; must not redefine topology type bodies inline.
+  assert(
+    !/export type MemoryNode\s*=\s*\{/.test(falkorSrc) &&
+      !/export type GraphTopology\s*=\s*\{/.test(falkorSrc),
+    "falkor.ts does not redefine MemoryNode/GraphTopology bodies (re-export SoT only)"
+  );
+  assert(
+    /export type\s*\{\s*GraphTopology\s*,\s*MemoryNode\s*\}\s*from\s*["']@\/types\/graph-topology["']/.test(
+      falkorSrc
+    ) ||
+      /export type\s*\{\s*MemoryNode\s*,\s*GraphTopology\s*\}\s*from\s*["']@\/types\/graph-topology["']/.test(
+        falkorSrc
+      ),
+    "falkor.ts re-exports GraphTopology + MemoryNode from @/types/graph-topology"
   );
 
-  // Synthetic KB: placed parent + distant siblings; new child missing xy.
-  console.log("\n--- PART_OF settle with parent anchor (F2/F3) ---");
+  // --- memory-placement removed (product uses deriveRanks + placeTopology) -
+  console.log("\n--- memory-placement gone / product rank APIs ---");
+  assert(
+    !fs.existsSync(
+      path.join(root, "src/lib/graph/placement/memory-placement.ts")
+    ),
+    "memory-placement.ts is gone"
+  );
+  assert(
+    !fs.existsSync(path.join(root, "src/lib/memory-placement.ts")),
+    "legacy src/lib/memory-placement.ts is gone"
+  );
+  // barrelSrc loaded earlier in Phase 1 fences.
+  assert(
+    !/memory-placement/.test(barrelSrc) &&
+      !/\bisPlacedLayout\b/.test(barrelSrc) &&
+      !/\brankAfterParent\b/.test(barrelSrc) &&
+      !/\bPARENT_CHILD_RADIUS\b/.test(barrelSrc) &&
+      !/\bLAYOUT_ORIGIN_EPSILON\b/.test(barrelSrc),
+    "barrel does not re-export memory-placement symbols"
+  );
+  // Rank depth is product-owned by deriveRanks (PART_OF child = parent + 1).
+  assert(typeof deriveRanks === "function", "deriveRanks exported (product rank)");
+
+  // --- placeTopology cold miss + settle ------------------------------------
+  console.log("\n--- cold topology → placeTopology settle ---");
+
+  const store = new Map();
+  const mockLs = {
+    getItem(k) {
+      return store.get(k) ?? null;
+    },
+    setItem(k, v) {
+      store.set(k, String(v));
+    },
+    removeItem(k) {
+      store.delete(k);
+    },
+  };
+  globalThis.localStorage = mockLs;
+  globalThis.window = globalThis.window || { localStorage: mockLs };
+  globalThis.window.localStorage = mockLs;
+
   const memories = [
-    stubMemory({ id: "root", name: "Root", x: 40, y: -10, rank: 0 }),
-    stubMemory({ id: "sib-a", name: "Sib A", x: 120, y: -40, rank: 1 }),
-    stubMemory({ id: "sib-b", name: "Sib B", x: -90, y: 55, rank: 1 }),
-    stubMemory({ id: "cousin", name: "Cousin", x: 200, y: 180, rank: 0 }),
-    // Weave create / PART_OF child — missing layout (toolset settle path).
-    stubMemory({ id: "child", name: "Child", rank: 0 }),
+    stubMemory({ id: "root", name: "Root" }),
+    stubMemory({ id: "sib-a", name: "Sib A" }),
+    stubMemory({ id: "sib-b", name: "Sib B" }),
+    stubMemory({ id: "cousin", name: "Cousin" }),
+    stubMemory({ id: "child", name: "Child" }),
   ];
   const links = [
     { source: "sib-a", target: "root", type: "PART_OF" },
@@ -242,274 +340,141 @@ async function main() {
     { source: "cousin", target: "root", type: "RELATES_TO" },
   ];
 
-  const { graph, needsLayout } = memoryGraphToGraphDataWithMeta({
-    memories,
-    links,
-  });
-  assert(needsLayout === true, "child missing xy → needsLayout");
+  const graph = placeTopology({ memories, links });
+
   assert(graph.nodes.length === 5, "graph has 5 nodes");
+  assert(graph.edges.length === 4, "graph has 4 edges");
 
-  const childRank = rankAfterParent(0);
-  assert(childRank === 1, "PART_OF child rank = parent+1 (policy)");
-
-  const neighborhood = expandFocusNeighborhood(graph, ["child"], {
-    child: childRank,
-  });
-  assert(neighborhood.has("child"), "neighborhood includes focus child");
-  assert(neighborhood.has("root"), "neighborhood includes PART_OF parent");
-  assert(!neighborhood.has("cousin"), "cousin outside child 1-hop");
-
-  // With parent forced anchor: movable excludes root → subgraph is child+parent only
-  // (sibs/cousin are no longer 1-hop of movable; they stay untouched outside settle).
-  const movableWithoutParent = new Set(
-    [...neighborhood].filter((id) => id !== "root")
-  );
-  assert(movableWithoutParent.has("child"), "movable after pin is child");
-  assert(!movableWithoutParent.has("root"), "movable after pin excludes parent");
-  const anchors = expandAnchorRing(graph, movableWithoutParent);
-  anchors.add("root");
-  assert(anchors.has("root"), "root is forced parent anchor");
-  assert(!anchors.has("child"), "child is movable not anchor");
-  assert(
-    !anchors.has("cousin"),
-    "cousin not in child-only boundary ring (parent pinned out of movable)"
-  );
-
-  const sub = buildSettleSubgraph(graph, movableWithoutParent, anchors);
-  assert(
-    sub.nodes.some((n) => n.id === "child"),
-    "settle subgraph includes movable child"
-  );
-  assert(
-    sub.nodes.some((n) => n.id === "root"),
-    "settle subgraph includes pinned parent"
-  );
-  assert(
-    !sub.nodes.some((n) => n.id === "cousin"),
-    "settle subgraph excludes distant cousin when parent is anchor"
-  );
-  assert(
-    sub.nodes.length === movableWithoutParent.size + anchors.size,
-    "settle subgraph = movable + anchors only"
-  );
-
-  const rootBefore = graph.nodes.find((n) => n.id === "root");
-  const { graph: settled, dirtyIds, pinned } = settleMemoryGraphIncremental(
-    graph,
-    {
-      focusIds: ["child"],
-      anchorIds: ["root"],
-      rankOverrides: { child: childRank },
-      settle: { ticks: 400 },
-    },
-  );
-
-  assert(pinned === true, "incremental settle pins outsiders / anchors");
-  assert(dirtyIds.has("child"), "dirty includes child");
-  assert(!dirtyIds.has("root"), "root not dirty (forced parent anchor)");
-  assert(!dirtyIds.has("cousin"), "cousin not dirty (anchor / outside)");
-
-  const byId = new Map(settled.nodes.map((n) => [n.id, n]));
-  const childNode = byId.get("child");
-  const rootNode = byId.get("root");
-  const cousinNode = byId.get("cousin");
-  const cousinBefore = graph.nodes.find((n) => n.id === "cousin");
-  const childBefore = graph.nodes.find((n) => n.id === "child");
-
-  assert(
-    childNode != null && rootNode != null && cousinNode != null,
-    "nodes present after settle"
-  );
-  assert(
-    Number.isFinite(childNode.x) && Number.isFinite(childNode.y),
-    `child finite xy (${childNode.x}, ${childNode.y})`
-  );
-  assert(
-    rootBefore != null &&
-      rootNode.x === rootBefore.x &&
-      rootNode.y === rootBefore.y,
-    `PART_OF pins parent (parent xy unchanged: ${rootNode.x}, ${rootNode.y})`
-  );
-  assert(childNode.rank === 1, `child rank === 1 (got ${childNode.rank})`);
-  assert(rootNode.rank === 0, `root rank unchanged (got ${rootNode.rank})`);
-
-  // Cousin outside movable: unchanged (anchor or distant pin).
-  assert(
-    cousinNode.x === cousinBefore.x && cousinNode.y === cousinBefore.y,
-    `cousin outside settle movable unchanged (${cousinNode.x}, ${cousinNode.y})`
-  );
-
-  // Child should leave the origin seed after settle.
-  assert(
-    childBefore != null &&
-      (childNode.x !== childBefore.x || childNode.y !== childBefore.y),
-    `child moved after settle (${childNode.x}, ${childNode.y})`
-  );
-  assert(
-    isPlacedLayout({ x: childNode.x, y: childNode.y }),
-    "child isPlacedLayout after PART_OF settle"
-  );
-
-  const allNearOrigin = settled.nodes.every(
-    (n) => Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON
-  );
-  assert(!allNearOrigin, "after settle: not all nodes within origin epsilon");
-
-  // --- RELATES_TO after create-with-null-xy (F1) --------------------------
-  console.log("\n--- RELATES_TO after create-with-null-xy (F1) ---");
-  const relatesMemories = [
-    stubMemory({ id: "a", name: "A", x: 80, y: 30, rank: 0 }),
-    // Create alone left xy null — unplaced until link.
-    stubMemory({ id: "b", name: "B", rank: 0 }),
-  ];
-  const relatesLinks = [
-    { source: "b", target: "a", type: "RELATES_TO" },
-  ];
-  const { graph: relatesGraph, needsLayout: relatesNeeds } =
-    memoryGraphToGraphDataWithMeta({
-      memories: relatesMemories,
-      links: relatesLinks,
-    });
-  assert(relatesNeeds === true, "create-without-xy + RELATES_TO → needsLayout");
-  assert(
-    shouldPlaceOnLink({
-      type: "RELATES_TO",
-      sourceLayout: { x: null, y: null },
-    }) === true,
-    "RELATES_TO after create → shouldPlaceOnLink true"
-  );
-  const aBefore = relatesGraph.nodes.find((n) => n.id === "a");
-  const relatesSettled = settleMemoryGraphIncremental(relatesGraph, {
-    focusIds: ["b"],
-    settle: { ticks: 400 },
-  });
-  const bAfter = relatesSettled.graph.nodes.find((n) => n.id === "b");
-  const aAfter = relatesSettled.graph.nodes.find((n) => n.id === "a");
-  assert(
-    bAfter != null && Number.isFinite(bAfter.x) && Number.isFinite(bAfter.y),
-    `RELATES_TO settle: b finite (${bAfter?.x}, ${bAfter?.y})`
-  );
-  assert(
-    isPlacedLayout({ x: bAfter.x, y: bAfter.y }),
-    "RELATES_TO settle: b isPlacedLayout (not near-origin seed)"
-  );
-  // a is in neighborhood (movable with focus b) — may move; just ensure finite
-  assert(
-    aAfter != null && Number.isFinite(aAfter.x) && Number.isFinite(aAfter.y),
-    "RELATES_TO settle: a remains finite"
-  );
-  assert(aBefore != null, "a before present");
-
-  // --- in-memory persist selection (no Redis) -----------------------------
-  console.log("\n--- in-memory persist selection (no Redis) ---");
-  const wouldWrite = selectPersistIds(graph, settled, dirtyIds, {
-    child: childRank,
-  });
-  assert(wouldWrite.includes("child"), "persist selection includes child");
-  assert(
-    !wouldWrite.includes("cousin"),
-    "persist selection excludes cousin (not dirty)"
-  );
-  assert(
-    !wouldWrite.includes("root"),
-    "persist selection excludes pinned parent"
-  );
-  assert(
-    wouldWrite.every((id) => dirtyIds.has(id)),
-    "persist selection ⊆ dirtyIds"
-  );
-
-  // Softened pin policy: movable fraction ≥ 50% still pins outsiders.
-  console.log("\n--- pin policy (no ≥50% free-settle) ---");
-  const hubMemories = [
-    stubMemory({ id: "h", name: "H", x: 0, y: 0, rank: 0 }),
-    stubMemory({ id: "m1", name: "M1", x: 40, y: 10, rank: 1 }),
-    stubMemory({ id: "outsider", name: "Out", x: 300, y: 300, rank: 0 }),
-  ];
-  const hubLinks = [
-    { source: "m1", target: "h", type: "PART_OF" },
-    { source: "outsider", target: "h", type: "RELATES_TO" },
-  ];
-  const { graph: hubGraph } = memoryGraphToGraphDataWithMeta({
-    memories: hubMemories,
-    links: hubLinks,
-  });
-  // focus m1 → movable {m1,h} = 2/3 ≥ 0.5 (old policy would free-settle all)
-  const hub = settleMemoryGraphIncremental(hubGraph, {
-    focusIds: ["m1"],
-    settle: { ticks: 400 },
-  });
-  const hubOut = hub.graph.nodes.find((n) => n.id === "outsider");
-  const hubOutBefore = hubGraph.nodes.find((n) => n.id === "outsider");
-  assert(hub.pinned === true, "focus present → pin even when movable ≥ 50%");
-  assert(!hub.dirtyIds.has("outsider"), "outsider not dirty under soft pin policy");
-  assert(
-    hubOut != null &&
-      hubOutBefore != null &&
-      hubOut.x === hubOutBefore.x &&
-      hubOut.y === hubOutBefore.y,
-    "outsider xy unchanged when movable ratio high"
-  );
-
-  // Focus-less settle (bulk / cold): all dirty, finite, not collapsed.
-  console.log("\n--- cold / empty-focus settle ---");
-  const coldMemories = [
-    stubMemory({ id: "a", name: "A", rank: 0 }),
-    stubMemory({ id: "b", name: "B", rank: 0 }),
-    stubMemory({ id: "c", name: "C", rank: 1 }),
-  ];
-  const coldLinks = [
-    { source: "c", target: "a", type: "PART_OF" },
-    { source: "b", target: "a", type: "RELATES_TO" },
-  ];
-  const { graph: coldGraph } = memoryGraphToGraphDataWithMeta({
-    memories: coldMemories,
-    links: coldLinks,
-  });
-  const cold = settleMemoryGraphIncremental(coldGraph, {
-    settle: { ticks: 400 },
-  });
-  assert(cold.pinned === false, "empty focus → full free settle (unpinned)");
-  assert(cold.dirtyIds.size === coldGraph.nodes.length, "empty focus → all dirty");
-  for (const n of cold.graph.nodes) {
+  // Miss path settles from origin — result is spread, not origin stack.
+  for (const n of graph.nodes) {
     assert(
       Number.isFinite(n.x) && Number.isFinite(n.y),
-      `cold finite ${n.id}`
+      `placeTopology finite ${n.id}`
     );
   }
-  const coldAllOrigin = cold.graph.nodes.every(
+  const allNearOrigin = graph.nodes.every(
     (n) => Math.abs(n.x) <= ORIGIN_EPSILON && Math.abs(n.y) <= ORIGIN_EPSILON
   );
-  assert(!coldAllOrigin, "cold settle: not all at origin");
+  assert(!allNearOrigin, "after placeTopology miss: not all at origin");
+  const spread = maxPairwiseDistance(graph.nodes);
+  assert(spread > 1, `settled spread > 1 (got ${spread.toFixed(4)})`);
+  console.log(`  settled spread (max pairwise)=${spread.toFixed(2)}`);
 
-  // Rank override alone still scopes to neighborhood (not empty-focus).
-  const coldRank = settleMemoryGraphIncremental(coldGraph, {
-    rankOverrides: { c: rankAfterParent(0) },
-    settle: { ticks: 400 },
-  });
-  assert(coldRank.graph.nodes.find((n) => n.id === "c").rank === 1, "rank override alone → child rank 1");
-  assert(coldRank.dirtyIds.has("c"), "rank override alone → c dirty");
-  assert(coldRank.pinned === true, "rank override alone scopes (not full free)");
+  // Client-derived ranks from PART_OF (child = parent + 1).
+  const ranks = deriveRanks(memories, graph.edges);
+  assert(ranks.get("root") === 0, "root rank is 0");
+  assert(ranks.get("child") === 1, "PART_OF child rank = parent+1");
+  assert(ranks.get("sib-a") === 1, "sib-a rank is 1");
+  assert(ranks.get("cousin") === 0, "RELATES_TO cousin rank stays 0");
 
-  // --- optional Falkor (skip when unavailable) ----------------------------
-  console.log("\n--- optional Falkor persist ---");
-  try {
-    const falkorUrl = pathToFileURL(path.join(root, "src/lib/falkor.ts")).href;
-    const falkor = await import(falkorUrl);
-    if (typeof falkor.listGraphTopology !== "function") {
-      console.log("skip: listGraphTopology missing");
-    } else {
-      await falkor.listGraphTopology();
-      console.log(
-        "ok: Falkor reachable (DB smoke only — persist path not mutated here; in-memory persist selection covered above)"
-      );
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.log(
-      `skip: Falkor/Redis unavailable (${msg.split("\n")[0] ?? "error"})`
+  for (const n of graph.nodes) {
+    assert(
+      n.rank === ranks.get(n.id),
+      `placeTopology node ${n.id} rank matches deriveRanks`
     );
   }
+
+  const childNode = graph.nodes.find((n) => n.id === "child");
+  assert(
+    childNode != null && isPlacedPose({ x: childNode.x, y: childNode.y }),
+    "child has placed pose after placeTopology miss"
+  );
+
+  // Cache saved under fingerprint.
+  const fp = computeTopoFingerprint(memories, links, ranks);
+  assert(
+    loadPlacementCache(fp) != null,
+    "placeTopology miss saves placement cache"
+  );
+
+  // --- settleGraphData purity ----------------------------------------------
+  console.log("\n--- settleGraphData purity ---");
+  const purityStore = new Map();
+  const purityLs = {
+    getItem(k) {
+      return purityStore.get(k) ?? null;
+    },
+    setItem(k, v) {
+      purityStore.set(k, String(v));
+    },
+    removeItem(k) {
+      purityStore.delete(k);
+    },
+  };
+  // Temporarily swap storage so pure settle cannot write the product key.
+  globalThis.localStorage = purityLs;
+  globalThis.window.localStorage = purityLs;
+  settleGraphData(graph, { ticks: 50 });
+  assert(
+    purityStore.size === 0,
+    "settleGraphData does not write localStorage (pure)"
+  );
+  // Restore mock for hit path.
+  globalThis.localStorage = mockLs;
+  globalThis.window.localStorage = mockLs;
+
+  // --- RELATES_TO cold pair ------------------------------------------------
+  console.log("\n--- RELATES_TO cold pair settle ---");
+  // Fresh storage so this topology is a miss.
+  store.clear();
+  const relatesMemories = [
+    stubMemory({ id: "a", name: "A" }),
+    stubMemory({ id: "b", name: "B" }),
+  ];
+  const relatesLinks = [{ source: "b", target: "a", type: "RELATES_TO" }];
+  const relatesGraph = placeTopology({
+    memories: relatesMemories,
+    links: relatesLinks,
+  });
+  for (const n of relatesGraph.nodes) {
+    assert(
+      Number.isFinite(n.x) && Number.isFinite(n.y),
+      `RELATES_TO finite ${n.id}`
+    );
+  }
+  const bAfter = relatesGraph.nodes.find((n) => n.id === "b");
+  assert(
+    bAfter != null && isPlacedPose({ x: bAfter.x, y: bAfter.y }),
+    "RELATES_TO placeTopology: b has placed pose"
+  );
+
+  // --- Fingerprint + cache hit round-trip ----------------------------------
+  console.log("\n--- placement cache fingerprint round-trip ---");
+  store.clear();
+
+  const cacheMemories = [
+    stubMemory({ id: "r", name: "R" }),
+    stubMemory({ id: "c", name: "C" }),
+  ];
+  const cleanLinks = [{ source: "c", target: "r", type: "PART_OF" }];
+
+  const firstGraph = placeTopology({
+    memories: cacheMemories,
+    links: cleanLinks,
+  });
+  assert(firstGraph.nodes.length === 2, "cold placeTopology yields 2 nodes");
+  const settledById = new Map(firstGraph.nodes.map((n) => [n.id, n]));
+
+  const secondGraph = placeTopology({
+    memories: cacheMemories,
+    links: cleanLinks,
+  });
+  for (const n of secondGraph.nodes) {
+    const s = settledById.get(n.id);
+    assert(
+      s != null && n.x === s.x && n.y === s.y && n.rank === s.rank,
+      `cache hit pose equality for ${n.id}`
+    );
+  }
+
+  console.log("\n--- client-placement product path (static) ---");
+  assert(true, "no Falkor open in verify:weave-layout (pure-only gate)");
+  assert(
+    !/\bseedNodePosition\b/.test(placeSrc) &&
+      !/\bneedsLayout\b/.test(placeSrc) &&
+      !/\bcomputeBfsOrder\b/.test(placeSrc),
+    "place-topology has no seedNodePosition / needsLayout / computeBfsOrder"
+  );
 
   if (failed > 0) {
     console.error(`\n${failed} assertion(s) failed`);
