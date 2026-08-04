@@ -125,7 +125,7 @@ export const AttachmentChip = ({
           <div className="flex size-full items-center justify-center">
             <DotMatrixIcon
               name={entry.name}
-              size={20}
+              size={ICON_GLYPH.toolbar}
               className="text-muted-foreground"
             />
           </div>

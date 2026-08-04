@@ -41,7 +41,7 @@ src/
   contexts/      # ChatContext, etc.
 ```
 
-**Prompt input** in production is a **chat-only** shell. The old morphing “ask user question” widget lives under `src/deprecated/ask-user-question-widget/` for redesign; do not rewire it into `/home` without an explicit task.
+**Prompt input** SoT: `src/components/chat/prompt/prompt-input.tsx`. Live **pending-ask** is a non-morph option list in the prompt body (`pendingAsk` / `onOptionSelect`). The old **morphing** ask-user-question widget is under `src/deprecated/ask-user-question-widget/`; do not rewire morph into `/home` without an explicit redesign task.
 
 ## Scripts
 

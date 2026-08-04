@@ -1,6 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import {
+  InputGroupButton,
+} from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
@@ -63,7 +65,10 @@ declare global {
 
 type SpeechInputMode = "speech-recognition" | "media-recorder" | "none";
 
-export type SpeechInputProps = ComponentProps<typeof Button> & {
+export type SpeechInputProps = Omit<
+  ComponentProps<typeof InputGroupButton>,
+  "children" | "onError"
+> & {
   onTranscriptionChange?: (text: string) => void;
   /**
    * Callback for when audio is recorded using MediaRecorder fallback.
@@ -73,7 +78,32 @@ export type SpeechInputProps = ComponentProps<typeof Button> & {
    */
   onAudioRecorded?: (audioBlob: Blob) => Promise<string>;
   lang?: string;
+  /** Surface mic / speech errors to the product (e.g. toast). */
+  onError?: (message: string) => void;
 };
+
+const BENIGN_SPEECH_ERRORS = new Set([
+  "aborted",
+  "no-speech",
+]);
+
+function mapSpeechRecognitionError(code: string): string | null {
+  if (BENIGN_SPEECH_ERRORS.has(code)) {
+    return null;
+  }
+  switch (code) {
+    case "not-allowed":
+      return "Microphone permission denied.";
+    case "service-not-allowed":
+      return "Speech recognition is not allowed.";
+    case "audio-capture":
+      return "No microphone available.";
+    case "network":
+      return "Speech recognition network error.";
+    default:
+      return "Speech recognition failed.";
+  }
+}
 
 const detectSpeechInputMode = (): SpeechInputMode => {
   if (typeof window === "undefined") {
@@ -95,7 +125,10 @@ export const SpeechInput = ({
   className,
   onTranscriptionChange,
   onAudioRecorded,
+  onError,
   lang = "en-US",
+  size = "icon-sm",
+  variant = "ghost",
   ...props
 }: SpeechInputProps) => {
   const [isListening, setIsListening] = useState(false);
@@ -115,12 +148,14 @@ export const SpeechInput = ({
   >(onTranscriptionChange);
   const onAudioRecordedRef =
     useRef<SpeechInputProps["onAudioRecorded"]>(onAudioRecorded);
+  const onErrorRef = useRef<SpeechInputProps["onError"]>(onError);
 
   // Keep refs in sync
   useEffect(() => {
     onTranscriptionChangeRef.current = onTranscriptionChange;
     onAudioRecordedRef.current = onAudioRecorded;
-  }, [onTranscriptionChange, onAudioRecorded]);
+    onErrorRef.current = onError;
+  }, [onTranscriptionChange, onAudioRecorded, onError]);
 
   // Initialize Speech Recognition when mode is speech-recognition
   useEffect(() => {
@@ -128,9 +163,9 @@ export const SpeechInput = ({
       return;
     }
 
-    const SpeechRecognition =
+    const SpeechRecognitionCtor =
       window.SpeechRecognition || window.webkitSpeechRecognition;
-    const speechRecognition = new SpeechRecognition();
+    const speechRecognition = new SpeechRecognitionCtor();
 
     speechRecognition.continuous = true;
     speechRecognition.interimResults = true;
@@ -168,8 +203,13 @@ export const SpeechInput = ({
       }
     };
 
-    const handleError = () => {
+    const handleError = (event: Event) => {
       setIsListening(false);
+      const speechError = event as SpeechRecognitionErrorEvent;
+      const message = mapSpeechRecognitionError(speechError.error);
+      if (message) {
+        onErrorRef.current?.(message);
+      }
     };
 
     speechRecognition.addEventListener("start", handleStart);
@@ -230,7 +270,13 @@ export const SpeechInput = ({
       audioChunksRef.current = [];
 
       try {
-        const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        const AudioCtx =
+          window.AudioContext ||
+          (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+            .webkitAudioContext;
+        if (!AudioCtx) {
+          throw new Error("AudioContext unavailable");
+        }
         const audioCtx = new AudioCtx();
         audioContextRef.current = audioCtx;
         const analyser = audioCtx.createAnalyser();
@@ -285,7 +331,7 @@ export const SpeechInput = ({
               onTranscriptionChangeRef.current?.(transcript);
             }
           } catch {
-            // Error handling delegated to the onAudioRecorded caller
+            onErrorRef.current?.("Failed to transcribe audio.");
           } finally {
             setIsProcessing(false);
           }
@@ -304,6 +350,7 @@ export const SpeechInput = ({
           track.stop();
         }
         streamRef.current = null;
+        onErrorRef.current?.("Recording failed.");
       };
 
       mediaRecorder.addEventListener("dataavailable", handleDataAvailable);
@@ -315,6 +362,7 @@ export const SpeechInput = ({
       setIsListening(true);
     } catch {
       setIsListening(false);
+      onErrorRef.current?.("Microphone permission denied.");
     }
   }, []);
 
@@ -327,38 +375,48 @@ export const SpeechInput = ({
   }, []);
 
   const toggleListening = useCallback(() => {
+    if (mode === "none") {
+      onErrorRef.current?.("Speech not supported in this browser.");
+      return;
+    }
     if (mode === "speech-recognition" && recognitionRef.current) {
       if (isListening) {
         recognitionRef.current.stop();
       } else {
-        recognitionRef.current.start();
+        try {
+          recognitionRef.current.start();
+        } catch {
+          onErrorRef.current?.("Could not start speech recognition.");
+        }
       }
     } else if (mode === "media-recorder") {
       if (isListening) {
         stopMediaRecorder();
       } else {
-        startMediaRecorder();
+        void startMediaRecorder();
       }
     }
   }, [mode, isListening, startMediaRecorder, stopMediaRecorder]);
 
-  // Determine if button should be disabled
+  // Determine if button should be disabled (mode "none" stays clickable to surface onError)
   const isDisabled =
-    mode === "none" ||
     (mode === "speech-recognition" && !isRecognitionReady) ||
     (mode === "media-recorder" && !onAudioRecorded) ||
     isProcessing;
 
   return (
     <div className="relative inline-flex items-center justify-center">
-      {/* Main record button */}
-      <Button
+      <InputGroupButton
         className={cn(
           "relative z-10 transition-all duration-300",
           className
         )}
         disabled={isDisabled}
         onClick={toggleListening}
+        size={size}
+        type="button"
+        variant={variant}
+        aria-label={isListening ? "Stop listening" : "Start voice input"}
         {...props}
       >
         <AnimatePresence mode="wait">
@@ -402,7 +460,7 @@ export const SpeechInput = ({
             </motion.div>
           )}
         </AnimatePresence>
-      </Button>
+      </InputGroupButton>
     </div>
   );
 };

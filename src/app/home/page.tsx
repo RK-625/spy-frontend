@@ -70,6 +70,7 @@ import { useCallback, useMemo } from "react";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { toast } from "@/components/ui/app-toaster";
 import { models, chefs } from "@/lib/models";
 import ShinyText from "@/components/landing/shiny-text";
 
@@ -261,14 +262,16 @@ const ChatWorkspace = () => {
     [controller],
   );
 
-  const handleTextChange = useCallback(
-    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      if (controller) {
-        controller.textInput.setValue(event.target.value);
-      }
+  const handleAttachmentError = useCallback(
+    (err: { message: string }) => {
+      toast.error(err.message);
     },
-    [controller],
+    [],
   );
+
+  const handleSpeechError = useCallback((message: string) => {
+    toast.error(message);
+  }, []);
 
   const handleModelSelect = useCallback(
     (modelId: string) => {
@@ -461,6 +464,7 @@ const ChatWorkspace = () => {
               accept={PROMPT_INPUT_ACCEPT}
               maxFiles={5}
               maxFileSize={10 * 1024 * 1024}
+              onError={handleAttachmentError}
             >
               <PromptInputHeader>
                 <PromptInputAttachments />
@@ -469,13 +473,10 @@ const ChatWorkspace = () => {
                 pendingAsk={pendingAsk}
                 onOptionSelect={handleWidgetOptionSelect}
               >
-                <PromptInputTextarea
-                  onChange={handleTextChange}
-                  value={controller?.textInput.value || ""}
-                />
+                <PromptInputTextarea />
               </PromptInputBody>
               <PromptInputFooter>
-                <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)] [&_button[data-model-trigger]]:!w-auto [&_button[data-model-trigger]]:!px-2">
+                <PromptInputTools>
                   <PromptInputButton
                     onClick={attachments.openFileDialog}
                     size="icon-sm"
@@ -492,6 +493,7 @@ const ChatWorkspace = () => {
                   <SpeechInput
                     className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)]"
                     onTranscriptionChange={handleTranscriptionChange}
+                    onError={handleSpeechError}
                     size="icon-sm"
                     variant="ghost"
                   />

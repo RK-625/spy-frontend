@@ -151,7 +151,7 @@ Do NOT look like:
 - **Focus state:** border `rgba(200,172,251,0.2)`, glow shadow, top gradient line
 - **Toolbar:** all buttons `size-8` (32×32), `var(--radius)` corners, ghost variant
 - **Submit/Stop:** `bg-primary` (`#e8dff8`), `text-primary-foreground` (`#150c28`), ArrowUp icon. The button never fades out or disables during generation. It stays fully opaque and instantly morphs into a universal Stop button (Square icon) when weaving/streaming.
-- **Chat-only shell:** Live `prompt-input` is conversation chrome (attachments header, textarea, tools, submit). There is **no** in-prompt multiple-choice / morphing “ask user question” widget in production; that experiment is deprecated under `src/deprecated/ask-user-question-widget/` pending redesign.
+- **Prompt shell:** Live `prompt-input` is conversation chrome (attachments header, body, textarea, tools, submit). **Pending-ask (live):** non-morph option list via `PromptInputQuestion` / `PromptInputOption` when `pendingAsk` is set (`src/components/chat/prompt/prompt-input.tsx`; wired from `/home`). **Morph widget (deprecated):** cascade exit, pencil custom row, full morph layout — parked under `src/deprecated/ask-user-question-widget/`; do not reintroduce without redesign.
 
 ### Suggestion Chips
 

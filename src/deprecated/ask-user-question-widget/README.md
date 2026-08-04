@@ -1,13 +1,17 @@
-# Ask-user-question widget (deprecated)
+# Ask-user-question morph widget (deprecated)
 
-Snapshot of the chat **prompt-input** morph/widget implementation (options list,
-pencil custom row, cascade exit, question header morph) removed from the live
-chat shell so we can redesign it cleanly.
+Snapshot of the chat **prompt-input** **morph** implementation (cascade exit,
+pencil custom row, question header morph, full `WIDGET` layout tokens) parked
+so we can redesign that experiment cleanly.
 
-- `prompt-input-with-widget.tsx` — full former `prompt-input` with widget logic
+- `prompt-input-with-widget.tsx` — full former morph-enabled `prompt-input`
 - `widget-layout.ts` — `WIDGET` / `WIDGET_TYPE` tokens used by the morph UI
 
-**Live path:** `src/components/chat/ai-elements/prompt-input.tsx` is chat-only
-(header/body/textarea/footer tools, no askUserQuestion morph).
+**Live path (non-morph pending-ask):** production SoT is
+`src/components/chat/prompt/prompt-input.tsx` — `PromptInputBody` with
+`pendingAsk` + `onOptionSelect` (`PromptInputQuestion` / `PromptInputOption`).
+`/home` wires `getPendingAskUserQuestion` / `formatAskUserQuestionAnswer` from
+`src/lib/ask-user-question.ts`. `ai-elements/prompt-input` is a compat re-export.
+Morph UI is **not** live; simple option list **is**.
 
-Do not import this into production routes without an intentional redesign.
+Do not import this morph snapshot into production routes without an intentional redesign.

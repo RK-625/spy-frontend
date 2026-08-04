@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Unbounded, Inter, VT323 } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { AppToaster } from "@/components/ui/app-toaster";
 
 const unbounded = Unbounded({
   variable: "--font-display",
@@ -39,6 +40,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen flex flex-col bg-background text-text-primary font-sans">
         {children}
+        <AppToaster />
       </body>
     </html>
   );

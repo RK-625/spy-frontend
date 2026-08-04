@@ -136,10 +136,20 @@ export interface TextInputValue {
   clear: () => void;
 }
 
+/** Filter config PromptInput registers so Provider.add runs the same validation. */
+export type AttachmentFilterConfig = {
+  accept?: string;
+  maxFiles?: number;
+  maxFileSize?: number;
+  onError?: (err: AttachmentError) => void;
+};
+
 /** Lifted controller state exposed by PromptInputProvider. */
 export interface PromptInputControllerValue {
   textInput: TextInputValue;
   attachments: AttachmentsValue;
+  /** Register accept/size/max/onError so Provider.attachments.add filters once. */
+  registerAttachmentFilter: (config: AttachmentFilterConfig | null) => void;
   /** INTERNAL: Allows PromptInput to register its file input + "open" callback */
   __registerFileInput: (
     ref: RefObject<HTMLInputElement | null>,
@@ -184,7 +194,7 @@ export type PromptInputProviderProps = PropsWithChildren<{
  */
 export const PromptInputProvider = ({
   initialInput: initialTextInput = "",
-  maxFiles,
+  maxFiles: providerMaxFiles,
   children,
 }: PromptInputProviderProps) => {
   // ----- textInput state
@@ -198,29 +208,36 @@ export const PromptInputProvider = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // oxlint-disable-next-line eslint(no-empty-function)
   const openRef = useRef<() => void>(() => {});
+  const filterConfigRef = useRef<AttachmentFilterConfig | null>(null);
 
-  const add = useCallback(
-    (files: File[] | FileList) => {
-      const incoming = [...files];
-      if (incoming.length === 0) {
-        return;
-      }
-
-      // Provider path: maxFiles cap only (accept/size validated by PromptInput when present)
-      setAttachmentFiles((prev) => {
-        const capacity =
-          typeof maxFiles === "number"
-            ? Math.max(0, maxFiles - prev.length)
-            : undefined;
-        const capped =
-          typeof capacity === "number"
-            ? incoming.slice(0, capacity)
-            : incoming;
-        return [...prev, ...filesToFileUIParts(capped)];
-      });
+  const registerAttachmentFilter = useCallback(
+    (config: AttachmentFilterConfig | null) => {
+      filterConfigRef.current = config;
     },
-    [maxFiles]
+    []
   );
+
+  const add = useCallback((files: File[] | FileList) => {
+    const incoming = [...files];
+    if (incoming.length === 0) {
+      return;
+    }
+
+    setAttachmentFiles((prev) => {
+      const config = filterConfigRef.current;
+      const capped = filterIncomingFiles(incoming, {
+        accept: config?.accept,
+        maxFileSize: config?.maxFileSize,
+        maxFiles: config?.maxFiles ?? providerMaxFiles,
+        currentCount: prev.length,
+        onError: config?.onError,
+      });
+      if (capped.length === 0) {
+        return prev;
+      }
+      return [...prev, ...filesToFileUIParts(capped)];
+    });
+  }, [providerMaxFiles]);
 
   const remove = useCallback((id: string) => {
     setAttachmentFiles((prev) => {
@@ -281,6 +298,7 @@ export const PromptInputProvider = ({
   const controller = useMemo<PromptInputControllerValue>(
     () => ({
       __registerFileInput,
+      registerAttachmentFilter,
       attachments,
       textInput: {
         clear: clearInput,
@@ -288,7 +306,13 @@ export const PromptInputProvider = ({
         value: textInput,
       },
     }),
-    [textInput, clearInput, attachments, __registerFileInput]
+    [
+      textInput,
+      clearInput,
+      attachments,
+      __registerFileInput,
+      registerAttachmentFilter,
+    ]
   );
 
   return (
@@ -370,7 +394,8 @@ export const PromptInputActionAddAttachments = ({
 
   return (
     <DropdownMenuItem {...props} onSelect={handleSelect}>
-      <DotMatrixIcon name="plus" size={12} className="mr-2" /> {label}
+      <DotMatrixIcon name="plus" size={ICON_GLYPH.inline} className="mr-2" />{" "}
+      {label}
     </DropdownMenuItem>
   );
 };
@@ -470,23 +495,6 @@ export const PromptInput = ({
     []
   );
 
-  // Wrapper that validates files before calling provider's add
-  const addWithProviderValidation = useCallback(
-    (fileList: File[] | FileList) => {
-      const capped = filterIncomingFiles(fileList, {
-        accept,
-        maxFileSize,
-        maxFiles,
-        currentCount: files.length,
-        onError,
-      });
-      if (capped.length > 0) {
-        controller?.attachments.add(capped);
-      }
-    },
-    [accept, maxFileSize, maxFiles, onError, files.length, controller]
-  );
-
   const clearAttachments = useCallback(
     () =>
       usingProvider
@@ -503,7 +511,10 @@ export const PromptInput = ({
     []
   );
 
-  const add = usingProvider ? addWithProviderValidation : addLocal;
+  // Single filter path: Provider.add filters when registered; local addLocal filters.
+  const add = usingProvider
+    ? controller.attachments.add
+    : addLocal;
   const remove = usingProvider ? controller.attachments.remove : removeLocal;
   const openFileDialog = usingProvider
     ? controller.attachments.openFileDialog
@@ -513,6 +524,22 @@ export const PromptInput = ({
     clearAttachments();
     clearReferencedSources();
   }, [clearAttachments, clearReferencedSources]);
+
+  // Register filter config so Provider.attachments.add always runs full validation
+  useEffect(() => {
+    if (!usingProvider) {
+      return;
+    }
+    controller.registerAttachmentFilter({
+      accept,
+      maxFiles,
+      maxFileSize,
+      onError,
+    });
+    return () => {
+      controller.registerAttachmentFilter(null);
+    };
+  }, [usingProvider, controller, accept, maxFiles, maxFileSize, onError]);
 
   // Let provider know about our hidden file input so external menus can call openFileDialog()
   useEffect(() => {
@@ -1024,7 +1051,13 @@ export const PromptInputTools = ({
 }: PromptInputToolsProps) => {
   return (
     <div
-      className={cn("flex min-w-0 items-center gap-1", className)}
+      className={cn(
+        "flex min-w-0 items-center gap-1",
+        // Footer tool hit targets: ~32px (InputGroupButton icon-sm)
+        "[&_button]:size-8 [&_button]:rounded-[var(--radius)]",
+        "[&_button[data-model-trigger]]:w-auto [&_button[data-model-trigger]]:px-2",
+        className
+      )}
       {...props}
     >
       {children}
