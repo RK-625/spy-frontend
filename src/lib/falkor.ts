@@ -6,12 +6,15 @@ import {
   Links as LinksSchema,
   type Memory,
   type Links,
+  type MemorySearchHit,
 } from "@/types/graph-schema";
 import type { GraphTopology, MemoryNode } from "@/types/graph-topology";
+import { MEMORY_SEARCH_TOP_K } from "@/lib/policy-tokens";
 import { z } from "zod";
 
 /** Re-export wire SoT from client-safe `@/types/graph-topology` (do not redefine). */
 export type { GraphTopology, MemoryNode } from "@/types/graph-topology";
+export type { MemorySearchHit } from "@/types/graph-schema";
 
 type FalkorNode<T> = {
   id: number; // FalkorDB's internal numeric node id — NOT your app id
@@ -48,10 +51,10 @@ type FalkorGraph = ReturnType<FalkorClient["selectGraph"]>;
 let db: FalkorClient | null = null;
 /** Single-flight open so concurrent getDb() callers share one FalkorDB.open(). */
 let dbOpenPromise: Promise<FalkorClient> | null = null;
-/** Set after ensureSchema succeeds once per process (indexes are durable on disk). */
-let schemaReady = false;
-/** Single-flight schema so concurrent getDb() callers share one ensureSchema(). */
-let schemaReadyPromise: Promise<void> | null = null;
+/** Set after ensureVectorIndexes succeeds once per process (indexes are durable on disk). */
+let vectorIndexesReady = false;
+/** Single-flight so concurrent getDb() callers share one ensureVectorIndexes(). */
+let vectorIndexesReadyPromise: Promise<void> | null = null;
 
 async function ensureFalkorDataDir(): Promise<string> {
   await mkdir(FALKOR_PATH, { recursive: true });
@@ -84,24 +87,24 @@ function openDbClient(): Promise<FalkorClient> {
 }
 
 /**
- * Process-singleton schema ensure. Concurrent callers await the same promise;
+ * Process-singleton vector-index ensure. Concurrent callers await the same promise;
  * failure resets so the next getDb() can retry.
  */
-function ensureSchemaOnce(graph: FalkorGraph): Promise<void> {
-  if (schemaReady) {
+function ensureVectorIndexesOnce(graph: FalkorGraph): Promise<void> {
+  if (vectorIndexesReady) {
     return Promise.resolve();
   }
-  if (!schemaReadyPromise) {
-    schemaReadyPromise = ensureSchema(graph)
+  if (!vectorIndexesReadyPromise) {
+    vectorIndexesReadyPromise = ensureVectorIndexes(graph)
       .then(() => {
-        schemaReady = true;
+        vectorIndexesReady = true;
       })
       .catch((error: unknown) => {
-        schemaReadyPromise = null;
+        vectorIndexesReadyPromise = null;
         throw error;
       });
   }
-  return schemaReadyPromise;
+  return vectorIndexesReadyPromise;
 }
 
 function isAlreadyExistsError(error: unknown): boolean {
@@ -113,7 +116,7 @@ function isAlreadyExistsError(error: unknown): boolean {
  * Create cosine vector indexes on Memory embeddings.
  * Idempotent: swallows "already exists" so re-open / multi-worker is safe.
  */
-async function ensureSchema(graph: FalkorGraph): Promise<void> {
+async function ensureVectorIndexes(graph: FalkorGraph): Promise<void> {
   for (const field of VECTOR_INDEX_FIELDS) {
     const query = `
       CREATE VECTOR INDEX FOR (m:Memory) ON (m.${field})
@@ -127,27 +130,36 @@ async function ensureSchema(graph: FalkorGraph): Promise<void> {
         console.log(`FalkorDB vector index already present: Memory.${field}`);
         continue;
       }
-      console.error(`FalkorDB ensureSchema failed for Memory.${field}:`, error);
+      console.error(
+        `FalkorDB ensureVectorIndexes failed for Memory.${field}:`,
+        error,
+      );
       throw error;
     }
   }
 }
 
-export function isSchemaReady(): boolean {
-  return schemaReady;
+export function isVectorIndexesReady(): boolean {
+  return vectorIndexesReady;
 }
 
 export async function getDb() {
   const client = await openDbClient();
   const graph = client.selectGraph(GRAPH_NAME);
-  await ensureSchemaOnce(graph);
+  await ensureVectorIndexesOnce(graph);
   return graph;
 }
 
-export async function vectorSearch(embedding: number[], topK: number = 10) {
-  const validEmbedding = z.array(z.number()).parse(embedding);
-  const validTopK = z.number().int().min(1).max(100).parse(topK);
-
+/**
+ * Cosine vector search over Memory.searchEmbedding.
+ * Thin Cypher wrapper: no Zod on args (caller owns shape). Returns lean
+ * MemorySearchHit rows (no embeddings). Throws on DB errors; tool layer
+ * catches and soft-returns `{ error }`.
+ */
+export async function vectorSearch(
+  embedding: number[],
+  topK: number = MEMORY_SEARCH_TOP_K,
+): Promise<MemorySearchHit[]> {
   const graph = await getDb();
   const query = `
     CALL db.idx.vector.queryNodes('Memory', 'searchEmbedding', $topK, vecf32($embedding))
@@ -157,14 +169,20 @@ export async function vectorSearch(embedding: number[], topK: number = 10) {
 
   try {
     const result = (await graph.query(query, {
-      params: { topK: validTopK, embedding: validEmbedding },
+      params: { topK, embedding },
     })) as VectorSearchResult;
 
-    return result.data.map((row) => ({
-      id: row.node.properties.id,
-      name: row.node.properties.name,
-      score: row.score,
-    }));
+    return (result.data ?? []).map((row) => {
+      const props = row.node.properties;
+      return {
+        id: props.id,
+        name: props.name,
+        content: props.content,
+        impression: props.impression,
+        confidence: props.confidence,
+        score: row.score,
+      };
+    });
   } catch (error) {
     console.error("Vector Search Error:", error);
     throw error;

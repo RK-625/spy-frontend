@@ -4,13 +4,16 @@ import Exa from "exa-js";
 import { askUserQuestionInputSchema } from "@/ai/schemas/ask-schema";
 import { upsertMemoryInputSchema } from "@/ai/schemas/upsert-schema";
 import { linkMemoriesInputSchema } from "@/ai/schemas/link-schema";
+import { searchMemoriesInputSchema } from "@/ai/schemas/search-schema";
 import { webSearchInputSchema } from "@/ai/schemas/web-search-schema";
 import { generateEmbedding } from "@/ai/models/embeddings";
 import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
   hasOutgoingLink,
+  vectorSearch as falkorVectorSearch,
 } from "@/lib/falkor";
+import { MEMORY_SEARCH_TOP_K } from "@/lib/policy-tokens";
 
 export type { AskUserQuestionInput } from "@/ai/schemas/ask-schema";
 export { askUserQuestionInputSchema } from "@/ai/schemas/ask-schema";
@@ -18,6 +21,8 @@ export type { UpsertMemoryInput } from "@/ai/schemas/upsert-schema";
 export { upsertMemoryInputSchema } from "@/ai/schemas/upsert-schema";
 export type { LinkMemoriesInput } from "@/ai/schemas/link-schema";
 export { linkMemoriesInputSchema } from "@/ai/schemas/link-schema";
+export type { SearchMemoriesInput } from "@/ai/schemas/search-schema";
+export { searchMemoriesInputSchema } from "@/ai/schemas/search-schema";
 export type { WebSearchInput } from "@/ai/schemas/web-search-schema";
 export { webSearchInputSchema } from "@/ai/schemas/web-search-schema";
 
@@ -126,9 +131,28 @@ const linkMemories: Tool = tool({
   },
 });
 
+const searchMemories: Tool = tool({
+  description:
+    "Semantic search over Memory nodes via embeddings. Use before create to avoid duplicates and to find ids for update/link. Does not invent layout or write nodes.",
+  inputSchema: searchMemoriesInputSchema,
+  execute: async ({ query }) => {
+    try {
+      const embedding = await generateEmbedding(query);
+      const hits = await falkorVectorSearch(embedding, MEMORY_SEARCH_TOP_K);
+      return { results: hits };
+    } catch (error) {
+      console.error("searchMemories tool error:", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to search memories.";
+      return { error: message };
+    }
+  },
+});
+
 export const toolSet: Record<string, Tool> = {
   webSearch,
   askUserQuestion,
   upsertMemory,
   linkMemories,
+  searchMemories,
 };

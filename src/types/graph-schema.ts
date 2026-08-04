@@ -36,6 +36,9 @@ export type Memory = z.infer<typeof Memory>;
  */
 export type MemoryNode = Omit<Memory, "searchEmbedding" | "contentEmbedding">;
 
+/** Vector search hit: lean MemoryNode + cosine similarity score from Falkor. */
+export type MemorySearchHit = MemoryNode & { score: number };
+
 export const Concept = z.object({
   id: z.string().describe("A unique identifier to the node"),
   name: z.string().describe("The main title of the node"),
