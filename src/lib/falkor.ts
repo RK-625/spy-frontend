@@ -46,12 +46,62 @@ type FalkorClient = Awaited<ReturnType<typeof FalkorDB.open>>;
 type FalkorGraph = ReturnType<FalkorClient["selectGraph"]>;
 
 let db: FalkorClient | null = null;
+/** Single-flight open so concurrent getDb() callers share one FalkorDB.open(). */
+let dbOpenPromise: Promise<FalkorClient> | null = null;
 /** Set after ensureSchema succeeds once per process (indexes are durable on disk). */
 let schemaReady = false;
+/** Single-flight schema so concurrent getDb() callers share one ensureSchema(). */
+let schemaReadyPromise: Promise<void> | null = null;
 
 async function ensureFalkorDataDir(): Promise<string> {
   await mkdir(FALKOR_PATH, { recursive: true });
   return FALKOR_PATH;
+}
+
+/**
+ * Process-singleton open. Concurrent callers await the same promise; failed opens
+ * reset so the next call can retry (do not leave a rejected promise cached forever).
+ */
+function openDbClient(): Promise<FalkorClient> {
+  if (db) {
+    return Promise.resolve(db);
+  }
+  if (!dbOpenPromise) {
+    dbOpenPromise = (async () => {
+      const dataDir = await ensureFalkorDataDir();
+      // falkordblite: embedded server — use open(), not falkordb client connect()
+      const client = await FalkorDB.open({ path: dataDir });
+      db = client;
+      console.log(`FalkorDBLite open at ${dataDir}`);
+      return client;
+    })().catch((error: unknown) => {
+      dbOpenPromise = null;
+      db = null;
+      throw error;
+    });
+  }
+  return dbOpenPromise;
+}
+
+/**
+ * Process-singleton schema ensure. Concurrent callers await the same promise;
+ * failure resets so the next getDb() can retry.
+ */
+function ensureSchemaOnce(graph: FalkorGraph): Promise<void> {
+  if (schemaReady) {
+    return Promise.resolve();
+  }
+  if (!schemaReadyPromise) {
+    schemaReadyPromise = ensureSchema(graph)
+      .then(() => {
+        schemaReady = true;
+      })
+      .catch((error: unknown) => {
+        schemaReadyPromise = null;
+        throw error;
+      });
+  }
+  return schemaReadyPromise;
 }
 
 function isAlreadyExistsError(error: unknown): boolean {
@@ -88,18 +138,9 @@ export function isSchemaReady(): boolean {
 }
 
 export async function getDb() {
-  if (!db) {
-    const dataDir = await ensureFalkorDataDir();
-    // falkordblite: embedded server — use open(), not falkordb client connect()
-    db = await FalkorDB.open({ path: dataDir });
-    console.log(`FalkorDBLite open at ${dataDir}`);
-  }
-
-  const graph = db.selectGraph(GRAPH_NAME);
-  if (!schemaReady) {
-    await ensureSchema(graph);
-    schemaReady = true;
-  }
+  const client = await openDbClient();
+  const graph = client.selectGraph(GRAPH_NAME);
+  await ensureSchemaOnce(graph);
   return graph;
 }
 
