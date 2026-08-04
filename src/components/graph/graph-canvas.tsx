@@ -261,7 +261,6 @@ export function GraphCanvas() {
       await renderer.mount(canvasHost);
       if (isCanvasDisposed) {
         layoutLoop.stop();
-        renderer.destroy();
         return;
       }
       layoutLoop.start();
