@@ -35,8 +35,8 @@ async function main() {
     globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
   }
 
-  const dataUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/core/graph-data.ts")
+  const fixtureUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/fixtures/mock-graph.ts")
   ).href;
   const loopUrl = pathToFileURL(
     path.join(root, "src/lib/graph/layout/layout-loop-d3.ts")
@@ -45,7 +45,7 @@ async function main() {
     path.join(root, "src/lib/graph/placement/force-recipe.ts")
   ).href;
 
-  const { createMockGraphData } = await import(dataUrl);
+  const { createMockGraphData } = await import(fixtureUrl);
   const { createGraphPaintLoop } = await import(loopUrl);
   const { settleGraphData } = await import(recipeUrl);
 
