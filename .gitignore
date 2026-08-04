@@ -9,13 +9,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-/.commandcode
 /.deprecated
-/.antigravitycli
-/.codegraph
-/.kiro
-/.learning
-/.kirograph
 /workbench
 todo.md
 
