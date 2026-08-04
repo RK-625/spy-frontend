@@ -1,1 +1,2 @@
-export * from "../prompt/prompt-input";
+/** Compat re-export → prompt domain barrel (shell + pieces) */
+export * from "../prompt";

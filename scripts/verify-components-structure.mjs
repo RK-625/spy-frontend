@@ -26,7 +26,25 @@ const required = [
   // ui primitives
   "src/components/ui/button.tsx",
 
-  // chat — domain SoT
+  // chat — domain SoT (prompt shell reorg)
+  "src/components/chat/prompt/shell/context.tsx",
+  "src/components/chat/prompt/shell/prompt-input.tsx",
+  "src/components/chat/prompt/header/header.tsx",
+  "src/components/chat/prompt/body/body.tsx",
+  "src/components/chat/prompt/body/textarea.tsx",
+  "src/components/chat/prompt/ask/pending-ask.tsx",
+  "src/components/chat/prompt/attachments/prompt-input-files.ts",
+  "src/components/chat/prompt/attachments/attachment-chip.tsx",
+  "src/components/chat/prompt/attachments/attachment-strip.tsx",
+  "src/components/chat/prompt/footer/footer.tsx",
+  "src/components/chat/prompt/footer/tools.tsx",
+  "src/components/chat/prompt/footer/button.tsx",
+  "src/components/chat/prompt/footer/submit.tsx",
+  "src/components/chat/prompt/footer/speech-input.tsx",
+  "src/components/chat/prompt/footer/model-selector.tsx",
+  "src/components/chat/prompt/suggestion.tsx",
+  "src/components/chat/prompt/index.ts",
+  // chat — prompt root compat shims (historical flat paths)
   "src/components/chat/prompt/prompt-input.tsx",
   "src/components/chat/prompt/prompt-input-files.ts",
   "src/components/chat/prompt/attachments.tsx",

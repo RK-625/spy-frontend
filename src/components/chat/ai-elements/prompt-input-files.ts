@@ -1,1 +1,1 @@
-export * from "../prompt/prompt-input-files";
+export * from "../prompt/attachments/prompt-input-files";

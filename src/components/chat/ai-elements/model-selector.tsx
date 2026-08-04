@@ -1,1 +1,1 @@
-export * from "../prompt/model-selector";
+export * from "../prompt/footer/model-selector";

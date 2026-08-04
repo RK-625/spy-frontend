@@ -22,9 +22,7 @@ import {
   ModelSelectorLogo,
   ModelSelectorName,
   ModelSelectorTrigger,
-} from "@/components/chat/ai-elements/model-selector";
-import { PromptInputAttachments } from "@/components/chat/ai-elements/prompt-input-attachments";
-import {
+  PromptInputAttachments,
   PromptInput,
   PromptInputBody,
   PromptInputButton,
@@ -37,9 +35,12 @@ import {
   usePromptInputAttachments,
   PromptInputProvider,
   useOptionalPromptInputControllerContext,
+  SpeechInput,
+  Suggestion,
+  Suggestions,
   type PromptInputMessage,
   type PromptInputWidgetOption,
-} from "@/components/chat/ai-elements/prompt-input";
+} from "@/components/chat/prompt";
 import {
   ChainOfThought,
   ChainOfThoughtStep,
@@ -52,11 +53,6 @@ import {
   SourcesContent,
   SourcesTrigger,
 } from "@/components/chat/ai-elements/sources";
-import { SpeechInput } from "@/components/chat/ai-elements/speech-input";
-import {
-  Suggestion,
-  Suggestions,
-} from "@/components/chat/ai-elements/suggestion";
 import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
 import { cn } from "@/lib/utils";

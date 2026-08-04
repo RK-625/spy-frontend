@@ -1,1 +1,1 @@
-export * from "../prompt/prompt-input-attachments";
+export * from "../prompt/attachments/attachment-strip";

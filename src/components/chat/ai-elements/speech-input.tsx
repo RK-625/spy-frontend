@@ -1,1 +1,1 @@
-export * from "../prompt/speech-input";
+export * from "../prompt/footer/speech-input";

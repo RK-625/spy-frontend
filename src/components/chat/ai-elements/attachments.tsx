@@ -1,1 +1,1 @@
-export * from "../prompt/attachments";
+export * from "../prompt/attachments/attachment-chip";
