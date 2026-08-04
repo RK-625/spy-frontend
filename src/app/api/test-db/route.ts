@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/falkor";
+import { getDb, isSchemaReady } from "@/lib/falkor";
 import { generateEmbedding } from "@/ai/embeddings";
 
 export async function GET() {
@@ -8,9 +8,20 @@ export async function GET() {
     const textToEmbed = "Spy is an alien intelligence.";
     const vector = await generateEmbedding(textToEmbed);
     const pingResult = await db.query("RETURN 1 AS ok");
+
+    // Cheap proof that ensureSchema ran; listing is best-effort (Cypher may vary by version).
+    let indexes: unknown = null;
+    try {
+      indexes = await db.query("CALL db.indexes()");
+    } catch {
+      indexes = null;
+    }
+
     return NextResponse.json({
       success: true,
       message: "Connected to the FalkorDb",
+      schemaReady: isSchemaReady(),
+      indexes,
       ping: pingResult,
       vector: vector,
     });
@@ -18,6 +29,7 @@ export async function GET() {
     return NextResponse.json({
       success: false,
       message: "Failed to connect to the FalkorDb",
+      schemaReady: isSchemaReady(),
       error: error instanceof Error ? error.message : String(error),
     });
   }

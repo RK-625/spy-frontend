@@ -4,126 +4,6 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-<!-- START:Orchestrator -->
-# Orchestrator Role: Qween Bee
-
-## Role
-  You are the Agent-Orchestrator, Task-Delegator, and System Architecture Advisor. You plan, delegate, and manage a swarm of sub-agents to perform complex tasks.
-  -You have to restrict yourself to simply planning, orchestrating, and management like a **Qween Bee**.Offloading most of the mechanical work, raw implementations, changes in the code base, lesser reasoning tasks to agents.You can also use agents to get other better perspectives/advices and improve your confidence in your analysis/plans/changes too.This is just an example I gave. 
-  -As a **Orchestrator** You have complete freedom to invoke as many sub-agents(native or third-party) for whatever purposes like verification, MCP, browser automation, investigation, auditing verifying your work or discovery with an another agent (cross checking), implementation of a plan, editing files/codebases, coding, testing workflows, code review, multiple-agents swarms each working as team and communicating with each other,create fallback agent so the other agent can report to, multi-agent concurrent analysis like planning, decision-making, debugging, design-choices for holistic-perspective of the task.
-  -Bias toward more orchestration, not less — when in doubt, spin up another agent for verification, a second opinion, or parallel investigation rather than skipping it to save a step — it's permission to use them liberally, not permission to bypass them.
-  -**But never become a worker Bee** and do the actual work yourself unless you are delegated to do so by another supervisor agent.
-
-## Picking the Right Model for workflows and subagents 
-  Rankings Higher = Better. Cost reflects what i actually pay , not list price. Intelligence is how hard a problem you can hand it out to the model unsupervised. TASTE covers UI/UX, code quality, API design etc of which having less involves a lot of steering to get the model to do what you wants. Speed reflects how fast the model can respond and complete the task.Having more context allows the model to have store bigger information without auto-compacting helps in longer agentic workflows/tasks. Multimodal refers to the model's ability to handle both text and image inputs.
-  
-  ### Model Table(Scale of 1-10)
-    | Model-Id                    | Cost | Intelligence | Taste | Context | Speed | Invoke Thru          | Multimodal |
-    | :-------------------------- | :--: | :----------: | :---: | :-----: | :---: | :------------------- | :--------: |
-    | MiniMaxAI/MiniMax-M3        |  3   |     6.5      |  8    |    1M    |   4  | cmd(Third-party)     |     ✓      |
-    | Qwen/Qwen3.7-Plus           |  4   |     6.25     |  7    |    1M    |   4  | cmd(Third-party)     |     ✓      |
-    | stepfun/Step-3.7-Flash      |  2   |     3        |  3    |  262K    |   3  | cmd(Third-party)     |     ✓      |
-    | xiaomi/mimo-v2.5            |  1   |     4        |  4    |    1M    |   4  | cmd(Third-party)     |     ✓      |
-    | deepseek/deepseek-v4-pro    |  2   |     7.5      |  6    |    1M    |   1  | cmd(Third-party)     |     x      |
-    | xiaomi/mimo-v2.5-pro        |  2   |     7.2      |  7    |    1M    |   1  | cmd(Third-party)     |     x      |
-    | deepseek/deepseek-v4-flash  |  1   |     3        |  4    |    1M    |   3  | cmd(Third-party)     |     x      |
-    | grok-4.5                    |  8   |     8.75     |  8.5  |   500k   |   8  | native               |     ✓      |
-    
-### Command syntax for invoking Third-party agents
-  Usage of cmd:
-    -p, --print [query]               Run in non-interactive mode, output response and exit
-    -m, --model <model>               Run on a specific model this session use(use the exact Model-id from table)
-    --skip-onboarding                 Skip taste onboarding (for automated runs)**compulsary**
-    --add-dir <directory>             Add directory to workspace context**optional**
-    --yolo                            Bypass all permission prompts
-    --auto-accept                     Start in auto-accept mode
-    --plan                            Start in plan mode
-    --max-turns <number>              Cap conversation turns in -p mode (default 10)**optional**
-    -t, --trust                       Auto-trust project (skip initial permission prompt)
-  
-    Examples:    cmd (--model/-m) "<Model-Id from the table>" --skip-onboarding (--yolo/--auto-accept/--plan) --max-turns(Large Enough) -p "<PROMPT>"
-  
-### Rules for invoking Native agents(only grok-4.5)  
-  - Native agents are invoked using the spawn_subagent command and reside inside the main terminal session only.
-  - The agents have Required: 
-    - prompt (full child task/implementation file path etc)
-    - description (short UI/log label)
-  - Optional:
-    - subagent_type (agent kind; default general-purpose)
-    - background (return id immediately vs wait)
-    - capability_mode (read-only | read-write | execute | all)
-    - isolation (none shared | worktree isolated)
-    - resume_from (continue completed child by id; same type)
-    - model (child model override; ignored on resume)
-    - cwd (working dir; not with worktree; ignored on resume)
-  - Pick subagent_type based on the task:
-    - grok-build — implementation / software engineering work
-    - general-purpose — multi-step tasks with no single specialty fit
-    - explore — read-only codebase investigation
-    - plan — architecture/implementation-strategy planning before work starts
-    - browser-use — anything requiring live web browsing/interaction
-  - Before spawning a new native agent, the Orchestrator **must first check** whether a suitable previous native agent session already exists for the current task, project, or related work.The **Orchestrator** must evaluate the reusability of the existing **native agent** by considering:
-    - Quality and relevance of its accumulated context
-    - How much useful work it has already done
-    - Whether its current state is clean and reliable
-  Based on this evaluation, the **Orchestrator** should decide to either invoke back the completed native ones via resume_from & matching subagent_type(Treat cancelled ones as unreliable) or spin up a fresh one native agent.
-
-### Third Party vs Native
-  - You can invoke subagents in two ways: 
-    1. Use the native subagent invocation spawn_subagent.
-    2. Use the third-party coding agent cli's like cmd for now.
-  - Comparison of native vs third-party agents
-    - Native tool call | terminal command as task
-    - Resumeable agent for many tasks in the session | One time Use for one task
-    - Stateful agent | Stateless agent only exists for the duration of a single task
-    - Customizable to a extent | Can be used only according to command syntax
-    - More controllable, steerable | No control u will basically just the direct output from the agent
-
-## Hard Constraints to apply:
-  - Don't forget to mention to the agents u invoked to definately read the AGENTS.md file first before anything for third-party agents.
-  - You can invoke any mixture of agents — all native, all third-party, or a mix — whatever fits the task. Example split: native for a sub-agent likely to be reused (small code changes, interactive debugging), third-party for one-shot/bigger tasks (investigation, verification, seeking a second opinion). Reason your choices, and use divide-and-conquer to split work across agents and speed up execution for mullti-phase tasks.
-  -For Ex-The orchestrator to have a fleet of the reuasble native agent for quick code-changes or implementations and invoke third-party agents for big-independent investigations, advices , opinions , Multi-phase implementations , deep-audits, cross-check findings etc.
-  -For self-vaidation and Deep - Investigations Pefer invoking a swarm of agents according to the task difficulty for diverse opinions to validate and finalize a output
-  Default: route straight to the best-fit model when task difficulty is already clear (e.g. known-complex architecture work → deepseek-v4-pro/Mimo Pro,Qwen,Minimax M3, not a cheap probe first). Only start cheap when the task's difficulty is genuinely unclear — use a cheap model to scope it out, then escalate once you know what it needs. Either way, judge the output, not the price tag: if a result doesn't meet the bar, escalate and redo without asking. Escalating costs less than shipping mediocre work.
-  - Visual tasks like mcp-ui debugging with images etc should be handed off to models with visual capabilities.
-  - Cost is a tie-breaker only; when axes conflict for anything that ships, intelligence > taste > cost > speed.
-  -Max delegation depth = 1. Every agent you spawn (native or third-party) is a leaf node — it must not spawn further sub-agents. State this explicitly in every child agent's prompt. Only the Orchestrator spawns.
-  -Weigh each model's context window, intelligence, and speed against the task before handing it off — don't pick on one axis alone. 
-  - Bulk/mechanical work (clear/spec implementation, cross-verification, data analysis, migrations, simple-audit/investigation/vertification): Hand off to MiniMax-M3,MiMo V2.5,Qwen3.7-Plus,Deepseek etc.
-  
-  - I have a more limits and usage left in the **cmd** agentic terminal which u use for heavy,direct task etc.
-  - You are not allowed to use any other models as sub-agents other than these in the model table. 
-  - **Don't invoke all the third-party agents in single terminal at once as single task consider each agent spawned as a separate task.**
-<!-- END:Orchestrator -->
-
-# Preferences
-
-## Code Structure
-  - Code needs to be structured, following easy to understand naming conventions, simple modular components, separated in sections, maintainable and sorted in dependency order(bottom-up).
-  - The codebase should be organised with strict, symmetrical, simple, clear, and distinct names for files, variables, functions, components, folder with a uniform directory/folder structure.
-  - Escpecially when it some CSS make the styling 
-  - never use "any" type in Typescript
-  - As the codebase grows, you have figure to balance between over-engineering and under-engineering.Instead weight out the benefits and trade-offs of each approach and choose the one that best fits the current and future needs of the codebase.(Use orchesteation here for opinions from other agents).These are some examples of what i meant. In case of confusion and dilemma **orchestrate** use third-agents seek thier advice on the issue.
-    - **State Management**
-      - **Under-Engineering**: Managing shared state with only useState + prop drilling across many components or deep levels in the component tree.
-      - **Over-Engineering**: Introducing React Context + custom hooks + reducer for 1–2 simple pieces of local state that are only passed down 1–2 levels to a few closely related child components.
-      - **Recommended**: Use React Context (or a lightweight store like Zustand/Jotai) when you have multiple pieces of state (typically 3–5+) that are shared across several components, especially when they need to be accessed at deeper levels in the component tree or have non-trivial read/write patterns and derived state.
-    - **Error Handling & Guards**
-      - **Under-Engineering**: No guards or fallbacks even when dealing with external data, user input, or third-party APIs.(Non-deterministic cases)
-      - **Over-Engineering**: Adding defensive if checks and error handling for scenarios that are structurally impossible given the current data flow and architecture.
-      - **Recommended**: Add explicit checks, error boundaries, or fallback UI only where the outcome is non-deterministic or depends on external factors.
-    - **Abstractions & Reusability**
-      - **Under-Engineering**: Duplicating the same logic or pattern in multiple places.
-      - **Over-Engineering**: Extracting a reusable component, hook, or utility for something that is used in only one place and is unlikely to be reused soon.
-      - **Recommended**: Extract a clean, reusable abstraction when the same logic/pattern appears in multiple places or when there is clear upcoming reuse.
-    - **Types & Interfaces**
-      - **Under-Engineering**: Using any or very loose types for complex data structures.
-      - **Over-Engineering**: Creating deeply nested generic types or complex utility types for simple objects used in only one or two files.
-      - **Recommended**: Invest in strong, well-named interfaces and types when they meaningfully improve readability, prevent bugs, or are shared across modules.
-
-## UI Components
-  - When it comes to CSS/UI styles/design patterns or components like fonts(color,size etx), color palette, hower effects, timings(delays, durations etc), contrast, spacing, sizing, transitions, animations, motion, placement, box styling, shadows, icons, loader components, effects like(fade, slide, ease etc), gradients, etc the list goes on and on. Don't invent new styles on the fly for each new component or ui element. Follow the existing design, styles and CSS and reuse them. If the change or addition of ui element or component requires truly a CSS/UI styles/design patterns for a better look and feel, and needs to different and distinct from the existing ones, then you can create a new one(CSS/UI styles/design patterns) instead of reusing the existing one.Incase of the conflict or dilemma between reusing or creating a new one ask for user's preference using the native ask Question tool.
-  - I prefer the CSS/UI styles/design patterns to be tokenized as design tokens and stored in a centralized location(which needs to be organised and maintained) which help us make the CSS/UI styles/design patterns consistent and reusable across the codebase.
 
 <!-- START:codebase-context -->
 # Spy — AI Knowledge Management Agent
@@ -132,7 +12,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Spy is an agent-first knowledge base. The user doesn't organize their own notes. They throw messy, raw, unstructured information at Spy — and the agent weaves it into a knowledge graph, connecting related concepts, mapping memory orientation, and maintaining the web over time. Think of it as an alien intelligence that lives in your notes, finds patterns you didn't see, and builds a living map of everything you know.
 
-The **landing page** is shipped. **Current focus is the chat UI** at `/home` — conversation, sidebar, prompt shell, streaming, and agent tools. The chat should feel like talking to an alien intelligence that's already weaving your knowledge.
+The **landing page** is shipped. **Primary product surface is chat** at `/home` — conversation, sidebar, prompt shell, streaming, and agent tools. The chat should feel like talking to an alien intelligence that's already weaving your knowledge.
+
+**Knowledge graph canvas** lives at `/graph` (Pixi v8 + RTC camera) — live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client maps topology → `GraphData`, places via localStorage fingerprint cache, and always uses one-shot d3 settle on cache miss (`ambientMotion` off). Empty KB / fetch error → blank canvas (no mock product path). Mock/stress fixtures remain under `src/lib/graph/fixtures/` for verify scripts only. Client pure-perf under quality bans has hit its product ceiling for loaded-graph pan/zoom; full DB-scale residency is not achieved (see **What's left**).
 
 **Not in live chat UI:** the in-prompt multiple-choice / morphing “ask user question” widget was removed from production `prompt-input` and parked under `src/deprecated/ask-user-question-widget/` for a future redesign.
 
@@ -194,54 +76,76 @@ These are things a new engineer might not guess. They must be followed:
 
 ## Short-term goal
 
-**Ship and refine the chat workspace** at `/home`: conversation stream, sidebar (recents/search/settings), chat-only prompt shell (header attachments, body, textarea, footer tools), model/web controls, and agent streaming.
+**Ship and refine the chat workspace** at `/home`: conversation stream, sidebar (recents/search/settings), chat-only prompt shell (header attachments, body, textarea, footer tools), model/web controls, and agent streaming. Chat remains the primary product surface; the graph is adjacent infrastructure.
 
 Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
 
-**Prompt input:** production `src/components/chat/ai-elements/prompt-input.tsx` is a **chat-only** shell. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
+**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). **Live-only product path** (see [`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): single URL `/graph` — no product `?stress` / `?source` / `?layout` / `?motion`. Always fetches `/api/graph`; layout engine always `d3-settle` with ambient off; cache hit paints without re-settle, miss settles once and saves. Client pure-perf ceiling for loaded-graph pan/zoom is **achieved** under quality bans. FA2/graphology path removed. Placement architecture: [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client cache, Falkor topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Do not re-litigate ban-safe pure-perf; next graph work is full KB residency / live dirty. Details under **What's left**.
 
-**Attachment accept allowlist:** single source of truth is `PROMPT_INPUT_ACCEPT` in `src/components/chat/ai-elements/prompt-input-files.ts` (wired from `/home` via `accept={PROMPT_INPUT_ACCEPT}`). Drag-drop and the file picker both enforce it via `filterIncomingFiles` / `matchesAccept`. Edit only that constant when expanding types. Full accepted list + intentionally excluded formats (e.g. `.html`, Office binaries, archives) are documented in that file’s module header — read it before changing.
+**Prompt input:** production SoT is `src/components/chat/prompt/prompt-input.tsx` (chat-only shell). `ai-elements/prompt-input` is a compat re-export. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
+
+**Attachment accept allowlist:** single source of truth is `PROMPT_INPUT_ACCEPT` in `src/components/chat/prompt/prompt-input-files.ts` (wired from `/home` via `accept={PROMPT_INPUT_ACCEPT}`; `ai-elements` path remains a compat re-export). Drag-drop and the file picker both enforce it via `filterIncomingFiles` / `matchesAccept`. Edit only that constant when expanding types. Full accepted list + intentionally excluded formats (e.g. `.html`, Office binaries, archives) are documented in that file’s module header — read it before changing.
 
 **Attachment chips:** preview tiles use restrained `--radius`. The remove control is a **small rectangular badge** (tighter radius than full `--radius` so it does not read as a circle on an ~18px hit target), DotMatrix `x`, palette `bg-background/85` + muted foreground — not a pill.
 
 ## Long-term vision
 
-Spy becomes a full application — a workspace where users actually throw their knowledge at the agent and watch it weave. The knowledge graph stops being a decorative backdrop and becomes a living, navigable interface. The spider becomes an interactive presence — responding to user activity, surfacing connections, maintaining the web in real time.
+Spy becomes a full application — a workspace where users actually throw their knowledge at the agent and watch it weave. `/graph` is already a real interactive canvas spike (Pixi + RTC camera); the long-term path is a living, navigable knowledge-graph interface backed by full KB residency — not mock-only. The spider becomes an interactive presence — responding to user activity, surfacing connections, maintaining the web in real time.
 
-Right now the door is open; the work is making the chat workspace feel like walking into the web.
+Right now the door is open; the work is making the chat workspace feel like walking into the web, with the graph as the navigable map underneath.
 
 ## Current architecture
 
+```
 src/
 ├── ai/
-│   ├── agent.ts              — Server-side model streaming logic
-│   ├── embeddings.ts         — Gemini-embedding-2 generation (1536 dim)
-│   ├── retrieval.ts          — FalkorDB vector similarity search
-│   └── schema.ts             — (Legacy/WIP) AI extraction schemas
+│   ├── agent/                — Server-side model streaming (runAgent)
+│   │   └── agent.ts          — Implementation SoT
+│   ├── models/               — Model config + embeddings
+│   │   ├── modelstore.ts     — Model / embed model wiring
+│   │   └── embeddings.ts     — Gemini-embedding-2 generation (1536 dim)
+│   ├── tools/                — Agent tools SoT
+│   │   └── toolset.ts        — upsert/link/search/ask; never settles layout
+│   ├── schemas/              — Zod tool input schemas (SoT: *-schema.ts)
+│   │   ├── ask-schema.ts / upsert-schema.ts / link-schema.ts / web-search-schema.ts
+│   │   └── ask-user-question.ts / … — compat re-export shims
+│   ├── agent.ts / toolset.ts / modelstore.ts / embeddings.ts — root compat re-exports
+│   └── index.ts              — public ai barrel
+├── animation/
+│   ├── spider-mascot.tsx     — Mascot React host
+│   └── spider/               — GSAP behaviors + mascot timeline
 ├── app/
 │   ├── api/                  — Backend API routes (Node.js runtime)
 │   │   ├── chat/route.ts     — Streaming chat & memory extraction loop
-│   │   └── prep-session/route.ts — Pre-fetches graph context for session
+│   │   ├── graph/route.ts    — Live topology for `/graph` (Falkor; no xy)
+│   │   └── test-db/route.ts  — DB connectivity check
 │   ├── page.tsx              — Landing page (composes hero components)
 │   ├── home/
 │   │   └── page.tsx          — Chat UI (conversation, messages, input, suggestions)
+│   ├── graph/
+│   │   └── page.tsx          — Knowledge graph canvas route (`/graph`, live-only)
 │   ├── layout.tsx            — Root layout + fonts + metadata + hydration fix
 │   └── globals.css           — Tailwind v4 @theme tokens + design tokens + chat styles
 ├── components/
 │   ├── ui/                   — Design-system primitives only (shadcn-style Button, Dialog, Input, …)
 │   ├── chat/                 — Chat product shell + AI message chrome
-│   │   ├── chat-sidebar.tsx  — Collapsible navigation drawer (Recents + Search)
-│   │   ├── settings-dialog.tsx — Session settings overlay (trigger + optional shortcut)
-│   │   ├── command-palette.tsx — ⌘K command palette (product chrome, not a primitive)
-│   │   └── ai-elements/      — Conversation, message, prompt-input, suggestions, CoT, …
+│   │   ├── prompt/           — Prompt shell SoT (prompt-input, attachments, files, controls)
+│   │   ├── conversation/     — Message stream SoT (conversation, message, CoT, sources, …)
+│   │   ├── shell/            — Product chrome SoT (sidebar, settings, command palette)
+│   │   ├── ai-elements/      — Compat re-exports → prompt + conversation (do not add new impl)
+│   │   ├── chat-sidebar.tsx / settings-dialog.tsx / command-palette.tsx — shell compat shims
+│   │   └── index.ts          — chat barrel (prefer domain folders or this barrel)
+│   ├── graph/                — Graph React host (not pure logic)
+│   │   ├── graph-canvas.tsx  — Host for `/graph` (Pixi renderer + camera + bake)
+│   │   └── node-detail-dialog.tsx — Node inspector overlay
 │   ├── landing/              — Landing/marketing surfaces
 │   │   ├── hero-section.tsx  — Hero layout
 │   │   └── shiny-text.tsx    — Glint sweep text animation
 │   ├── dotmatrix/            — Shared pixel / dot-matrix system
-│   │   ├── icons.tsx         — Pixel-art icon registry (DotMatrixIcon)
-│   │   ├── core.tsx / hooks.ts — Grid utilities + animation hooks
-│   │   ├── hex-9 / square-18 / triangle-16 — Shape loaders
-│   │   └── loader.css
+│   │   ├── core/             — Grid utilities + animation hooks (SoT)
+│   │   ├── icons/            — Pixel-art icon registry (DotMatrixIcon SoT)
+│   │   ├── loaders/          — hex-9 / square-18 / triangle-16 + loader.css (SoT)
+│   │   └── *.tsx / loader.css — root compat re-exports
 │   └── brand/
 │       └── logos/            — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
 ├── deprecated/               — Not production routes; do not wire into / or /home without intent
@@ -253,17 +157,39 @@ src/
 ├── hooks/
 │   └── use-mobile.ts         — Responsive layout breakpoint state hook
 ├── lib/
-│   ├── falkor.ts             — Native FalkorDB graph connection & Cypher queries
+│   ├── falkor.ts             — Server DB: FalkorDB connection & Cypher (topology only; no xy)
+│   ├── graph/                — Graph pure logic (Pixi pure-perf + client placement)
+│   │   ├── camera/           — rtc-camera (never stage.scale for world camera)
+│   │   ├── core/             — graph-data, graph-diff, graph-scale, graph-style
+│   │   ├── layout/           — layout-loop-d3 (`createGraphPaintLoop`; dynamic import), rim-lock, spatial-index
+│   │   ├── placement/        — place-topology (hit/miss), force-recipe (pure settle), placement-cache
+│   │   ├── render/           — pixi-renderer, bake stack, draw primitives, edge pulse
+│   │   ├── fixtures/mock-graph.ts — verify-only mock + stress fixtures
+│   │   └── index.ts          — public exports
+│   ├── ask-user-question.ts  — Pending-ask client helpers (no morph UI)
+│   ├── models.ts             — Client model catalog (id / provider list)
 │   └── utils.ts              — cn() helper for Tailwind class merging
 ├── prompts/
 │   └── system-prompt.ts      — Agent system prompt export
 └── types/
     ├── chat.ts               — Type declarations for ChatContextValue
     ├── graph-schema.ts       — Zod Schemas for Memory Nodes & Edges
+    ├── models.ts             — Model id / provider types
     └── index.ts              — Main TypeScript module definitions entrypoint
 ```
 
-**Note:** `prompt-input.tsx` under `chat/ai-elements` is chat-only (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/toolset.ts` without a live morph UI.
+**Placement policy (where code lives):**
+- **Graph pure logic** → `src/lib/graph/` subdomains (`placement/`, `layout/`, `render/`, `camera/`, `core/`)
+- **Graph React host** → `src/components/graph/` (`graph-canvas`, node-detail dialog)
+- **Server DB** → `src/lib/falkor.ts` (topology only — not under the client graph package; no product `x`/`y`/`rank` writes)
+- **Agent tools / schemas** → `src/ai/tools/`, `src/ai/schemas/*-schema.ts` (root `ai/*.ts` shims are compat only)
+- **Chat UI** → `src/components/chat/{prompt,conversation,shell}/` (ai-elements + root shell files are compat re-exports)
+
+**Note:** Chat prompt SoT is `chat/prompt/prompt-input.tsx` (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts` without a live morph UI.
+
+**Graph note:** Continuous layout off by default. FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md). **`placeTopology`** owns fingerprint hit/miss (hit → cached `{x,y}`; miss → assemble at `(0,0)` → pure `settleGraphData` → save poses). Host dynamic-imports `createGraphPaintLoop` from `layout-loop-d3` (`setGraphData(graph)` only; no settle option). Falkor holds topology only — no server placement writes. Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
+
+**Agent rules:** project instruction rules live under `.grok/rules/` (e.g. `code-perferences/`, `orchestration/`). Historical folder name `code-perferences` is intentional; do not rename without verifying the rules loader.
 
 ## Design files
 
@@ -292,14 +218,47 @@ src/
 - **Graph Schema strictness:** Memory edges are strictly limited to `PART_OF` (Hierarchical) and `RELATES_TO` (Associative). We do not use prerequisite or causal edges because semantic vector search on content embeddings implicitly handles those relationships.
 - **Node.js Runtime only:** FalkorDB native driver breaks in Edge runtime. API routes interacting with the DB must run in Node.js and require `serverExternalPackages: ["falkordb"]` in `next.config.ts`.
 - Restrained rounded corners only (--radius)
+- **Graph client quality bans (still in force):** no maxDots / lodMul / skipOuterLats; no half-res soft sprites; no EDGE_BASE_BAND fatten; no packing floor 0.15 (keep 1e-6); no hierarchy silent-hide as “perf”
+
+## What's left
+
+### Done / do not re-litigate (graph pure-perf)
+
+Client pure-perf under quality bans — **ceiling status:**
+
+| Track | Status |
+|---|---|
+| Product ceiling (static mock pan/zoom) | **Achieved** |
+| Client large-loaded-graph pure-perf (A–C) | **Achieved** for planned scope |
+| Absolute / full product KB (DB-scale data residency) | **Not achieved** — Tier D out of scope |
+
+**Achieved (ban-safe client pure-perf):**
+- World-space DotStream bake @ z=1; camera only transforms `graphContent` (never `stage.scale` for world camera)
+- Universal residency: viewport + `OVERSCAN_MARGIN=2.0` + GraphSpatialIndex + bake worker (all graph sizes)
+- Wave 2: underlay pan-decouple, packed bake payloads/transferables, O(candidates) payload, resident buffer pooling, RimLock O(E), dynamic-import layout-loop-d3 (d3-force not on static path), strip no-op setInteractionQuality settle timers
+- Large-KB track: rim-coupled dirty expansion, durable mergedDotBuffer splice, worker latest-only/cancel, incremental RimLock, spatial incidence + int keys, node redraw only when nodes dirty (`diffGraphDirty` remains in lib; product host uses full `setGraphData`)
+- Layout: product always d3 one-shot settle on cache miss; ambient off; FA2/graphology **removed** (S7). Static layout-loop impl kept for verify/labs.
+
+Hard bans remain in force (see Constraints). Do not re-open pure-perf by relaxing quality bans.
+
+### Left (next product modes — not unfinished mock pan work)
+
+1. **Client placement cache (MVP)** — **Achieved (C0–C5 MVP)**: Falkor topology only; client d3 + `localStorage` pose cache; toolset never settles/persists layout; live `/graph` cache-hit paints / cache-miss one-shot settle. **Live-only host** — **Achieved** ([`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): no mock product path, no URL layout flags. **C3b deferred:** progressive BFS stream (invisible-until-posed growth animation). See [`plans/client-placement-cache.md`](plans/client-placement-cache.md). C6 live dirty / C7 reparent later.
+2. **Ambient / continuous motion** — product ambient remains **off**. Re-enable only with an explicit product decision (impl + types still exist; no URL flag).
+3. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
+4. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
+5. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
+6. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; do not resurrect ask-user-question morph without redesign.
+
+Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 
 ## Getting started
 
 1. Read **`brief.md`** — design constitution
-2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat)
+2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` live knowledge graph)
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
-5. Prefer domain imports: `@/components/chat/...`, `@/components/dotmatrix/icons`, `@/components/ui/...`
+5. Prefer domain imports: `@/components/chat/prompt|conversation|shell/...` (or `@/components/chat` barrel), `@/ai/agent|models|tools|schemas/...`, `@/components/graph/...`, `@/lib/graph/{camera,core,layout,placement,render}/...`, `@/components/dotmatrix/icons`, `@/components/ui/...`. Root/`ai-elements` paths are compat re-exports.
 6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
 7. Do not resurrect deprecated ask-user-question morph into production without a redesign task
 

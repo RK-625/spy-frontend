@@ -107,7 +107,7 @@ function CommandEmpty({
   return (
     <CommandPrimitive.Empty
       data-slot="command-empty"
-      className={cn("py-3 text-center text-[11.5px] text-[#7a7685]", className)}
+      className={cn("py-3 text-center text-[11.5px] text-text-secondary", className)}
       {...props}
     />
   )

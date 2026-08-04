@@ -9,15 +9,9 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-/.commandcode
 /.deprecated
-/.antigravitycli
-/.codegraph
-/.kiro
-/.learning
-/.kirograph
 /workbench
-todo
+todo.md
 
 # testing
 /coverage
@@ -28,6 +22,9 @@ todo
 
 # production
 /build
+
+# FalkorDBLite local persistence
+.data/
 
 # misc
 .DS_Store

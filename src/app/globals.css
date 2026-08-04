@@ -22,6 +22,10 @@
   --color-lavender-muted: var(--lavender-muted);
   --color-accent-ink: var(--accent-ink);
 
+  --color-status-dot-streaming: var(--status-dot-streaming);
+  --color-status-dot-ready: var(--status-dot-ready);
+  --color-status-dot-error: var(--status-dot-error);
+
   --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
 
@@ -202,6 +206,12 @@
   /* Pill tokens — status / step count chips */
   --pill-status-bg: rgba(200, 172, 251, 0.12);
   --pill-status-text: var(--lavender);
+
+  /* Session status dots (settings / HUD) — lavender system, no ad-hoc red/emerald */
+  --status-dot-streaming: var(--lavender);
+  --status-dot-ready: var(--lavender-muted);
+  /* Lighter than --destructive so size-1.5 dots stay glanceable on dark cards */
+  --status-dot-error: #c45c5c;
 
   /* ── shadcn/ui tokens ── */
   --background: #060610;
