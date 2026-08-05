@@ -4,7 +4,7 @@
  * PromptInputFooter: block-end InputGroupAddon for tools + submit.
  */
 
-import { InputGroupAddon } from "@/components/ui/input-group";
+import { InputGroupAddon } from "@/components/ui/forms/input-group";
 import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
 

@@ -6,7 +6,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/ui/overlays/dialog";
 import type { GraphNode } from "@/lib/graph";
 
 function formatConfidence(value: number | undefined): string | null {

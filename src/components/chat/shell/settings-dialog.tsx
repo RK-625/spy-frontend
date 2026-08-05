@@ -6,7 +6,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/ui/overlays/dialog";
 import { useChatContext } from "@/contexts/ChatContext";
 import { useOptionalPromptShellControllerContext } from "@/components/chat/prompt/shell/context";
 

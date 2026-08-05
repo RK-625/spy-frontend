@@ -6,7 +6,7 @@ import useEmblaCarousel, {
 } from "embla-carousel-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/actions/button"
 import { DotMatrixIcon } from "@/components/dotmatrix"
 
 type CarouselApi = UseEmblaCarouselType[1]

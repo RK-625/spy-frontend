@@ -4,7 +4,7 @@
  * PromptInputSubmit: submit / stop control with status glyph animation.
  */
 
-import { InputGroupButton } from "@/components/ui/input-group";
+import { InputGroupButton } from "@/components/ui/forms/input-group";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { cn } from "@/lib/utils";
 import type { ChatStatus } from "ai";

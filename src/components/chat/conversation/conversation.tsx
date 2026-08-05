@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/actions/button";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { DotmTriangle16 } from "@/components/dotmatrix";

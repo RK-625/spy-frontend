@@ -4,12 +4,12 @@
  * PromptInputButton: footer tool button with optional tooltip.
  */
 
-import { InputGroupButton } from "@/components/ui/input-group";
+import { InputGroupButton } from "@/components/ui/forms/input-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/ui/overlays/tooltip";
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
 import { Children } from "react";

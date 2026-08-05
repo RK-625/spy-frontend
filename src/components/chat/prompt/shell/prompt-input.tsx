@@ -5,7 +5,7 @@
  * Requires outer PromptShellProvider. Draft state lives in ./context.
  */
 
-import { InputGroup } from "@/components/ui/input-group";
+import { InputGroup } from "@/components/ui/forms/input-group";
 import { cn } from "@/lib/utils";
 import type { PromptInputMessage } from "@/types/chat";
 import type { FileUIPart } from "ai";

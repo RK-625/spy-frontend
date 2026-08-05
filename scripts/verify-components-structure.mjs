@@ -23,8 +23,17 @@ function isEmptyDir(rel) {
 }
 
 const required = [
-  // ui primitives
-  "src/components/ui/button.tsx",
+  // ui primitives — role folders + barrel (no flat dual shims)
+  "src/components/ui/index.ts",
+  "src/components/ui/actions/button.tsx",
+  "src/components/ui/actions/button-group.tsx",
+  "src/components/ui/forms/input.tsx",
+  "src/components/ui/forms/input-group.tsx",
+  "src/components/ui/overlays/dialog.tsx",
+  "src/components/ui/overlays/tooltip.tsx",
+  "src/components/ui/feedback/spinner.tsx",
+  "src/components/ui/layout/card.tsx",
+  "src/components/ui/navigation/command.tsx",
 
   // chat — domain SoT (prompt shell reorg)
   "src/components/chat/prompt/shell/context.tsx",
@@ -117,6 +126,12 @@ const forbidden = [
   "src/components/dotmatrix/triangle-16.tsx",
   // brand/logos moved to logos/
   "src/components/brand",
+  // ui flat dual-export paths removed — use role folders / barrel
+  "src/components/ui/button.tsx",
+  "src/components/ui/input.tsx",
+  "src/components/ui/dialog.tsx",
+  "src/components/ui/tooltip.tsx",
+  "src/components/ui/command.tsx",
 ];
 
 const failures = [];

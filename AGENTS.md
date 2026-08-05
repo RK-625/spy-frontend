@@ -126,7 +126,14 @@ src/
 │   ├── layout.tsx            — Root layout + fonts + metadata + hydration fix
 │   └── globals.css           — Tailwind v4 @theme tokens + design tokens + chat styles
 ├── components/
-│   ├── ui/                   — Design-system primitives only (shadcn-style Button, Dialog, Input, …)
+│   ├── ui/                   — Design-system primitives by role (barrel `@/components/ui`)
+│   │   ├── actions/          — button, button-group
+│   │   ├── forms/            — input, textarea, input-group, select, switch
+│   │   ├── overlays/         — dialog, sheet, popover, hover-card, dropdown-menu, tooltip
+│   │   ├── feedback/         — alert, sonner, spinner, progress, skeleton
+│   │   ├── layout/           — card, separator, scroll-area, avatar, badge, collapsible, accordion, carousel
+│   │   ├── navigation/       — tabs, command
+│   │   └── index.ts          — public barrel (no flat dual-export shims)
 │   ├── chat/                 — Chat product shell + AI message chrome
 │   │   ├── prompt/           — Prompt shell SoT (shell/, header/, body/, ask/, attachments/, footer/, index.ts)
 │   │   ├── conversation/     — Message stream SoT (conversation, message, CoT, sources, …)
@@ -255,7 +262,7 @@ Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` live knowledge graph)
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
-5. Prefer domain imports: `@/components/chat/prompt|conversation|shell` barrels, `@/components/chat` barrel, `@/components/dotmatrix` barrel, `@/components/logos/...`, `@/ai/agent|models|tools|schemas/...`, `@/components/graph/...`, `@/lib/graph/{camera,core,layout,placement,render}/...`, `@/components/ui/...`. No dual-path root shims.
+5. Prefer domain imports: `@/components/chat/prompt|conversation|shell` barrels, `@/components/chat` barrel, `@/components/dotmatrix` barrel, `@/components/logos/...`, `@/ai/agent|models|tools|schemas/...`, `@/components/graph/...`, `@/lib/graph/{camera,core,layout,placement,render}/...`, `@/components/ui` barrel or `@/components/ui/<role>/...` deep paths. No dual-path root shims.
 6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
 7. Do not resurrect deprecated ask-user-question morph into production without a redesign task
 
