@@ -4,7 +4,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/layout/collapsible";
+} from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { DotMatrixIcon } from "@/components/dotmatrix";
 import type { ComponentProps } from "react";

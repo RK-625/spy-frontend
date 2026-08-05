@@ -1,7 +1,9 @@
 "use client";
 
-import { Button } from "@/components/ui/actions/button";
-import { Spinner } from "@/components/ui/feedback/spinner";
+import {
+  Button,
+  Spinner,
+} from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 

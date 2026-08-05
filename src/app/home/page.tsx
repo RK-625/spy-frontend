@@ -60,7 +60,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ChatSidebar } from "@/components/chat/shell";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { useChatSubmit } from "@/hooks/use-chat-submit";
-import { TooltipProvider } from "@/components/ui/overlays/tooltip";
+import { TooltipProvider } from "@/components/ui";
 import { models, chefs } from "@/lib/models";
 import ShinyText from "@/components/landing/shiny-text";
 

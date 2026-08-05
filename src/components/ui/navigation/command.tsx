@@ -11,11 +11,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/overlays/dialog"
+} from "../overlays/dialog"
 import {
   InputGroup,
   InputGroupAddon,
-} from "@/components/ui/forms/input-group"
+} from "../forms/input-group"
 
 function Command({
   className,

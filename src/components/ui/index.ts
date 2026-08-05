@@ -1,6 +1,7 @@
 /**
  * Design-system barrel — role folders only (no flat dual-export shims).
- * Prefer `@/components/ui` or `@/components/ui/<role>/<name>` deep paths.
+ * Product code: import from `@/components/ui` only.
+ * Inside ui/* modules: use relative imports (never this barrel — avoids cycles).
  */
 export * from "./actions/button";
 export * from "./actions/button-group";

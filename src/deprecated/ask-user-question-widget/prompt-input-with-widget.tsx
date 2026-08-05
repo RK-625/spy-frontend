@@ -8,37 +8,27 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@/components/ui/navigation/command";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/overlays/dropdown-menu";
-import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from "@/components/ui/overlays/hover-card";
-import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
-} from "@/components/ui/forms/input-group";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/forms/select";
-import { Spinner } from "@/components/ui/feedback/spinner";
-import {
+  Spinner,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/overlays/tooltip";
+} from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { WIDGET, WIDGET_TYPE } from "./widget-layout";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";

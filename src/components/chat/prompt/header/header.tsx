@@ -4,7 +4,7 @@
  * PromptInputHeader: block-start InputGroupAddon for attachment strip etc.
  */
 
-import { InputGroupAddon } from "@/components/ui/forms/input-group";
+import { InputGroupAddon } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
 import { Children } from "react";

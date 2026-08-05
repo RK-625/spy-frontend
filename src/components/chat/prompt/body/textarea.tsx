@@ -5,7 +5,7 @@
  * Requires outer PromptShellProvider.
  */
 
-import { InputGroupTextarea } from "@/components/ui/forms/input-group";
+import { InputGroupTextarea } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type {
   ChangeEvent,

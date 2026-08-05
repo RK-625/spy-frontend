@@ -8,12 +8,10 @@ import {
   CommandList,
   CommandSeparator,
   CommandShortcut,
-} from "@/components/ui/navigation/command";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/overlays/popover";
+} from "@/components/ui";
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { models } from "@/lib/models";

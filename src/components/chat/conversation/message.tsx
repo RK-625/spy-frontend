@@ -1,16 +1,14 @@
 "use client";
 
-import { Button } from "@/components/ui/actions/button";
 import {
+  Button,
   ButtonGroup,
   ButtonGroupText,
-} from "@/components/ui/actions/button-group";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/overlays/tooltip";
+} from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";

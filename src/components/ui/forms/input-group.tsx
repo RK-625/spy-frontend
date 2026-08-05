@@ -4,9 +4,9 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/actions/button"
-import { Input } from "@/components/ui/forms/input"
-import { Textarea } from "@/components/ui/forms/textarea"
+import { Button } from "../actions/button"
+import { Input } from "./input"
+import { Textarea } from "./textarea"
 
 const InputGroup = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
   ({ className, ...props }, ref) => {
