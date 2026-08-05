@@ -1,17 +1,19 @@
 "use client";
 
 /**
- * Prompt shell draft context: single controller for text + attachments.
+ * Prompt shell draft context: text, attachments, and chat prefs (model / mode / web).
  * Requires outer PromptInputProvider. Must NOT import header/body/footer.
  *
  * PromptInput registers file-input open + attachment validation so children
  * always hit a validated `attachments.add` while state lives only here.
+ * Selector open flags stay local to the call site (not in this context).
  */
 
 import {
   filesToFileUIParts,
   revokeFileUrls,
 } from "../attachments/prompt-input-files";
+import { models } from "@/lib/models";
 import type { FileUIPart } from "ai";
 import type { PropsWithChildren, RefObject } from "react";
 import {
@@ -54,10 +56,22 @@ export type AttachmentAddValidator = (
   ctx: { currentCount: number }
 ) => File[];
 
+/** Chat request prefs owned by the prompt shell (not stream state). */
+export interface PromptInputPrefsValue {
+  model: string;
+  setModel: (id: string) => void;
+  mode: string;
+  setMode: (mode: string) => void;
+  useWebSearch: boolean;
+  setUseWebSearch: (enabled: boolean) => void;
+  toggleWebSearch: () => void;
+}
+
 /** Lifted controller state exposed by PromptInputProvider. */
 export interface PromptInputControllerValue {
   textInput: TextInputValue;
   attachments: AttachmentsValue;
+  prefs: PromptInputPrefsValue;
   /** INTERNAL: PromptInput registers its hidden file input + open callback */
   __registerFileInput: (
     ref: RefObject<HTMLInputElement | null>,
@@ -113,23 +127,41 @@ export const usePromptInputAttachments = (): AttachmentsValue => {
 // Provider
 // ============================================================================
 
+const DEFAULT_MODEL_ID = models[0]?.id ?? "deepseek-v4-flash";
+const DEFAULT_MODE = "high";
+const DEFAULT_USE_WEB_SEARCH = true;
+
 export type PromptInputProviderProps = PropsWithChildren<{
   initialInput?: string;
   maxFiles?: number;
+  initialModel?: string;
+  initialMode?: string;
+  initialUseWebSearch?: boolean;
 }>;
 
 /**
- * Owns prompt draft state (text + attachments). Required wrapper for PromptInput
- * and any consumer of usePromptInputAttachments / controller hooks.
+ * Owns prompt draft state (text + attachments + prefs). Required wrapper for
+ * PromptInput and consumers of usePromptInputAttachments / controller hooks.
  */
 export const PromptInputProvider = ({
   initialInput: initialTextInput = "",
   maxFiles,
+  initialModel = DEFAULT_MODEL_ID,
+  initialMode = DEFAULT_MODE,
+  initialUseWebSearch = DEFAULT_USE_WEB_SEARCH,
   children,
 }: PromptInputProviderProps) => {
   // ----- textInput state
   const [textInput, setTextInput] = useState(initialTextInput);
   const clearInput = useCallback(() => setTextInput(""), []);
+
+  // ----- prefs (model / mode / web) — no selector open flags
+  const [model, setModel] = useState(initialModel);
+  const [mode, setMode] = useState(initialMode);
+  const [useWebSearch, setUseWebSearch] = useState(initialUseWebSearch);
+  const toggleWebSearch = useCallback(() => {
+    setUseWebSearch((prev) => !prev);
+  }, []);
 
   // ----- attachments state
   const [attachmentFiles, setAttachmentFiles] = useState<
@@ -218,6 +250,19 @@ export const PromptInputProvider = ({
     [attachmentFiles, add, remove, clear, openFileDialog]
   );
 
+  const prefs = useMemo<PromptInputPrefsValue>(
+    () => ({
+      model,
+      setModel,
+      mode,
+      setMode,
+      useWebSearch,
+      setUseWebSearch,
+      toggleWebSearch,
+    }),
+    [model, mode, useWebSearch, toggleWebSearch]
+  );
+
   const __registerFileInput = useCallback(
     (ref: RefObject<HTMLInputElement | null>, open: () => void) => {
       fileInputRef.current = ref.current;
@@ -238,6 +283,7 @@ export const PromptInputProvider = ({
       __registerAttachmentValidator,
       __registerFileInput,
       attachments,
+      prefs,
       textInput: {
         clear: clearInput,
         setValue: setTextInput,
@@ -248,6 +294,7 @@ export const PromptInputProvider = ({
       textInput,
       clearInput,
       attachments,
+      prefs,
       __registerFileInput,
       __registerAttachmentValidator,
     ]

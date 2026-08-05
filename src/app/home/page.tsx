@@ -34,7 +34,7 @@ import {
   PROMPT_INPUT_ACCEPT,
   usePromptInputAttachments,
   PromptInputProvider,
-  useOptionalPromptInputControllerContext,
+  usePromptInputControllerContext,
   SpeechInput,
   Suggestion,
   Suggestions,
@@ -62,9 +62,10 @@ import {
 } from "@/lib/ask-user-question";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
+import { useChatSubmit } from "@/hooks/use-chat-submit";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { models, chefs } from "@/lib/models";
 import ShinyText from "@/components/landing/shiny-text";
@@ -167,26 +168,22 @@ const EmptyState = () => (
 );
 
 const ChatWorkspace = () => {
+  const { status, messages, error, stop } = useChatContext();
+  const { submitUserMessage } = useChatSubmit();
+  const controller = usePromptInputControllerContext();
+  const attachments = usePromptInputAttachments();
   const {
     model,
     setModel,
     mode,
     setMode,
-    modelSelectorOpen,
-    setModelSelectorOpen,
-    modeSelectorOpen,
-    setModeSelectorOpen,
     useWebSearch,
-    status,
-    messages,
     toggleWebSearch,
-    error,
-    stop,
-    handleSubmit,
-  } = useChatContext();
+  } = controller.prefs;
 
-  const controller = useOptionalPromptInputControllerContext();
-  const attachments = usePromptInputAttachments();
+  // Selector open flags stay local to this surface (not on controller)
+  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+  const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
 
   const pendingAsk = useMemo(
     () => getPendingAskUserQuestion(messages),
@@ -207,7 +204,7 @@ const ChatWorkspace = () => {
       const answer = message.text?.trim() ?? "";
       const hasFiles = (message.files?.length ?? 0) > 0;
       if (pendingAsk != null && (answer.length > 0 || hasFiles)) {
-        void handleSubmit({
+        void submitUserMessage({
           text: formatAskUserQuestionAnswer({
             question: pendingAsk.question,
             answer: answer.length > 0 ? answer : "(attachment)",
@@ -216,16 +213,16 @@ const ChatWorkspace = () => {
         });
         return;
       }
-      void handleSubmit(message);
+      void submitUserMessage(message);
     },
-    [handleSubmit, pendingAsk, status],
+    [submitUserMessage, pendingAsk, status],
   );
 
   /** Option label → Q/A user message (same path as form submit). */
   const handleWidgetOptionSelect = useCallback(
     (option: PromptInputWidgetOption) => {
       if (status !== "ready" || pendingAsk == null) return;
-      void handleSubmit({
+      void submitUserMessage({
         text: formatAskUserQuestionAnswer({
           question: pendingAsk.question,
           answer: option.label,
@@ -233,35 +230,31 @@ const ChatWorkspace = () => {
         files: [],
       });
     },
-    [handleSubmit, pendingAsk, status],
+    [submitUserMessage, pendingAsk, status],
   );
 
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
       if (status !== "ready") return;
-      void handleSubmit({ text: suggestion, files: [] });
+      void submitUserMessage({ text: suggestion, files: [] });
     },
-    [handleSubmit, status],
+    [submitUserMessage, status],
   );
 
   const handleTranscriptionChange = useCallback(
     (transcript: string) => {
-      if (controller) {
-        controller.textInput.setValue(
-          controller.textInput.value
-            ? `${controller.textInput.value} ${transcript}`
-            : transcript,
-        );
-      }
+      controller.textInput.setValue(
+        controller.textInput.value
+          ? `${controller.textInput.value} ${transcript}`
+          : transcript,
+      );
     },
     [controller],
   );
 
   const handleTextChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      if (controller) {
-        controller.textInput.setValue(event.target.value);
-      }
+      controller.textInput.setValue(event.target.value);
     },
     [controller],
   );
@@ -271,17 +264,17 @@ const ChatWorkspace = () => {
       setModel(modelId);
       setModelSelectorOpen(false);
     },
-    [setModel, setModelSelectorOpen],
+    [setModel],
   );
 
   const isSubmitDisabled = useMemo(
     () =>
       status === "ready" &&
       ((pendingAsk != null && !pendingAsk.allowCustomInput) ||
-        (!controller?.textInput.value.trim() &&
+        (!controller.textInput.value.trim() &&
           attachments.files.length === 0)),
     [
-      controller?.textInput.value,
+      controller.textInput.value,
       attachments.files.length,
       status,
       pendingAsk,
@@ -467,7 +460,7 @@ const ChatWorkspace = () => {
               >
                 <PromptInputTextarea
                   onChange={handleTextChange}
-                  value={controller?.textInput.value || ""}
+                  value={controller.textInput.value}
                 />
               </PromptInputBody>
               <PromptInputFooter>
@@ -683,7 +676,7 @@ export default function HomePage() {
       <div className="fixed inset-0 z-0 bg-[var(--surface-chat-veil)] pointer-events-none" />
 
       <div className="relative z-10 flex h-screen w-full">
-        {/* Sidebar — sibling to main chat area, but shares chat context */}
+        {/* Sidebar + main share ChatProvider (stream) and PromptInputProvider (draft/prefs) */}
         <ChatProviderWrapper>
           <ChatSidebar />
           {/* Main chat area */}
@@ -701,9 +694,7 @@ export default function HomePage() {
                   WEAVING SIGNAL
                 </span>
               </header>
-              <PromptInputProvider>
-                <ChatWorkspace />
-              </PromptInputProvider>
+              <ChatWorkspace />
             </div>
           </div>
         </ChatProviderWrapper>
@@ -712,11 +703,13 @@ export default function HomePage() {
   );
 }
 
-// Wrap sidebar + chat area in a single ChatProvider so they share state
+// Stream + prompt draft/prefs shared by sidebar settings and main workspace
 function ChatProviderWrapper({ children }: { children: React.ReactNode }) {
   return (
     <TooltipProvider delayDuration={300}>
-      <ChatProvider>{children}</ChatProvider>
+      <ChatProvider>
+        <PromptInputProvider>{children}</PromptInputProvider>
+      </ChatProvider>
     </TooltipProvider>
   );
 }
