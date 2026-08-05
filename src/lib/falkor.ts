@@ -7,37 +7,31 @@ import {
   type Memory,
   type Links,
   type MemorySearchHit,
+  type MemoryNode,
+  type MemoryQuestion,
 } from "@/types/graph-schema";
-import type { GraphTopology, MemoryNode } from "@/types/graph-topology";
-import { MEMORY_SEARCH_TOP_K } from "@/lib/policy-tokens";
+import type { GraphTopology } from "@/types/graph-topology";
+import {
+  MEMORY_SEARCH_RRF_K,
+  MEMORY_SEARCH_TOP_K,
+} from "@/lib/policy-tokens";
 import { z } from "zod";
 
 /** Re-export wire SoT from client-safe `@/types/graph-topology` (do not redefine). */
 export type { GraphTopology, MemoryNode } from "@/types/graph-topology";
 export type { MemorySearchHit } from "@/types/graph-schema";
 
-type FalkorNode<T> = {
-  id: number; // FalkorDB's internal numeric node id — NOT your app id
-  labels: string[];
-  properties: T;
-};
-
-type VectorSearchRow = {
-  node: FalkorNode<Memory>;
-  score: number;
-};
-
-type VectorSearchResult = {
-  data: VectorSearchRow[];
-};
-
 const GRAPH_NAME = "spy_brain";
 
 /** Embedding dim must match `generateEmbedding` (gemini-embedding-2 truncated to 1536). */
 const EMBEDDING_DIMENSION = 1536;
 const VECTOR_SIMILARITY = "cosine" as const;
-/** Property names on :Memory — must match upsertMemory + vectorSearch. */
-const VECTOR_INDEX_FIELDS = ["searchEmbedding", "contentEmbedding"] as const;
+
+/**
+ * Product ANN index field on MemoryQuestion nodes.
+ * Index CREATE + queryNodes + CREATE node props all use this name.
+ */
+const MEMORY_QUESTION_EMBEDDING_PROP = "questionEmbedding" as const;
 
 /**
  * Local data **directory** for FalkorDBLite persistence (not a single SQLite file).
@@ -86,57 +80,56 @@ function openDbClient(): Promise<FalkorClient> {
   return dbOpenPromise;
 }
 
-/**
- * Process-singleton vector-index ensure. Concurrent callers await the same promise;
- * failure resets so the next getDb() can retry.
- */
-function ensureVectorIndexesOnce(graph: FalkorGraph): Promise<void> {
-  if (vectorIndexesReady) {
-    return Promise.resolve();
+async function createVectorIndex(
+  graph: FalkorGraph,
+  label: string,
+  field: string,
+): Promise<void> {
+  const query = `
+    CREATE VECTOR INDEX FOR (n:${label}) ON (n.${field})
+    OPTIONS {dimension: ${EMBEDDING_DIMENSION}, similarityFunction: '${VECTOR_SIMILARITY}'}
+  `;
+  try {
+    await graph.query(query);
+    console.log(`FalkorDB vector index ready: ${label}.${field}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/already exists|already indexed|Index already/i.test(message)) {
+      console.log(`FalkorDB vector index already present: ${label}.${field}`);
+      return;
+    }
+    console.error(
+      `FalkorDB ensureVectorIndexes failed for ${label}.${field}:`,
+      error,
+    );
+    throw error;
   }
-  if (!vectorIndexesReadyPromise) {
-    vectorIndexesReadyPromise = ensureVectorIndexes(graph)
-      .then(() => {
-        vectorIndexesReady = true;
-      })
-      .catch((error: unknown) => {
-        vectorIndexesReadyPromise = null;
-        throw error;
-      });
-  }
-  return vectorIndexesReadyPromise;
 }
 
-function isAlreadyExistsError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /already exists|already indexed|Index already/i.test(message);
-}
-
 /**
- * Create cosine vector indexes on Memory embeddings.
- * Idempotent: swallows "already exists" so re-open / multi-worker is safe.
+ * Ensure product vector index (MemoryQuestion.questionEmbedding only).
+ * Single-flight / process-once: concurrent callers share one promise; success
+ * sets vectorIndexesReady so later getDb() skips re-CREATE.
+ * Idempotent: already-exists logs and continues; other errors throw.
  */
 async function ensureVectorIndexes(graph: FalkorGraph): Promise<void> {
-  for (const field of VECTOR_INDEX_FIELDS) {
-    const query = `
-      CREATE VECTOR INDEX FOR (m:Memory) ON (m.${field})
-      OPTIONS {dimension: ${EMBEDDING_DIMENSION}, similarityFunction: '${VECTOR_SIMILARITY}'}
-    `;
-    try {
-      await graph.query(query);
-      console.log(`FalkorDB vector index ready: Memory.${field}`);
-    } catch (error) {
-      if (isAlreadyExistsError(error)) {
-        console.log(`FalkorDB vector index already present: Memory.${field}`);
-        continue;
-      }
-      console.error(
-        `FalkorDB ensureVectorIndexes failed for Memory.${field}:`,
-        error,
-      );
-      throw error;
-    }
+  if (vectorIndexesReady) {
+    return;
   }
+  if (!vectorIndexesReadyPromise) {
+    vectorIndexesReadyPromise = (async () => {
+      await createVectorIndex(
+        graph,
+        "MemoryQuestion",
+        MEMORY_QUESTION_EMBEDDING_PROP,
+      );
+      vectorIndexesReady = true;
+    })().catch((error: unknown) => {
+      vectorIndexesReadyPromise = null;
+      throw error;
+    });
+  }
+  return vectorIndexesReadyPromise;
 }
 
 export function isVectorIndexesReady(): boolean {
@@ -146,45 +139,148 @@ export function isVectorIndexesReady(): boolean {
 export async function getDb() {
   const client = await openDbClient();
   const graph = client.selectGraph(GRAPH_NAME);
-  await ensureVectorIndexesOnce(graph);
+  await ensureVectorIndexes(graph);
   return graph;
 }
 
 /**
- * Cosine vector search over Memory.searchEmbedding.
- * Thin Cypher wrapper: no Zod on args (caller owns shape). Returns lean
- * MemorySearchHit rows (no embeddings). Throws on DB errors; tool layer
- * catches and soft-returns `{ error }`.
+ * Reciprocal Rank Fusion over per-query memory id rankings.
+ * Rank is 1-based. When the same memory appears multiple times in one list,
+ * only the best (lowest) rank contributes for that list.
  */
-export async function vectorSearch(
-  embedding: number[],
+function fuseRankedMemoryIdsWithRrf(
+  rankedMemoryIdLists: string[][],
+  rrfK: number = MEMORY_SEARCH_RRF_K,
+): Map<string, number> {
+  const rrfScoresByMemoryId = new Map<string, number>();
+  for (const list of rankedMemoryIdLists) {
+    const seenInList = new Set<string>();
+    list.forEach((memoryId, index) => {
+      if (seenInList.has(memoryId)) return;
+      seenInList.add(memoryId);
+      const rank = index + 1;
+      const contribution = 1 / (rrfK + rank);
+      rrfScoresByMemoryId.set(
+        memoryId,
+        (rrfScoresByMemoryId.get(memoryId) ?? 0) + contribution,
+      );
+    });
+  }
+  return rrfScoresByMemoryId;
+}
+
+/**
+ * Product vector search: multi-ANN over MemoryQuestion.questionEmbedding, follow
+ * FOR_MEMORY to parent Memory, fuse with RRF by memory id.
+ * Returns lean MemorySearchHit[] (no embeddings, no MemoryQuestion rows).
+ */
+export async function vectorSearchByQuestions(
+  embeddings: number[][],
   topK: number = MEMORY_SEARCH_TOP_K,
 ): Promise<MemorySearchHit[]> {
+  if (embeddings.length === 0) {
+    return [];
+  }
+
   const graph = await getDb();
-  const query = `
-    CALL db.idx.vector.queryNodes('Memory', 'searchEmbedding', $topK, vecf32($embedding))
+  const annQuery = `
+    CALL db.idx.vector.queryNodes('MemoryQuestion', '${MEMORY_QUESTION_EMBEDDING_PROP}', $topK, vecf32($embedding))
     YIELD node, score
-    RETURN node, score
+    MATCH (node)-[:FOR_MEMORY]->(m:Memory)
+    RETURN m.id AS id,
+           m.name AS name,
+           m.content AS content,
+           m.impression AS impression,
+           m.confidence AS confidence,
+           score
+  `;
+
+  const memoryById = new Map<string, MemoryNode>();
+  const rankedLists: string[][] = [];
+
+  try {
+    for (const embedding of embeddings) {
+      const result = (await graph.query(annQuery, {
+        params: { topK, embedding },
+      })) as { data: MemorySearchHit[] };
+
+      const orderedIds: string[] = [];
+      for (const row of result.data ?? []) {
+        if (!memoryById.has(row.id)) {
+          memoryById.set(row.id, {
+            id: row.id,
+            name: row.name,
+            content: row.content,
+            impression: row.impression,
+            confidence: row.confidence,
+          });
+        }
+        orderedIds.push(row.id);
+      }
+      rankedLists.push(orderedIds);
+    }
+
+    const rrfScoresByMemoryId = fuseRankedMemoryIdsWithRrf(
+      rankedLists,
+      MEMORY_SEARCH_RRF_K,
+    );
+    const hits: MemorySearchHit[] = [];
+    for (const [memoryId, score] of rrfScoresByMemoryId) {
+      const node = memoryById.get(memoryId);
+      if (node == null) continue;
+      hits.push({ ...node, score });
+    }
+
+    hits.sort((a, b) => b.score - a.score);
+    return hits.slice(0, topK);
+  } catch (error) {
+    console.error("vectorSearchByQuestions error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Set MemoryQuestions for a Memory: DETACH DELETE all FOR_MEMORY questions,
+ * then create the full replacement set. Product write path after upsertMemory.
+ */
+export async function setMemoryQuestions(
+  memoryId: string,
+  questions: MemoryQuestion[],
+): Promise<void> {
+  const validMemoryId = z.string().min(1).parse(memoryId);
+  const graph = await getDb();
+
+  const deleteQuery = `
+    MATCH (q:MemoryQuestion)-[:FOR_MEMORY]->(m:Memory {id: $memoryId})
+    DETACH DELETE q
   `;
 
   try {
-    const result = (await graph.query(query, {
-      params: { topK, embedding },
-    })) as VectorSearchResult;
-
-    return (result.data ?? []).map((row) => {
-      const props = row.node.properties;
-      return {
-        id: props.id,
-        name: props.name,
-        content: props.content,
-        impression: props.impression,
-        confidence: props.confidence,
-        score: row.score,
-      };
+    await graph.query(deleteQuery, {
+      params: { memoryId: validMemoryId },
     });
+
+    // Create one-by-one so vecf32($questionEmbedding) is reliable per param binding.
+    for (const q of questions) {
+      const createQuery = `
+        MATCH (m:Memory {id: $memoryId})
+        CREATE (mq:MemoryQuestion {
+          id: $id,
+          text: $text,
+          ${MEMORY_QUESTION_EMBEDDING_PROP}: vecf32($questionEmbedding)
+        })-[:FOR_MEMORY]->(m)
+      `;
+      await graph.query(createQuery, {
+        params: {
+          memoryId: validMemoryId,
+          id: q.id,
+          text: q.text,
+          questionEmbedding: q.questionEmbedding,
+        },
+      });
+    }
   } catch (error) {
-    console.error("Vector Search Error:", error);
+    console.error("setMemoryQuestions error:", error);
     throw error;
   }
 }
@@ -213,6 +309,10 @@ export async function hasOutgoingLink(
   }
 }
 
+/**
+ * Upsert Memory core fields only (id, name, content, impression, confidence).
+ * Product search questions are written separately via setMemoryQuestions.
+ */
 export async function upsertMemory(memory: Memory) {
   const parsed = MemorySchema.parse(memory);
   const graph = await getDb();
@@ -222,9 +322,7 @@ export async function upsertMemory(memory: Memory) {
     SET m.name = $name,
         m.content = $content,
         m.impression = $impression,
-        m.confidence = $confidence,
-        m.searchEmbedding = vecf32($searchEmbedding),
-        m.contentEmbedding = vecf32($contentEmbedding)
+        m.confidence = $confidence
     RETURN m.id AS id
   `;
 
@@ -236,8 +334,6 @@ export async function upsertMemory(memory: Memory) {
         content: parsed.content,
         impression: parsed.impression,
         confidence: parsed.confidence,
-        searchEmbedding: parsed.searchEmbedding,
-        contentEmbedding: parsed.contentEmbedding,
       },
     })) as { data: Array<{ id: string }> };
 
@@ -280,6 +376,7 @@ export async function createLink(link: Links) {
 /**
  * Read-only: all Memory nodes + PART_OF / RELATES_TO links for the graph canvas.
  * Omits embeddings. Does not write layout. Trusts write-path shape (no row filters).
+ * NEVER returns MemoryQuestion or FOR_MEMORY (canvas topology is Memory-only).
  */
 export async function listGraphTopology(): Promise<GraphTopology> {
   const graph = await getDb();
