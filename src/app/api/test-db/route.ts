@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, isSchemaReady } from "@/lib/falkor";
-import { generateEmbedding } from "@/ai/embeddings";
+import { generateEmbedding } from "@/ai/models/embeddings";
 
 export async function GET() {
   try {

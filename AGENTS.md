@@ -99,18 +99,17 @@ Right now the door is open; the work is making the chat workspace feel like walk
 ```
 src/
 ├── ai/
-│   ├── agent/                — Server-side model streaming (runAgent)
-│   │   └── agent.ts          — Implementation SoT
-│   ├── models/               — Model config + embeddings
+│   ├── agent/                — Server-side model streaming (`@/ai/agent` directory barrel)
+│   │   ├── agent.ts          — Implementation SoT (runAgent)
+│   │   └── index.ts          — domain barrel
+│   ├── models/               — Model config + embeddings (`@/ai/models`, embeddings deep path OK)
 │   │   ├── modelstore.ts     — Model / embed model wiring
 │   │   └── embeddings.ts     — Gemini-embedding-2 generation (1536 dim)
-│   ├── tools/                — Agent tools SoT
+│   ├── tools/                — Agent tools SoT (`@/ai/tools`)
 │   │   └── toolset.ts        — upsert/link/search/ask; never settles layout
-│   ├── schemas/              — Zod tool input schemas (SoT: *-schema.ts)
-│   │   ├── ask-schema.ts / upsert-schema.ts / link-schema.ts / web-search-schema.ts
-│   │   └── ask-user-question.ts / … — compat re-export shims
-│   ├── agent.ts / toolset.ts / modelstore.ts / embeddings.ts — root compat re-exports
-│   └── index.ts              — public ai barrel
+│   ├── schemas/              — Zod tool input schemas (SoT: *-schema.ts only; no alias shims)
+│   │   └── ask-schema.ts / upsert-schema.ts / link-schema.ts / web-search-schema.ts
+│   └── index.ts              — public `@/ai` barrel (agent + models + tools + schemas)
 ├── animation/
 │   ├── spider-mascot.tsx     — Mascot React host
 │   └── spider/               — GSAP behaviors + mascot timeline
@@ -180,7 +179,7 @@ src/
 - **Graph pure logic** → `src/lib/graph/` subdomains (`placement/`, `layout/`, `render/`, `camera/`, `core/`)
 - **Graph React host** → `src/components/graph/` (`graph-canvas`, node-detail dialog)
 - **Server DB** → `src/lib/falkor.ts` (topology only — not under the client graph package; no product `x`/`y`/`rank` writes)
-- **Agent tools / schemas** → `src/ai/tools/`, `src/ai/schemas/*-schema.ts` (root `ai/*.ts` shims are compat only)
+- **Agent tools / schemas** → `src/ai/tools/`, `src/ai/schemas/*-schema.ts` (domain barrels; no root dual-export shims)
 - **Chat UI** → `src/components/chat/{prompt,conversation,shell}/` domain barrels only (no ai-elements / root dual shims)
 
 **Note:** Chat prompt SoT is `chat/prompt/` domain tree + barrel (`PromptShellProvider` + `shell/prompt-input.tsx` form, pieces under header/body/ask/attachments/footer). The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts` without a live morph UI.
