@@ -29,12 +29,13 @@ const FORBIDDEN = [
 ];
 
 const DELETED = [
-  "src/components/chat/ai-elements/prompt-input-question-header.tsx",
   "src/lib/widget-layout.ts",
   "src/components/chat/prompt/prompt-input-controls.tsx",
-  "src/components/chat/ai-elements/prompt-input-controls.tsx",
-  "src/components/chat/ai-elements/prompt-input.tsx",
   "src/components/chat/prompt/prompt-input.tsx",
+  "src/components/chat/ai-elements",
+  "src/components/chat/chat-sidebar.tsx",
+  "src/components/chat/settings-dialog.tsx",
+  "src/components/chat/command-palette.tsx",
 ];
 
 let failed = false;

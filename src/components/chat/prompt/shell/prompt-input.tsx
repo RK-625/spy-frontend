@@ -2,7 +2,7 @@
 
 /**
  * PromptInput form: drop handlers, submit pipeline, file input + validation registration.
- * Requires outer PromptInputProvider. Draft state lives in ./context.
+ * Requires outer PromptShellProvider. Draft state lives in ./context.
  */
 
 import { InputGroup } from "@/components/ui/input-group";
@@ -21,7 +21,7 @@ import type {
   HTMLAttributes,
 } from "react";
 import { useCallback, useEffect, useRef } from "react";
-import { usePromptInputControllerContext } from "./context";
+import { usePromptShellControllerContext } from "./context";
 
 // PROMPT_INPUT_ACCEPT lives in attachments/prompt-input-files; re-exported via
 // the `@/components/chat/prompt` barrel.
@@ -105,7 +105,7 @@ export const PromptInput = ({
   children,
   ...props
 }: PromptInputProps) => {
-  const controller = usePromptInputControllerContext();
+  const controller = usePromptShellControllerContext();
   const { attachments, textInput } = controller;
 
   // Refs

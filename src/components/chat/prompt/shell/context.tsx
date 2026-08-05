@@ -2,7 +2,7 @@
 
 /**
  * Prompt shell draft context: text, attachments, and chat prefs (model / mode / web).
- * Requires outer PromptInputProvider. Must NOT import header/body/footer.
+ * Requires outer PromptShellProvider. Must NOT import header/body/footer.
  *
  * PromptInput registers file-input open + attachment validation so children
  * always hit a validated `attachments.add` while state lives only here.
@@ -67,8 +67,8 @@ export interface PromptInputPrefsValue {
   toggleWebSearch: () => void;
 }
 
-/** Lifted controller state exposed by PromptInputProvider. */
-export interface PromptInputControllerValue {
+/** Lifted controller state exposed by PromptShellProvider. */
+export interface PromptShellControllerValue {
   textInput: TextInputValue;
   attachments: AttachmentsValue;
   prefs: PromptInputPrefsValue;
@@ -90,20 +90,20 @@ export interface PromptInputControllerValue {
 // Context
 // ============================================================================
 
-const PromptInputControllerContext =
-  createContext<PromptInputControllerValue | null>(null);
+const PromptShellControllerContext =
+  createContext<PromptShellControllerValue | null>(null);
 
-/** Optional: returns null when outside PromptInputProvider. */
-export const useOptionalPromptInputControllerContext = () =>
-  useContext(PromptInputControllerContext);
+/** Optional: returns null when outside PromptShellProvider. */
+export const useOptionalPromptShellControllerContext = () =>
+  useContext(PromptShellControllerContext);
 
-/** Required: throws when outside PromptInputProvider. */
-export const usePromptInputControllerContext =
-  (): PromptInputControllerValue => {
-    const controller = useContext(PromptInputControllerContext);
+/** Required: throws when outside PromptShellProvider. */
+export const usePromptShellControllerContext =
+  (): PromptShellControllerValue => {
+    const controller = useContext(PromptShellControllerContext);
     if (!controller) {
       throw new Error(
-        "usePromptInputControllerContext must be used within a PromptInputProvider"
+        "usePromptShellControllerContext must be used within a PromptShellProvider"
       );
     }
     return controller;
@@ -111,13 +111,13 @@ export const usePromptInputControllerContext =
 
 /**
  * Attachments from the single draft controller.
- * Throws when outside PromptInputProvider.
+ * Throws when outside PromptShellProvider.
  */
 export const usePromptInputAttachments = (): AttachmentsValue => {
-  const controller = useContext(PromptInputControllerContext);
+  const controller = useContext(PromptShellControllerContext);
   if (!controller) {
     throw new Error(
-      "usePromptInputAttachments must be used within a PromptInputProvider"
+      "usePromptInputAttachments must be used within a PromptShellProvider"
     );
   }
   return controller.attachments;
@@ -131,7 +131,7 @@ const DEFAULT_MODEL_ID = models[0]?.id ?? "deepseek-v4-flash";
 const DEFAULT_MODE = "high";
 const DEFAULT_USE_WEB_SEARCH = true;
 
-export type PromptInputProviderProps = PropsWithChildren<{
+export type PromptShellProviderProps = PropsWithChildren<{
   initialInput?: string;
   maxFiles?: number;
   initialModel?: string;
@@ -143,14 +143,14 @@ export type PromptInputProviderProps = PropsWithChildren<{
  * Owns prompt draft state (text + attachments + prefs). Required wrapper for
  * PromptInput and consumers of usePromptInputAttachments / controller hooks.
  */
-export const PromptInputProvider = ({
+export const PromptShellProvider = ({
   initialInput: initialTextInput = "",
   maxFiles,
   initialModel = DEFAULT_MODEL_ID,
   initialMode = DEFAULT_MODE,
   initialUseWebSearch = DEFAULT_USE_WEB_SEARCH,
   children,
-}: PromptInputProviderProps) => {
+}: PromptShellProviderProps) => {
   // ----- textInput state
   const [textInput, setTextInput] = useState(initialTextInput);
   const clearInput = useCallback(() => setTextInput(""), []);
@@ -278,7 +278,7 @@ export const PromptInputProvider = ({
     []
   );
 
-  const controller = useMemo<PromptInputControllerValue>(
+  const controller = useMemo<PromptShellControllerValue>(
     () => ({
       __registerAttachmentValidator,
       __registerFileInput,
@@ -301,8 +301,8 @@ export const PromptInputProvider = ({
   );
 
   return (
-    <PromptInputControllerContext.Provider value={controller}>
+    <PromptShellControllerContext.Provider value={controller}>
       {children}
-    </PromptInputControllerContext.Provider>
+    </PromptShellControllerContext.Provider>
   );
 };

@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * PromptInputTextarea: controlled by PromptInputProvider draft text.
- * Requires outer PromptInputProvider.
+ * PromptInputTextarea: controlled by PromptShellProvider draft text.
+ * Requires outer PromptShellProvider.
  */
 
 import { InputGroupTextarea } from "@/components/ui/input-group";
@@ -16,7 +16,7 @@ import type {
 import { useCallback, useState } from "react";
 import {
   usePromptInputAttachments,
-  usePromptInputControllerContext,
+  usePromptShellControllerContext,
 } from "../shell/context";
 
 export type PromptInputTextareaProps = ComponentProps<
@@ -30,7 +30,7 @@ export const PromptInputTextarea = ({
   placeholder = "What would you like to know?",
   ...props
 }: PromptInputTextareaProps) => {
-  const controller = usePromptInputControllerContext();
+  const controller = usePromptShellControllerContext();
   const attachments = usePromptInputAttachments();
   const [isComposing, setIsComposing] = useState(false);
 

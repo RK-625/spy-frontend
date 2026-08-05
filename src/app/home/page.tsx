@@ -5,12 +5,18 @@ import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from "@/components/chat/ai-elements/conversation";
-import {
   Message,
   MessageContent,
   MessageResponse,
-} from "@/components/chat/ai-elements/message";
+  ChainOfThought,
+  ChainOfThoughtStep,
+  ChainOfThoughtSearchResults,
+  ChainOfThoughtSearchResult,
+  Sources,
+  Source,
+  SourcesContent,
+  SourcesTrigger,
+} from "@/components/chat/conversation";
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -33,26 +39,14 @@ import {
   PromptInputTools,
   PROMPT_INPUT_ACCEPT,
   usePromptInputAttachments,
-  PromptInputProvider,
-  usePromptInputControllerContext,
+  PromptShellProvider,
+  usePromptShellControllerContext,
   SpeechInput,
   Suggestion,
   Suggestions,
   type PromptInputMessage,
   type PromptInputWidgetOption,
 } from "@/components/chat/prompt";
-import {
-  ChainOfThought,
-  ChainOfThoughtStep,
-  ChainOfThoughtSearchResults,
-  ChainOfThoughtSearchResult,
-} from "@/components/chat/ai-elements/chain-of-thought";
-import {
-  Sources,
-  Source,
-  SourcesContent,
-  SourcesTrigger,
-} from "@/components/chat/ai-elements/sources";
 import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
 import { cn } from "@/lib/utils";
@@ -63,7 +57,7 @@ import {
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { useCallback, useMemo, useState } from "react";
-import { ChatSidebar } from "@/components/chat/chat-sidebar";
+import { ChatSidebar } from "@/components/chat/shell";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { useChatSubmit } from "@/hooks/use-chat-submit";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -170,7 +164,7 @@ const EmptyState = () => (
 const ChatWorkspace = () => {
   const { status, messages, error, stop } = useChatContext();
   const { submitUserMessage } = useChatSubmit();
-  const controller = usePromptInputControllerContext();
+  const controller = usePromptShellControllerContext();
   const attachments = usePromptInputAttachments();
   const {
     model,
@@ -676,7 +670,7 @@ export default function HomePage() {
       <div className="fixed inset-0 z-0 bg-[var(--surface-chat-veil)] pointer-events-none" />
 
       <div className="relative z-10 flex h-screen w-full">
-        {/* Sidebar + main share ChatProvider (stream) and PromptInputProvider (draft/prefs) */}
+        {/* Sidebar + main share ChatProvider (stream) and PromptShellProvider (draft/prefs) */}
         <ChatProviderWrapper>
           <ChatSidebar />
           {/* Main chat area */}
@@ -708,7 +702,7 @@ function ChatProviderWrapper({ children }: { children: React.ReactNode }) {
   return (
     <TooltipProvider delayDuration={300}>
       <ChatProvider>
-        <PromptInputProvider>{children}</PromptInputProvider>
+        <PromptShellProvider>{children}</PromptShellProvider>
       </ChatProvider>
     </TooltipProvider>
   );

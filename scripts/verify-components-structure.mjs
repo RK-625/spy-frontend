@@ -49,14 +49,9 @@ const required = [
   "src/components/chat/shell/chat-sidebar.tsx",
   "src/components/chat/shell/command-palette.tsx",
   "src/components/chat/shell/settings-dialog.tsx",
+  "src/components/chat/shell/index.ts",
+  "src/components/chat/conversation/index.ts",
   "src/components/chat/index.ts",
-
-  // chat — shell root + conversation ai-elements compat shims
-  "src/components/chat/chat-sidebar.tsx",
-  "src/components/chat/settings-dialog.tsx",
-  "src/components/chat/command-palette.tsx",
-  "src/components/chat/ai-elements/index.ts",
-  "src/components/chat/ai-elements/conversation.tsx",
 
   // landing
   "src/components/landing/hero-section.tsx",
@@ -105,7 +100,11 @@ const forbidden = [
   "src/components/ui/svgs",
   "src/components/dotmatrix-loader.css",
   "src/components/chat/ai-elements/dot-matrix-icons.tsx",
-  // prompt dual-export shims removed — use @/components/chat/prompt barrel
+  // dual-path shims removed — domain barrels only
+  "src/components/chat/ai-elements",
+  "src/components/chat/chat-sidebar.tsx",
+  "src/components/chat/settings-dialog.tsx",
+  "src/components/chat/command-palette.tsx",
   "src/components/chat/prompt/prompt-input.tsx",
   "src/components/chat/prompt/prompt-input-files.ts",
   "src/components/chat/prompt/prompt-input-attachments.tsx",
@@ -113,14 +112,6 @@ const forbidden = [
   "src/components/chat/prompt/model-selector.tsx",
   "src/components/chat/prompt/speech-input.tsx",
   "src/components/chat/prompt/prompt-input-controls.tsx",
-  "src/components/chat/ai-elements/prompt-input.tsx",
-  "src/components/chat/ai-elements/prompt-input-attachments.tsx",
-  "src/components/chat/ai-elements/prompt-input-files.ts",
-  "src/components/chat/ai-elements/prompt-input-controls.tsx",
-  "src/components/chat/ai-elements/model-selector.tsx",
-  "src/components/chat/ai-elements/speech-input.tsx",
-  "src/components/chat/ai-elements/suggestion.tsx",
-  "src/components/chat/ai-elements/attachments.tsx",
 ];
 
 const failures = [];
@@ -194,11 +185,7 @@ function isThinReExport(text, domainRe) {
 }
 
 const shimChecks = [
-  // chat shell root shims
-  ["src/components/chat/chat-sidebar.tsx", /export\s+\*\s+from\s+["']\.\/shell\//],
-  ["src/components/chat/settings-dialog.tsx", /export\s+\*\s+from\s+["']\.\/shell\//],
-  ["src/components/chat/command-palette.tsx", /export\s+\*\s+from\s+["']\.\/shell\//],
-  // dotmatrix root shims
+  // dotmatrix root shims only (chat dual paths removed)
   ["src/components/dotmatrix/core.tsx", /export\s+\*\s+from\s+["']\.\/core\//],
   ["src/components/dotmatrix/hooks.ts", /export\s+\*\s+from\s+["']\.\/core\//],
   ["src/components/dotmatrix/icons.tsx", /export\s+\*\s+from\s+["']\.\/icons\//],
@@ -232,23 +219,7 @@ if (exists("src/components/dotmatrix/loader.css")) {
   }
 }
 
-// Walk every file under ai-elements/ — each must re-export prompt|conversation.
-const aiElementsDir = path.join(components, "chat/ai-elements");
-if (fs.existsSync(aiElementsDir)) {
-  for (const name of fs.readdirSync(aiElementsDir)) {
-    const abs = path.join(aiElementsDir, name);
-    if (!fs.statSync(abs).isFile()) continue;
-    if (!/\.(tsx?|ts)$/.test(name)) continue;
-    const rel = `src/components/chat/ai-elements/${name}`;
-    const text = fs.readFileSync(abs, "utf8");
-    const domainRe = /export\s+\*\s+from\s+["']\.\.\/(prompt|conversation)(?:\/[^"']*)?["']/;
-    if (!isThinReExport(text, domainRe)) {
-      failures.push(
-        `ai-elements compat shim must thin re-export ../prompt|conversation: ${rel}`,
-      );
-    }
-  }
-}
+// chat/ai-elements dual path is forbidden (see forbidden list); no shim walk.
 
 if (failures.length) {
   console.error(JSON.stringify({ ok: false, failures }, null, 2));

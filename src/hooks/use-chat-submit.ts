@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * Bridges stream (ChatContext) + prompt prefs (PromptInputProvider) for send.
+ * Bridges stream (ChatContext) + prompt prefs (PromptShellProvider) for send.
  * Must NOT call useChat() — single useChat remains in ChatProvider.
  */
 
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { useChatContext } from "@/contexts/ChatContext";
-import { usePromptInputControllerContext } from "@/components/chat/prompt/shell/context";
+import { usePromptShellControllerContext } from "@/components/chat/prompt/shell/context";
 import type { PromptInputMessage } from "@/types/chat";
 
 export type ChatSubmitPrefsOverride = Partial<{
@@ -33,7 +33,7 @@ export type UseChatSubmitResult = {
  */
 export function useChatSubmit(): UseChatSubmitResult {
   const { sendMessage, status, stop } = useChatContext();
-  const { prefs } = usePromptInputControllerContext();
+  const { prefs } = usePromptShellControllerContext();
 
   const submitUserMessage = useCallback(
     async (
