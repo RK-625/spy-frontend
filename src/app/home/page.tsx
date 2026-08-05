@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import {
   Conversation,
   ConversationContent,
@@ -16,8 +15,6 @@ import {
   Source,
   SourcesContent,
   SourcesTrigger,
-} from "@/components/chat/conversation";
-import {
   ModelSelector,
   ModelSelectorContent,
   ModelSelectorEmpty,
@@ -46,7 +43,9 @@ import {
   Suggestions,
   type PromptInputMessage,
   type PromptInputWidgetOption,
-} from "@/components/chat/prompt";
+  ChatSidebar,
+} from "@/components/chat";
+import dynamic from "next/dynamic";
 import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
 import { cn } from "@/lib/utils";
@@ -57,7 +56,6 @@ import {
 import { DotMatrixIcon } from "@/components/dotmatrix";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { useCallback, useMemo, useState } from "react";
-import { ChatSidebar } from "@/components/chat/shell";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { useChatSubmit } from "@/hooks/use-chat-submit";
 import { TooltipProvider } from "@/components/ui";

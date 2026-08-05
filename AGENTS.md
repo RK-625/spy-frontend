@@ -262,7 +262,7 @@ Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` live knowledge graph)
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
-5. Prefer domain imports: `@/components/chat/prompt|conversation|shell` barrels, `@/components/chat` barrel, `@/components/dotmatrix` barrel, `@/components/logos/...`, `@/ai/agent|models|tools|schemas/...`, `@/components/graph/...`, `@/lib/graph/{camera,core,layout,placement,render}/...`, `@/components/ui` barrel (role folders internal; no product deep paths). No dual-path root shims.
+5. Prefer package barrels for product/cross-package code: `@/components/chat`, `@/components/ui`, `@/components/dotmatrix`, `@/components/logos`, `@/ai`, `@/lib/graph`. Inside a package use relative imports (never that package barrel — avoids cycles). Flat lib modules (`@/lib/utils`, `@/lib/falkor`, …) stay single-file entry points. No dual-path root shims.
 6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
 7. Do not resurrect deprecated ask-user-question morph into production without a redesign task
 

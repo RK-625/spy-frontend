@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { CommandPalette } from "@/components/chat/shell/command-palette";
-import { SettingsDialog } from "@/components/chat/shell/settings-dialog";
+import { CommandPalette } from "./command-palette";
+import { SettingsDialog } from "./settings-dialog";
 import { useChatContext } from "@/contexts/ChatContext";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";

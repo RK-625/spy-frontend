@@ -1,25 +1,25 @@
 import { tool, Tool } from "ai";
 import { nanoid } from "nanoid";
 import Exa from "exa-js";
-import { askUserQuestionInputSchema } from "@/ai/schemas/ask-schema";
-import { upsertMemoryInputSchema } from "@/ai/schemas/upsert-schema";
-import { linkMemoriesInputSchema } from "@/ai/schemas/link-schema";
-import { webSearchInputSchema } from "@/ai/schemas/web-search-schema";
-import { generateEmbedding } from "@/ai/models/embeddings";
+import { askUserQuestionInputSchema } from "../schemas/ask-schema";
+import { upsertMemoryInputSchema } from "../schemas/upsert-schema";
+import { linkMemoriesInputSchema } from "../schemas/link-schema";
+import { webSearchInputSchema } from "../schemas/web-search-schema";
+import { generateEmbedding } from "../models/embeddings";
 import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
   hasOutgoingLink,
 } from "@/lib/falkor";
 
-export type { AskUserQuestionInput } from "@/ai/schemas/ask-schema";
-export { askUserQuestionInputSchema } from "@/ai/schemas/ask-schema";
-export type { UpsertMemoryInput } from "@/ai/schemas/upsert-schema";
-export { upsertMemoryInputSchema } from "@/ai/schemas/upsert-schema";
-export type { LinkMemoriesInput } from "@/ai/schemas/link-schema";
-export { linkMemoriesInputSchema } from "@/ai/schemas/link-schema";
-export type { WebSearchInput } from "@/ai/schemas/web-search-schema";
-export { webSearchInputSchema } from "@/ai/schemas/web-search-schema";
+export type { AskUserQuestionInput } from "../schemas/ask-schema";
+export { askUserQuestionInputSchema } from "../schemas/ask-schema";
+export type { UpsertMemoryInput } from "../schemas/upsert-schema";
+export { upsertMemoryInputSchema } from "../schemas/upsert-schema";
+export type { LinkMemoriesInput } from "../schemas/link-schema";
+export { linkMemoriesInputSchema } from "../schemas/link-schema";
+export type { WebSearchInput } from "../schemas/web-search-schema";
+export { webSearchInputSchema } from "../schemas/web-search-schema";
 
 /** Lazy Exa client — never construct at module load (missing key must not kill chat). */
 function getExaClient(): Exa | null {

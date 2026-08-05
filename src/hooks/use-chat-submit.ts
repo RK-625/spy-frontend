@@ -8,7 +8,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { useChatContext } from "@/contexts/ChatContext";
-import { usePromptShellControllerContext } from "@/components/chat/prompt/shell/context";
+import { usePromptShellControllerContext } from "@/components/chat";
 import type { PromptInputMessage } from "@/types/chat";
 
 export type ChatSubmitPrefsOverride = Partial<{

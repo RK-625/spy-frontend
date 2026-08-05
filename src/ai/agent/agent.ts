@@ -4,8 +4,8 @@ import {
   type UIMessage,
   stepCountIs,
 } from "ai";
-import { toolSet } from "@/ai/tools/toolset";
-import { modelConfig } from "@/ai/models/modelstore";
+import { toolSet } from "../tools/toolset";
+import { modelConfig } from "../models/modelstore";
 import { systemPrompt } from "@/prompts/system-prompt";
 
 export async function runAgent({

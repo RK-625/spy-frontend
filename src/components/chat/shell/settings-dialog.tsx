@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui";
 import { useChatContext } from "@/contexts/ChatContext";
-import { useOptionalPromptShellControllerContext } from "@/components/chat/prompt/shell/context";
+import { useOptionalPromptShellControllerContext } from "../prompt/shell/context";
 
 export function SettingsDialog({
   onOpenChange,

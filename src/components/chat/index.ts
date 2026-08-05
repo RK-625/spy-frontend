@@ -1,8 +1,11 @@
 /**
- * Chat product barrel.
+ * Chat product barrel — public import surface for product/cross-package code.
  *
- * Domain SoT folders (import these or this barrel — no dual shims):
- *   - `./prompt/*`       — prompt shell (PromptShellProvider + PromptInput* UI)
+ * Prefer: `import { … } from "@/components/chat"`.
+ * Inside chat/* use relative imports (never this barrel — avoids cycles).
+ *
+ * Domain SoT:
+ *   - `./prompt/*`       — PromptShellProvider + PromptInput* UI
  *   - `./conversation/*` — message stream, CoT, sources, reasoning, shimmer
  *   - `./shell/*`        — sidebar, settings dialog, command palette
  */

@@ -17,7 +17,7 @@ import {
   PromptInputTools,
   PromptShellProvider,
   SpeechInput,
-} from "@/components/chat/prompt";
+} from "@/components/chat";
 import { DotMatrixIcon } from "@/components/dotmatrix";
 
 export default function UIPrototypesPage() {
