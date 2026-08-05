@@ -1,6 +1,6 @@
 "use client";
 import type { CSSProperties } from "react";
-import "@/components/dotmatrix/loader.css";
+import "../loaders/loader.css";
 import { useDotMatrixPhases, usePrefersReducedMotion } from "./hooks";
 export type MatrixPattern = "diamond" | "full" | "outline" | "rose" | "cross" | "rings";
 export type DotShape = "circle" | "square" | "diamond" | "hearts";

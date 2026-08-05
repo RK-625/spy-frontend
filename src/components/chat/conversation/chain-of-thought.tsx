@@ -5,7 +5,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
 import {
@@ -16,8 +16,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
-import type { DotMatrixIconName } from "@/components/dotmatrix/icons";
+import { DotMatrixIcon } from "@/components/dotmatrix";
+import type { DotMatrixIconName } from "@/components/dotmatrix";
 import { Shimmer } from "./shimmer";
 
 // ─── Context ──────────────────────────────────────────────────────────────────

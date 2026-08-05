@@ -2,8 +2,8 @@
  * Structural check: src/components domain layout after reorg.
  * Asserts required folders/files exist and forbidden legacy paths are gone.
  *
- * Domain SoT homes are required; legacy shim paths remain required as the
- * public compat surface (re-exports only).
+ * Domain SoT homes are required. Dual-path root shims (chat, dotmatrix) are
+ * forbidden; public surfaces are domain barrels (e.g. `@/components/dotmatrix`).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -23,55 +23,68 @@ function isEmptyDir(rel) {
 }
 
 const required = [
-  // ui primitives
-  "src/components/ui/button.tsx",
+  // ui primitives — role folders + barrel (no flat dual shims)
+  "src/components/ui/index.ts",
+  "src/components/ui/actions/button.tsx",
+  "src/components/ui/actions/button-group.tsx",
+  "src/components/ui/forms/input.tsx",
+  "src/components/ui/forms/input-group.tsx",
+  "src/components/ui/overlays/dialog.tsx",
+  "src/components/ui/overlays/tooltip.tsx",
+  "src/components/ui/feedback/spinner.tsx",
+  "src/components/ui/layout/card.tsx",
+  "src/components/ui/navigation/command.tsx",
 
-  // chat — domain SoT
-  "src/components/chat/prompt/prompt-input.tsx",
-  "src/components/chat/prompt/prompt-input-files.ts",
-  "src/components/chat/prompt/attachments.tsx",
+  // chat — domain SoT (prompt shell reorg)
+  "src/components/chat/prompt/shell/context.tsx",
+  "src/components/chat/prompt/shell/prompt-input.tsx",
+  "src/components/chat/prompt/header/header.tsx",
+  "src/components/chat/prompt/body/body.tsx",
+  "src/components/chat/prompt/body/textarea.tsx",
+  "src/components/chat/prompt/ask/pending-ask.tsx",
+  "src/components/chat/prompt/attachments/prompt-input-files.ts",
+  "src/components/chat/prompt/attachments/attachment-chip.tsx",
+  "src/components/chat/prompt/attachments/attachment-strip.tsx",
+  "src/components/chat/prompt/footer/footer.tsx",
+  "src/components/chat/prompt/footer/tools.tsx",
+  "src/components/chat/prompt/footer/button.tsx",
+  "src/components/chat/prompt/footer/submit.tsx",
+  "src/components/chat/prompt/footer/speech-input.tsx",
+  "src/components/chat/prompt/footer/model-selector.tsx",
+  "src/components/chat/prompt/suggestion.tsx",
+  "src/components/chat/prompt/index.ts",
   "src/components/chat/conversation/conversation.tsx",
   "src/components/chat/conversation/message.tsx",
   "src/components/chat/shell/chat-sidebar.tsx",
   "src/components/chat/shell/command-palette.tsx",
   "src/components/chat/shell/settings-dialog.tsx",
+  "src/components/chat/shell/index.ts",
+  "src/components/chat/conversation/index.ts",
   "src/components/chat/index.ts",
-
-  // chat — compat shims (public surface; re-exports only)
-  "src/components/chat/chat-sidebar.tsx",
-  "src/components/chat/settings-dialog.tsx",
-  "src/components/chat/command-palette.tsx",
-  "src/components/chat/ai-elements/prompt-input.tsx",
-  "src/components/chat/ai-elements/index.ts",
 
   // landing
   "src/components/landing/hero-section.tsx",
   "src/components/landing/shiny-text.tsx",
   "src/components/landing/shiny-text.css",
 
-  // dotmatrix — domain SoT
+  // dotmatrix — domain SoT + barrel only (no root dual shims)
+  "src/components/dotmatrix/index.ts",
   "src/components/dotmatrix/core/core.tsx",
   "src/components/dotmatrix/core/hooks.ts",
+  "src/components/dotmatrix/core/index.ts",
   "src/components/dotmatrix/icons/icons.tsx",
+  "src/components/dotmatrix/icons/index.ts",
   "src/components/dotmatrix/loaders/loader.css",
   "src/components/dotmatrix/loaders/hex-9.tsx",
   "src/components/dotmatrix/loaders/square-18.tsx",
   "src/components/dotmatrix/loaders/triangle-16.tsx",
+  "src/components/dotmatrix/loaders/index.ts",
 
-  // dotmatrix — compat shims
-  "src/components/dotmatrix/core.tsx",
-  "src/components/dotmatrix/hooks.ts",
-  "src/components/dotmatrix/icons.tsx",
-  "src/components/dotmatrix/loader.css",
-  "src/components/dotmatrix/hex-9.tsx",
-  "src/components/dotmatrix/square-18.tsx",
-  "src/components/dotmatrix/triangle-16.tsx",
-
-  // brand
-  "src/components/brand/logos/openai.tsx",
-  "src/components/brand/logos/anthropic-white.tsx",
-  "src/components/brand/logos/google.tsx",
-  "src/components/brand/logos/deepseek.tsx",
+  // logos (provider marks)
+  "src/components/logos/openai.tsx",
+  "src/components/logos/anthropic-white.tsx",
+  "src/components/logos/google.tsx",
+  "src/components/logos/deepseek.tsx",
 
   // graph host
   "src/components/graph/graph-canvas.tsx",
@@ -91,6 +104,34 @@ const forbidden = [
   "src/components/ui/svgs",
   "src/components/dotmatrix-loader.css",
   "src/components/chat/ai-elements/dot-matrix-icons.tsx",
+  // dual-path shims removed — domain barrels only
+  "src/components/chat/ai-elements",
+  "src/components/chat/chat-sidebar.tsx",
+  "src/components/chat/settings-dialog.tsx",
+  "src/components/chat/command-palette.tsx",
+  "src/components/chat/prompt/prompt-input.tsx",
+  "src/components/chat/prompt/prompt-input-files.ts",
+  "src/components/chat/prompt/prompt-input-attachments.tsx",
+  "src/components/chat/prompt/attachments.tsx",
+  "src/components/chat/prompt/model-selector.tsx",
+  "src/components/chat/prompt/speech-input.tsx",
+  "src/components/chat/prompt/prompt-input-controls.tsx",
+  // dotmatrix root dual-path shims removed — use @/components/dotmatrix barrel
+  "src/components/dotmatrix/core.tsx",
+  "src/components/dotmatrix/hooks.ts",
+  "src/components/dotmatrix/icons.tsx",
+  "src/components/dotmatrix/loader.css",
+  "src/components/dotmatrix/hex-9.tsx",
+  "src/components/dotmatrix/square-18.tsx",
+  "src/components/dotmatrix/triangle-16.tsx",
+  // brand/logos moved to logos/
+  "src/components/brand",
+  // ui flat dual-export paths removed — use role folders / barrel
+  "src/components/ui/button.tsx",
+  "src/components/ui/input.tsx",
+  "src/components/ui/dialog.tsx",
+  "src/components/ui/tooltip.tsx",
+  "src/components/ui/command.tsx",
 ];
 
 const failures = [];
@@ -138,87 +179,7 @@ for (const f of walk(uiDir)) {
   }
 }
 
-// Compat shims must re-export domain SoT (not hold large impl bodies).
-// Walk ai-elements/* plus known root/dotmatrix shims.
-const REEXPORT_BUDGET_LINES = 40; // allow brief header comments + export *
-
-function isThinReExport(text, domainRe) {
-  const stripped = text
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/.*$/gm, "")
-    .trim();
-  if (!domainRe.test(text)) return false;
-  // Only export statements / blank lines after comment strip.
-  const codeLines = stripped
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (codeLines.length === 0 || codeLines.length > REEXPORT_BUDGET_LINES) {
-    return false;
-  }
-  return codeLines.every(
-    (l) =>
-      /^export\s+\*\s+from\s+["'][^"']+["']\s*;?$/.test(l) ||
-      /^export\s+\{[^}]+\}\s+from\s+["'][^"']+["']\s*;?$/.test(l),
-  );
-}
-
-const shimChecks = [
-  // chat shell root shims
-  ["src/components/chat/chat-sidebar.tsx", /export\s+\*\s+from\s+["']\.\/shell\//],
-  ["src/components/chat/settings-dialog.tsx", /export\s+\*\s+from\s+["']\.\/shell\//],
-  ["src/components/chat/command-palette.tsx", /export\s+\*\s+from\s+["']\.\/shell\//],
-  // dotmatrix root shims
-  ["src/components/dotmatrix/core.tsx", /export\s+\*\s+from\s+["']\.\/core\//],
-  ["src/components/dotmatrix/hooks.ts", /export\s+\*\s+from\s+["']\.\/core\//],
-  ["src/components/dotmatrix/icons.tsx", /export\s+\*\s+from\s+["']\.\/icons\//],
-  ["src/components/dotmatrix/hex-9.tsx", /export\s+\*\s+from\s+["']\.\/loaders\//],
-  ["src/components/dotmatrix/square-18.tsx", /export\s+\*\s+from\s+["']\.\/loaders\//],
-  ["src/components/dotmatrix/triangle-16.tsx", /export\s+\*\s+from\s+["']\.\/loaders\//],
-];
-for (const [rel, re] of shimChecks) {
-  if (!exists(rel)) continue;
-  const text = fs.readFileSync(path.join(root, rel), "utf8");
-  if (!isThinReExport(text, re)) {
-    failures.push(`compat shim should thin re-export domain SoT: ${rel}`);
-  }
-}
-
-// loader.css shim is @import of loaders SoT (not TS export).
-if (exists("src/components/dotmatrix/loader.css")) {
-  const css = fs.readFileSync(
-    path.join(root, "src/components/dotmatrix/loader.css"),
-    "utf8",
-  );
-  if (!/@import\s+["']\.\/loaders\/loader\.css["']/.test(css)) {
-    failures.push(
-      "compat shim should @import domain SoT: src/components/dotmatrix/loader.css",
-    );
-  }
-  if (css.split("\n").filter((l) => l.trim() && !l.trim().startsWith("/*")).length > 5) {
-    failures.push(
-      "compat shim loader.css should stay thin (@import only): src/components/dotmatrix/loader.css",
-    );
-  }
-}
-
-// Walk every file under ai-elements/ — each must re-export prompt|conversation.
-const aiElementsDir = path.join(components, "chat/ai-elements");
-if (fs.existsSync(aiElementsDir)) {
-  for (const name of fs.readdirSync(aiElementsDir)) {
-    const abs = path.join(aiElementsDir, name);
-    if (!fs.statSync(abs).isFile()) continue;
-    if (!/\.(tsx?|ts)$/.test(name)) continue;
-    const rel = `src/components/chat/ai-elements/${name}`;
-    const text = fs.readFileSync(abs, "utf8");
-    const domainRe = /export\s+\*\s+from\s+["']\.\.\/(prompt|conversation)(?:\/[^"']*)?["']/;
-    if (!isThinReExport(text, domainRe)) {
-      failures.push(
-        `ai-elements compat shim must thin re-export ../prompt|conversation: ${rel}`,
-      );
-    }
-  }
-}
+// Dual-path root shims forbidden (chat + dotmatrix); no thin-re-export walk.
 
 if (failures.length) {
   console.error(JSON.stringify({ ok: false, failures }, null, 2));
