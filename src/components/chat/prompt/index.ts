@@ -1,6 +1,7 @@
 /**
- * Prompt domain barrel — public SoT surface for chat prompt shell.
- * Prefer `@/components/chat/prompt` or domain subpaths over ai-elements shims.
+ * Prompt domain barrel — sole package public surface for the chat prompt shell.
+ * Domain SoT: shell/, header/, body/, ask/, attachments/, footer/, suggestion.tsx.
+ * Import via `@/components/chat/prompt` (or domain subpaths). No root/ai-elements dual shims.
  */
 export * from "./shell/context";
 export * from "./shell/prompt-input";

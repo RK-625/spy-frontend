@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Verifies widget-mode removal from PromptInput (chat-only).
- * Scans domain SoT shell + body/ask (not only ai-elements shims).
+ * Scans domain SoT shell + body/ask only (no ai-elements prompt shims).
  * Run: node scripts/verify-widget-cleanup.mjs
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -13,7 +13,6 @@ const SCAN_TARGETS = [
   "src/components/chat/prompt/shell/prompt-input.tsx",
   "src/components/chat/prompt/body/body.tsx",
   "src/components/chat/prompt/ask/pending-ask.tsx",
-  "src/components/chat/ai-elements/prompt-input.tsx",
 ];
 
 const FORBIDDEN = [
@@ -34,6 +33,8 @@ const DELETED = [
   "src/lib/widget-layout.ts",
   "src/components/chat/prompt/prompt-input-controls.tsx",
   "src/components/chat/ai-elements/prompt-input-controls.tsx",
+  "src/components/chat/ai-elements/prompt-input.tsx",
+  "src/components/chat/prompt/prompt-input.tsx",
 ];
 
 let failed = false;
@@ -49,7 +50,7 @@ for (const rel of DELETED) {
 for (const rel of SCAN_TARGETS) {
   const p = join(root, rel);
   if (!existsSync(p)) {
-    console.error(`FAIL: expected SoT/shim missing: ${rel}`);
+    console.error(`FAIL: expected SoT missing: ${rel}`);
     failed = true;
     continue;
   }

@@ -24,7 +24,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { usePromptInputControllerContext } from "./context";
 
 // PROMPT_INPUT_ACCEPT lives in attachments/prompt-input-files; re-exported via
-// barrel, root prompt-input shim, and ai-elements for historical import paths.
+// the `@/components/chat/prompt` barrel.
 
 // ============================================================================
 // Helpers

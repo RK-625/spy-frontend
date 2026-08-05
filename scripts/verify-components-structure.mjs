@@ -2,8 +2,8 @@
  * Structural check: src/components domain layout after reorg.
  * Asserts required folders/files exist and forbidden legacy paths are gone.
  *
- * Domain SoT homes are required; legacy shim paths remain required as the
- * public compat surface (re-exports only).
+ * Domain SoT homes are required. Prompt root / ai-elements prompt shims are
+ * forbidden (public prompt surface is `prompt/index.ts` barrel only).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -44,10 +44,6 @@ const required = [
   "src/components/chat/prompt/footer/model-selector.tsx",
   "src/components/chat/prompt/suggestion.tsx",
   "src/components/chat/prompt/index.ts",
-  // chat — prompt root compat shims (historical flat paths)
-  "src/components/chat/prompt/prompt-input.tsx",
-  "src/components/chat/prompt/prompt-input-files.ts",
-  "src/components/chat/prompt/attachments.tsx",
   "src/components/chat/conversation/conversation.tsx",
   "src/components/chat/conversation/message.tsx",
   "src/components/chat/shell/chat-sidebar.tsx",
@@ -55,12 +51,12 @@ const required = [
   "src/components/chat/shell/settings-dialog.tsx",
   "src/components/chat/index.ts",
 
-  // chat — compat shims (public surface; re-exports only)
+  // chat — shell root + conversation ai-elements compat shims
   "src/components/chat/chat-sidebar.tsx",
   "src/components/chat/settings-dialog.tsx",
   "src/components/chat/command-palette.tsx",
-  "src/components/chat/ai-elements/prompt-input.tsx",
   "src/components/chat/ai-elements/index.ts",
+  "src/components/chat/ai-elements/conversation.tsx",
 
   // landing
   "src/components/landing/hero-section.tsx",
@@ -109,6 +105,22 @@ const forbidden = [
   "src/components/ui/svgs",
   "src/components/dotmatrix-loader.css",
   "src/components/chat/ai-elements/dot-matrix-icons.tsx",
+  // prompt dual-export shims removed — use @/components/chat/prompt barrel
+  "src/components/chat/prompt/prompt-input.tsx",
+  "src/components/chat/prompt/prompt-input-files.ts",
+  "src/components/chat/prompt/prompt-input-attachments.tsx",
+  "src/components/chat/prompt/attachments.tsx",
+  "src/components/chat/prompt/model-selector.tsx",
+  "src/components/chat/prompt/speech-input.tsx",
+  "src/components/chat/prompt/prompt-input-controls.tsx",
+  "src/components/chat/ai-elements/prompt-input.tsx",
+  "src/components/chat/ai-elements/prompt-input-attachments.tsx",
+  "src/components/chat/ai-elements/prompt-input-files.ts",
+  "src/components/chat/ai-elements/prompt-input-controls.tsx",
+  "src/components/chat/ai-elements/model-selector.tsx",
+  "src/components/chat/ai-elements/speech-input.tsx",
+  "src/components/chat/ai-elements/suggestion.tsx",
+  "src/components/chat/ai-elements/attachments.tsx",
 ];
 
 const failures = [];

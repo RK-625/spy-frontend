@@ -16,9 +16,9 @@ import {
   PromptInputTextarea,
   PromptInputTools,
   PromptInputProvider,
-} from "@/components/chat/ai-elements/prompt-input";
+  SpeechInput,
+} from "@/components/chat/prompt";
 import { DotMatrixIcon } from "@/components/dotmatrix/icons";
-import { SpeechInput } from "@/components/chat/ai-elements/speech-input";
 
 export default function UIPrototypesPage() {
   const sampleQuestion = "Which graph database topology should we weave?";
