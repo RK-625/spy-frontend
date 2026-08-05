@@ -1,6 +1,6 @@
 "use client";
 
-import { DotMatrixIcon, type DotMatrixIconName } from "@/components/dotmatrix/icons";
+import { DotMatrixIcon, type DotMatrixIconName } from "@/components/dotmatrix";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import type { FileUIPart, SourceDocumentUIPart } from "ai";

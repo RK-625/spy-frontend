@@ -4,7 +4,7 @@ import * as React from "react"
 import { Accordion as AccordionPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { DotMatrixIcon } from "@/components/dotmatrix/icons"
+import { DotMatrixIcon } from "@/components/dotmatrix"
 
 function Accordion({
   className,

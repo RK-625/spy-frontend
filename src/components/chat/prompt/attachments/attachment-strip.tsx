@@ -2,7 +2,7 @@
 
 import { AttachmentChip } from "./attachment-chip";
 import { usePromptInputAttachments } from "../shell/context";
-import { usePrefersReducedMotion } from "@/components/dotmatrix/hooks";
+import { usePrefersReducedMotion } from "@/components/dotmatrix";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import type { ComponentProps, HTMLAttributes } from "react";

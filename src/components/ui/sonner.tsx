@@ -2,7 +2,7 @@
 
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { DotMatrixIcon } from "@/components/dotmatrix/icons"
+import { DotMatrixIcon } from "@/components/dotmatrix"
 import { Spinner } from "@/components/ui/spinner"
 
 const Toaster = ({ ...props }: ToasterProps) => {

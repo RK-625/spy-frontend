@@ -54,7 +54,7 @@ import {
   formatAskUserQuestionAnswer,
   getPendingAskUserQuestion,
 } from "@/lib/ask-user-question";
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { DotMatrixIcon } from "@/components/dotmatrix";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { useCallback, useMemo, useState } from "react";
 import { ChatSidebar } from "@/components/chat/shell";

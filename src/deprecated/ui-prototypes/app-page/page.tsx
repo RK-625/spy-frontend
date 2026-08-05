@@ -18,7 +18,7 @@ import {
   PromptShellProvider,
   SpeechInput,
 } from "@/components/chat/prompt";
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { DotMatrixIcon } from "@/components/dotmatrix";
 
 export default function UIPrototypesPage() {
   const sampleQuestion = "Which graph database topology should we weave?";

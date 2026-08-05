@@ -69,7 +69,7 @@ These are things a new engineer might not guess. They must be followed:
 - **Deliberate pill exception: source / URL chips.** Source citations in `Sources` and `ChainOfThoughtSearchResult` use `rounded-full` (`pill-source-*` tokens). This is a deliberate exception for compact, dense reference chips; general UI controls remain `--radius`. Do not flatten these back to `--radius` without an explicit design review.
 - **Mascot is cute and 3D.** The mascot features a visor, antenna, and articulated legs. It is a glossy 3D vector loaded from `mascot-3d.svg`.
 - **Lavender accents only.** Focus ring (`--ring`), interactive controls, and loaders use the lavender system. Do not reintroduce gold/amber (`#c9952a`) into production UI.
-- **Pixel Art Icons.** Do not use `lucide-react` or standard smooth vector icons in the Chat UI. Always use `DotMatrixIcon` from `@/components/dotmatrix/icons` (pixel-art registry) to maintain the alien aesthetic.
+- **Pixel Art Icons.** Do not use `lucide-react` or standard smooth vector icons in the Chat UI. Always use `DotMatrixIcon` from `@/components/dotmatrix` (pixel-art registry) to maintain the alien aesthetic.
 - **Text is never pure white.** `#ded4f0` or warm off-white `#e8e4df` for primary text, `#7a7685` for secondary, `#4a4658` for dim.
 - **All design decisions live in `brief.md`.** Read it before making any visual or structural change. That file is the constitution.
 - **Dynamic Mascot Loading.** The 3D robot spider is loaded dynamically as an SVG from the public folder (`mascot-3d.svg`), and animated using GSAP targeting specific internal IDs (`#Antenna`, `#Visor section`, `#Left 1st front leg`, `#Right leg2`, etc.).
@@ -139,13 +139,12 @@ src/
 │   ├── landing/              — Landing/marketing surfaces
 │   │   ├── hero-section.tsx  — Hero layout
 │   │   └── shiny-text.tsx    — Glint sweep text animation
-│   ├── dotmatrix/            — Shared pixel / dot-matrix system
+│   ├── dotmatrix/            — Shared pixel / dot-matrix system (barrel `@/components/dotmatrix`)
+│   │   ├── index.ts          — public barrel (icons, loaders, hooks, core)
 │   │   ├── core/             — Grid utilities + animation hooks (SoT)
 │   │   ├── icons/            — Pixel-art icon registry (DotMatrixIcon SoT)
-│   │   ├── loaders/          — hex-9 / square-18 / triangle-16 + loader.css (SoT)
-│   │   └── *.tsx / loader.css — root compat re-exports
-│   └── brand/
-│       └── logos/            — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
+│   │   └── loaders/          — hex-9 / square-18 / triangle-16 + loader.css (SoT)
+│   └── logos/                — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
 ├── deprecated/               — Not production routes; do not wire into / or /home without intent
 │   ├── ask-user-question-widget/ — Snapshot of old prompt-input morph + widget-layout tokens
 │   ├── ui-prototypes/        — Lab page + interactive question variants (archived)
@@ -257,7 +256,7 @@ Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` live knowledge graph)
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
-5. Prefer domain imports: `@/components/chat/prompt|conversation|shell` barrels (or deeper subpaths), `@/components/chat` barrel, `@/ai/agent|models|tools|schemas/...`, `@/components/graph/...`, `@/lib/graph/{camera,core,layout,placement,render}/...`, `@/components/dotmatrix/icons`, `@/components/ui/...`. No `ai-elements` dual path.
+5. Prefer domain imports: `@/components/chat/prompt|conversation|shell` barrels, `@/components/chat` barrel, `@/components/dotmatrix` barrel, `@/components/logos/...`, `@/ai/agent|models|tools|schemas/...`, `@/components/graph/...`, `@/lib/graph/{camera,core,layout,placement,render}/...`, `@/components/ui/...`. No dual-path root shims.
 6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
 7. Do not resurrect deprecated ask-user-question morph into production without a redesign task
 

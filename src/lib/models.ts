@@ -1,4 +1,4 @@
-import { Deepseek } from "@/components/brand/logos/deepseek";
+import { Deepseek } from "@/components/logos/deepseek";
 import type { AIModel } from "@/types/models";
 
 export const models: AIModel[] = [

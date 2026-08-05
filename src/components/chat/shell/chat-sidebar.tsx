@@ -7,7 +7,7 @@ import { SettingsDialog } from "@/components/chat/shell/settings-dialog";
 import { useChatContext } from "@/contexts/ChatContext";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { DotMatrixIcon } from "@/components/dotmatrix";
 
 type SidebarMode = "icon" | "full";
 const STORAGE_KEY = "spy-sidebar-mode";

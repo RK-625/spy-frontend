@@ -5,8 +5,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 
-import { DotmSquare18 } from "@/components/dotmatrix/square-18";
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { DotmSquare18 } from "@/components/dotmatrix";
+import { DotMatrixIcon } from "@/components/dotmatrix";
 import { AnimatePresence, motion } from "motion/react";
 import type { ComponentProps } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";

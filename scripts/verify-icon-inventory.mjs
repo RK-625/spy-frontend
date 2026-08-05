@@ -27,7 +27,7 @@ function assert(cond, msg) {
 const globals = read("src/app/globals.css");
 const iconTokens = read("src/lib/icon-tokens.ts");
 const home = read("src/app/home/page.tsx");
-// Domain SoT paths (not ai-elements / root shell re-export shims).
+// Domain SoT paths (barrel consumers; icon paths under shell/prompt domains).
 const sidebar = read("src/components/chat/shell/chat-sidebar.tsx");
 const attachments = read(
   "src/components/chat/prompt/attachments/attachment-chip.tsx",
