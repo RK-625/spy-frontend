@@ -16,35 +16,21 @@ import {
   setMemoryQuestions as falkorSetMemoryQuestions,
   vectorSearchByQuestions as falkorVectorSearchByQuestions,
 } from "@/lib/falkor";
+import { MEMORY_SEARCH_TOP_K } from "@/lib/policy-tokens";
 import {
-  MEMORY_QUESTION_COUNT_MAX,
-  MEMORY_QUESTION_COUNT_MIN,
-  MEMORY_QUESTIONS_PER_MEMORY,
-  MEMORY_SEARCH_TOP_K,
-} from "@/lib/policy-tokens";
-import { memoryQuestionsPrompt } from "@/prompts/memory-questions-prompt";
-
-export type { AskUserQuestionInput } from "@/ai/schemas/ask-schema";
-export { askUserQuestionInputSchema } from "@/ai/schemas/ask-schema";
-export type { UpsertMemoryInput } from "@/ai/schemas/upsert-schema";
-export { upsertMemoryInputSchema } from "@/ai/schemas/upsert-schema";
-export type { LinkMemoriesInput } from "@/ai/schemas/link-schema";
-export { linkMemoriesInputSchema } from "@/ai/schemas/link-schema";
-export type { SearchMemoriesInput } from "@/ai/schemas/search-schema";
-export { searchMemoriesInputSchema } from "@/ai/schemas/search-schema";
-export type { WebSearchInput } from "@/ai/schemas/web-search-schema";
-export { webSearchInputSchema } from "@/ai/schemas/web-search-schema";
+  MEMORY_QUESTIONS_USER_PROMPT_PREFIX,
+  askUserQuestionToolDescription,
+  linkMemoriesToolDescription,
+  memoryQuestionsGenerationSystem,
+  searchMemoriesToolDescription,
+  upsertMemoryToolDescription,
+  webSearchToolDescription,
+} from "@/prompts/tools";
 
 export type CreateToolSetOptions = {
   /** Chat model id for tool-side LLM work (e.g. MemoryQuestion generation). */
   model?: string;
 };
-
-/** Policy-derived target count for MemoryQuestion generation (prompt-side only). */
-const questionCountTarget = Math.min(
-  MEMORY_QUESTION_COUNT_MAX,
-  Math.max(MEMORY_QUESTION_COUNT_MIN, MEMORY_QUESTIONS_PER_MEMORY),
-);
 
 /** Max chars per generated retrieval question (schema element cap). */
 const RETRIEVAL_QUESTION_MAX_CHARS = 500;
@@ -64,8 +50,7 @@ export function createToolSet(
   opts?: CreateToolSetOptions,
 ): Record<string, Tool> {
   const webSearch: Tool = tool({
-    description:
-      "Search the web for up-to-date information, news, details, and facts.",
+    description: webSearchToolDescription,
     inputSchema: webSearchInputSchema,
     execute: async ({ query }) => {
       try {
@@ -94,14 +79,12 @@ export function createToolSet(
   });
 
   const askUserQuestion: Tool = tool({
-    description:
-      "Resolve ambiguity or force a decision with a multiple-choice question (2–5 options). Set allowCustomInput true only when a write-in is reasonable. Do not use for open-ended chat.",
+    description: askUserQuestionToolDescription,
     inputSchema: askUserQuestionInputSchema,
   });
 
   const upsertMemory: Tool = tool({
-    description:
-      "Create or update a Memory node in the knowledge graph. Use for durable facts, concepts, or explanations worth weaving into the user's web. Prefer small focused memories; omit id to create, pass id to update content only. The system auto-generates retrieval questions via LLM for later Q↔Q search — do not invent or pass questions yourself. Do not pass canvas coordinates or rank — placement is client-side on the graph map. Structure via linkMemories.",
+    description: upsertMemoryToolDescription,
     inputSchema: upsertMemoryInputSchema,
     execute: async (input) => {
       try {
@@ -112,30 +95,36 @@ export function createToolSet(
               "upsertMemory failed: chat model is required to generate retrieval questions.",
           };
         }
-
         const id: string =
           input.id == null || input.id === "" ? nanoid() : (input.id as string);
         const impression = input.impression ?? "";
         const confidence = input.confidence ?? 0.5;
 
         // 1. Generate questions before any Memory write — fail whole tool if Q-gen fails.
-        const { model } = modelConfig({ model: modelId });
-        const userPayload = [
-          `Memory name: ${input.name}`,
-          `Memory content:\n${input.content}`,
-          input.impression != null && input.impression !== ""
-            ? `Impression: ${input.impression}`
-            : null,
-          input.confidence != null ? `Confidence: ${input.confidence}` : null,
-          `Generate ${questionCountTarget} retrieval questions (${MEMORY_QUESTION_COUNT_MIN}–${MEMORY_QUESTION_COUNT_MAX}).`,
-        ]
-          .filter((line): line is string => line != null)
-          .join("\n\n");
+        const memoryPayload: {
+          name: string;
+          content: string;
+          impression?: string;
+          confidence?: number;
+        } = {
+          name: input.name,
+          content: input.content,
+        };
+        if (input.impression != null && input.impression !== "") {
+          memoryPayload.impression = input.impression;
+        }
+        if (input.confidence != null) {
+          memoryPayload.confidence = input.confidence;
+        }
 
+        const { model } = modelConfig({ model: modelId });
         const { output } = await generateText({
           model,
-          system: memoryQuestionsPrompt,
-          prompt: userPayload,
+          system: memoryQuestionsGenerationSystem,
+          prompt: [
+            MEMORY_QUESTIONS_USER_PROMPT_PREFIX,
+            JSON.stringify(memoryPayload),
+          ].join("\n\n"),
           output: Output.array({
             element: z.string().min(1).max(RETRIEVAL_QUESTION_MAX_CHARS),
           }),
@@ -160,11 +149,6 @@ export function createToolSet(
         );
         const questions = questionTexts.map((text, index) => {
           const questionEmbedding = questionEmbeddings[index];
-          if (questionEmbedding == null) {
-            throw new Error(
-              "upsertMemory failed: missing embedding for a retrieval question.",
-            );
-          }
           return {
             id: nanoid(),
             text,
@@ -184,8 +168,7 @@ export function createToolSet(
   });
 
   const linkMemories: Tool = tool({
-    description:
-      "Create a directed edge between two existing Memory nodes. Call only after both nodes exist (upsert first if needed). PART_OF is hierarchical (source=child → target=parent); a child may have at most one PART_OF parent. RELATES_TO is associative. Geometry/rank are never LLM-authored — the graph client derives rank and places nodes from topology.",
+    description: linkMemoriesToolDescription,
     inputSchema: linkMemoriesInputSchema,
     execute: async ({ source, target, type }) => {
       try {
@@ -211,8 +194,7 @@ export function createToolSet(
   });
 
   const searchMemories: Tool = tool({
-    description:
-      "Semantic search over the knowledge graph via MemoryQuestion embeddings (Q↔Q). Pass 1–5 natural-language questions in user-meta style (e.g. \"What do I know about React Server Components?\"). Multi-ANN + RRF returns Memory hits. Use before create to avoid duplicates and to find ids for update/link. Does not invent layout or write nodes.",
+    description: searchMemoriesToolDescription,
     inputSchema: searchMemoriesInputSchema,
     execute: async ({ questions }) => {
       try {
