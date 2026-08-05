@@ -1,16 +1,18 @@
 "use client";
 
 /**
- * Prompt shell contexts, provider, and hooks.
- * Owns attachment/text/controller/sources store shapes and dual-path hooks.
- * Must NOT import header/body/footer (cycle prevention).
+ * Prompt shell draft context: single controller for text + attachments.
+ * Requires outer PromptInputProvider. Must NOT import header/body/footer.
+ *
+ * PromptInput registers file-input open + attachment validation so children
+ * always hit a validated `attachments.add` while state lives only here.
  */
 
 import {
   filesToFileUIParts,
   revokeFileUrls,
 } from "../attachments/prompt-input-files";
-import type { FileUIPart, SourceDocumentUIPart } from "ai";
+import type { FileUIPart } from "ai";
 import type { PropsWithChildren, RefObject } from "react";
 import {
   createContext,
@@ -23,7 +25,7 @@ import {
 } from "react";
 
 // ============================================================================
-// Provider Context & Types
+// Types
 // ============================================================================
 
 /** Attachment store API (context value shape, not a React context). */
@@ -43,23 +45,39 @@ export interface TextInputValue {
   clear: () => void;
 }
 
+/**
+ * Validates/filters incoming files before they are appended.
+ * Return the files to store (may be empty). Receives current attachment count.
+ */
+export type AttachmentAddValidator = (
+  files: File[] | FileList,
+  ctx: { currentCount: number }
+) => File[];
+
 /** Lifted controller state exposed by PromptInputProvider. */
 export interface PromptInputControllerValue {
   textInput: TextInputValue;
   attachments: AttachmentsValue;
-  /** INTERNAL: Allows PromptInput to register its file input + "open" callback */
+  /** INTERNAL: PromptInput registers its hidden file input + open callback */
   __registerFileInput: (
     ref: RefObject<HTMLInputElement | null>,
     open: () => void
   ) => void;
+  /**
+   * INTERNAL: PromptInput registers accept/size/maxFiles validation.
+   * Pass null on unmount. While set, `attachments.add` runs through it.
+   */
+  __registerAttachmentValidator: (
+    validate: AttachmentAddValidator | null
+  ) => void;
 }
+
+// ============================================================================
+// Context
+// ============================================================================
 
 const PromptInputControllerContext =
   createContext<PromptInputControllerValue | null>(null);
-
-const ProviderAttachmentsContext = createContext<AttachmentsValue | null>(
-  null
-);
 
 /** Optional: returns null when outside PromptInputProvider. */
 export const useOptionalPromptInputControllerContext = () =>
@@ -77,8 +95,23 @@ export const usePromptInputControllerContext =
     return controller;
   };
 
-export const useOptionalProviderAttachments = () =>
-  useContext(ProviderAttachmentsContext);
+/**
+ * Attachments from the single draft controller.
+ * Throws when outside PromptInputProvider.
+ */
+export const usePromptInputAttachments = (): AttachmentsValue => {
+  const controller = useContext(PromptInputControllerContext);
+  if (!controller) {
+    throw new Error(
+      "usePromptInputAttachments must be used within a PromptInputProvider"
+    );
+  }
+  return controller.attachments;
+};
+
+// ============================================================================
+// Provider
+// ============================================================================
 
 export type PromptInputProviderProps = PropsWithChildren<{
   initialInput?: string;
@@ -86,8 +119,8 @@ export type PromptInputProviderProps = PropsWithChildren<{
 }>;
 
 /**
- * Optional global provider that lifts PromptInput state outside of PromptInput.
- * If you don't use it, PromptInput stays fully self-managed.
+ * Owns prompt draft state (text + attachments). Required wrapper for PromptInput
+ * and any consumer of usePromptInputAttachments / controller hooks.
  */
 export const PromptInputProvider = ({
   initialInput: initialTextInput = "",
@@ -98,32 +131,40 @@ export const PromptInputProvider = ({
   const [textInput, setTextInput] = useState(initialTextInput);
   const clearInput = useCallback(() => setTextInput(""), []);
 
-  // ----- attachments state (global when wrapped)
+  // ----- attachments state
   const [attachmentFiles, setAttachmentFiles] = useState<
     (FileUIPart & { id: string })[]
   >([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // oxlint-disable-next-line eslint(no-empty-function)
   const openRef = useRef<() => void>(() => {});
+  const validatorRef = useRef<AttachmentAddValidator | null>(null);
 
   const add = useCallback(
     (files: File[] | FileList) => {
-      const incoming = [...files];
-      if (incoming.length === 0) {
-        return;
-      }
-
-      // Provider path: maxFiles cap only (accept/size validated by PromptInput when present)
       setAttachmentFiles((prev) => {
-        const capacity =
-          typeof maxFiles === "number"
-            ? Math.max(0, maxFiles - prev.length)
-            : undefined;
-        const capped =
-          typeof capacity === "number"
-            ? incoming.slice(0, capacity)
-            : incoming;
-        return [...prev, ...filesToFileUIParts(capped)];
+        let toAdd: File[];
+        if (validatorRef.current) {
+          toAdd = validatorRef.current(files, { currentCount: prev.length });
+        } else {
+          const incoming = [...files];
+          if (incoming.length === 0) {
+            return prev;
+          }
+          // No PromptInput gate yet: soft maxFiles cap only
+          const capacity =
+            typeof maxFiles === "number"
+              ? Math.max(0, maxFiles - prev.length)
+              : undefined;
+          toAdd =
+            typeof capacity === "number"
+              ? incoming.slice(0, capacity)
+              : incoming;
+        }
+        if (toAdd.length === 0) {
+          return prev;
+        }
+        return [...prev, ...filesToFileUIParts(toAdd)];
       });
     },
     [maxFiles]
@@ -185,8 +226,16 @@ export const PromptInputProvider = ({
     []
   );
 
+  const __registerAttachmentValidator = useCallback(
+    (validate: AttachmentAddValidator | null) => {
+      validatorRef.current = validate;
+    },
+    []
+  );
+
   const controller = useMemo<PromptInputControllerValue>(
     () => ({
+      __registerAttachmentValidator,
       __registerFileInput,
       attachments,
       textInput: {
@@ -195,65 +244,18 @@ export const PromptInputProvider = ({
         value: textInput,
       },
     }),
-    [textInput, clearInput, attachments, __registerFileInput]
+    [
+      textInput,
+      clearInput,
+      attachments,
+      __registerFileInput,
+      __registerAttachmentValidator,
+    ]
   );
 
   return (
     <PromptInputControllerContext.Provider value={controller}>
-      <ProviderAttachmentsContext.Provider value={attachments}>
-        {children}
-      </ProviderAttachmentsContext.Provider>
+      {children}
     </PromptInputControllerContext.Provider>
   );
-};
-
-// ============================================================================
-// Component Context & Hooks
-// ============================================================================
-
-/** Local attachments context (validated add inside PromptInput). Used by shell form. */
-export const LocalAttachmentsContext = createContext<AttachmentsValue | null>(
-  null
-);
-
-export const usePromptInputAttachments = (): AttachmentsValue => {
-  // Prefer local context (inside PromptInput) as it has validation, fall back to provider
-  const provider = useOptionalProviderAttachments();
-  const local = useContext(LocalAttachmentsContext);
-  const value = local ?? provider;
-  if (!value) {
-    throw new Error(
-      "usePromptInputAttachments must be used within a PromptInput or PromptInputProvider"
-    );
-  }
-  return value;
-};
-
-// ============================================================================
-// Referenced Sources (Local to PromptInput)
-// ============================================================================
-
-/** Referenced-sources store API (context value shape, not a React context). */
-export interface ReferencedSourcesValue {
-  sources: (SourceDocumentUIPart & { id: string })[];
-  add: (incoming: SourceDocumentUIPart[] | SourceDocumentUIPart) => void;
-  remove: (id: string) => void;
-  clear: () => void;
-}
-
-/** Local referenced-sources context. Used by shell form. */
-export const LocalReferencedSourcesContext =
-  createContext<ReferencedSourcesValue | null>(null);
-
-export const useOptionalPromptInputReferencedSources = () =>
-  useContext(LocalReferencedSourcesContext);
-
-export const usePromptInputReferencedSources = (): ReferencedSourcesValue => {
-  const value = useContext(LocalReferencedSourcesContext);
-  if (!value) {
-    throw new Error(
-      "usePromptInputReferencedSources must be used within a PromptInput"
-    );
-  }
-  return value;
 };

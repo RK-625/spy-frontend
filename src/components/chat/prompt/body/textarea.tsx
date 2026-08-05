@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * PromptInputTextarea: dual-mode (provider controller vs uncontrolled) message field.
+ * PromptInputTextarea: controlled by PromptInputProvider draft text.
+ * Requires outer PromptInputProvider.
  */
 
 import { InputGroupTextarea } from "@/components/ui/input-group";
@@ -14,8 +15,8 @@ import type {
 } from "react";
 import { useCallback, useState } from "react";
 import {
-  useOptionalPromptInputControllerContext,
   usePromptInputAttachments,
+  usePromptInputControllerContext,
 } from "../shell/context";
 
 export type PromptInputTextareaProps = ComponentProps<
@@ -29,7 +30,7 @@ export const PromptInputTextarea = ({
   placeholder = "What would you like to know?",
   ...props
 }: PromptInputTextareaProps) => {
-  const controller = useOptionalPromptInputControllerContext();
+  const controller = usePromptInputControllerContext();
   const attachments = usePromptInputAttachments();
   const [isComposing, setIsComposing] = useState(false);
 
@@ -105,33 +106,15 @@ export const PromptInputTextarea = ({
   const handleCompositionEnd = useCallback(() => setIsComposing(false), []);
   const handleCompositionStart = useCallback(() => setIsComposing(true), []);
 
-  const [uncontrolledVal, setUncontrolledVal] = useState(
-    () => String(props.defaultValue ?? props.value ?? ""),
-  );
-  const textValue = controller
-    ? controller.textInput.value
-    : props.value !== undefined
-      ? String(props.value)
-      : uncontrolledVal;
+  const textValue = controller.textInput.value;
 
   const handleTextareaChange = useCallback(
     (e: ChangeEvent<HTMLTextAreaElement>) => {
-      const next = e.currentTarget.value;
-      if (controller) {
-        controller.textInput.setValue(next);
-      } else if (props.value === undefined) {
-        setUncontrolledVal(next);
-      }
+      controller.textInput.setValue(e.currentTarget.value);
       onChange?.(e);
     },
-    [controller, onChange, props.value],
+    [controller, onChange],
   );
-
-  const controlledProps = controller
-    ? { value: controller.textInput.value }
-    : props.value !== undefined
-      ? { value: String(props.value) }
-      : { value: uncontrolledVal };
 
   const isEmpty = !textValue;
   const { style: propsStyle, ...restTextareaProps } = props;
@@ -156,7 +139,7 @@ export const PromptInputTextarea = ({
         onPaste={handlePaste}
         placeholder={isEmpty ? placeholder : ""}
         {...restTextareaProps}
-        {...controlledProps}
+        value={textValue}
         onChange={handleTextareaChange}
       />
     </div>

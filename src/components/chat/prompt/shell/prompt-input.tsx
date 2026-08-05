@@ -1,42 +1,27 @@
 "use client";
 
 /**
- * PromptInput form: drop handlers, submit pipeline, nested attachment/sources providers.
- * State types and hooks live in ./context. UI pieces compose as children at the call site.
+ * PromptInput form: drop handlers, submit pipeline, file input + validation registration.
+ * Requires outer PromptInputProvider. Draft state lives in ./context.
  */
 
 import { InputGroup } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 import type { PromptInputMessage } from "@/types/chat";
-import type { FileUIPart, SourceDocumentUIPart } from "ai";
+import type { FileUIPart } from "ai";
 import {
   convertBlobUrlToDataUrl,
-  filesToFileUIParts,
   filterIncomingFiles,
-  revokeFileUrls,
   type AttachmentError,
 } from "../attachments/prompt-input-files";
-import { nanoid } from "nanoid";
 import type {
   ChangeEventHandler,
   FormEvent,
   FormEventHandler,
   HTMLAttributes,
 } from "react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  LocalAttachmentsContext,
-  LocalReferencedSourcesContext,
-  useOptionalPromptInputControllerContext,
-  type AttachmentsValue,
-  type ReferencedSourcesValue,
-} from "./context";
+import { useCallback, useEffect, useRef } from "react";
+import { usePromptInputControllerContext } from "./context";
 
 // PROMPT_INPUT_ACCEPT lives in attachments/prompt-input-files; re-exported via
 // barrel, root prompt-input shim, and ai-elements for historical import paths.
@@ -120,198 +105,69 @@ export const PromptInput = ({
   children,
   ...props
 }: PromptInputProps) => {
-  // Try to use a provider controller if present
-  const controller = useOptionalPromptInputControllerContext();
-  const usingProvider = !!controller;
+  const controller = usePromptInputControllerContext();
+  const { attachments, textInput } = controller;
 
   // Refs
   const inputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
-  // ----- Local attachments (only used when no provider)
-  const [localFiles, setLocalFiles] = useState<(FileUIPart & { id: string })[]>(
-    []
-  );
-  const files = usingProvider ? controller.attachments.files : localFiles;
+  // Latest validation props for the registered gate (stable registration effect)
+  const validationRef = useRef({ accept, maxFileSize, maxFiles, onError });
+  validationRef.current = { accept, maxFileSize, maxFiles, onError };
 
-  // ----- Local referenced sources (always local to PromptInput)
-  const [referencedSources, setReferencedSources] = useState<
-    (SourceDocumentUIPart & { id: string })[]
-  >([]);
-
-  // Keep a ref to files for cleanup on unmount (avoids stale closure)
-  const filesRef = useRef(files);
-
+  // Register file input so external openFileDialog() works
   useEffect(() => {
-    filesRef.current = files;
-  }, [files]);
-
-  const openFileDialogLocal = useCallback(() => {
-    inputRef.current?.click();
-  }, []);
-
-  const addLocal = useCallback(
-    (fileList: File[] | FileList) => {
-      setLocalFiles((prev) => {
-        const capped = filterIncomingFiles(fileList, {
-          accept,
-          maxFileSize,
-          maxFiles,
-          currentCount: prev.length,
-          onError,
-        });
-        if (capped.length === 0) {
-          return prev;
-        }
-        return [...prev, ...filesToFileUIParts(capped)];
-      });
-    },
-    [accept, maxFiles, maxFileSize, onError]
-  );
-
-  const removeLocal = useCallback(
-    (id: string) =>
-      setLocalFiles((prev) => {
-        const found = prev.find((file) => file.id === id);
-        if (found) {
-          revokeFileUrls([found]);
-        }
-        return prev.filter((file) => file.id !== id);
-      }),
-    []
-  );
-
-  // Wrapper that validates files before calling provider's add
-  const addWithProviderValidation = useCallback(
-    (fileList: File[] | FileList) => {
-      const capped = filterIncomingFiles(fileList, {
-        accept,
-        maxFileSize,
-        maxFiles,
-        currentCount: files.length,
-        onError,
-      });
-      if (capped.length > 0) {
-        controller?.attachments.add(capped);
-      }
-    },
-    [accept, maxFileSize, maxFiles, onError, files.length, controller]
-  );
-
-  const clearAttachments = useCallback(
-    () =>
-      usingProvider
-        ? controller?.attachments.clear()
-        : setLocalFiles((prev) => {
-            revokeFileUrls(prev);
-            return [];
-          }),
-    [usingProvider, controller]
-  );
-
-  const clearReferencedSources = useCallback(
-    () => setReferencedSources([]),
-    []
-  );
-
-  const add = usingProvider ? addWithProviderValidation : addLocal;
-  const remove = usingProvider ? controller.attachments.remove : removeLocal;
-  const openFileDialog = usingProvider
-    ? controller.attachments.openFileDialog
-    : openFileDialogLocal;
-
-  const clear = useCallback(() => {
-    clearAttachments();
-    clearReferencedSources();
-  }, [clearAttachments, clearReferencedSources]);
-
-  // Let provider know about our hidden file input so external menus can call openFileDialog()
-  useEffect(() => {
-    if (!usingProvider) {
-      return;
-    }
     controller.__registerFileInput(inputRef, () => inputRef.current?.click());
-  }, [usingProvider, controller]);
+  }, [controller]);
+
+  // Register accept/size/maxFiles gate so attachments.add is always validated
+  // while PromptInput is mounted (children, drop, file picker share one path).
+  useEffect(() => {
+    controller.__registerAttachmentValidator((files, { currentCount }) => {
+      const v = validationRef.current;
+      return filterIncomingFiles(files, {
+        accept: v.accept,
+        maxFileSize: v.maxFileSize,
+        maxFiles: v.maxFiles,
+        currentCount,
+        onError: v.onError,
+      });
+    });
+    return () => {
+      controller.__registerAttachmentValidator(null);
+    };
+  }, [controller]);
 
   // Attach drop handlers on form (default) or document (globalDrop opt-in)
   useEffect(() => {
     if (globalDrop) {
-      return attachFileDrop(document, add);
+      return attachFileDrop(document, attachments.add);
     }
     const form = formRef.current;
     if (!form) {
       return;
     }
-    return attachFileDrop(form, add);
-  }, [add, globalDrop]);
-
-  useEffect(
-    () => () => {
-      if (!usingProvider) {
-        revokeFileUrls(filesRef.current);
-      }
-    },
-    [usingProvider]
-  );
+    return attachFileDrop(form, attachments.add);
+  }, [attachments.add, globalDrop]);
 
   const handleChange: ChangeEventHandler<HTMLInputElement> = useCallback(
     (event) => {
       if (event.currentTarget.files) {
-        add(event.currentTarget.files);
+        attachments.add(event.currentTarget.files);
       }
       // Reset input value to allow selecting files that were previously removed
       event.currentTarget.value = "";
     },
-    [add]
-  );
-
-  const attachmentsValue = useMemo<AttachmentsValue>(
-    () => ({
-      add,
-      clear: clearAttachments,
-      fileInputRef: inputRef,
-      files,
-      openFileDialog,
-      remove,
-    }),
-    [files, add, remove, clearAttachments, openFileDialog]
-  );
-
-  const referencedSourcesValue = useMemo<ReferencedSourcesValue>(
-    () => ({
-      add: (incoming: SourceDocumentUIPart[] | SourceDocumentUIPart) => {
-        const array = Array.isArray(incoming) ? incoming : [incoming];
-        setReferencedSources((prev) => [
-          ...prev,
-          ...array.map((s) => ({ ...s, id: nanoid() })),
-        ]);
-      },
-      clear: clearReferencedSources,
-      remove: (id: string) => {
-        setReferencedSources((prev) => prev.filter((s) => s.id !== id));
-      },
-      sources: referencedSources,
-    }),
-    [referencedSources, clearReferencedSources]
+    [attachments]
   );
 
   const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
     async (event) => {
       event.preventDefault();
 
-      const form = event.currentTarget;
-      const text = usingProvider
-        ? controller.textInput.value
-        : (() => {
-            const formData = new FormData(form);
-            return (formData.get("message") as string) || "";
-          })();
-
-      // Reset form immediately after capturing text to avoid race condition
-      // where user input during async blob conversion would be lost
-      if (!usingProvider) {
-        form.reset();
-      }
+      const text = textInput.value;
+      const files = attachments.files;
 
       try {
         // Convert blob URLs to data URLs asynchronously
@@ -335,25 +191,21 @@ export const PromptInput = ({
         if (result instanceof Promise) {
           try {
             await result;
-            clear();
-            if (usingProvider) {
-              controller.textInput.clear();
-            }
+            attachments.clear();
+            textInput.clear();
           } catch {
             // Don't clear on error - user may want to retry
           }
         } else {
           // Sync function completed without throwing, clear inputs
-          clear();
-          if (usingProvider) {
-            controller.textInput.clear();
-          }
+          attachments.clear();
+          textInput.clear();
         }
       } catch {
         // Don't clear on error - user may want to retry
       }
     },
-    [usingProvider, controller, files, onSubmit, clear]
+    [attachments, textInput, onSubmit]
   );
 
   // Strip motion-incompatible DOM drag/animation handlers from rest spread
@@ -362,7 +214,7 @@ export const PromptInput = ({
     delete restProps[key];
   }
 
-  const inner = (
+  return (
     <>
       <input
         accept={accept}
@@ -385,18 +237,5 @@ export const PromptInput = ({
         </InputGroup>
       </form>
     </>
-  );
-
-  const withReferencedSources = (
-    <LocalReferencedSourcesContext.Provider value={referencedSourcesValue}>
-      {inner}
-    </LocalReferencedSourcesContext.Provider>
-  );
-
-  // Always provide LocalAttachmentsContext so children get validated add function
-  return (
-    <LocalAttachmentsContext.Provider value={attachmentsValue}>
-      {withReferencedSources}
-    </LocalAttachmentsContext.Provider>
   );
 };
