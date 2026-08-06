@@ -4,9 +4,9 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { DotMatrixIcon } from "@/components/dotmatrix";
 import type { ComponentProps } from "react";
 
 export type SourcesProps = ComponentProps<"div">;

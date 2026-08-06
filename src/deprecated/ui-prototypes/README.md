@@ -14,7 +14,7 @@ The `/ui-prototypes` route was intentionally removed so it cannot be hit casuall
 Redesign continues from:
 
 - **`/home`** (`src/app/home/page.tsx`)
-- **Current prompt-input stack** under `src/components/chat/ai-elements/` (especially `prompt-input.tsx` and related pieces)
+- **Current prompt stack** under `src/components/chat/prompt/` (barrel `@/components/chat/prompt`)
 
 Work proceeds **block-by-block** on that live stack. Do not treat this archive as the baseline for new product UI.
 

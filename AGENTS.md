@@ -69,7 +69,7 @@ These are things a new engineer might not guess. They must be followed:
 - **Deliberate pill exception: source / URL chips.** Source citations in `Sources` and `ChainOfThoughtSearchResult` use `rounded-full` (`pill-source-*` tokens). This is a deliberate exception for compact, dense reference chips; general UI controls remain `--radius`. Do not flatten these back to `--radius` without an explicit design review.
 - **Mascot is cute and 3D.** The mascot features a visor, antenna, and articulated legs. It is a glossy 3D vector loaded from `mascot-3d.svg`.
 - **Lavender accents only.** Focus ring (`--ring`), interactive controls, and loaders use the lavender system. Do not reintroduce gold/amber (`#c9952a`) into production UI.
-- **Pixel Art Icons.** Do not use `lucide-react` or standard smooth vector icons in the Chat UI. Always use `DotMatrixIcon` from `@/components/dotmatrix/icons` (pixel-art registry) to maintain the alien aesthetic.
+- **Pixel Art Icons.** Do not use `lucide-react` or standard smooth vector icons in the Chat UI. Always use `DotMatrixIcon` from `@/components/dotmatrix` (pixel-art registry) to maintain the alien aesthetic.
 - **Text is never pure white.** `#ded4f0` or warm off-white `#e8e4df` for primary text, `#7a7685` for secondary, `#4a4658` for dim.
 - **All design decisions live in `brief.md`.** Read it before making any visual or structural change. That file is the constitution.
 - **Dynamic Mascot Loading.** The 3D robot spider is loaded dynamically as an SVG from the public folder (`mascot-3d.svg`), and animated using GSAP targeting specific internal IDs (`#Antenna`, `#Visor section`, `#Left 1st front leg`, `#Right leg2`, etc.).
@@ -82,9 +82,9 @@ Landing (`/`) is the front door and is already in good shape — polish as neede
 
 **Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). **Live-only product path** (see [`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): single URL `/graph` — no product `?stress` / `?source` / `?layout` / `?motion`. Always fetches `/api/graph`; layout engine always `d3-settle` with ambient off; cache hit paints without re-settle, miss settles once and saves. Client pure-perf ceiling for loaded-graph pan/zoom is **achieved** under quality bans. FA2/graphology path removed. Placement architecture: [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client cache, Falkor topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Do not re-litigate ban-safe pure-perf; next graph work is full KB residency / live dirty. Details under **What's left**.
 
-**Prompt input:** production SoT is `src/components/chat/prompt/prompt-input.tsx` (chat-only shell). `ai-elements/prompt-input` is a compat re-export. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
+**Prompt input:** production SoT is under `src/components/chat/prompt/` (`shell/prompt-input.tsx` form + `shell/context.tsx` with `PromptShellProvider` draft/prefs; barrel `@/components/chat/prompt`). Chat-only shell — no dual import paths. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
 
-**Attachment accept allowlist:** single source of truth is `PROMPT_INPUT_ACCEPT` in `src/components/chat/prompt/prompt-input-files.ts` (wired from `/home` via `accept={PROMPT_INPUT_ACCEPT}`; `ai-elements` path remains a compat re-export). Drag-drop and the file picker both enforce it via `filterIncomingFiles` / `matchesAccept`. Edit only that constant when expanding types. Full accepted list + intentionally excluded formats (e.g. `.html`, Office binaries, archives) are documented in that file’s module header — read it before changing.
+**Attachment accept allowlist:** single source of truth is `PROMPT_INPUT_ACCEPT` in `src/components/chat/prompt/attachments/prompt-input-files.ts` (wired from `/home` via `accept={PROMPT_INPUT_ACCEPT}`). Drag-drop and the file picker both enforce it via `filterIncomingFiles` / `matchesAccept`. Edit only that constant when expanding types. Full accepted list + intentionally excluded formats (e.g. Office binaries, archives) are documented in that file’s module header — read it before changing.
 
 **Attachment chips:** preview tiles use restrained `--radius`. The remove control is a **small rectangular badge** (tighter radius than full `--radius` so it does not read as a circle on an ~18px hit target), DotMatrix `x`, palette `bg-background/85` + muted foreground — not a pill.
 
@@ -99,18 +99,17 @@ Right now the door is open; the work is making the chat workspace feel like walk
 ```
 src/
 ├── ai/
-│   ├── agent/                — Server-side model streaming (runAgent)
-│   │   └── agent.ts          — Implementation SoT
-│   ├── models/               — Model config + embeddings
+│   ├── agent/                — Server-side model streaming (`@/ai/agent` directory barrel)
+│   │   ├── agent.ts          — Implementation SoT (runAgent)
+│   │   └── index.ts          — domain barrel
+│   ├── models/               — Model config + embeddings (`@/ai/models`, embeddings deep path OK)
 │   │   ├── modelstore.ts     — Model / embed model wiring
 │   │   └── embeddings.ts     — Gemini-embedding-2 generation (1536 dim)
-│   ├── tools/                — Agent tools SoT
+│   ├── tools/                — Agent tools SoT (`@/ai/tools`)
 │   │   └── toolset.ts        — upsert/link/search/ask; never settles layout
-│   ├── schemas/              — Zod tool input schemas (SoT: *-schema.ts)
-│   │   ├── ask-schema.ts / upsert-schema.ts / link-schema.ts / web-search-schema.ts
-│   │   └── ask-user-question.ts / … — compat re-export shims
-│   ├── agent.ts / toolset.ts / modelstore.ts / embeddings.ts — root compat re-exports
-│   └── index.ts              — public ai barrel
+│   ├── schemas/              — Zod tool input schemas (SoT: *-schema.ts only; no alias shims)
+│   │   └── ask-schema.ts / upsert-schema.ts / link-schema.ts / web-search-schema.ts
+│   └── index.ts              — public `@/ai` barrel (agent + models + tools + schemas)
 ├── animation/
 │   ├── spider-mascot.tsx     — Mascot React host
 │   └── spider/               — GSAP behaviors + mascot timeline
@@ -127,13 +126,18 @@ src/
 │   ├── layout.tsx            — Root layout + fonts + metadata + hydration fix
 │   └── globals.css           — Tailwind v4 @theme tokens + design tokens + chat styles
 ├── components/
-│   ├── ui/                   — Design-system primitives only (shadcn-style Button, Dialog, Input, …)
+│   ├── ui/                   — Design-system primitives by role (barrel `@/components/ui`)
+│   │   ├── actions/          — button, button-group
+│   │   ├── forms/            — input, textarea, input-group, select, switch
+│   │   ├── overlays/         — dialog, sheet, popover, hover-card, dropdown-menu, tooltip
+│   │   ├── feedback/         — alert, sonner, spinner, progress, skeleton
+│   │   ├── layout/           — card, separator, scroll-area, avatar, badge, collapsible, accordion, carousel
+│   │   ├── navigation/       — tabs, command
+│   │   └── index.ts          — public barrel (no flat dual-export shims)
 │   ├── chat/                 — Chat product shell + AI message chrome
-│   │   ├── prompt/           — Prompt shell SoT (prompt-input, attachments, files, controls)
+│   │   ├── prompt/           — Prompt shell SoT (shell/, header/, body/, ask/, attachments/, footer/, index.ts)
 │   │   ├── conversation/     — Message stream SoT (conversation, message, CoT, sources, …)
 │   │   ├── shell/            — Product chrome SoT (sidebar, settings, command palette)
-│   │   ├── ai-elements/      — Compat re-exports → prompt + conversation (do not add new impl)
-│   │   ├── chat-sidebar.tsx / settings-dialog.tsx / command-palette.tsx — shell compat shims
 │   │   └── index.ts          — chat barrel (prefer domain folders or this barrel)
 │   ├── graph/                — Graph React host (not pure logic)
 │   │   ├── graph-canvas.tsx  — Host for `/graph` (Pixi renderer + camera + bake)
@@ -141,13 +145,12 @@ src/
 │   ├── landing/              — Landing/marketing surfaces
 │   │   ├── hero-section.tsx  — Hero layout
 │   │   └── shiny-text.tsx    — Glint sweep text animation
-│   ├── dotmatrix/            — Shared pixel / dot-matrix system
+│   ├── dotmatrix/            — Shared pixel / dot-matrix system (barrel `@/components/dotmatrix`)
+│   │   ├── index.ts          — public barrel (icons, loaders, hooks, core)
 │   │   ├── core/             — Grid utilities + animation hooks (SoT)
 │   │   ├── icons/            — Pixel-art icon registry (DotMatrixIcon SoT)
-│   │   ├── loaders/          — hex-9 / square-18 / triangle-16 + loader.css (SoT)
-│   │   └── *.tsx / loader.css — root compat re-exports
-│   └── brand/
-│       └── logos/            — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
+│   │   └── loaders/          — hex-9 / square-18 / triangle-16 + loader.css (SoT)
+│   └── logos/                — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
 ├── deprecated/               — Not production routes; do not wire into / or /home without intent
 │   ├── ask-user-question-widget/ — Snapshot of old prompt-input morph + widget-layout tokens
 │   ├── ui-prototypes/        — Lab page + interactive question variants (archived)
@@ -155,7 +158,8 @@ src/
 ├── contexts/
 │   └── ChatContext.tsx       — Shared state provider for Chat UI (useChat wrapper)
 ├── hooks/
-│   └── use-mobile.ts         — Responsive layout breakpoint state hook
+│   ├── use-mobile.ts         — Responsive layout breakpoint state hook
+│   └── use-chat-submit.ts    — Bridges ChatContext stream + prompt prefs for send
 ├── lib/
 │   ├── falkor.ts             — Server DB: FalkorDB connection & Cypher (topology only; no xy)
 │   ├── graph/                — Graph pure logic (Pixi pure-perf + client placement)
@@ -182,10 +186,10 @@ src/
 - **Graph pure logic** → `src/lib/graph/` subdomains (`placement/`, `layout/`, `render/`, `camera/`, `core/`)
 - **Graph React host** → `src/components/graph/` (`graph-canvas`, node-detail dialog)
 - **Server DB** → `src/lib/falkor.ts` (topology only — not under the client graph package; no product `x`/`y`/`rank` writes)
-- **Agent tools / schemas** → `src/ai/tools/`, `src/ai/schemas/*-schema.ts` (root `ai/*.ts` shims are compat only)
-- **Chat UI** → `src/components/chat/{prompt,conversation,shell}/` (ai-elements + root shell files are compat re-exports)
+- **Agent tools / schemas** → `src/ai/tools/`, `src/ai/schemas/*-schema.ts` (domain barrels; no root dual-export shims)
+- **Chat UI** → `src/components/chat/{prompt,conversation,shell}/` domain barrels only (no ai-elements / root dual shims)
 
-**Note:** Chat prompt SoT is `chat/prompt/prompt-input.tsx` (provider, attachments, textarea, tools, submit). The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts` without a live morph UI.
+**Note:** Chat prompt SoT is `chat/prompt/` domain tree + barrel (`PromptShellProvider` + `shell/prompt-input.tsx` form, pieces under header/body/ask/attachments/footer). The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts` without a live morph UI.
 
 **Graph note:** Continuous layout off by default. FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md). **`placeTopology`** owns fingerprint hit/miss (hit → cached `{x,y}`; miss → assemble at `(0,0)` → pure `settleGraphData` → save poses). Host dynamic-imports `createGraphPaintLoop` from `layout-loop-d3` (`setGraphData(graph)` only; no settle option). Falkor holds topology only — no server placement writes. Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
 
@@ -258,7 +262,7 @@ Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` live knowledge graph)
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
-5. Prefer domain imports: `@/components/chat/prompt|conversation|shell/...` (or `@/components/chat` barrel), `@/ai/agent|models|tools|schemas/...`, `@/components/graph/...`, `@/lib/graph/{camera,core,layout,placement,render}/...`, `@/components/dotmatrix/icons`, `@/components/ui/...`. Root/`ai-elements` paths are compat re-exports.
+5. Prefer package barrels for product/cross-package code: `@/components/chat`, `@/components/ui`, `@/components/dotmatrix`, `@/components/logos`, `@/ai`, `@/lib/graph`. Inside a package use relative imports (never that package barrel — avoids cycles). Flat lib modules (`@/lib/utils`, `@/lib/falkor`, …) stay single-file entry points. No dual-path root shims.
 6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
 7. Do not resurrect deprecated ask-user-question morph into production without a redesign task
 

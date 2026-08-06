@@ -1,4 +1,11 @@
 import { z } from "zod";
+import {
+  upsertMemoryNameFieldDescription,
+  upsertMemoryContentFieldDescription,
+  upsertMemoryImpressionFieldDescription,
+  upsertMemoryConfidenceFieldDescription,
+  upsertMemoryIdFieldDescription,
+} from "@/prompts/tools/upsert-memory";
 
 /**
  * Tool input for create/update Memory. Canvas layout is client-owned
@@ -6,40 +13,19 @@ import { z } from "zod";
  * coordinates or rank.
  */
 export const upsertMemoryInputSchema = z.object({
-  name: z
-    .string()
-    .describe(
-      "Short title / node label for the knowledge graph (e.g. 'React Server Components', not a full paragraph).",
-    ),
-  content: z
-    .string()
-    .describe(
-      "Facts, knowledge, or a clear explanation to store on this memory. Keep focused — one concept per node when possible.",
-    ),
+  name: z.string().describe(upsertMemoryNameFieldDescription),
+  content: z.string().describe(upsertMemoryContentFieldDescription),
   impression: z
     .string()
     .optional()
-    .describe(
-      "Spy's evolving read of how the user relates to this knowledge — their grasp, interest, confusion, or emotional angle. Omit if unknown.",
-    ),
+    .describe(upsertMemoryImpressionFieldDescription),
   confidence: z
     .number()
     .min(0)
     .max(1)
     .optional()
-    .describe(
-      "How solid the user's grasp of this memory is, from 0 (uncertain) to 1 (firm). Omit if unknown; defaults to 0.5.",
-    ),
-  id: z
-    .string()
-    .optional()
-    .describe(
-      "Existing Memory id to update content/name/impression/confidence. Omit to create a new memory (system generates id). " +
-        "Updates change content only — tools never author geometry. " +
-        "Do NOT pass or invent canvas coordinates (x, y) or rank; the graph client places nodes from topology/cache. " +
-        "Structure (PART_OF / RELATES_TO) is via linkMemories, not this tool. " +
-        "Intermediate hierarchy: create nodes here, then link correctly.",
-    ),
+    .describe(upsertMemoryConfidenceFieldDescription),
+  id: z.string().optional().describe(upsertMemoryIdFieldDescription),
 });
 
 export type UpsertMemoryInput = z.infer<typeof upsertMemoryInputSchema>;

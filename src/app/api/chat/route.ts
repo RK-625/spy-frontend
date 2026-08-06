@@ -1,4 +1,4 @@
-import { runAgent } from "@/ai/agent";
+import { runAgent } from "@/ai";
 
 export const maxDuration = 30;
 

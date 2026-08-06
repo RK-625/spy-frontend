@@ -2,16 +2,16 @@
 
 import type { CSSProperties } from "react";
 
-import { cx } from "@/components/dotmatrix/core";
-import { resolveDmxColorTokens } from "@/components/dotmatrix/core";
-import { styleOpacity, stylePx } from "@/components/dotmatrix/core";
-import { remapOpacityToTriplet } from "@/components/dotmatrix/core";
-import { dmxBloomHaloSpreadClass, dmxBloomRootActive, dmxDotBloomParts } from "@/components/dotmatrix/core";
-import { getPatternIndexes } from "@/components/dotmatrix/core";
-import { useDotMatrixPhases } from "@/components/dotmatrix/hooks";
-import { useCyclePhase } from "@/components/dotmatrix/hooks";
-import { usePrefersReducedMotion } from "@/components/dotmatrix/hooks";
-import type { DotMatrixCommonProps } from "@/components/dotmatrix/core";
+import { cx } from "../core";
+import { resolveDmxColorTokens } from "../core";
+import { styleOpacity, stylePx } from "../core";
+import { remapOpacityToTriplet } from "../core";
+import { dmxBloomHaloSpreadClass, dmxBloomRootActive, dmxDotBloomParts } from "../core";
+import { getPatternIndexes } from "../core";
+import { useDotMatrixPhases } from "../core/hooks";
+import { useCyclePhase } from "../core/hooks";
+import { usePrefersReducedMotion } from "../core/hooks";
+import type { DotMatrixCommonProps } from "../core";
 
 export type DotmHex9Props = DotMatrixCommonProps;
 

@@ -6,8 +6,9 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/ui";
 import { useChatContext } from "@/contexts/ChatContext";
+import { useOptionalPromptShellControllerContext } from "../prompt/shell/context";
 
 export function SettingsDialog({
   onOpenChange,
@@ -16,7 +17,9 @@ export function SettingsDialog({
   onOpenChange: (b: boolean) => void;
   open: boolean;
 }) {
-  const { model, status, messages, error } = useChatContext();
+  const { status, messages, error } = useChatContext();
+  const controller = useOptionalPromptShellControllerContext();
+  const model = controller?.prefs.model ?? "—";
   const messageCount = messages.length;
 
   return (

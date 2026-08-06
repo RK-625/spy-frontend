@@ -8,44 +8,34 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@/components/ui/command";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
-} from "@/components/ui/input-group";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Spinner } from "@/components/ui/spinner";
-import {
+  Spinner,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { WIDGET, WIDGET_TYPE } from "./widget-layout";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import { AnimatePresence, motion } from "motion/react";
-import { DotmTriangle16 } from "@/components/dotmatrix/triangle-16";
-import { DotmHex9 } from "@/components/dotmatrix/hex-9";
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { DotmTriangle16 } from "@/components/dotmatrix";
+import { DotmHex9 } from "@/components/dotmatrix";
+import { DotMatrixIcon } from "@/components/dotmatrix";
 import { nanoid } from "nanoid";
 import type {
   ChangeEvent,

@@ -4,8 +4,8 @@ import {
   type UIMessage,
   stepCountIs,
 } from "ai";
-import { toolSet } from "@/ai/tools/toolset";
-import { modelConfig } from "@/ai/models/modelstore";
+import { createToolSet } from "../tools/toolset";
+import { modelConfig } from "../models/modelstore";
 import { systemPrompt } from "@/prompts/system-prompt";
 
 export async function runAgent({
@@ -25,11 +25,11 @@ export async function runAgent({
   const modelMessages = await convertToModelMessages(messages, {
     ignoreIncompleteToolCalls: true,
   });
+  // Model-scoped tools so upsertMemory can LLM-generate retrieval questions.
+  const toolSet = createToolSet({ model });
   // Only webSearch is optional; memory weave + askUserQuestion stay always on.
   const { webSearch, ...toolsWithoutSearch } = toolSet;
-  const tools = useWebSearch
-    ? toolSet
-    : toolsWithoutSearch;
+  const tools = useWebSearch ? toolSet : toolsWithoutSearch;
   const { model: resolvedModel, providerOptions: resolvedProviderOptions } =
     modelConfig({ model, mode });
   const result = streamText({
