@@ -81,6 +81,7 @@ export { PROMPT_INPUT_ACCEPT };
 /** Attach dragover/drop listeners that forward FileList to onFiles. */
 function attachFileDrop(
   target: Document | HTMLElement,
+  // SUGGESTION: Rename onFiles to onDropFiles
   onFiles: (files: FileList) => void
 ): () => void {
   const onDragOver = (e: Event) => {
@@ -159,15 +160,18 @@ export interface PromptInputControllerValue {
 
 const PromptInputControllerContext =
   createContext<PromptInputControllerValue | null>(null);
-
+// SUGGESTION: why not have a unified context here instead of two separate ones here this makes sense right na
+// and the the ue of the provider attachment context here is not too deep or needed by many components here though
 const ProviderAttachmentsContext = createContext<AttachmentsValue | null>(
   null
 );
-
+// SUGGESTION: this discoraging on prompt innput shell having a singuar context exlusively about the input here is fine right na
+// why do2 contexts for the same compontent feels over-engineered here according to code-prefernes rules
 /** Optional: returns null when outside PromptInputProvider. */
 export const useOptionalPromptInputControllerContext = () =>
   useContext(PromptInputControllerContext);
-
+// SUGGESTION: removing this 2 thing context simplfies this a lot and better a single context passed to the
+// footer,header,text-area,attachments simplfier then
 /** Required: throws when outside PromptInputProvider. */
 export const usePromptInputControllerContext =
   (): PromptInputControllerValue => {
@@ -327,7 +331,7 @@ export const PromptInputProvider = ({
 // ============================================================================
 // Component Context & Hooks
 // ============================================================================
-
+// SUGGESTIONS: THIS TOO HERE IS NOT NEEDED AND CAN BE REMOVED MAINTING ONE CONTEXT
 const LocalAttachmentsContext = createContext<AttachmentsValue | null>(null);
 
 export const usePromptInputAttachments = (): AttachmentsValue => {

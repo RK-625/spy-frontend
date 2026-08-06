@@ -10,6 +10,7 @@ const AppToaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
 
   return (
+    // SUGGESTION: CHANGE TO TOASTER OR TOST
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
