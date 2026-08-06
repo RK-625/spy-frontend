@@ -1,15 +1,20 @@
 import { z } from "zod";
+import {
+  askUserQuestionQuestionFieldDescription,
+  askUserQuestionOptionsFieldDescription,
+  askUserQuestionAllowCustomInputFieldDescription,
+} from "@/prompts/tools/ask-user-question";
 
 export const askUserQuestionInputSchema = z.object({
-  question: z.string().describe("The question text."),
+  question: z.string().describe(askUserQuestionQuestionFieldDescription),
   options: z
     .array(z.string())
     .min(2)
     .max(5)
-    .describe("Options for the user to choose from."),
+    .describe(askUserQuestionOptionsFieldDescription),
   allowCustomInput: z
     .boolean()
-    .describe("Whether to allow a write-in response."),
+    .describe(askUserQuestionAllowCustomInputFieldDescription),
 });
 
 export type AskUserQuestionInput = z.infer<typeof askUserQuestionInputSchema>;

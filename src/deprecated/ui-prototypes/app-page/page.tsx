@@ -15,10 +15,10 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
-  PromptInputProvider,
-} from "@/components/chat/ai-elements/prompt-input";
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
-import { SpeechInput } from "@/components/chat/ai-elements/speech-input";
+  PromptShellProvider,
+  SpeechInput,
+} from "@/components/chat";
+import { DotMatrixIcon } from "@/components/dotmatrix";
 
 export default function UIPrototypesPage() {
   const sampleQuestion = "Which graph database topology should we weave?";
@@ -50,7 +50,7 @@ export default function UIPrototypesPage() {
           
           <div className="p-8 bg-[#150c28] rounded-xl border border-[rgba(200,172,251,0.08)] shadow-lg relative flex justify-center">
             <div className="w-full max-w-2xl">
-              <PromptInputProvider>
+              <PromptShellProvider>
                 <div className="chat-input-wrap relative w-full">
                   <div className="chat-input-glow" />
                   <PromptInput onSubmit={(msg, e) => { e.preventDefault(); console.log(msg); }}>
@@ -72,7 +72,7 @@ export default function UIPrototypesPage() {
                     </PromptInputFooter>
                   </PromptInput>
                 </div>
-              </PromptInputProvider>
+              </PromptShellProvider>
             </div>
           </div>
         </section>

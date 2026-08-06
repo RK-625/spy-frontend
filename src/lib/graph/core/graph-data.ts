@@ -126,11 +126,3 @@ export function recomputeIncidence(graph: GraphData): void {
     }
   }
 }
-
-/** Fixtures — stable re-exports (prefer `@/lib/graph/fixtures/mock-graph`). */
-export {
-  HUB_SPOKE_COUNT,
-  createMockGraphData,
-  createLargeStressGraphData,
-  type LargeStressFixtureOptions,
-} from "../fixtures/mock-graph";

@@ -32,7 +32,7 @@ src/
   app/           # Routes + API (chat, etc.)
   components/
     ui/          # Design-system primitives
-    chat/        # Chat shell + ai-elements (prompt, messages, CoT, …)
+    chat/        # Chat domains: prompt/, conversation/, shell/
     landing/     # Marketing/hero surfaces
     dotmatrix/   # Pixel icons + loaders (use DotMatrixIcon from here)
     brand/logos/ # Provider marks

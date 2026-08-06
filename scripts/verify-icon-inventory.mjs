@@ -27,13 +27,15 @@ function assert(cond, msg) {
 const globals = read("src/app/globals.css");
 const iconTokens = read("src/lib/icon-tokens.ts");
 const home = read("src/app/home/page.tsx");
-// Domain SoT paths (not ai-elements / root shell re-export shims).
+// Domain SoT paths (barrel consumers; icon paths under shell/prompt domains).
 const sidebar = read("src/components/chat/shell/chat-sidebar.tsx");
-const attachments = read("src/components/chat/prompt/attachments.tsx");
+const attachments = read(
+  "src/components/chat/prompt/attachments/attachment-chip.tsx",
+);
 const palette = read("src/components/chat/shell/command-palette.tsx");
 const conversation = read("src/components/chat/conversation/conversation.tsx");
-const promptInput = read("src/components/chat/prompt/prompt-input.tsx");
-const speechInput = read("src/components/chat/prompt/speech-input.tsx");
+const promptSubmit = read("src/components/chat/prompt/footer/submit.tsx");
+const speechInput = read("src/components/chat/prompt/footer/speech-input.tsx");
 
 // ── CSS + TS tokens (Plan B 3-role system) ──────────────────────────
 assert(
@@ -87,21 +89,11 @@ assert(
   "home model/mode check uses size=14 (badge)"
 );
 
-// ── Prompt input toolbar/submit glyphs → 20 ─────────────────────────
+// ── Prompt submit toolbar glyphs → 20 (ActionMenu deleted; no menu plus) ─
 assert(
-  /DotMatrixIcon name="plus" size=\{ICON_GLYPH\.toolbar\}/.test(promptInput) ||
-    /DotMatrixIcon name="plus" size=\{20\}/.test(promptInput),
-  "prompt-input action-menu plus default glyph size=20"
-);
-assert(
-  /size=\{ICON_GLYPH\.toolbar\}/.test(promptInput) ||
-    /size=\{20\}/.test(promptInput),
+  /size=\{ICON_GLYPH\.toolbar\}/.test(promptSubmit) ||
+    /size=\{20\}/.test(promptSubmit),
   "prompt-input submit path uses toolbar glyph size"
-);
-// Menu row plus stays non-toolbar (12)
-assert(
-  /DotMatrixIcon name="plus" size=\{12\}/.test(promptInput),
-  "prompt-input menu plus remains size={12} (not toolbar)"
 );
 
 // ── Speech mic in toolbar-ish control → 20 ──────────────────────────

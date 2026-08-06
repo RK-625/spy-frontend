@@ -13,7 +13,7 @@ import {
   type PixiRendererHandle,
   type RtcCamera,
 } from "@/lib/graph";
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { DotMatrixIcon } from "@/components/dotmatrix";
 import { NodeDetailDialog } from "@/components/graph/node-detail-dialog";
 import type { GraphApiResponse } from "@/types/graph-topology";
 

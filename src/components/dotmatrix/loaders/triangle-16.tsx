@@ -2,15 +2,15 @@
 
 import type { CSSProperties } from "react";
 
-import { cx } from "@/components/dotmatrix/core";
-import { resolveDmxColorTokens } from "@/components/dotmatrix/core";
-import { useDotMatrixPhases } from "@/components/dotmatrix/hooks";
-import { styleOpacity, stylePx } from "@/components/dotmatrix/core";
-import { remapOpacityToTriplet } from "@/components/dotmatrix/core";
-import { dmxBloomRootActive, dmxDotBloomParts } from "@/components/dotmatrix/core";
-import { useCyclePhase } from "@/components/dotmatrix/hooks";
-import { usePrefersReducedMotion } from "@/components/dotmatrix/hooks";
-import type { DotMatrixCommonProps } from "@/components/dotmatrix/core";
+import { cx } from "../core";
+import { resolveDmxColorTokens } from "../core";
+import { useDotMatrixPhases } from "../core/hooks";
+import { styleOpacity, stylePx } from "../core";
+import { remapOpacityToTriplet } from "../core";
+import { dmxBloomRootActive, dmxDotBloomParts } from "../core";
+import { useCyclePhase } from "../core/hooks";
+import { usePrefersReducedMotion } from "../core/hooks";
+import type { DotMatrixCommonProps } from "../core";
 
 export type DotmTriangle16Props = DotMatrixCommonProps;
 

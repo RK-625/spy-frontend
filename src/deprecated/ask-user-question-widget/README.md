@@ -8,10 +8,8 @@ so we can redesign that experiment cleanly.
 - `widget-layout.ts` — `WIDGET` / `WIDGET_TYPE` tokens used by the morph UI
 
 **Live path (non-morph pending-ask):** production SoT is
-`src/components/chat/prompt/prompt-input.tsx` — `PromptInputBody` with
-`pendingAsk` + `onOptionSelect` (`PromptInputQuestion` / `PromptInputOption`).
+`@/components/chat/prompt` (`shell/prompt-input.tsx` + `body/` / `ask/pending-ask`).
 `/home` wires `getPendingAskUserQuestion` / `formatAskUserQuestionAnswer` from
-`src/lib/ask-user-question.ts`. `ai-elements/prompt-input` is a compat re-export.
-Morph UI is **not** live; simple option list **is**.
+`src/lib/ask-user-question.ts`. Morph UI is **not** live; simple option list **is**.
 
 Do not import this morph snapshot into production routes without an intentional redesign.

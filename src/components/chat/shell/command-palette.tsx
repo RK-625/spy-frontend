@@ -2,7 +2,7 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { DotMatrixIcon } from "@/components/dotmatrix";
 
 import { motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";

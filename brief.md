@@ -175,7 +175,7 @@ Do NOT look like:
 ## Component rules
 
 ### Icons
-- **Dot Matrix System:** Strictly use `DotMatrixIcon` from `@/components/dotmatrix/icons` for all UI icons. Never use smooth vector icons like `lucide-react`.
+- **Dot Matrix System:** Strictly use `DotMatrixIcon` from `@/components/dotmatrix` for all UI icons. Never use smooth vector icons like `lucide-react`.
 - **Alien Aesthetic:** Icons are rendered as pixel-art grids to reinforce the alien/terminal theme.
 
 ### Buttons

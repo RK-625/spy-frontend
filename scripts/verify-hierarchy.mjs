@@ -30,12 +30,11 @@ function rankById(graphData) {
 }
 
 async function main() {
-  const graphDataUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/core/graph-data.ts")
+  const fixtureUrl = pathToFileURL(
+    path.join(root, "src/lib/graph/fixtures/mock-graph.ts")
   ).href;
 
-  const graphDataModule = await import(graphDataUrl);
-  const { createMockGraphData } = graphDataModule;
+  const { createMockGraphData } = await import(fixtureUrl);
 
   const mock = createMockGraphData();
   const partOf = mock.edges.filter((e) => e.type === "PART_OF");

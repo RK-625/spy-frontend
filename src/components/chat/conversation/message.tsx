@@ -1,23 +1,21 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import {
+  Button,
   ButtonGroup,
   ButtonGroupText,
-} from "@/components/ui/button-group";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
 import type { UIMessage } from "ai";
-import { DotMatrixIcon } from "@/components/dotmatrix/icons";
+import { DotMatrixIcon } from "@/components/dotmatrix";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import {
   createContext,

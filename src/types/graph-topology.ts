@@ -5,10 +5,11 @@
  * - server: `listGraphTopology` (falkor), `GET /api/graph`
  * - client: `/graph` host (`graph-canvas`) → `placeTopology`
  *
- * Full product `Memory` is NOT the wire type (embeddings required on Memory).
+ * Topology is Memory-only (core fields). Embeddings live on MemoryQuestion
+ * (`questionEmbedding`) and are never on this wire payload.
  * Placement (x/y/rank) is client-only — never on this wire shape.
  *
- * `MemoryNode` is the lean row SoT (`@/types/graph-schema`).
+ * `MemoryNode` is the lean row SoT (`@/types/graph-schema`; alias of Memory).
  */
 
 import type { Links, MemoryNode } from "@/types/graph-schema";
