@@ -114,20 +114,6 @@ export const usePromptInputContext = (): PromptInputContextValue => {
   return value;
 };
 
-/**
- * Attachments from the prompt input draft context.
- * Throws when outside PromptInputProvider.
- */
-export const usePromptInputAttachments = (): AttachmentsValue => {
-  const value = useContext(PromptInputContext);
-  if (!value) {
-    throw new Error(
-      "usePromptInputAttachments must be used within a PromptInputProvider"
-    );
-  }
-  return value.attachments;
-};
-
 // ============================================================================
 // Provider
 // ============================================================================
@@ -148,7 +134,7 @@ export type PromptInputProviderProps = PropsWithChildren<{
 
 /**
  * Owns prompt draft state (text + attachments + prefs). Required wrapper for
- * PromptInput and consumers of usePromptInputAttachments / usePromptInputContext.
+ * PromptInput and consumers of usePromptInputContext.
  */
 export const PromptInputProvider = ({
   initialInput: initialTextInput = "",

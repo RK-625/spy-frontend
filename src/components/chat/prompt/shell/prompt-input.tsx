@@ -25,7 +25,6 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PromptInputProvider,
-  usePromptInputAttachments,
   usePromptInputContext,
 } from "./context";
 import { PromptInputHeader } from "../header/header";
@@ -337,16 +336,11 @@ function PromptInputWorkspaceInner({
   onStop,
 }: PromptInputWorkspaceProps) {
   const { submitUserMessage } = useChatSubmit();
-  const promptInput = usePromptInputContext();
-  const attachments = usePromptInputAttachments();
   const {
-    model,
-    setModel,
-    mode,
-    setMode,
-    useWebSearch,
-    toggleWebSearch,
-  } = promptInput.prefs;
+    attachments,
+    textInput,
+    prefs: { model, setModel, mode, setMode, useWebSearch, toggleWebSearch },
+  } = usePromptInputContext();
 
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
@@ -393,13 +387,13 @@ function PromptInputWorkspaceInner({
 
   const handleTranscriptionChange = useCallback(
     (transcript: string) => {
-      promptInput.textInput.setValue(
-        promptInput.textInput.value
-          ? `${promptInput.textInput.value} ${transcript}`
+      textInput.setValue(
+        textInput.value
+          ? `${textInput.value} ${transcript}`
           : transcript,
       );
     },
-    [promptInput],
+    [textInput],
   );
 
   const handleAttachmentError = useCallback((err: { message: string }) => {
@@ -422,10 +416,10 @@ function PromptInputWorkspaceInner({
     () =>
       status === "ready" &&
       ((pendingAsk != null && !pendingAsk.allowCustomInput) ||
-        (!promptInput.textInput.value.trim() &&
+        (!textInput.value.trim() &&
           attachments.files.length === 0)),
     [
-      promptInput.textInput.value,
+      textInput.value,
       attachments.files.length,
       status,
       pendingAsk,

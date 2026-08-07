@@ -14,10 +14,7 @@ import type {
   KeyboardEventHandler,
 } from "react";
 import { useCallback, useState } from "react";
-import {
-  usePromptInputAttachments,
-  usePromptInputContext,
-} from "../shell/context";
+import { usePromptInputContext } from "../shell/context";
 
 export type PromptInputTextareaProps = ComponentProps<
   typeof InputGroupTextarea
@@ -30,8 +27,7 @@ export const PromptInputTextarea = ({
   placeholder = "What would you like to know?",
   ...props
 }: PromptInputTextareaProps) => {
-  const promptInput = usePromptInputContext();
-  const attachments = usePromptInputAttachments();
+  const { attachments, textInput } = usePromptInputContext();
   const [isComposing, setIsComposing] = useState(false);
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
@@ -106,14 +102,14 @@ export const PromptInputTextarea = ({
   const handleCompositionEnd = useCallback(() => setIsComposing(false), []);
   const handleCompositionStart = useCallback(() => setIsComposing(true), []);
 
-  const textValue = promptInput.textInput.value;
+  const textValue = textInput.value;
 
   const handleTextareaChange = useCallback(
     (e: ChangeEvent<HTMLTextAreaElement>) => {
-      promptInput.textInput.setValue(e.currentTarget.value);
+      textInput.setValue(e.currentTarget.value);
       onChange?.(e);
     },
-    [promptInput, onChange],
+    [textInput, onChange],
   );
 
   const isEmpty = !textValue;
