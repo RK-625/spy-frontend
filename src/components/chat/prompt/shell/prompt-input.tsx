@@ -57,7 +57,7 @@ import {
   type PendingAskUserQuestion,
 } from "@/lib/ask-user-question";
 import { chefs, models } from "@/lib/models";
-import { useChatSubmit } from "@/hooks/use-chat-submit";
+import { useChatContext } from "@/contexts/ChatContext";
 import type { ChatStatus } from "ai";
 
 // PROMPT_INPUT_ACCEPT lives in attachments/prompt-input-files; re-exported via
@@ -161,7 +161,7 @@ export const PromptInput = ({
   // Register accept/size/maxFiles gate so attachments.add is always validated
   // while PromptInput is mounted (children, drop, file picker share one path).
   useEffect(() => {
-    promptInput.__registerAttachmentValidator((files, { currentCount }) => {
+    promptInput.__registerAttachmentValidator((files, currentCount) => {
       const v = validationRef.current;
       return filterIncomingFiles(files, {
         accept: v.accept,
@@ -327,12 +327,59 @@ function PromptInputWorkspaceForm({
   status,
   onStop,
 }: PromptInputWorkspaceProps) {
-  const { submitUserMessage } = useChatSubmit();
+  const { sendMessage } = useChatContext();
   const {
     attachments,
     textInput,
     prefs: { model, setModel, mode, setMode, useWebSearch, toggleWebSearch },
   } = usePromptInputContext();
+
+  const submitUserMessage = useCallback(
+    async (
+      message: PromptInputMessage,
+      prefs: {
+        model: string;
+        mode: string;
+        useWebSearch: boolean;
+      },
+    ) => {
+      if (status !== "ready") return;
+
+      const hasText = Boolean(message.text?.trim());
+      const hasAttachments = Boolean(message.files?.length);
+
+      if (!hasText && !hasAttachments) {
+        return;
+      }
+
+      const submitModel = prefs.model;
+      const submitMode = prefs.mode;
+      const submitUseWebSearch = prefs.useWebSearch;
+
+      try {
+        await sendMessage(
+          {
+            text: message.text?.trim() || "",
+            files:
+              message.files && message.files.length > 0
+                ? message.files
+                : undefined,
+          },
+          {
+            body: {
+              model: submitModel,
+              useWebSearch: submitUseWebSearch,
+              mode: submitMode,
+            },
+          },
+        );
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to send message");
+      }
+    },
+    [sendMessage, status],
+  );
 
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
@@ -349,32 +396,38 @@ function PromptInputWorkspaceForm({
       const answer = message.text?.trim() ?? "";
       const hasFiles = (message.files?.length ?? 0) > 0;
       if (pendingAsk != null && (answer.length > 0 || hasFiles)) {
-        void submitUserMessage({
-          text: formatAskUserQuestionAnswer({
-            question: pendingAsk.question,
-            answer: answer.length > 0 ? answer : "(attachment)",
-          }),
-          files: message.files,
-        });
+        void submitUserMessage(
+          {
+            text: formatAskUserQuestionAnswer({
+              question: pendingAsk.question,
+              answer: answer.length > 0 ? answer : "(attachment)",
+            }),
+            files: message.files,
+          },
+          { model, mode, useWebSearch },
+        );
         return;
       }
-      void submitUserMessage(message);
+      void submitUserMessage(message, { model, mode, useWebSearch });
     },
-    [submitUserMessage, pendingAsk, status],
+    [submitUserMessage, pendingAsk, status, model, mode, useWebSearch],
   );
 
   const handleWidgetOptionSelect = useCallback(
     (option: PromptInputWidgetOption) => {
       if (status !== "ready" || pendingAsk == null) return;
-      void submitUserMessage({
-        text: formatAskUserQuestionAnswer({
-          question: pendingAsk.question,
-          answer: option.label,
-        }),
-        files: [],
-      });
+      void submitUserMessage(
+        {
+          text: formatAskUserQuestionAnswer({
+            question: pendingAsk.question,
+            answer: option.label,
+          }),
+          files: [],
+        },
+        { model, mode, useWebSearch },
+      );
     },
-    [submitUserMessage, pendingAsk, status],
+    [submitUserMessage, pendingAsk, status, model, mode, useWebSearch],
   );
 
   const handleTranscriptionChange = useCallback(

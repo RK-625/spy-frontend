@@ -52,7 +52,7 @@ export interface TextInputValue {
  */
 export type AttachmentAddValidator = (
   files: File[] | FileList,
-  ctx: { currentCount: number }
+  currentCount: number
 ) => File[];
 
 /** Chat request prefs owned by the prompt shell (not stream state). */
@@ -131,9 +131,9 @@ export const PromptInputProvider = ({ children }: PropsWithChildren) => {
 
   // ----- prefs (model / mode / web) — no selector open flags
   const [model, setModel] = useState(DEFAULT_PROMPT_PREFS.model);
-  const [mode, setMode] = useState(DEFAULT_PROMPT_PREFS.mode);
-  const [useWebSearch, setUseWebSearch] = useState(
-    DEFAULT_PROMPT_PREFS.useWebSearch
+  const [mode, setMode] = useState<string>(DEFAULT_PROMPT_PREFS.mode);
+  const [useWebSearch, setUseWebSearch] = useState<boolean>(
+    DEFAULT_PROMPT_PREFS.useWebSearch,
   );
   const toggleWebSearch = useCallback(() => {
     setUseWebSearch((prev) => !prev);
@@ -153,7 +153,7 @@ export const PromptInputProvider = ({ children }: PropsWithChildren) => {
       setAttachmentFiles((prev) => {
         let toAdd: File[];
         if (validatorRef.current) {
-          toAdd = validatorRef.current(files, { currentCount: prev.length });
+          toAdd = validatorRef.current(files, prev.length);
         } else {
           const incoming = [...files];
           if (incoming.length === 0) {
