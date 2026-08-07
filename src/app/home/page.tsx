@@ -26,7 +26,6 @@ import { getPendingAskUserQuestion } from "@/lib/ask-user-question";
 import { useCallback, useMemo } from "react";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { useChatSubmit } from "@/hooks/use-chat-submit";
-import { TooltipProvider } from "@/components/ui";
 import ShinyText from "@/components/landing/shiny-text";
 
 /** Mirrors src/ai/toolset.ts webSearch input/output for UI parts */
@@ -292,8 +291,8 @@ export default function HomePage() {
       <div className="fixed inset-0 z-50 bg-surface-chat pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
 
       <div className="relative z-10 flex h-screen w-full">
-        {/* Sidebar + main share ChatProvider (stream only); prompt shell scoped in workspace */}
-        <ChatProviderWrapper>
+        {/* Sidebar + workspace share ChatProvider (stream); prompt shell scoped in workspace */}
+        <ChatProvider>
           <ChatSidebar />
           {/* Main chat area */}
           <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
@@ -313,17 +312,8 @@ export default function HomePage() {
               <ChatWorkspace />
             </div>
           </div>
-        </ChatProviderWrapper>
+        </ChatProvider>
       </div>
     </div>
-  );
-}
-
-// Stream-only provider for sidebar + workspace
-function ChatProviderWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <TooltipProvider delayDuration={300}>
-      <ChatProvider>{children}</ChatProvider>
-    </TooltipProvider>
   );
 }

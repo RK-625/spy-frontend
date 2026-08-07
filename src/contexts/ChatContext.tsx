@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { createContext, useCallback, useContext, useMemo } from "react";
 import type { ChatContextValue } from "@/types/chat";
+import { TooltipProvider } from "@/components/ui";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
@@ -48,7 +49,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
+  return (
+    <TooltipProvider delayDuration={300}>
+      <ChatContext.Provider value={value}>{children}</ChatContext.Provider>
+    </TooltipProvider>
+  );
 }
 
 export function useChatContext() {
