@@ -389,7 +389,7 @@ function PromptInputWorkspaceForm({
     [model],
   );
 
-  const submitAskOrChat = useCallback(
+  const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
       if (status !== "ready") return;
       if (pendingAsk != null && !pendingAsk.allowCustomInput) return;
@@ -478,7 +478,7 @@ function PromptInputWorkspaceForm({
         <PromptInput
           globalDrop
           multiple
-          onSubmit={submitAskOrChat}
+          onSubmit={handleSubmit}
           accept={PROMPT_INPUT_ACCEPT}
           maxFiles={5}
           maxFileSize={10 * 1024 * 1024}
