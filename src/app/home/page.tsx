@@ -16,16 +16,13 @@ import {
   SourcesContent,
   SourcesTrigger,
   PromptInputWorkspace,
-  Suggestion,
-  Suggestions,
   ChatSidebar,
 } from "@/components/chat";
 import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
 import { getPendingAskUserQuestion } from "@/lib/ask-user-question";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
-import { useChatSubmit } from "@/hooks/use-chat-submit";
 import ShinyText from "@/components/landing/shiny-text";
 
 /** Mirrors src/ai/toolset.ts webSearch input/output for UI parts */
@@ -50,43 +47,6 @@ function isWebSearchToolPart(
   return part.type === "tool-webSearch";
 }
 
-const suggestions = [
-  "What are the latest trends in AI?",
-  "How does machine learning work?",
-  "Explain quantum computing",
-  "Best practices for React development",
-  "Tell me about TypeScript benefits",
-  "How to optimize database queries?",
-  "What is the difference between SQL and NoSQL?",
-  "Explain cloud computing basics",
-];
-
-const SuggestionItem = ({
-  suggestion,
-  onClick,
-}: {
-  suggestion: string;
-  onClick: (suggestion: string) => void;
-}) => {
-  const handleClick = useCallback(() => {
-    onClick(suggestion);
-  }, [onClick, suggestion]);
-
-  return (
-    <Suggestion
-      className="rounded-[var(--radius)] font-[family-name:var(--font-body)] text-[0.75rem] font-medium tracking-wide
-                 text-lavender-muted border-[var(--border-default)] bg-[var(--surface-elevated)]/50
-                 hover:border-[var(--accent-border)] hover:bg-[var(--accent-decoration)]/20
-                 hover:text-accent-hover
-                 data-[state=selected]:border-[var(--accent-border)]
-                 data-[state=selected]:bg-[var(--accent-decoration)]/20
-                 transition-all duration-200"
-      onClick={handleClick}
-      suggestion={suggestion}
-    />
-  );
-};
-
 const EmptyState = () => (
   <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-12 text-center">
     <div className="text-lavender/40 font-[family-name:var(--font-terminal)] text-2xl">
@@ -101,19 +61,10 @@ const EmptyState = () => (
 
 const ChatWorkspace = () => {
   const { status, messages, error, stop } = useChatContext();
-  const { submitUserMessage } = useChatSubmit();
 
   const pendingAsk = useMemo(
     () => getPendingAskUserQuestion(messages),
     [messages],
-  );
-
-  const handleSuggestionClick = useCallback(
-    (suggestion: string) => {
-      if (status !== "ready") return;
-      void submitUserMessage({ text: suggestion, files: [] });
-    },
-    [submitUserMessage, status],
   );
 
   return (
@@ -265,16 +216,7 @@ const ChatWorkspace = () => {
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="flex shrink-0 flex-col gap-3 pt-4">
-        <Suggestions className="px-4">
-          {suggestions.map((suggestion) => (
-            <SuggestionItem
-              key={suggestion}
-              onClick={handleSuggestionClick}
-              suggestion={suggestion}
-            />
-          ))}
-        </Suggestions>
+      <div className="shrink-0 pt-4">
         <PromptInputWorkspace
           pendingAsk={pendingAsk}
           status={status}

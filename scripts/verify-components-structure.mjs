@@ -51,7 +51,6 @@ const required = [
   "src/components/chat/prompt/footer/submit.tsx",
   "src/components/chat/prompt/footer/speech-input.tsx",
   "src/components/chat/prompt/footer/model-selector.tsx",
-  "src/components/chat/prompt/suggestion.tsx",
   "src/components/chat/prompt/index.ts",
   "src/components/chat/conversation/conversation.tsx",
   "src/components/chat/conversation/message.tsx",

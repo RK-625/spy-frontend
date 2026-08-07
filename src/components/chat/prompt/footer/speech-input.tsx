@@ -131,7 +131,7 @@ export const SpeechInput = ({
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [mode] = useState<SpeechInputMode>(detectSpeechInputMode);
+  const [mode, setMode] = useState<SpeechInputMode>("none");
   const [isRecognitionReady, setIsRecognitionReady] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -153,6 +153,11 @@ export const SpeechInput = ({
     onAudioRecordedRef.current = onAudioRecorded;
     onErrorRef.current = onError;
   }, [onTranscriptionChange, onAudioRecorded, onError]);
+
+  // Browser-only capability detection — must run after mount to match SSR HTML.
+  useEffect(() => {
+    setMode(detectSpeechInputMode());
+  }, []);
 
   // Initialize Speech Recognition when mode is speech-recognition
   useEffect(() => {
