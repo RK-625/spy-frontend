@@ -8,7 +8,10 @@
 import { useCallback } from "react";
 import { toast } from "@/components/ui/app-toaster";
 import { useChatContext } from "@/contexts/ChatContext";
-import { usePromptShellControllerContext } from "@/components/chat";
+import {
+  DEFAULT_PROMPT_PREFS,
+  useOptionalPromptShellControllerContext,
+} from "@/components/chat/prompt/shell/context";
 import type { PromptInputMessage } from "@/types/chat";
 
 export type ChatSubmitPrefsOverride = Partial<{
@@ -33,7 +36,8 @@ export type UseChatSubmitResult = {
  */
 export function useChatSubmit(): UseChatSubmitResult {
   const { sendMessage, status, stop } = useChatContext();
-  const { prefs } = usePromptShellControllerContext();
+  const shell = useOptionalPromptShellControllerContext();
+  const prefs = shell?.prefs ?? DEFAULT_PROMPT_PREFS;
 
   const submitUserMessage = useCallback(
     async (

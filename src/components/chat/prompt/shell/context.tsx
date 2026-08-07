@@ -127,9 +127,11 @@ export const usePromptInputAttachments = (): AttachmentsValue => {
 // Provider
 // ============================================================================
 
-const DEFAULT_MODEL_ID = models[0]?.id ?? "deepseek-v4-flash";
-const DEFAULT_MODE = "high";
-const DEFAULT_USE_WEB_SEARCH = true;
+export const DEFAULT_PROMPT_PREFS = {
+  model: models[0]?.id ?? "deepseek-v4-flash",
+  mode: "high" as const,
+  useWebSearch: true,
+} satisfies Pick<PromptInputPrefsValue, "model" | "mode" | "useWebSearch">;
 
 export type PromptShellProviderProps = PropsWithChildren<{
   initialInput?: string;
@@ -146,9 +148,9 @@ export type PromptShellProviderProps = PropsWithChildren<{
 export const PromptShellProvider = ({
   initialInput: initialTextInput = "",
   maxFiles,
-  initialModel = DEFAULT_MODEL_ID,
-  initialMode = DEFAULT_MODE,
-  initialUseWebSearch = DEFAULT_USE_WEB_SEARCH,
+  initialModel = DEFAULT_PROMPT_PREFS.model,
+  initialMode = DEFAULT_PROMPT_PREFS.mode,
+  initialUseWebSearch = DEFAULT_PROMPT_PREFS.useWebSearch,
   children,
 }: PromptShellProviderProps) => {
   // ----- textInput state

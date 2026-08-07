@@ -15,52 +15,19 @@ import {
   Source,
   SourcesContent,
   SourcesTrigger,
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorGroup,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
-  ModelSelectorLogo,
-  ModelSelectorName,
-  ModelSelectorTrigger,
-  PromptInputAttachments,
-  PromptInput,
-  PromptInputBody,
-  PromptInputButton,
-  PromptInputFooter,
-  PromptInputHeader,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
-  PROMPT_INPUT_ACCEPT,
-  usePromptInputAttachments,
-  PromptShellProvider,
-  usePromptShellControllerContext,
-  SpeechInput,
+  PromptInputWorkspace,
   Suggestion,
   Suggestions,
-  type PromptInputMessage,
-  type PromptInputWidgetOption,
   ChatSidebar,
 } from "@/components/chat";
 import dynamic from "next/dynamic";
 import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
-import { cn } from "@/lib/utils";
-import {
-  formatAskUserQuestionAnswer,
-  getPendingAskUserQuestion,
-} from "@/lib/ask-user-question";
-import { DotMatrixIcon } from "@/components/dotmatrix";
-import { ICON_GLYPH } from "@/lib/icon-tokens";
-import { useCallback, useMemo, useState } from "react";
+import { getPendingAskUserQuestion } from "@/lib/ask-user-question";
+import { useCallback, useMemo } from "react";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { useChatSubmit } from "@/hooks/use-chat-submit";
 import { TooltipProvider } from "@/components/ui";
-import { toast } from "@/components/ui/app-toaster";
-import { models, chefs } from "@/lib/models";
 import ShinyText from "@/components/landing/shiny-text";
 
 /** Mirrors src/ai/toolset.ts webSearch input/output for UI parts */
@@ -122,32 +89,6 @@ const SuggestionItem = ({
   );
 };
 
-const ModelItem = ({
-  m,
-  isSelected,
-  onSelect,
-}: {
-  m: (typeof models)[0];
-  isSelected: boolean;
-  onSelect: (id: string) => void;
-}) => {
-  const handleSelect = useCallback(() => {
-    onSelect(m.id);
-  }, [onSelect, m.id]);
-
-  return (
-    <ModelSelectorItem onSelect={handleSelect} value={m.name}>
-      <ModelSelectorLogo icon={m.icon} />
-      <ModelSelectorName>{m.name}</ModelSelectorName>
-      {isSelected ? (
-        <DotMatrixIcon name="check" size={ICON_GLYPH.badge} className="ml-auto" />
-      ) : (
-        <div className="ml-auto size-2.5" />
-      )}
-    </ModelSelectorItem>
-  );
-};
-
 const EmptyState = () => (
   <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-12 text-center">
     <div className="text-lavender/40 font-[family-name:var(--font-terminal)] text-2xl">
@@ -163,67 +104,10 @@ const EmptyState = () => (
 const ChatWorkspace = () => {
   const { status, messages, error, stop } = useChatContext();
   const { submitUserMessage } = useChatSubmit();
-  const controller = usePromptShellControllerContext();
-  const attachments = usePromptInputAttachments();
-  const {
-    model,
-    setModel,
-    mode,
-    setMode,
-    useWebSearch,
-    toggleWebSearch,
-  } = controller.prefs;
-
-  // Selector open flags stay local to this surface (not on controller)
-  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-  const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
 
   const pendingAsk = useMemo(
     () => getPendingAskUserQuestion(messages),
     [messages],
-  );
-
-  const selectedModelData = useMemo(
-    () => models.find((m) => m.id === model),
-    [model],
-  );
-
-  /** Chat submit; when a pending ask is open, wrap text (or file-only) as Q:/A:. */
-  const submitAskOrChat = useCallback(
-    (message: PromptInputMessage) => {
-      if (status !== "ready") return;
-      // Forced choice: only option chips may answer.
-      if (pendingAsk != null && !pendingAsk.allowCustomInput) return;
-      const answer = message.text?.trim() ?? "";
-      const hasFiles = (message.files?.length ?? 0) > 0;
-      if (pendingAsk != null && (answer.length > 0 || hasFiles)) {
-        void submitUserMessage({
-          text: formatAskUserQuestionAnswer({
-            question: pendingAsk.question,
-            answer: answer.length > 0 ? answer : "(attachment)",
-          }),
-          files: message.files,
-        });
-        return;
-      }
-      void submitUserMessage(message);
-    },
-    [submitUserMessage, pendingAsk, status],
-  );
-
-  /** Option label → Q/A user message (same path as form submit). */
-  const handleWidgetOptionSelect = useCallback(
-    (option: PromptInputWidgetOption) => {
-      if (status !== "ready" || pendingAsk == null) return;
-      void submitUserMessage({
-        text: formatAskUserQuestionAnswer({
-          question: pendingAsk.question,
-          answer: option.label,
-        }),
-        files: [],
-      });
-    },
-    [submitUserMessage, pendingAsk, status],
   );
 
   const handleSuggestionClick = useCallback(
@@ -232,50 +116,6 @@ const ChatWorkspace = () => {
       void submitUserMessage({ text: suggestion, files: [] });
     },
     [submitUserMessage, status],
-  );
-
-  const handleTranscriptionChange = useCallback(
-    (transcript: string) => {
-      controller.textInput.setValue(
-        controller.textInput.value
-          ? `${controller.textInput.value} ${transcript}`
-          : transcript,
-      );
-    },
-    [controller],
-  );
-
-  const handleAttachmentError = useCallback(
-    (err: { message: string }) => {
-      toast.error(err.message);
-    },
-    [],
-  );
-
-  const handleSpeechError = useCallback((message: string) => {
-    toast.error(message);
-  }, []);
-
-  const handleModelSelect = useCallback(
-    (modelId: string) => {
-      setModel(modelId);
-      setModelSelectorOpen(false);
-    },
-    [setModel],
-  );
-
-  const isSubmitDisabled = useMemo(
-    () =>
-      status === "ready" &&
-      ((pendingAsk != null && !pendingAsk.allowCustomInput) ||
-        (!controller.textInput.value.trim() &&
-          attachments.files.length === 0)),
-    [
-      controller.textInput.value,
-      attachments.files.length,
-      status,
-      pendingAsk,
-    ],
   );
 
   return (
@@ -437,177 +277,11 @@ const ChatWorkspace = () => {
             />
           ))}
         </Suggestions>
-        <div className="w-full px-4 pb-4 pt-1">
-          <div className="chat-input-wrap relative">
-            <div className="chat-input-glow" />
-            <PromptInput
-              globalDrop
-              multiple
-              onSubmit={submitAskOrChat}
-              accept={PROMPT_INPUT_ACCEPT}
-              maxFiles={5}
-              maxFileSize={10 * 1024 * 1024}
-              onError={handleAttachmentError}
-            >
-              <PromptInputHeader>
-                <PromptInputAttachments />
-              </PromptInputHeader>
-              <PromptInputBody
-                pendingAsk={pendingAsk}
-                onOptionSelect={handleWidgetOptionSelect}
-              >
-                <PromptInputTextarea />
-              </PromptInputBody>
-              <PromptInputFooter>
-                <PromptInputTools>
-                  <PromptInputButton
-                    onClick={attachments.openFileDialog}
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label="Add photos or files"
-                    tooltip={{
-                      content: "Add photos or files",
-                      side: "top",
-                    }}
-                    className="text-text-primary hover:bg-[var(--surface-hover)]"
-                  >
-                    <DotMatrixIcon name="plus" size={ICON_GLYPH.toolbar} />
-                  </PromptInputButton>
-                  <SpeechInput
-                    className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)]"
-                    onTranscriptionChange={handleTranscriptionChange}
-                    onError={handleSpeechError}
-                    size="icon-sm"
-                    variant="ghost"
-                  />
-                  <PromptInputButton
-                    onClick={toggleWebSearch}
-                    size="icon-sm"
-                    variant={useWebSearch ? "default" : "ghost"}
-                    aria-label={
-                      useWebSearch ? "Disable web search" : "Enable web search"
-                    }
-                    tooltip={{
-                      content: useWebSearch
-                        ? "Disable web search"
-                        : "Enable web search",
-                      side: "top",
-                    }}
-                    className={cn(
-                      "transition-colors",
-                      useWebSearch
-                        ? "bg-primary text-accent-ink hover:bg-accent-hover"
-                        : "text-text-primary hover:bg-[var(--surface-hover)]",
-                    )}
-                  >
-                    <DotMatrixIcon name="globe" size={ICON_GLYPH.toolbar} />
-                  </PromptInputButton>
-                  <ModelSelector
-                    onOpenChange={setModelSelectorOpen}
-                    open={modelSelectorOpen}
-                  >
-                    <ModelSelectorTrigger asChild>
-                      <PromptInputButton
-                        data-model-trigger
-                        className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center gap-1.5"
-                        variant="ghost"
-                        aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
-                      >
-                        {selectedModelData ? (
-                          <selectedModelData.icon className="size-3 shrink-0" />
-                        ) : (
-                          <DotMatrixIcon name="settings" size={ICON_GLYPH.toolbar} />
-                        )}
-                        {selectedModelData ? (
-                          <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide">
-                            {selectedModelData.name}
-                          </span>
-                        ) : null}
-                      </PromptInputButton>
-                    </ModelSelectorTrigger>
-                    <ModelSelectorContent>
-                      <ModelSelectorInput placeholder="Search models..." />
-                      <ModelSelectorList>
-                        <ModelSelectorEmpty>
-                          No models found.
-                        </ModelSelectorEmpty>
-                        {chefs.map((chef) => (
-                          <ModelSelectorGroup heading={chef} key={chef}>
-                            {models
-                              .filter((m) => m.chef === chef)
-                              .map((m) => (
-                                <ModelItem
-                                  isSelected={model === m.id}
-                                  key={m.id}
-                                  m={m}
-                                  onSelect={handleModelSelect}
-                                />
-                              ))}
-                          </ModelSelectorGroup>
-                        ))}
-                      </ModelSelectorList>
-                    </ModelSelectorContent>
-                  </ModelSelector>
-                  {selectedModelData?.mode &&
-                    selectedModelData.mode.length > 0 && (
-                      <ModelSelector
-                        onOpenChange={setModeSelectorOpen}
-                        open={modeSelectorOpen}
-                      >
-                        <ModelSelectorTrigger asChild>
-                          <PromptInputButton
-                            data-model-trigger
-                            className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center justify-center px-2"
-                            variant="ghost"
-                            aria-label="Select mode"
-                          >
-                            <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide capitalize">
-                              {mode}
-                            </span>
-                          </PromptInputButton>
-                        </ModelSelectorTrigger>
-                        <ModelSelectorContent className="w-auto">
-                          <ModelSelectorList>
-                            {selectedModelData.mode.map((m) => (
-                              <ModelSelectorItem
-                                key={m}
-                                value={m}
-                                onSelect={(val) => {
-                                  setMode(val);
-                                  setModeSelectorOpen(false);
-                                }}
-                              >
-                                <span className="capitalize">{m}</span>
-                                {mode === m && (
-                                  <DotMatrixIcon
-                                    name="check"
-                                    size={ICON_GLYPH.badge}
-                                    className="ml-auto opacity-50"
-                                  />
-                                )}
-                              </ModelSelectorItem>
-                            ))}
-                          </ModelSelectorList>
-                        </ModelSelectorContent>
-                      </ModelSelector>
-                    )}
-                </PromptInputTools>
-                <PromptInputSubmit
-                  className={cn(
-                    "!size-8 !rounded-[var(--radius)] transition-colors duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] disabled:!opacity-100",
-                    !isSubmitDisabled
-                      ? "bg-primary text-accent-ink hover:bg-accent-hover"
-                      : "text-text-primary hover:bg-[var(--surface-hover)]",
-                  )}
-                  variant={!isSubmitDisabled ? "default" : "ghost"}
-                  disabled={isSubmitDisabled}
-                  onStop={stop}
-                  status={status}
-                />
-              </PromptInputFooter>
-            </PromptInput>
-          </div>
-        </div>
+        <PromptInputWorkspace
+          pendingAsk={pendingAsk}
+          status={status}
+          onStop={stop}
+        />
       </div>
     </div>
   );
@@ -672,7 +346,7 @@ export default function HomePage() {
       <div className="fixed inset-0 z-0 bg-[var(--surface-chat-veil)] pointer-events-none" />
 
       <div className="relative z-10 flex h-screen w-full">
-        {/* Sidebar + main share ChatProvider (stream) and PromptShellProvider (draft/prefs) */}
+        {/* Sidebar + main share ChatProvider (stream only); prompt shell scoped in workspace */}
         <ChatProviderWrapper>
           <ChatSidebar />
           {/* Main chat area */}
@@ -699,13 +373,11 @@ export default function HomePage() {
   );
 }
 
-// Stream + prompt draft/prefs shared by sidebar settings and main workspace
+// Stream-only provider for sidebar + workspace
 function ChatProviderWrapper({ children }: { children: React.ReactNode }) {
   return (
     <TooltipProvider delayDuration={300}>
-      <ChatProvider>
-        <PromptShellProvider>{children}</PromptShellProvider>
-      </ChatProvider>
+      <ChatProvider>{children}</ChatProvider>
     </TooltipProvider>
   );
 }
