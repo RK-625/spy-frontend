@@ -92,9 +92,16 @@ export interface PromptInputContextValue {
 
 const PromptInputContext = createContext<PromptInputContextValue | null>(null);
 
-/** Optional: returns null when outside PromptInputProvider. */
-export const useOptionalPromptInputContext = () =>
-  useContext(PromptInputContext);
+export type PromptInputPrefsReadonly = Pick<
+  PromptInputPrefsValue,
+  "model" | "mode" | "useWebSearch"
+>;
+
+/** Prefs for submit: live when inside PromptInputProvider, defaults when outside. */
+export function usePromptInputPrefs(): PromptInputPrefsReadonly {
+  const value = useContext(PromptInputContext);
+  return value?.prefs ?? DEFAULT_PROMPT_PREFS;
+}
 
 /** Required: throws when outside PromptInputProvider. */
 export const usePromptInputContext = (): PromptInputContextValue => {
