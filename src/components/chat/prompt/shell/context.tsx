@@ -37,7 +37,6 @@ export interface AttachmentsValue {
   remove: (id: string) => void;
   clear: () => void;
   openFileDialog: () => void;
-  fileInputRef: RefObject<HTMLInputElement | null>;
 }
 
 /** Text field store API (context value shape, not a React context). */
@@ -72,11 +71,8 @@ export interface PromptInputContextValue {
   textInput: TextInputValue;
   attachments: AttachmentsValue;
   prefs: PromptInputPrefsValue;
-  /** INTERNAL: PromptInput registers its hidden file input + open callback */
-  __registerFileInput: (
-    ref: RefObject<HTMLInputElement | null>,
-    open: () => void
-  ) => void;
+  /** INTERNAL: PromptInput registers hidden file input ref */
+  __registerFileInput: (ref: RefObject<HTMLInputElement | null>) => void;
   /**
    * INTERNAL: PromptInput registers accept/size/maxFiles validation.
    * Pass null on unmount. While set, `attachments.add` runs through it.
@@ -124,34 +120,21 @@ export const DEFAULT_PROMPT_PREFS = {
   useWebSearch: true,
 } satisfies Pick<PromptInputPrefsValue, "model" | "mode" | "useWebSearch">;
 
-export type PromptInputProviderProps = PropsWithChildren<{
-  initialInput?: string;
-  maxFiles?: number;
-  initialModel?: string;
-  initialMode?: string;
-  initialUseWebSearch?: boolean;
-}>;
-
 /**
  * Owns prompt draft state (text + attachments + prefs). Required wrapper for
  * PromptInput and consumers of usePromptInputContext.
  */
-export const PromptInputProvider = ({
-  initialInput: initialTextInput = "",
-  maxFiles,
-  initialModel = DEFAULT_PROMPT_PREFS.model,
-  initialMode = DEFAULT_PROMPT_PREFS.mode,
-  initialUseWebSearch = DEFAULT_PROMPT_PREFS.useWebSearch,
-  children,
-}: PromptInputProviderProps) => {
+export const PromptInputProvider = ({ children }: PropsWithChildren) => {
   // ----- textInput state
-  const [textInput, setTextInput] = useState(initialTextInput);
+  const [textInput, setTextInput] = useState("");
   const clearInput = useCallback(() => setTextInput(""), []);
 
   // ----- prefs (model / mode / web) — no selector open flags
-  const [model, setModel] = useState(initialModel);
-  const [mode, setMode] = useState(initialMode);
-  const [useWebSearch, setUseWebSearch] = useState(initialUseWebSearch);
+  const [model, setModel] = useState(DEFAULT_PROMPT_PREFS.model);
+  const [mode, setMode] = useState(DEFAULT_PROMPT_PREFS.mode);
+  const [useWebSearch, setUseWebSearch] = useState(
+    DEFAULT_PROMPT_PREFS.useWebSearch
+  );
   const toggleWebSearch = useCallback(() => {
     setUseWebSearch((prev) => !prev);
   }, []);
@@ -160,9 +143,9 @@ export const PromptInputProvider = ({
   const [attachmentFiles, setAttachmentFiles] = useState<
     (FileUIPart & { id: string })[]
   >([]);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  // oxlint-disable-next-line eslint(no-empty-function)
-  const openRef = useRef<() => void>(() => {});
+  const registeredInputRef = useRef<RefObject<HTMLInputElement | null> | null>(
+    null
+  );
   const validatorRef = useRef<AttachmentAddValidator | null>(null);
 
   const add = useCallback(
@@ -176,15 +159,7 @@ export const PromptInputProvider = ({
           if (incoming.length === 0) {
             return prev;
           }
-          // No PromptInput gate yet: soft maxFiles cap only
-          const capacity =
-            typeof maxFiles === "number"
-              ? Math.max(0, maxFiles - prev.length)
-              : undefined;
-          toAdd =
-            typeof capacity === "number"
-              ? incoming.slice(0, capacity)
-              : incoming;
+          toAdd = incoming;
         }
         if (toAdd.length === 0) {
           return prev;
@@ -192,7 +167,7 @@ export const PromptInputProvider = ({
         return [...prev, ...filesToFileUIParts(toAdd)];
       });
     },
-    [maxFiles]
+    []
   );
 
   const remove = useCallback((id: string) => {
@@ -228,14 +203,13 @@ export const PromptInputProvider = ({
   );
 
   const openFileDialog = useCallback(() => {
-    openRef.current?.();
+    registeredInputRef.current?.current?.click();
   }, []);
 
   const attachments = useMemo<AttachmentsValue>(
     () => ({
       add,
       clear,
-      fileInputRef,
       files: attachmentFiles,
       openFileDialog,
       remove,
@@ -257,9 +231,8 @@ export const PromptInputProvider = ({
   );
 
   const __registerFileInput = useCallback(
-    (ref: RefObject<HTMLInputElement | null>, open: () => void) => {
-      fileInputRef.current = ref.current;
-      openRef.current = open;
+    (ref: RefObject<HTMLInputElement | null>) => {
+      registeredInputRef.current = ref;
     },
     []
   );

@@ -155,7 +155,7 @@ export const PromptInput = ({
 
   // Register file input so external openFileDialog() works
   useEffect(() => {
-    promptInput.__registerFileInput(inputRef, () => inputRef.current?.click());
+    promptInput.__registerFileInput(inputRef);
   }, [promptInput]);
 
   // Register accept/size/maxFiles gate so attachments.add is always validated
@@ -314,23 +314,15 @@ const ModelItem = ({
 };
 
 /** Product prompt block for /home — provider + form + footer in one shell export. */
-export function PromptInputWorkspace({
-  pendingAsk,
-  status,
-  onStop,
-}: PromptInputWorkspaceProps) {
+export function PromptInputWorkspace(props: PromptInputWorkspaceProps) {
   return (
     <PromptInputProvider>
-      <PromptInputWorkspaceInner
-        pendingAsk={pendingAsk}
-        status={status}
-        onStop={onStop}
-      />
+      <PromptInputWorkspaceForm {...props} />
     </PromptInputProvider>
   );
 }
 
-function PromptInputWorkspaceInner({
+function PromptInputWorkspaceForm({
   pendingAsk,
   status,
   onStop,
