@@ -5,7 +5,7 @@
  * Inside chat/* use relative imports (never this barrel — avoids cycles).
  *
  * Domain SoT:
- *   - `./prompt/*`       — PromptShellProvider + PromptInput* UI
+ *   - `./prompt/*`       — PromptInputProvider + PromptInput* UI
  *   - `./conversation/*` — message stream, CoT, sources, reasoning, shimmer
  *   - `./shell/*`        — sidebar, settings dialog, command palette
  */

@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Prompt shell draft context: text, attachments, and chat prefs (model / mode / web).
- * Requires outer PromptShellProvider. Must NOT import header/body/footer.
+ * Prompt input draft context: text, attachments, and chat prefs (model / mode / web).
+ * Requires outer PromptInputProvider. Must NOT import header/body/footer.
  *
  * PromptInput registers file-input open + attachment validation so children
  * always hit a validated `attachments.add` while state lives only here.
@@ -67,8 +67,8 @@ export interface PromptInputPrefsValue {
   toggleWebSearch: () => void;
 }
 
-/** Lifted controller state exposed by PromptShellProvider. */
-export interface PromptShellControllerValue {
+/** Draft + prefs state exposed by PromptInputProvider. */
+export interface PromptInputContextValue {
   textInput: TextInputValue;
   attachments: AttachmentsValue;
   prefs: PromptInputPrefsValue;
@@ -90,37 +90,35 @@ export interface PromptShellControllerValue {
 // Context
 // ============================================================================
 
-const PromptShellControllerContext =
-  createContext<PromptShellControllerValue | null>(null);
+const PromptInputContext = createContext<PromptInputContextValue | null>(null);
 
-/** Optional: returns null when outside PromptShellProvider. */
-export const useOptionalPromptShellControllerContext = () =>
-  useContext(PromptShellControllerContext);
+/** Optional: returns null when outside PromptInputProvider. */
+export const useOptionalPromptInputContext = () =>
+  useContext(PromptInputContext);
 
-/** Required: throws when outside PromptShellProvider. */
-export const usePromptShellControllerContext =
-  (): PromptShellControllerValue => {
-    const controller = useContext(PromptShellControllerContext);
-    if (!controller) {
-      throw new Error(
-        "usePromptShellControllerContext must be used within a PromptShellProvider"
-      );
-    }
-    return controller;
-  };
-
-/**
- * Attachments from the single draft controller.
- * Throws when outside PromptShellProvider.
- */
-export const usePromptInputAttachments = (): AttachmentsValue => {
-  const controller = useContext(PromptShellControllerContext);
-  if (!controller) {
+/** Required: throws when outside PromptInputProvider. */
+export const usePromptInputContext = (): PromptInputContextValue => {
+  const value = useContext(PromptInputContext);
+  if (!value) {
     throw new Error(
-      "usePromptInputAttachments must be used within a PromptShellProvider"
+      "usePromptInputContext must be used within a PromptInputProvider"
     );
   }
-  return controller.attachments;
+  return value;
+};
+
+/**
+ * Attachments from the prompt input draft context.
+ * Throws when outside PromptInputProvider.
+ */
+export const usePromptInputAttachments = (): AttachmentsValue => {
+  const value = useContext(PromptInputContext);
+  if (!value) {
+    throw new Error(
+      "usePromptInputAttachments must be used within a PromptInputProvider"
+    );
+  }
+  return value.attachments;
 };
 
 // ============================================================================
@@ -133,7 +131,7 @@ export const DEFAULT_PROMPT_PREFS = {
   useWebSearch: true,
 } satisfies Pick<PromptInputPrefsValue, "model" | "mode" | "useWebSearch">;
 
-export type PromptShellProviderProps = PropsWithChildren<{
+export type PromptInputProviderProps = PropsWithChildren<{
   initialInput?: string;
   maxFiles?: number;
   initialModel?: string;
@@ -143,16 +141,16 @@ export type PromptShellProviderProps = PropsWithChildren<{
 
 /**
  * Owns prompt draft state (text + attachments + prefs). Required wrapper for
- * PromptInput and consumers of usePromptInputAttachments / controller hooks.
+ * PromptInput and consumers of usePromptInputAttachments / usePromptInputContext.
  */
-export const PromptShellProvider = ({
+export const PromptInputProvider = ({
   initialInput: initialTextInput = "",
   maxFiles,
   initialModel = DEFAULT_PROMPT_PREFS.model,
   initialMode = DEFAULT_PROMPT_PREFS.mode,
   initialUseWebSearch = DEFAULT_PROMPT_PREFS.useWebSearch,
   children,
-}: PromptShellProviderProps) => {
+}: PromptInputProviderProps) => {
   // ----- textInput state
   const [textInput, setTextInput] = useState(initialTextInput);
   const clearInput = useCallback(() => setTextInput(""), []);
@@ -280,7 +278,7 @@ export const PromptShellProvider = ({
     []
   );
 
-  const controller = useMemo<PromptShellControllerValue>(
+  const value = useMemo<PromptInputContextValue>(
     () => ({
       __registerAttachmentValidator,
       __registerFileInput,
@@ -303,8 +301,8 @@ export const PromptShellProvider = ({
   );
 
   return (
-    <PromptShellControllerContext.Provider value={controller}>
+    <PromptInputContext.Provider value={value}>
       {children}
-    </PromptShellControllerContext.Provider>
+    </PromptInputContext.Provider>
   );
 };

@@ -13,7 +13,7 @@ export interface PromptInputMessage {
 
 type UseChatApi = ReturnType<typeof import("@ai-sdk/react").useChat>;
 
-/** Stream-only chat context — prefs live on PromptShellProvider. */
+/** Stream-only chat context — prefs live on PromptInputProvider. */
 export interface ChatContextValue {
   status: ChatStatus;
   messages: UIMessage[];

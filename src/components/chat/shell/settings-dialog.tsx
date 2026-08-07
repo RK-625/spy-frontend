@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui";
 import { useChatContext } from "@/contexts/ChatContext";
-import { useOptionalPromptShellControllerContext } from "../prompt/shell/context";
+import { useOptionalPromptInputContext } from "../prompt/shell/context";
 
 export function SettingsDialog({
   onOpenChange,
@@ -18,8 +18,8 @@ export function SettingsDialog({
   open: boolean;
 }) {
   const { status, messages, error } = useChatContext();
-  const controller = useOptionalPromptShellControllerContext();
-  const model = controller?.prefs.model ?? "—";
+  const promptInput = useOptionalPromptInputContext();
+  const model = promptInput?.prefs.model ?? "—";
   const messageCount = messages.length;
 
   return (

@@ -1,6 +1,6 @@
 /**
  * Prompt domain barrel — sole package public surface for the chat prompt shell.
- * Domain SoT: shell/ (PromptShellProvider + form), header/, body/, ask/, attachments/, footer/, suggestion.tsx.
+ * Domain SoT: shell/ (PromptInputProvider + form), header/, body/, ask/, attachments/, footer/, suggestion.tsx.
  * Import via `@/components/chat` (package barrel) or relative within chat.
  */
 export * from "./shell/context";

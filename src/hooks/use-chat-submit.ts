@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Bridges stream (ChatContext) + prompt prefs (PromptShellProvider) for send.
+ * Bridges stream (ChatContext) + prompt prefs (PromptInputProvider) for send.
  * Must NOT call useChat() — single useChat remains in ChatProvider.
  */
 
@@ -10,7 +10,7 @@ import { toast } from "@/components/ui/app-toaster";
 import { useChatContext } from "@/contexts/ChatContext";
 import {
   DEFAULT_PROMPT_PREFS,
-  useOptionalPromptShellControllerContext,
+  useOptionalPromptInputContext,
 } from "@/components/chat/prompt/shell/context";
 import type { PromptInputMessage } from "@/types/chat";
 
@@ -36,8 +36,8 @@ export type UseChatSubmitResult = {
  */
 export function useChatSubmit(): UseChatSubmitResult {
   const { sendMessage, status, stop } = useChatContext();
-  const shell = useOptionalPromptShellControllerContext();
-  const prefs = shell?.prefs ?? DEFAULT_PROMPT_PREFS;
+  const promptInput = useOptionalPromptInputContext();
+  const prefs = promptInput?.prefs ?? DEFAULT_PROMPT_PREFS;
 
   const submitUserMessage = useCallback(
     async (

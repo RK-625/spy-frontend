@@ -2,7 +2,7 @@
 
 /**
  * Prompt shell: PromptInput form primitive + PromptInputWorkspace product export.
- * PromptInput requires outer PromptShellProvider. Draft state lives in ./context.
+ * PromptInput requires outer PromptInputProvider. Draft state lives in ./context.
  * PromptInputWorkspace mounts the provider internally for /home.
  */
 
@@ -24,9 +24,9 @@ import type {
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  PromptShellProvider,
+  PromptInputProvider,
   usePromptInputAttachments,
-  usePromptShellControllerContext,
+  usePromptInputContext,
 } from "./context";
 import { PromptInputHeader } from "../header/header";
 import { PromptInputBody } from "../body/body";
@@ -143,8 +143,8 @@ export const PromptInput = ({
   children,
   ...props
 }: PromptInputProps) => {
-  const controller = usePromptShellControllerContext();
-  const { attachments, textInput } = controller;
+  const promptInput = usePromptInputContext();
+  const { attachments, textInput } = promptInput;
 
   // Refs
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -156,13 +156,13 @@ export const PromptInput = ({
 
   // Register file input so external openFileDialog() works
   useEffect(() => {
-    controller.__registerFileInput(inputRef, () => inputRef.current?.click());
-  }, [controller]);
+    promptInput.__registerFileInput(inputRef, () => inputRef.current?.click());
+  }, [promptInput]);
 
   // Register accept/size/maxFiles gate so attachments.add is always validated
   // while PromptInput is mounted (children, drop, file picker share one path).
   useEffect(() => {
-    controller.__registerAttachmentValidator((files, { currentCount }) => {
+    promptInput.__registerAttachmentValidator((files, { currentCount }) => {
       const v = validationRef.current;
       return filterIncomingFiles(files, {
         accept: v.accept,
@@ -173,9 +173,9 @@ export const PromptInput = ({
       });
     });
     return () => {
-      controller.__registerAttachmentValidator(null);
+      promptInput.__registerAttachmentValidator(null);
     };
-  }, [controller]);
+  }, [promptInput]);
 
   // Attach drop handlers on form (default) or document (globalDrop opt-in)
   useEffect(() => {
@@ -321,13 +321,13 @@ export function PromptInputWorkspace({
   onStop,
 }: PromptInputWorkspaceProps) {
   return (
-    <PromptShellProvider>
+    <PromptInputProvider>
       <PromptInputWorkspaceInner
         pendingAsk={pendingAsk}
         status={status}
         onStop={onStop}
       />
-    </PromptShellProvider>
+    </PromptInputProvider>
   );
 }
 
@@ -337,7 +337,7 @@ function PromptInputWorkspaceInner({
   onStop,
 }: PromptInputWorkspaceProps) {
   const { submitUserMessage } = useChatSubmit();
-  const controller = usePromptShellControllerContext();
+  const promptInput = usePromptInputContext();
   const attachments = usePromptInputAttachments();
   const {
     model,
@@ -346,7 +346,7 @@ function PromptInputWorkspaceInner({
     setMode,
     useWebSearch,
     toggleWebSearch,
-  } = controller.prefs;
+  } = promptInput.prefs;
 
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
@@ -393,13 +393,13 @@ function PromptInputWorkspaceInner({
 
   const handleTranscriptionChange = useCallback(
     (transcript: string) => {
-      controller.textInput.setValue(
-        controller.textInput.value
-          ? `${controller.textInput.value} ${transcript}`
+      promptInput.textInput.setValue(
+        promptInput.textInput.value
+          ? `${promptInput.textInput.value} ${transcript}`
           : transcript,
       );
     },
-    [controller],
+    [promptInput],
   );
 
   const handleAttachmentError = useCallback((err: { message: string }) => {
@@ -422,10 +422,10 @@ function PromptInputWorkspaceInner({
     () =>
       status === "ready" &&
       ((pendingAsk != null && !pendingAsk.allowCustomInput) ||
-        (!controller.textInput.value.trim() &&
+        (!promptInput.textInput.value.trim() &&
           attachments.files.length === 0)),
     [
-      controller.textInput.value,
+      promptInput.textInput.value,
       attachments.files.length,
       status,
       pendingAsk,

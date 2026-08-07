@@ -10,7 +10,7 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 
 /**
  * Stream-only chat provider. Owns useChat transport + messages/status.
- * Model/mode/web prefs and submit live on PromptShellProvider / useChatSubmit.
+ * Model/mode/web prefs and submit live on PromptInputProvider / useChatSubmit.
  */
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { messages, status, stop, sendMessage, error, setMessages, addToolOutput } =

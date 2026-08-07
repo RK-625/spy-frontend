@@ -15,7 +15,7 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
-  PromptShellProvider,
+  PromptInputProvider,
   SpeechInput,
 } from "@/components/chat";
 import { DotMatrixIcon } from "@/components/dotmatrix";
@@ -50,7 +50,7 @@ export default function UIPrototypesPage() {
           
           <div className="p-8 bg-[#150c28] rounded-xl border border-[rgba(200,172,251,0.08)] shadow-lg relative flex justify-center">
             <div className="w-full max-w-2xl">
-              <PromptShellProvider>
+              <PromptInputProvider>
                 <div className="chat-input-wrap relative w-full">
                   <div className="chat-input-glow" />
                   <PromptInput onSubmit={(msg, e) => { e.preventDefault(); console.log(msg); }}>
@@ -72,7 +72,7 @@ export default function UIPrototypesPage() {
                     </PromptInputFooter>
                   </PromptInput>
                 </div>
-              </PromptShellProvider>
+              </PromptInputProvider>
             </div>
           </div>
         </section>
