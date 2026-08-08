@@ -9,13 +9,12 @@ import {
 } from "@/components/ui";
 import { useChatContext } from "@/contexts/ChatContext";
 
-export function SettingsDialog({
-  onOpenChange,
-  open,
-}: {
-  onOpenChange: (b: boolean) => void;
+export interface SettingsDialogProps {
   open: boolean;
-}) {
+  onOpenChange: (open: boolean) => void;
+}
+
+export function SettingsDialog({ onOpenChange, open }: SettingsDialogProps) {
   const { status, messages, error } = useChatContext();
   const messageCount = messages.length;
 
