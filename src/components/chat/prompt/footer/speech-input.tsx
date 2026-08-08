@@ -1,11 +1,13 @@
 "use client";
 
+/**
+ * SpeechInput: mic control with Web Speech API + MediaRecorder fallback.
+ */
+
 import { InputGroupButton, Spinner } from "@/components/ui";
+import { DotMatrixIcon, DotmSquare18 } from "@/components/dotmatrix";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
-
-import { DotmSquare18 } from "@/components/dotmatrix";
-import { DotMatrixIcon } from "@/components/dotmatrix";
 import { AnimatePresence, motion } from "motion/react";
 import type { ComponentProps } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -376,7 +378,7 @@ export const SpeechInput = ({
     setIsListening(false);
   }, []);
 
-  const toggleListening = useCallback(() => {
+  const handleListeningToggle = useCallback(() => {
     if (mode === "none") {
       onErrorRef.current?.("Speech not supported in this browser.");
       return;
@@ -414,7 +416,7 @@ export const SpeechInput = ({
           className
         )}
         disabled={isDisabled}
-        onClick={toggleListening}
+        onClick={handleListeningToggle}
         size={size}
         type="button"
         variant={variant}

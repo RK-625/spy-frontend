@@ -68,9 +68,9 @@ import { useChatContext } from "@/contexts/ChatContext";
 // Helpers
 // ============================================================================
 
-/** Attach dragover/drop listeners that forward FileList to onFiles. */
+/** Attach dragover/drop listeners on a form (or other element) that forward FileList to onFiles. */
 function attachFileDrop(
-  target: Document | HTMLElement,
+  target: HTMLElement,
   onFiles: (files: FileList) => void
 ): () => void {
   const onDragOver = (e: Event) => {
@@ -155,14 +155,14 @@ export const PromptInput = ({
   // Register accept/size/maxFiles gate so attachments.add is always validated
   // while PromptInput is mounted (children, drop, file picker share one path).
   useEffect(() => {
-      promptInput.__registerAttachmentValidator((files, currentCount) => {
-        return filterIncomingFiles(files, {
-          accept: accept,
-          maxFileSize: maxFileSize,
-          maxFiles: maxFiles,
-          currentCount,
-          onError: onError,
-        });
+    promptInput.__registerAttachmentValidator((files, currentCount) => {
+      return filterIncomingFiles(files, {
+        accept,
+        maxFileSize,
+        maxFiles,
+        currentCount,
+        onError,
+      });
     });
     return () => {
       promptInput.__registerAttachmentValidator(null);
@@ -272,22 +272,22 @@ export const PromptInput = ({
 // ============================================================================
 
 const ModelItem = ({
-  m,
+  modelEntry,
   isSelected,
   onSelect,
 }: {
-  m: (typeof models)[0];
+  modelEntry: (typeof models)[0];
   isSelected: boolean;
   onSelect: (id: string) => void;
 }) => {
   const handleSelect = useCallback(() => {
-    onSelect(m.id);
-  }, [onSelect, m.id]);
+    onSelect(modelEntry.id);
+  }, [onSelect, modelEntry.id]);
 
   return (
-    <ModelSelectorItem onSelect={handleSelect} value={m.name}>
-      <ModelSelectorLogo icon={m.icon} />
-      <ModelSelectorName>{m.name}</ModelSelectorName>
+    <ModelSelectorItem onSelect={handleSelect} value={modelEntry.name}>
+      <ModelSelectorLogo icon={modelEntry.icon} />
+      <ModelSelectorName>{modelEntry.name}</ModelSelectorName>
       {isSelected ? (
         <DotMatrixIcon name="check" size={ICON_GLYPH.badge} className="ml-auto" />
       ) : (
@@ -548,12 +548,12 @@ function PromptInputWorkspaceContent() {
                     {chefs.map((chef) => (
                       <ModelSelectorGroup heading={chef} key={chef}>
                         {models
-                          .filter((m) => m.chef === chef)
-                          .map((m) => (
+                          .filter((entry) => entry.chef === chef)
+                          .map((entry) => (
                             <ModelItem
-                              isSelected={model === m.id}
-                              key={m.id}
-                              m={m}
+                              isSelected={model === entry.id}
+                              key={entry.id}
+                              modelEntry={entry}
                               onSelect={handleModelSelect}
                             />
                           ))}

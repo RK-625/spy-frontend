@@ -1,15 +1,15 @@
 "use client";
 
+/**
+ * PromptInputButton: footer tool button with optional tooltip.
+ */
+
 import {
   InputGroupButton,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-/**
- * PromptInputButton: footer tool button with optional tooltip.
- */
-
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
 import { Children } from "react";
@@ -33,13 +33,13 @@ export const PromptInputButton = ({
   tooltip,
   ...props
 }: PromptInputButtonProps) => {
-  const newSize =
+  const resolvedSize =
     size ?? (Children.count(props.children) > 1 ? "sm" : "icon-sm");
 
   const button = (
     <InputGroupButton
       className={cn(className)}
-      size={newSize}
+      size={resolvedSize}
       type="button"
       variant={variant}
       {...props}

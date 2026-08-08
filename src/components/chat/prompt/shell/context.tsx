@@ -88,17 +88,6 @@ export interface PromptInputContextValue {
 
 const PromptInputContext = createContext<PromptInputContextValue | null>(null);
 
-export type PromptInputPrefsReadonly = Pick<
-  PromptInputPrefsValue,
-  "model" | "mode" | "useWebSearch"
->;
-
-/** Prefs for submit: live when inside PromptInputProvider, defaults when outside. */
-export function usePromptInputPrefs(): PromptInputPrefsReadonly {
-  const value = useContext(PromptInputContext);
-  return value?.prefs ?? DEFAULT_PROMPT_PREFS;
-}
-
 /** Required: throws when outside PromptInputProvider. */
 export const usePromptInputContext = (): PromptInputContextValue => {
   const value = useContext(PromptInputContext);
@@ -114,6 +103,7 @@ export const usePromptInputContext = (): PromptInputContextValue => {
 // Provider
 // ============================================================================
 
+/** Default model / mode / web prefs when the provider mounts. */
 export const DEFAULT_PROMPT_PREFS = {
   model: models[0]?.id ?? "deepseek-v4-flash",
   mode: "high" as const,
