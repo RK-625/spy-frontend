@@ -42,19 +42,19 @@ The spider is intentionally a unique robot design — its visor replaces traditi
 Everything we build must obey these. They are non-negotiable.
 
 ### 1. Complex 3D Glossy Aesthetics
-The mascot is a highly detailed, 3D glossy robot spider loaded from `mascot-3d.svg`. It uses smooth curves, gradients, and metallic purple/lavender reflections to feel alien, sleek, and full of personality.
+The brand character is a highly detailed, 3D glossy robot spider (asset: `public/mascot-3d.svg`). Smooth curves, gradients, and metallic purple/lavender reflections — alien, sleek, full of personality. **The GSAP React host (`src/animation/`) is removed** — not currently mounted on landing; remount only with an explicit redesign task.
 
 ### 2. Dark utility register (Background UI)
-While the mascot is glossy and detailed, the background UI remains a dark utility register. Sparse layout, high contrast only where it matters.
+While the spider character is glossy and detailed, the background UI remains a dark utility register. Sparse layout, high contrast only where it matters.
 
 ### 3. The spider is the character
-The 3D glossy robot spider is the emotional anchor of the entire page. It sits center stage. It features a sleek visor, antenna, and articulated mechanical legs — feeling alien and intelligent, not cartoonish.
+The 3D glossy robot spider remains the brand/emotional anchor (visor, antenna, articulated mechanical legs — alien and intelligent, not cartoonish). Design references live in Penpot + `mascot-3d.svg`; live landing currently ships without the animated host.
 
 ### 4. Color Palette
 The background uses a dynamic 3D sphere gradient in deep purples and lavender highlights (`#4A1280` / `#8838DE` / `#DDB8F8`) morphing over deepest black. Text uses lavender-white (`#ded4f0`) and a glossy purple gradient (`#e8dff8` to `#9a6ae0`). Interactive accents, focus rings, and action highlights use the lavender system (`#e8dff8` / `#C8ACFB` / `--ring` lavender). Gold/Amber is **not** part of the production UI palette.
 
 ### 5. Ambient over loud
-Animation is continuous and subtle — a morphing 3D gradient sphere, a spider bobbing gently, text scrambling phases, and a CSS glint sweep across titles. The page should feel inhabited, not performing. No flashy transitions. No attention-seeking effects.
+Animation is continuous and subtle — a morphing 3D gradient sphere, text scrambling phases, and a CSS glint sweep across titles. The page should feel inhabited, not performing. No flashy transitions. No attention-seeking effects.
 
 ### 6. Distinctive over safe
 Choose the unexpected option. Unbounded and VT323 over Inter for headings. A deep, glossy purple/lavender theme over the typical startup dark/cyan templates. A sharp-edged, dark page over the default "dark mode startup" template. If another product could swap its name and still look right, we've failed.
@@ -68,12 +68,11 @@ These are things a new engineer might not guess. They must be followed:
 
 - **Restrained rounded corners.** We use `--radius: 0.55rem` globally. Do not use fully rounded pill shapes.
 - **Deliberate pill exception: source / URL chips.** Source citations in `Sources` and `ChainOfThoughtSearchResult` use `rounded-full` (`pill-source-*` tokens). This is a deliberate exception for compact, dense reference chips; general UI controls remain `--radius`. Do not flatten these back to `--radius` without an explicit design review.
-- **Mascot is cute and 3D.** The mascot features a visor, antenna, and articulated legs. It is a glossy 3D vector loaded from `mascot-3d.svg`.
+- **Mascot is cute and 3D (brand).** Visor, antenna, articulated legs — glossy 3D vector at `public/mascot-3d.svg`. Animation host removed; do not reintroduce `src/animation/` without an explicit remount task.
 - **Lavender accents only.** Focus ring (`--ring`), interactive controls, and loaders use the lavender system. Do not reintroduce gold/amber (`#c9952a`) into production UI.
 - **Pixel Art Icons.** Do not use `lucide-react` or standard smooth vector icons in the Chat UI. Always use `DotMatrixIcon` from `@/components/dotmatrix` (pixel-art registry) to maintain the alien aesthetic.
 - **Text is never pure white.** `#ded4f0` or warm off-white `#e8e4df` for primary text, `#7a7685` for secondary, `#4a4658` for dim.
 - **All design decisions live in `brief.md`.** Read it before making any visual or structural change. That file is the constitution.
-- **Dynamic Mascot Loading.** The 3D robot spider is loaded dynamically as an SVG from the public folder (`mascot-3d.svg`), and animated using GSAP targeting specific internal IDs (`#Antenna`, `#Visor section`, `#Left 1st front leg`, `#Right leg2`, etc.).
 
 ## Short-term goal
 
@@ -111,9 +110,6 @@ src/
 │   ├── schemas/              — Zod tool input schemas (SoT: *-schema.ts only; no alias shims)
 │   │   └── ask-schema.ts / upsert-schema.ts / link-schema.ts / web-search-schema.ts
 │   └── index.ts              — public `@/ai` barrel (agent + models + tools + schemas)
-├── animation/
-│   ├── spider-mascot.tsx     — Mascot React host
-│   └── spider/               — GSAP behaviors + mascot timeline
 ├── app/
 │   ├── api/                  — Backend API routes (Node.js runtime)
 │   │   ├── chat/route.ts     — Streaming chat & memory extraction loop
@@ -205,7 +201,7 @@ src/
 | AI / LLM | Vercel AI SDK + Google Gemini |
 | Embeddings | `gemini-embedding-2` (Truncated to 1536 dim) |
 | Styling | Tailwind CSS v4 with CSS custom properties |
-| Mascot | Dynamic SVG (`mascot-3d.svg`) + GSAP (targets internal IDs for animation) |
+| Mascot | Brand asset `public/mascot-3d.svg` (GSAP React host removed; not mounted) |
 | Backdrop | ShaderGradient 3D canvas (`@shadergradient/react` sphere) |
 | Fonts | Unbounded + Inter + VT323 via next/font/google |
 
@@ -257,7 +253,7 @@ Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
 5. Prefer package barrels for product/cross-package code: `@/components/chat`, `@/components/ui`, `@/components/dotmatrix`, `@/components/logos`, `@/ai`, `@/lib/graph`. Inside a package use relative imports (never that package barrel — avoids cycles). Flat lib modules (`@/lib/utils`, `@/lib/falkor`, …) stay single-file entry points. No dual-path root shims.
-6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
+6. CTA on landing owns its interaction state; spider mascot animation host is **removed** (`src/animation/` gone — asset may remain under `public/`)
 7. Do not resurrect ask-user-question **morph** / `src/deprecated/` (removed) into production without a redesign task (non-morph pending-ask in `prompt/` is already live)
 
 

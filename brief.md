@@ -185,9 +185,9 @@ Do NOT look like:
 - One verb per button label
 
 ### Spider mascot
-- 3D glossy vector SVG loaded dynamically
-- GSAP animation targeting internal group IDs
-- Always centered, always the visual anchor on landing page
+- Brand: 3D glossy vector SVG at `public/mascot-3d.svg` (Penpot design references remain)
+- **React/GSAP animation host removed** (`src/animation/` deleted) — not currently mounted on landing
+- Remount only with an explicit redesign/remount task; do not treat as live product path
 
 ### Shader Backdrop
 - Canvas-rendered 3D noise deformation
@@ -200,7 +200,7 @@ Do NOT look like:
 - **Styling:** Tailwind CSS v4 with CSS custom properties
 - **Chat UI:** local `components/chat/ai-elements` on shadcn-style `components/ui` primitives
 - **AI / API:** Vercel AI SDK + streaming chat route (`/api/chat`); FalkorDB for graph/memory where wired
-- **Mascot:** Dynamic SVG + GSAP
+- **Mascot:** Brand SVG asset only (`public/mascot-3d.svg`); animation host removed
 - **Backdrop:** ShaderGradient 3D canvas
 - **Fonts:** Google Fonts (Unbounded + Inter + VT323) via next/font
 

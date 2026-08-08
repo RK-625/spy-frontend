@@ -13,7 +13,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Route | What |
 |-------|------|
-| `/` | Landing (mascot, story, CTA) |
+| `/` | Landing (story, CTA; mascot host not mounted) |
 | `/home` | Chat UI (conversation, sidebar, prompt shell) |
 
 Configure provider/API keys as needed in `.env.local` (never commit secrets).
