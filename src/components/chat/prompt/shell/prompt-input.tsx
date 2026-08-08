@@ -360,6 +360,8 @@ function PromptInputWorkspaceContent() {
       } catch (error) {
         console.error(error);
         toast.error("Failed to send message");
+        // Re-throw so PromptInput's async onSubmit path does not clear draft.
+        throw error;
       }
     },
     [sendMessage, status],
@@ -378,8 +380,12 @@ function PromptInputWorkspaceContent() {
    * Option select: handleSubmit({ text: option.label, files: [] }).
    * Pending ask → formatAskUserQuestionAnswer once; else normal chat.
    */
+  /**
+   * Must return the send Promise (not void) so PromptInput only clears
+   * text/attachments after settle; rejected send keeps the draft for retry.
+   */
   const handleSubmit = useCallback(
-    (message: PromptInputMessage) => {
+    (message: PromptInputMessage): void | Promise<void> => {
       if (status !== "ready") return;
 
       const answer = message.text?.trim() ?? "";
@@ -392,7 +398,7 @@ function PromptInputWorkspaceContent() {
         // Pure MCQ: require a choice label (option path); files alone are not an answer.
         if (!pendingAsk.allowCustomInput && !answer) return;
 
-        void submitUserMessage(
+        return submitUserMessage(
           {
             text: formatAskUserQuestionAnswer({
               question: pendingAsk.question,
@@ -402,9 +408,8 @@ function PromptInputWorkspaceContent() {
           },
           prefs,
         );
-        return;
       }
-      void submitUserMessage(message, prefs);
+      return submitUserMessage(message, prefs);
     },
     [submitUserMessage, pendingAsk, status, model, mode, useWebSearch],
   );
