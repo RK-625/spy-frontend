@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -103,7 +104,7 @@ const ChatWorkspace = () => {
                             "--color-muted-foreground": "var(--lavender-muted)",
                             /* Shimmer glint highlight: on-palette light accent (not pure white / not dark muted) */
                             "--color-background": "var(--primary)",
-                          } as React.CSSProperties
+                          } as CSSProperties
                         }
                       >
                         {thoughtParts.map((part, index) => {
