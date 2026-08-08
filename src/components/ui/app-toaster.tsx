@@ -1,5 +1,6 @@
 /**
- * Product toast host — prefer this name over the sonner package.
- * Implementation lives in feedback/sonner (design-system role folder).
+ * @deprecated Prefer `import { AppToaster, toast } from "@/components/ui"`.
+ * Thin BC re-export — dual-path flat leftover; product deep imports still hit this.
+ * Implementation SoT: `feedback/sonner` (role folder).
  */
-export { Toaster as AppToaster, toast } from "./feedback/sonner";
+export { AppToaster, toast } from "./feedback/sonner";
