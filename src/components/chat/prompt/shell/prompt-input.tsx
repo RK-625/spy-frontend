@@ -211,24 +211,17 @@ export const PromptInput = ({
           })
         );
 
+        // Clear-on-accept: onSubmit must throw if the turn was not started.
+        // Do not await a long-lived stream Promise here — that would hold the
+        // draft until the assistant finishes. Workspace kickoff is sync.
         const result = onSubmit({ files: convertedFiles, text }, event);
-
-        // Handle both sync and async onSubmit
         if (result instanceof Promise) {
-          try {
-            await result;
-            attachments.clear();
-            textInput.clear();
-          } catch {
-            // Don't clear on error - user may want to retry
-          }
-        } else {
-          // Sync function completed without throwing, clear inputs
-          attachments.clear();
-          textInput.clear();
+          await result;
         }
+        attachments.clear();
+        textInput.clear();
       } catch {
-        // Don't clear on error - user may want to retry
+        // Conversion failed or onSubmit refused/failed before accept — keep draft.
       }
     },
     [attachments, textInput, onSubmit]
@@ -318,51 +311,50 @@ function PromptInputWorkspaceContent() {
     prefs: { model, setModel, mode, setMode, useWebSearch, toggleWebSearch },
   } = usePromptInputContext();
 
+  /**
+   * Kick off a chat turn. Sync by design: throw if the turn is not accepted so
+   * PromptInput keeps the draft; on accept, fire sendMessage without awaiting
+   * the full stream (form clears immediately after this returns).
+   */
   const submitUserMessage = useCallback(
-    async (
+    (
       message: PromptInputMessage,
       prefs: {
         model: string;
         mode: string;
         useWebSearch: boolean;
       },
-    ) => {
-      if (status !== "ready") return;
+    ): void => {
+      if (status !== "ready") {
+        throw new Error("Chat is not ready to send.");
+      }
 
       const hasText = Boolean(message.text?.trim());
       const hasAttachments = Boolean(message.files?.length);
 
       if (!hasText && !hasAttachments) {
-        return;
+        throw new Error("Empty message.");
       }
 
-      const submitModel = prefs.model;
-      const submitMode = prefs.mode;
-      const submitUseWebSearch = prefs.useWebSearch;
-
-      try {
-        await sendMessage(
-          {
-            text: message.text?.trim() || "",
-            files:
-              message.files && message.files.length > 0
-                ? message.files
-                : undefined,
+      void sendMessage(
+        {
+          text: message.text?.trim() || "",
+          files:
+            message.files && message.files.length > 0
+              ? message.files
+              : undefined,
+        },
+        {
+          body: {
+            model: prefs.model,
+            useWebSearch: prefs.useWebSearch,
+            mode: prefs.mode,
           },
-          {
-            body: {
-              model: submitModel,
-              useWebSearch: submitUseWebSearch,
-              mode: submitMode,
-            },
-          },
-        );
-      } catch (error) {
+        },
+      ).catch((error: unknown) => {
         console.error(error);
         toast.error("Failed to send message");
-        // Re-throw so PromptInput's async onSubmit path does not clear draft.
-        throw error;
-      }
+      });
     },
     [sendMessage, status],
   );
@@ -379,14 +371,15 @@ function PromptInputWorkspaceContent() {
    * Single send path for form submit and MCQ option clicks.
    * Option select: handleSubmit({ text: option.label, files: [] }).
    * Pending ask → formatAskUserQuestionAnswer once; else normal chat.
-   */
-  /**
-   * Must return the send Promise (not void) so PromptInput only clears
-   * text/attachments after settle; rejected send keeps the draft for retry.
+   *
+   * Sync: returns void after accept so PromptInput clears on turn accept.
+   * Throws when the turn is not started so the form keeps the draft.
    */
   const handleSubmit = useCallback(
-    (message: PromptInputMessage): void | Promise<void> => {
-      if (status !== "ready") return;
+    (message: PromptInputMessage): void => {
+      if (status !== "ready") {
+        throw new Error("Chat is not ready to send.");
+      }
 
       const answer = message.text?.trim() ?? "";
       const hasFiles = (message.files?.length ?? 0) > 0;
@@ -394,11 +387,15 @@ function PromptInputWorkspaceContent() {
 
       if (pendingAsk != null) {
         // Empty form / nothing to answer.
-        if (!answer && !hasFiles) return;
+        if (!answer && !hasFiles) {
+          throw new Error("Empty message.");
+        }
         // Pure MCQ: require a choice label (option path); files alone are not an answer.
-        if (!pendingAsk.allowCustomInput && !answer) return;
+        if (!pendingAsk.allowCustomInput && !answer) {
+          throw new Error("Choice required.");
+        }
 
-        return submitUserMessage(
+        submitUserMessage(
           {
             text: formatAskUserQuestionAnswer({
               question: pendingAsk.question,
@@ -408,8 +405,9 @@ function PromptInputWorkspaceContent() {
           },
           prefs,
         );
+        return;
       }
-      return submitUserMessage(message, prefs);
+      submitUserMessage(message, prefs);
     },
     [submitUserMessage, pendingAsk, status, model, mode, useWebSearch],
   );
@@ -472,9 +470,13 @@ function PromptInputWorkspaceContent() {
           </PromptInputHeader>
           <PromptInputBody
             pendingAsk={pendingAsk}
-            onOptionSelect={(option) =>
-              handleSubmit({ text: option.label, files: [] })
-            }
+            onOptionSelect={(option) => {
+              try {
+                handleSubmit({ text: option.label, files: [] });
+              } catch {
+                // Not ready / refused — MCQ path has no form draft to preserve.
+              }
+            }}
           >
             <PromptInputTextarea />
           </PromptInputBody>
