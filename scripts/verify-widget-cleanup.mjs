@@ -36,6 +36,11 @@ const DELETED = [
   "src/components/chat/chat-sidebar.tsx",
   "src/components/chat/settings-dialog.tsx",
   "src/components/chat/command-palette.tsx",
+  // Morph widget + lab archives fully removed (user decision: no production imports).
+  "src/deprecated",
+  "src/deprecated/ask-user-question-widget",
+  "src/deprecated/ui-prototypes",
+  "src/app/ui-prototypes",
 ];
 
 let failed = false;
@@ -64,10 +69,11 @@ for (const rel of SCAN_TARGETS) {
   }
 }
 
-// askUserQuestion may remain in toolset for a future redesign; UI is deprecated.
+// askUserQuestion may remain in toolset for a future redesign; morph UI is gone.
+// Live pending-ask path: non-morph options in prompt body/ask (see verify-pending-ask).
 
 if (failed) {
   process.exit(1);
 }
 
-console.log("OK: widget-mode cleanup verification passed");
+console.log("OK: widget-mode cleanup verification passed (deprecated tree absent)");
