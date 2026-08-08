@@ -16,9 +16,8 @@ The **landing page** is shipped. **Primary product surface is chat** at `/home` 
 
 **Knowledge graph canvas** lives at `/graph` (Pixi v8 + RTC camera) — live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client maps topology → `GraphData`, places via localStorage fingerprint cache, and always uses one-shot d3 settle on cache miss (`ambientMotion` off). Empty KB / fetch error → blank canvas (no mock product path). Mock/stress fixtures remain under `src/lib/graph/fixtures/` for verify scripts only. Client pure-perf under quality bans has hit its product ceiling for loaded-graph pan/zoom; full DB-scale residency is not achieved (see **What's left**).
 
-**Ask-user-question (two paths — do not conflate):**
-- **Morph widget (deprecated):** cascade exit, pencil custom row, full morph layout tokens — parked under `src/deprecated/ask-user-question-widget/`. Do not reintroduce without an explicit redesign task.
-- **Pending-ask body (live):** non-morph option list in production `PromptInputBody` (`pendingAsk` + `onOptionSelect` in `src/components/chat/prompt/prompt-input.tsx`); `/home` wires `getPendingAskUserQuestion` / `formatAskUserQuestionAnswer` and forced-choice submit gating. Helpers: `src/lib/ask-user-question.ts`. Tool may still exist in `src/ai/tools/toolset.ts`.
+**Ask-user-question (live only):**
+- **Pending-ask body:** non-morph option list in production prompt shell (`body` + `ask/pending-ask`). Zero-prop `PromptInputWorkspace` wires `getPendingAskUserQuestion` / `formatAskUserQuestionAnswer` and forced-choice submit gating. Helpers: `src/lib/ask-user-question.ts`. Tool may still exist in `src/ai/tools/toolset.ts`. Morph widget and `src/deprecated/` were removed — do not reintroduce without an explicit redesign.
 
 ## The story
 
@@ -84,9 +83,9 @@ Landing (`/`) is the front door and is already in good shape — polish as neede
 
 **Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). **Live-only product path** (see [`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): single URL `/graph` — no product `?stress` / `?source` / `?layout` / `?motion`. Always fetches `/api/graph`; layout engine always `d3-settle` with ambient off; cache hit paints without re-settle, miss settles once and saves. Client pure-perf ceiling for loaded-graph pan/zoom is **achieved** under quality bans. FA2/graphology path removed. Placement architecture: [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client cache, Falkor topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Do not re-litigate ban-safe pure-perf; next graph work is full KB residency / live dirty. Details under **What's left**.
 
-**Prompt input:** production SoT is under `src/components/chat/prompt/` (`shell/prompt-input.tsx` form + `shell/context.tsx` with `PromptInputProvider` draft/prefs; barrel `@/components/chat/prompt`). Pieces live under `header/`, `body/`, `ask/`, `attachments/`, `footer/`. Live pending-ask is the non-morph option list (`body` + `ask/pending-ask`); the morphing widget remains deprecated under `src/deprecated/ask-user-question-widget/` — do not reintroduce morph without an explicit redesign.
+**Prompt input:** production SoT is under `src/components/chat/prompt/` (`shell/prompt-input.tsx` form + `shell/context.tsx` with `PromptInputProvider` draft/prefs; barrel `@/components/chat/prompt`). Pieces live under `header/`, `body/`, `ask/`, `attachments/`, `footer/`. **`PromptInputWorkspace` is a zero-prop product shell** (mounts provider + wires chat stream/prefs internally for `/home`). Live pending-ask is the non-morph option list (`body` + `ask/pending-ask`). Morph widget and `src/deprecated/` are gone — do not reintroduce without redesign.
 
-**Attachment accept allowlist:** single source of truth is `PROMPT_INPUT_ACCEPT` in `src/components/chat/prompt/attachments/prompt-input-files.ts` (wired from `/home` via `accept={PROMPT_INPUT_ACCEPT}`). Drag-drop and the file picker both enforce it via `filterIncomingFiles` / `matchesAccept`. Edit only that constant when expanding types. Allowlist includes images, text/code, `.html`/`.htm`, and Office (`.docx`/`.xlsx`/`.pptx`). Archives, video, and audio remain excluded. Full accepted + excluded tables live in that file’s module header — read it before changing.
+**Attachment accept allowlist:** single source of truth is `PROMPT_INPUT_ACCEPT` in `src/components/chat/prompt/attachments/prompt-input-files.ts` (consumed inside zero-prop `PromptInputWorkspace`). Drag-drop and the file picker both enforce it via `filterIncomingFiles` / `matchesAccept`. Edit only that constant when expanding types. Allowlist includes images, text/code, `.html`/`.htm`, and Office (`.docx`/`.xlsx`/`.pptx`). Archives, video, and audio remain excluded. Full accepted + excluded tables live in that file’s module header — read it before changing.
 
 **Attachment chips:** preview tiles use restrained `--radius`. The remove control is a **small rectangular badge** (tighter radius than full `--radius` so it does not read as a circle on an ~18px hit target), DotMatrix `x`, palette `bg-background/85` + muted foreground — not a pill.
 
@@ -153,15 +152,8 @@ src/
 │   │   ├── icons/            — Pixel-art icon registry (DotMatrixIcon SoT)
 │   │   └── loaders/          — hex-9 / square-18 / triangle-16 + loader.css (SoT)
 │   └── logos/                — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
-├── deprecated/               — Not production routes; do not wire into / or /home without intent
-│   ├── ask-user-question-widget/ — Deprecated morph widget snapshot + widget-layout tokens
-│   ├── ui-prototypes/        — Lab page + interactive question variants (archived)
-│   └── (older mascot experiments if present)
 ├── contexts/
-│   └── ChatContext.tsx       — Shared state provider for Chat UI (useChat wrapper)
-├── hooks/
-│   ├── use-mobile.ts         — Responsive layout breakpoint state hook
-│   └── use-chat-submit.ts    — Bridges ChatContext stream + prompt prefs for send
+│   └── ChatContext.tsx       — Stream-only `ChatProvider` (TooltipProvider folded in; no ChatProviderWrapper)
 ├── lib/
 │   ├── falkor.ts             — Server DB: FalkorDB connection & Cypher (topology only; no xy)
 │   ├── graph/                — Graph pure logic (Pixi pure-perf + client placement)
@@ -191,7 +183,7 @@ src/
 - **Agent tools / schemas** → `src/ai/tools/`, `src/ai/schemas/*-schema.ts` (domain barrels; no root dual-export shims)
 - **Chat UI** → `src/components/chat/{prompt,conversation,shell}/` domain barrels only (no ai-elements / root dual shims)
 
-**Note:** Chat prompt SoT is `chat/prompt/` domain tree + barrel (`PromptInputProvider` + `shell/prompt-input.tsx` form, pieces under header/body/ask/attachments/footer). Live UI uses non-morph pending-ask options when the agent asks; morph widget is not production. The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts`.
+**Note:** Chat prompt SoT is `chat/prompt/` domain tree + barrel (`PromptInputProvider` + `shell/prompt-input.tsx` form, pieces under header/body/ask/attachments/footer). Product entry is zero-prop `PromptInputWorkspace`. Live UI uses non-morph pending-ask options when the agent asks. Morph widget + `src/deprecated/`, dead hooks `use-chat-submit` / `use-mobile`, and `ChatProviderWrapper` are removed. The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts`.
 
 **Graph note:** Continuous layout off by default. FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md). **`placeTopology`** owns fingerprint hit/miss (hit → cached `{x,y}`; miss → assemble at `(0,0)` → pure `settleGraphData` → save poses). Host dynamic-imports `createGraphPaintLoop` from `layout-loop-d3` (`setGraphData(graph)` only; no settle option). Falkor holds topology only — no server placement writes. Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
 
@@ -254,7 +246,7 @@ Hard bans remain in force (see Constraints). Do not re-open pure-perf by relaxin
 3. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
 4. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
 5. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
-6. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; live pending-ask body stays; do not resurrect ask-user-question **morph** without redesign.
+6. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; live pending-ask body stays; do not resurrect ask-user-question **morph** / `src/deprecated/` without redesign.
 
 Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 
@@ -266,7 +258,7 @@ Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 4. Open Penpot — design references on the "Spy" canvas
 5. Prefer package barrels for product/cross-package code: `@/components/chat`, `@/components/ui`, `@/components/dotmatrix`, `@/components/logos`, `@/ai`, `@/lib/graph`. Inside a package use relative imports (never that package barrel — avoids cycles). Flat lib modules (`@/lib/utils`, `@/lib/falkor`, …) stay single-file entry points. No dual-path root shims.
 6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
-7. Do not resurrect deprecated ask-user-question **morph** into production without a redesign task (non-morph pending-ask in `prompt/` is already live)
+7. Do not resurrect ask-user-question **morph** / `src/deprecated/` (removed) into production without a redesign task (non-morph pending-ask in `prompt/` is already live)
 
 
 <!-- END:codebase-context -->

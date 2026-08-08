@@ -6,7 +6,7 @@
  * PromptInputWorkspace mounts the provider internally for /home.
  */
 
-import { InputGroup } from "@/components/ui";
+import { InputGroup, toast } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { PromptInputMessage } from "@/types/chat";
 import type { FileUIPart } from "ai";
@@ -53,7 +53,6 @@ import {
 import { PromptInputAttachments } from "../attachments/attachment-strip";
 import { DotMatrixIcon } from "@/components/dotmatrix";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
-import { toast } from "@/components/ui/app-toaster";
 import {
   formatAskUserQuestionAnswer,
   getPendingAskUserQuestion,

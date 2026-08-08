@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Unbounded, Inter, VT323 } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import { AppToaster } from "@/components/ui/app-toaster";
+import { AppToaster } from "@/components/ui";
 
 const unbounded = Unbounded({
   variable: "--font-display",

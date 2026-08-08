@@ -2,9 +2,7 @@
  * Design-system barrel — role folders only (no flat dual-export shims).
  * Product code: import from `@/components/ui` only.
  * Inside ui/* modules: use relative imports (never this barrel — avoids cycles).
- *
- * Note: `./app-toaster` is a transitional BC path for deep imports; public
- * surface is `AppToaster` / `toast` from `./feedback/sonner` (also re-exported here).
+ * AppToaster / toast ship from `./feedback/sonner`.
  */
 export * from "./actions/button";
 export * from "./actions/button-group";
