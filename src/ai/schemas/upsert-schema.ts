@@ -13,10 +13,11 @@ import {
  * coordinates or rank.
  */
 export const upsertMemoryInputSchema = z.object({
-  name: z.string().describe(upsertMemoryNameFieldDescription),
-  content: z.string().describe(upsertMemoryContentFieldDescription),
+  name: z.string().min(1).describe(upsertMemoryNameFieldDescription),
+  content: z.string().min(1).describe(upsertMemoryContentFieldDescription),
   impression: z
     .string()
+    .min(1)
     .optional()
     .describe(upsertMemoryImpressionFieldDescription),
   confidence: z
@@ -25,7 +26,7 @@ export const upsertMemoryInputSchema = z.object({
     .max(1)
     .optional()
     .describe(upsertMemoryConfidenceFieldDescription),
-  id: z.string().optional().describe(upsertMemoryIdFieldDescription),
+  id: z.string().min(1).optional().describe(upsertMemoryIdFieldDescription),
 });
 
 export type UpsertMemoryInput = z.infer<typeof upsertMemoryInputSchema>;

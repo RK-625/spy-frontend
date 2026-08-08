@@ -11,8 +11,8 @@ import {
  * Graph client derives rank from PART_OF and places nodes from topology/cache.
  */
 export const linkMemoriesInputSchema = z.object({
-  source: z.string().describe(linkMemoriesSourceFieldDescription),
-  target: z.string().describe(linkMemoriesTargetFieldDescription),
+  source: z.string().min(1).describe(linkMemoriesSourceFieldDescription),
+  target: z.string().min(1).describe(linkMemoriesTargetFieldDescription),
   type: z
     .enum(["PART_OF", "RELATES_TO"])
     .describe(linkMemoriesTypeFieldDescription),

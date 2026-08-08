@@ -10,7 +10,6 @@ export async function generateEmbedding(text: string): Promise<number[]> {
         google: { outputDimensionality: 1536 },
       },
     });
-    console.log("Embedding result:", result);
     return result.embedding;
   } catch (error) {
     console.error("Error generating embedding:", error);

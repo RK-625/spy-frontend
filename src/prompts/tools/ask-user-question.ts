@@ -15,10 +15,13 @@ Use sparingly.
 The next user message is their answer (often as Q:/A:).`;
 
 /** Zod `.describe(...)` for the `question` field on askUserQuestion input schema. */
-export const askUserQuestionQuestionFieldDescription = `The question text.`;
+export const askUserQuestionQuestionFieldDescription = `Clear, single decision or ambiguity to resolve.
+Not open-ended chat; the user will pick an option (or write-in when allowed).`;
 
 /** Zod `.describe(...)` for the `options` field on askUserQuestion input schema. */
-export const askUserQuestionOptionsFieldDescription = `Options for the user to choose from.`;
+export const askUserQuestionOptionsFieldDescription = `2–5 distinct choice labels the user can pick.
+Each option is a complete, mutually exclusive answer path — not vague stubs.`;
 
 /** Zod `.describe(...)` for the `allowCustomInput` field on askUserQuestion input schema. */
-export const askUserQuestionAllowCustomInputFieldDescription = `Whether to allow a write-in response.`;
+export const askUserQuestionAllowCustomInputFieldDescription = `True only when a free-text write-in is a reasonable alternative to the listed options.
+False for forced-choice decisions.`;
