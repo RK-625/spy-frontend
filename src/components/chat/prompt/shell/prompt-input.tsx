@@ -14,13 +14,16 @@ import {
   convertBlobUrlToDataUrl,
   filterIncomingFiles,
   PROMPT_INPUT_ACCEPT,
+  PROMPT_INPUT_ALLOW_MULTIPLE,
+  PROMPT_INPUT_MAX_FILES,
+  PROMPT_INPUT_MAX_FILE_SIZE,
   type AttachmentError,
 } from "../attachments/prompt-input-files";
 import type {
   ChangeEventHandler,
-  FormEvent,
-  FormEventHandler,
   HTMLAttributes,
+  SubmitEvent,
+  SubmitEventHandler,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -58,8 +61,8 @@ import {
 import { chefs, models } from "@/lib/models";
 import { useChatContext } from "@/contexts/ChatContext";
 
-// PROMPT_INPUT_ACCEPT lives in attachments/prompt-input-files; re-exported via
-// the `@/components/chat/prompt` barrel.
+// PROMPT_INPUT_ACCEPT / MAX_FILES / MAX_FILE_SIZE live in attachments/prompt-input-files;
+// re-exported via the `@/components/chat/prompt` barrel.
 
 // ============================================================================
 // Helpers
@@ -114,9 +117,7 @@ export type PromptInputProps = Omit<
 > & {
   // e.g., "image/*" or leave undefined for any
   accept?: string;
-  multiple?: boolean;
-  // When true, accepts drops anywhere on document. Default false (opt-in).
-  globalDrop?: boolean;
+  isMultiple?: boolean;
   // Minimal constraints
   maxFiles?: number;
   // bytes
@@ -124,15 +125,14 @@ export type PromptInputProps = Omit<
   onError?: (err: AttachmentError) => void;
   onSubmit: (
     message: PromptInputMessage,
-    event: FormEvent<HTMLFormElement>
+    event: SubmitEvent<HTMLFormElement>
   ) => void | Promise<void>;
 };
 
 export const PromptInput = ({
   className,
   accept,
-  multiple,
-  globalDrop,
+  isMultiple,
   maxFiles,
   maxFileSize,
   onError,
@@ -147,10 +147,6 @@ export const PromptInput = ({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
-  // Latest validation props for the registered gate (stable registration effect)
-  const validationRef = useRef({ accept, maxFileSize, maxFiles, onError });
-  validationRef.current = { accept, maxFileSize, maxFiles, onError };
-
   // Register file input so external openFileDialog() works
   useEffect(() => {
     promptInput.__registerFileInput(inputRef);
@@ -159,32 +155,28 @@ export const PromptInput = ({
   // Register accept/size/maxFiles gate so attachments.add is always validated
   // while PromptInput is mounted (children, drop, file picker share one path).
   useEffect(() => {
-    promptInput.__registerAttachmentValidator((files, currentCount) => {
-      const v = validationRef.current;
-      return filterIncomingFiles(files, {
-        accept: v.accept,
-        maxFileSize: v.maxFileSize,
-        maxFiles: v.maxFiles,
-        currentCount,
-        onError: v.onError,
-      });
+      promptInput.__registerAttachmentValidator((files, currentCount) => {
+        return filterIncomingFiles(files, {
+          accept: accept,
+          maxFileSize: maxFileSize,
+          maxFiles: maxFiles,
+          currentCount,
+          onError: onError,
+        });
     });
     return () => {
       promptInput.__registerAttachmentValidator(null);
     };
-  }, [promptInput]);
+  }, [promptInput, accept, maxFileSize, maxFiles, onError]);
 
-  // Attach drop handlers on form (default) or document (globalDrop opt-in)
+  // Attach drop handlers on the prompt form only (not document-wide)
   useEffect(() => {
-    if (globalDrop) {
-      return attachFileDrop(document, attachments.add);
-    }
     const form = formRef.current;
     if (!form) {
       return;
     }
     return attachFileDrop(form, attachments.add);
-  }, [attachments.add, globalDrop]);
+  }, [attachments.add]);
 
   const handleChange: ChangeEventHandler<HTMLInputElement> = useCallback(
     (event) => {
@@ -197,7 +189,7 @@ export const PromptInput = ({
     [attachments]
   );
 
-  const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
+  const handleSubmit: SubmitEventHandler<HTMLFormElement> = useCallback(
     async (event) => {
       event.preventDefault();
 
@@ -255,7 +247,7 @@ export const PromptInput = ({
         accept={accept}
         aria-label="Upload files"
         className="hidden"
-        multiple={multiple}
+        multiple={isMultiple}
         onChange={handleChange}
         ref={inputRef}
         title="Upload files"
@@ -464,12 +456,11 @@ function PromptInputWorkspaceContent() {
       <div className="chat-input-wrap relative">
         <div className="chat-input-glow" />
         <PromptInput
-          globalDrop
-          multiple
+          isMultiple={PROMPT_INPUT_ALLOW_MULTIPLE}
           onSubmit={handleSubmit}
           accept={PROMPT_INPUT_ACCEPT}
-          maxFiles={5}
-          maxFileSize={10 * 1024 * 1024}
+          maxFiles={PROMPT_INPUT_MAX_FILES}
+          maxFileSize={PROMPT_INPUT_MAX_FILE_SIZE}
           onError={handleAttachmentError}
         >
           <PromptInputHeader>

@@ -35,7 +35,8 @@
  * | `.rs` | Rust source |
  * | `.docx` `.xlsx` `.pptx` | Office documents (binary; agent may parse them if the model/provider supports that file type — still valid for user dump-into-chat) |
  *
- * Caps at call site (`/home`): `maxFiles={5}`, `maxFileSize={10 * 1024 * 1024}` (10MB).
+ * Caps (product limits): `PROMPT_INPUT_MAX_FILES` and `PROMPT_INPUT_MAX_FILE_SIZE`
+ * below — edit those constants when changing limits, not at call sites.
  *
  * ## Formats explicitly excluded (intentional)
  *
@@ -47,8 +48,9 @@
  * | `.odt` | OpenDocument — low demand, binary |
  * | `.env` secrets files | **Never** add; secret leakage |
  *
- * When expanding: edit `PROMPT_INPUT_ACCEPT` only (and this table). Keep picker
- * `accept` and `filterIncomingFiles` in lockstep via this single constant.
+ * When expanding types: edit `PROMPT_INPUT_ACCEPT` only (and this table). Keep
+ * picker `accept` and `filterIncomingFiles` in lockstep via this single constant.
+ * When changing caps: edit `PROMPT_INPUT_MAX_FILES` / `PROMPT_INPUT_MAX_FILE_SIZE`.
  */
 import type { FileUIPart } from "ai";
 import { nanoid } from "nanoid";
@@ -60,12 +62,21 @@ export type AttachmentError = {
 
 /**
  * Product allowlist: images, docs, code, structured data. Edit here, not at call sites.
- * Used by <PromptInput accept={PROMPT_INPUT_ACCEPT} /> in src/app/home/page.tsx.
+ * Wired by PromptInputWorkspace: accept={PROMPT_INPUT_ACCEPT}.
  *
  * Full rationale per format in the module header above.
  */
 export const PROMPT_INPUT_ACCEPT =
   "image/*,.pdf,.txt,.md,.json,.ts,.tsx,.js,.jsx,.html,.htm,.csv,.tsv,.py,.yaml,.yml,.css,.xml,.sql,.log,.toml,.go,.rs,.docx,.xlsx,.pptx";
+
+/** Max attachments per prompt message. Edit here, not at call sites. */
+export const PROMPT_INPUT_MAX_FILES = 5;
+
+/** Whether multiple files can be selected. Edit here, not at call sites. */
+export const PROMPT_INPUT_ALLOW_MULTIPLE = true;
+
+/** Max size per attachment in bytes (10MB). Edit here, not at call sites. */
+export const PROMPT_INPUT_MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export function matchesAccept(file: File, accept?: string): boolean {
   if (!accept || accept.trim() === "") {
