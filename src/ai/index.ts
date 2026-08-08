@@ -1,20 +1,16 @@
 /**
- * Public `@/ai` barrel for **server** API routes.
+ * Public `@/ai` barrel — models + schemas only.
  *
  * Prefer domain paths:
- * - `@/ai/agent` — runAgent
+ * - `@/ai/agent` — runAgent (Node-only: pulls tools → FalkorDB)
  * - `@/ai/models` — modelConfig / generateEmbedding
  * - `@/ai/tools` — createToolSet (Node-only: pulls FalkorDB)
  * - `@/ai/schemas/*-schema` — Zod SoT (client-safe when deep-imported)
  *
- * Client components MUST NOT import this barrel. Tools/agent transitively
- * import Falkor (native). Client code uses deep schema paths only
- * (e.g. `@/ai/schemas/ask-schema`) — see 2fa76f0.
- *
- * Tools are intentionally omitted here so a mistaken client `from "@/ai"`
- * for schemas/models is less likely to pull native deps via this entry.
- * createToolSet remains on `@/ai/tools` and is used by agent internally.
+ * Agent and tools are intentionally omitted: either re-export pulls
+ * createToolSet → @/lib/falkor (native). Server routes import
+ * `runAgent` from `@/ai/agent`. Client code uses deep schema paths only
+ * (e.g. `@/ai/schemas/ask-schema`).
  */
-export * from "./agent";
 export * from "./models";
 export * from "./schemas";

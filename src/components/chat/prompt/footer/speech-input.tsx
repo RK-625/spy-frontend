@@ -1,10 +1,13 @@
 "use client";
 
 /**
- * SpeechInput: mic control with Web Speech API + MediaRecorder fallback.
+ * SpeechInput: mic control via Web Speech API only.
+ *
+ * No MediaRecorder / remote-STT path — product never wired onAudioRecorded.
+ * Browsers without SpeechRecognition get a clickable mic that surfaces onError.
  */
 
-import { InputGroupButton, Spinner } from "@/components/ui";
+import { InputGroupButton } from "@/components/ui";
 import { DotMatrixIcon, DotmSquare18 } from "@/components/dotmatrix";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
@@ -62,29 +65,19 @@ declare global {
   }
 }
 
-type SpeechInputMode = "speech-recognition" | "media-recorder" | "none";
+type SpeechInputMode = "speech-recognition" | "none";
 
 export type SpeechInputProps = Omit<
   ComponentProps<typeof InputGroupButton>,
   "children" | "onError"
 > & {
   onTranscriptionChange?: (text: string) => void;
-  /**
-   * Callback for when audio is recorded using MediaRecorder fallback.
-   * This is called in browsers that don't support the Web Speech API (Firefox, Safari).
-   * The callback receives an audio Blob that should be sent to a transcription service.
-   * Return the transcribed text, which will be passed to onTranscriptionChange.
-   */
-  onAudioRecorded?: (audioBlob: Blob) => Promise<string>;
   lang?: string;
   /** Surface mic / speech errors to the product (e.g. toast). */
   onError?: (message: string) => void;
 };
 
-const BENIGN_SPEECH_ERRORS = new Set([
-  "aborted",
-  "no-speech",
-]);
+const BENIGN_SPEECH_ERRORS = new Set(["aborted", "no-speech"]);
 
 function mapSpeechRecognitionError(code: string): string | null {
   if (BENIGN_SPEECH_ERRORS.has(code)) {
@@ -104,26 +97,16 @@ function mapSpeechRecognitionError(code: string): string | null {
   }
 }
 
-const detectSpeechInputMode = (): SpeechInputMode => {
+const hasSpeechRecognition = (): boolean => {
   if (typeof window === "undefined") {
-    return "none";
+    return false;
   }
-
-  if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
-    return "speech-recognition";
-  }
-
-  if ("MediaRecorder" in window && "mediaDevices" in navigator) {
-    return "media-recorder";
-  }
-
-  return "none";
+  return "SpeechRecognition" in window || "webkitSpeechRecognition" in window;
 };
 
 export const SpeechInput = ({
   className,
   onTranscriptionChange,
-  onAudioRecorded,
   onError,
   lang = "en-US",
   size = "icon-sm",
@@ -131,37 +114,23 @@ export const SpeechInput = ({
   ...props
 }: SpeechInputProps) => {
   const [isListening, setIsListening] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [mode, setMode] = useState<SpeechInputMode>("none");
   const [isRecognitionReady, setIsRecognitionReady] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const onTranscriptionChangeRef = useRef<
-    SpeechInputProps["onTranscriptionChange"]
-  >(onTranscriptionChange);
-  const onAudioRecordedRef =
-    useRef<SpeechInputProps["onAudioRecorded"]>(onAudioRecorded);
-  const onErrorRef = useRef<SpeechInputProps["onError"]>(onError);
+  const onTranscriptionChangeRef = useRef(onTranscriptionChange);
+  const onErrorRef = useRef(onError);
 
-  // Keep refs in sync
   useEffect(() => {
     onTranscriptionChangeRef.current = onTranscriptionChange;
-    onAudioRecordedRef.current = onAudioRecorded;
     onErrorRef.current = onError;
-  }, [onTranscriptionChange, onAudioRecorded, onError]);
+  }, [onTranscriptionChange, onError]);
 
   // Browser-only capability detection — must run after mount to match SSR HTML.
   useEffect(() => {
-    setMode(detectSpeechInputMode());
+    setMode(hasSpeechRecognition() ? "speech-recognition" : "none");
   }, []);
 
-  // Initialize Speech Recognition when mode is speech-recognition
   useEffect(() => {
     if (mode !== "speech-recognition") {
       return;
@@ -224,7 +193,7 @@ export const SpeechInput = ({
     speechRecognition.addEventListener("error", handleError);
 
     recognitionRef.current = speechRecognition;
-    // ponytail: defer state update to avoid cascading render warning in effect
+    // Defer setState to avoid cascading render warning in effect.
     setTimeout(() => setIsRecognitionReady(true), 0);
 
     return () => {
@@ -236,184 +205,38 @@ export const SpeechInput = ({
       speechRecognition.removeEventListener("error", handleError);
       speechRecognition.stop();
       recognitionRef.current = null;
-      // ponytail: defer state update to avoid cascading render warning in effect
       setTimeout(() => setIsRecognitionReady(false), 0);
     };
   }, [mode, lang]);
-
-  // Cleanup MediaRecorder and stream on unmount
-  useEffect(
-    () => () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {});
-        audioContextRef.current = null;
-      }
-      if (mediaRecorderRef.current?.state === "recording") {
-        mediaRecorderRef.current.stop();
-      }
-      if (streamRef.current) {
-        for (const track of streamRef.current.getTracks()) {
-          track.stop();
-        }
-      }
-    },
-    []
-  );
-
-  // Start MediaRecorder recording
-  const startMediaRecorder = useCallback(async () => {
-    if (!onAudioRecordedRef.current) {
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const mediaRecorder = new MediaRecorder(stream);
-      audioChunksRef.current = [];
-
-      try {
-        const AudioCtx =
-          window.AudioContext ||
-          (window as typeof window & { webkitAudioContext?: typeof AudioContext })
-            .webkitAudioContext;
-        if (!AudioCtx) {
-          throw new Error("AudioContext unavailable");
-        }
-        const audioCtx = new AudioCtx();
-        audioContextRef.current = audioCtx;
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        const source = audioCtx.createMediaStreamSource(stream);
-        source.connect(analyser);
-        analyserRef.current = analyser;
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-        const checkVolume = () => {
-          if (!analyserRef.current) return;
-          analyserRef.current.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-          const average = sum / dataArray.length;
-          setIsSpeaking(average > 10);
-          rafRef.current = requestAnimationFrame(checkVolume);
-        };
-        checkVolume();
-      } catch {
-        setIsSpeaking(true);
-      }
-
-      const handleDataAvailable = (event: BlobEvent) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      const handleStop = async () => {
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        if (audioContextRef.current) {
-          audioContextRef.current.close().catch(() => {});
-          audioContextRef.current = null;
-        }
-        setIsSpeaking(false);
-
-        for (const track of stream.getTracks()) {
-          track.stop();
-        }
-        streamRef.current = null;
-
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
-
-        if (audioBlob.size > 0 && onAudioRecordedRef.current) {
-          setIsProcessing(true);
-          try {
-            const transcript = await onAudioRecordedRef.current(audioBlob);
-            if (transcript) {
-              onTranscriptionChangeRef.current?.(transcript);
-            }
-          } catch {
-            onErrorRef.current?.("Failed to transcribe audio.");
-          } finally {
-            setIsProcessing(false);
-          }
-        }
-      };
-
-      const handleError = () => {
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        if (audioContextRef.current) {
-          audioContextRef.current.close().catch(() => {});
-          audioContextRef.current = null;
-        }
-        setIsSpeaking(false);
-        setIsListening(false);
-        for (const track of stream.getTracks()) {
-          track.stop();
-        }
-        streamRef.current = null;
-        onErrorRef.current?.("Recording failed.");
-      };
-
-      mediaRecorder.addEventListener("dataavailable", handleDataAvailable);
-      mediaRecorder.addEventListener("stop", handleStop);
-      mediaRecorder.addEventListener("error", handleError);
-
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
-      setIsListening(true);
-    } catch {
-      setIsListening(false);
-      onErrorRef.current?.("Microphone permission denied.");
-    }
-  }, []);
-
-  // Stop MediaRecorder recording
-  const stopMediaRecorder = useCallback(() => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-    setIsListening(false);
-  }, []);
 
   const handleListeningToggle = useCallback(() => {
     if (mode === "none") {
       onErrorRef.current?.("Speech not supported in this browser.");
       return;
     }
-    if (mode === "speech-recognition" && recognitionRef.current) {
-      if (isListening) {
-        recognitionRef.current.stop();
-      } else {
-        try {
-          recognitionRef.current.start();
-        } catch {
-          onErrorRef.current?.("Could not start speech recognition.");
-        }
-      }
-    } else if (mode === "media-recorder") {
-      if (isListening) {
-        stopMediaRecorder();
-      } else {
-        void startMediaRecorder();
-      }
+    if (!recognitionRef.current) {
+      return;
     }
-  }, [mode, isListening, startMediaRecorder, stopMediaRecorder]);
+    if (isListening) {
+      recognitionRef.current.stop();
+      return;
+    }
+    try {
+      recognitionRef.current.start();
+    } catch {
+      onErrorRef.current?.("Could not start speech recognition.");
+    }
+  }, [mode, isListening]);
 
-  // Determine if button should be disabled (mode "none" stays clickable to surface onError)
-  const isDisabled =
-    (mode === "speech-recognition" && !isRecognitionReady) ||
-    (mode === "media-recorder" && !onAudioRecorded) ||
-    isProcessing;
+  // mode "none" stays clickable so onError can explain unsupported browsers.
+  const isDisabled = mode === "speech-recognition" && !isRecognitionReady;
 
   return (
     <div className="relative inline-flex items-center justify-center">
       <InputGroupButton
         className={cn(
           "relative z-10 transition-all duration-300",
-          className
+          className,
         )}
         disabled={isDisabled}
         onClick={handleListeningToggle}
@@ -424,18 +247,7 @@ export const SpeechInput = ({
         {...props}
       >
         <AnimatePresence mode="wait">
-          {isProcessing ? (
-            <motion.div
-              key="processing"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className="flex items-center justify-center"
-            >
-              <Spinner />
-            </motion.div>
-          ) : isListening ? (
+          {isListening ? (
             <motion.div
               key="listening"
               initial={{ opacity: 0, scale: 0.8 }}

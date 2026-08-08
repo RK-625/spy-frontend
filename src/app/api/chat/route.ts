@@ -1,4 +1,4 @@
-import { runAgent } from "@/ai";
+import { runAgent } from "@/ai/agent";
 
 /** Agent tools touch FalkorDB native driver — must not run on Edge. */
 export const runtime = "nodejs";
