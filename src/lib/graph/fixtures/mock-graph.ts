@@ -1,8 +1,9 @@
 /**
  * Local mock / stress fixtures for verify scripts and layout labs — not live
  * Falkor I/O. Product `/graph` is live-only (GET `/api/graph`); these fixtures
- * are not mounted by `graph-canvas`. Import `createMockGraphData` /
- * `createLargeStressGraphData` from tests or scripts only.
+ * are not mounted by `graph-canvas` and are **not** re-exported from the
+ * product barrel `@/lib/graph`. Deep-import this module from tests/scripts only:
+ *   `@/lib/graph/fixtures/mock-graph` or a file URL under `src/lib/graph/fixtures/`.
  */
 
 import {

@@ -2,7 +2,7 @@
  * RTC (relative-to-center) camera.
  *
  * Cancels the huge shared world offset before scale so float precision holds
- * when cam and content sit far from the origin (e.g. FA2 clusters at 1e17).
+ * when cam and content sit far from the origin (large world spreads).
  *
  * World → screen:
  *   screenX = (worldX - camX) * zoom + viewportWidth  / 2

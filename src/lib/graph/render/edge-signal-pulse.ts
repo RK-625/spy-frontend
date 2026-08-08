@@ -8,7 +8,7 @@
  * - PART_OF: optional second soft beat (multi-packet)
  */
 
-import type { GraphEdge, GraphLinkType, GraphNode } from "../core/graph-data.ts";
+import type { GraphEdge, GraphLinkType, GraphNode } from "../core/graph-data";
 import {
   GRAPH_PULSE_ARROW_SOFTNESS,
   GRAPH_PULSE_ARROW_TIP_MIN,
