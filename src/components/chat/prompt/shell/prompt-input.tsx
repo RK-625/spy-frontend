@@ -48,17 +48,15 @@ import {
   ModelSelectorTrigger,
 } from "../footer/model-selector";
 import { PromptInputAttachments } from "../attachments/attachment-strip";
-import type { PromptInputWidgetOption } from "../ask/pending-ask";
 import { DotMatrixIcon } from "@/components/dotmatrix";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { toast } from "@/components/ui/app-toaster";
 import {
   formatAskUserQuestionAnswer,
-  type PendingAskUserQuestion,
+  getPendingAskUserQuestion,
 } from "@/lib/ask-user-question";
 import { chefs, models } from "@/lib/models";
 import { useChatContext } from "@/contexts/ChatContext";
-import type { ChatStatus } from "ai";
 
 // PROMPT_INPUT_ACCEPT lives in attachments/prompt-input-files; re-exported via
 // the `@/components/chat/prompt` barrel.
@@ -281,12 +279,6 @@ export const PromptInput = ({
 // PromptInputWorkspace — product export for /home
 // ============================================================================
 
-type PromptInputWorkspaceProps = {
-  pendingAsk: PendingAskUserQuestion | null;
-  status: ChatStatus;
-  onStop: () => void;
-};
-
 const ModelItem = ({
   m,
   isSelected,
@@ -314,20 +306,21 @@ const ModelItem = ({
 };
 
 /** Product prompt block for /home — provider + form + footer in one shell export. */
-export function PromptInputWorkspace(props: PromptInputWorkspaceProps) {
+export function PromptInputWorkspace() {
   return (
     <PromptInputProvider>
-      <PromptInputWorkspaceForm {...props} />
+      <PromptInputWorkspaceContent />
     </PromptInputProvider>
   );
 }
 
-function PromptInputWorkspaceForm({
-  pendingAsk,
-  status,
-  onStop,
-}: PromptInputWorkspaceProps) {
-  const { sendMessage } = useChatContext();
+/** Reads stream state from ChatProvider; owns pending-ask derivation for the shell. */
+function PromptInputWorkspaceContent() {
+  const { sendMessage, status, stop, messages } = useChatContext();
+  const pendingAsk = useMemo(
+    () => getPendingAskUserQuestion(messages),
+    [messages],
+  );
   const {
     attachments,
     textInput,
@@ -389,13 +382,25 @@ function PromptInputWorkspaceForm({
     [model],
   );
 
+  /**
+   * Single send path for form submit and MCQ option clicks.
+   * Option select: handleSubmit({ text: option.label, files: [] }).
+   * Pending ask → formatAskUserQuestionAnswer once; else normal chat.
+   */
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
       if (status !== "ready") return;
-      if (pendingAsk != null && !pendingAsk.allowCustomInput) return;
+
       const answer = message.text?.trim() ?? "";
       const hasFiles = (message.files?.length ?? 0) > 0;
-      if (pendingAsk != null && (answer.length > 0 || hasFiles)) {
+      const prefs = { model, mode, useWebSearch };
+
+      if (pendingAsk != null) {
+        // Empty form / nothing to answer.
+        if (!answer && !hasFiles) return;
+        // Pure MCQ: require a choice label (option path); files alone are not an answer.
+        if (!pendingAsk.allowCustomInput && !answer) return;
+
         void submitUserMessage(
           {
             text: formatAskUserQuestionAnswer({
@@ -404,28 +409,11 @@ function PromptInputWorkspaceForm({
             }),
             files: message.files,
           },
-          { model, mode, useWebSearch },
+          prefs,
         );
         return;
       }
-      void submitUserMessage(message, { model, mode, useWebSearch });
-    },
-    [submitUserMessage, pendingAsk, status, model, mode, useWebSearch],
-  );
-
-  const handleWidgetOptionSelect = useCallback(
-    (option: PromptInputWidgetOption) => {
-      if (status !== "ready" || pendingAsk == null) return;
-      void submitUserMessage(
-        {
-          text: formatAskUserQuestionAnswer({
-            question: pendingAsk.question,
-            answer: option.label,
-          }),
-          files: [],
-        },
-        { model, mode, useWebSearch },
-      );
+      void submitUserMessage(message, prefs);
     },
     [submitUserMessage, pendingAsk, status, model, mode, useWebSearch],
   );
@@ -489,7 +477,9 @@ function PromptInputWorkspaceForm({
           </PromptInputHeader>
           <PromptInputBody
             pendingAsk={pendingAsk}
-            onOptionSelect={handleWidgetOptionSelect}
+            onOptionSelect={(option) =>
+              handleSubmit({ text: option.label, files: [] })
+            }
           >
             <PromptInputTextarea />
           </PromptInputBody>
@@ -634,7 +624,7 @@ function PromptInputWorkspaceForm({
               )}
               variant={!isSubmitDisabled ? "default" : "ghost"}
               disabled={isSubmitDisabled}
-              onStop={onStop}
+              onStop={stop}
               status={status}
             />
           </PromptInputFooter>

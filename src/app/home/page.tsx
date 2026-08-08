@@ -20,8 +20,6 @@ import {
 } from "@/components/chat";
 import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
-import { getPendingAskUserQuestion } from "@/lib/ask-user-question";
-import { useMemo } from "react";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import ShinyText from "@/components/landing/shiny-text";
 
@@ -60,12 +58,7 @@ const EmptyState = () => (
 );
 
 const ChatWorkspace = () => {
-  const { status, messages, error, stop } = useChatContext();
-
-  const pendingAsk = useMemo(
-    () => getPendingAskUserQuestion(messages),
-    [messages],
-  );
+  const { status, messages, error } = useChatContext();
 
   return (
     <div className="relative flex size-full flex-col divide-y overflow-hidden">
@@ -217,11 +210,7 @@ const ChatWorkspace = () => {
         <ConversationScrollButton />
       </Conversation>
       <div className="shrink-0 pt-4">
-        <PromptInputWorkspace
-          pendingAsk={pendingAsk}
-          status={status}
-          onStop={stop}
-        />
+        <PromptInputWorkspace />
       </div>
     </div>
   );
