@@ -14,7 +14,7 @@ import {
   type RtcCamera,
 } from "@/lib/graph";
 import { DotMatrixIcon } from "@/components/dotmatrix";
-import { NodeDetailDialog } from "@/components/graph/node-detail-dialog";
+import { NodeDetailDialog } from "./node-detail-dialog";
 import type { GraphApiResponse } from "@/types/graph-topology";
 
 type HudState = {
@@ -70,7 +70,7 @@ function formatHudNumber(n: number): string {
 
 /**
  * Full-viewport graph host: RTC camera + paint store + Pixi DotStream edges.
- * Header chrome: ambient signal-pulse toggle (product weave metaphor).
+ * Header chrome: edge-signal pulse toggle (product weave metaphor — not layout motion).
  *
  * Product path (live-only — `plans/graph-live-only-pivot.md`):
  * - Single URL `/graph` — no `?stress` / `?source` / `?layout` / `?motion`.
@@ -79,7 +79,7 @@ function formatHudNumber(n: number): string {
  * - Placement: `placeTopology` owns fingerprint hit/miss + settle + cache save.
  *   - Hit → assemble cached poses; miss → (0,0) settle + save.
  *   - Host only `setGraphData(graph)` (paint store; no settle option).
- * - Layout: dynamic-import `layout-loop-d3` paint handle (no ambient).
+ * - Layout: dynamic-import `layout-loop-d3` paint handle (continuous layout off).
  * - Empty KB / fetch error → blank canvas (`console.warn` on error; no mock).
  * - Mock/stress fixtures stay under `lib/graph/fixtures/` for verify only.
  */
@@ -91,7 +91,7 @@ export function GraphCanvas() {
     camY: 0,
     zoom: 1,
   });
-  /** Default on — ambient life on the web (not a loud lab dashboard). */
+  /** Default on — edge signal weave (not continuous force layout). */
   const [pulsesOn, setPulsesOn] = useState(true);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [nodeDialogOpen, setNodeDialogOpen] = useState(false);
@@ -108,10 +108,8 @@ export function GraphCanvas() {
     camera.setViewport(viewportWidth, viewportHeight);
     camera.lookAt(0, 0);
 
-    // setup the renderer
-    const renderer = createPixiRenderer({
-      background: 0x0a0a0c,
-    });
+    // setup the renderer (background defaults to GRAPH_BG token)
+    const renderer = createPixiRenderer();
     renderer.setCamera(camera);
     renderer.setSignalPulsesEnabled(pulsesOn);
     rendererRef.current = renderer;
@@ -325,10 +323,7 @@ export function GraphCanvas() {
   };
 
   return (
-    <div
-      className="relative h-dvh w-dvw overflow-hidden bg-background text-text-primary"
-      data-graph-spike="step-3"
-    >
+    <div className="relative h-dvh w-dvw overflow-hidden bg-background text-text-primary">
       <div
         ref={canvasHostRef}
         className="absolute inset-0 cursor-grab touch-none active:cursor-grabbing"
