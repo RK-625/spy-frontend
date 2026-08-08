@@ -6,7 +6,7 @@
  *
  * Domain SoT:
  *   - `./prompt/*`       — PromptInputProvider + PromptInput* UI
- *   - `./conversation/*` — message stream, CoT, sources, reasoning, shimmer
+ *   - `./conversation/*` — message stream, CoT, sources, shimmer
  *   - `./shell/*`        — sidebar, settings dialog, command palette
  */
 export * from "./shell";

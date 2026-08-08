@@ -1,11 +1,7 @@
 "use client";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui";
+import { Collapsible, CollapsibleContent } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
 import {
@@ -16,8 +12,10 @@ import {
   useMemo,
   useState,
 } from "react";
-import { DotMatrixIcon } from "@/components/dotmatrix";
-import type { DotMatrixIconName } from "@/components/dotmatrix";
+import {
+  DotMatrixIcon,
+  type DotMatrixIconName,
+} from "@/components/dotmatrix";
 import { Shimmer } from "./shimmer";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -1637,9 +1635,7 @@ const ChainOfThoughtHeader = memo(
     useEffect(() => {
       if (!isStreaming) return;
       const interval = setInterval(() => {
-        setPhraseIndex(
-          Math.floor(Math.random() * (LOADING_PHRASES.length - 1)),
-        );
+        setPhraseIndex(Math.floor(Math.random() * LOADING_PHRASES.length));
       }, 7500);
       return () => clearInterval(interval);
     }, [isStreaming]);
@@ -1809,6 +1805,15 @@ export type ChainOfThoughtSearchResultProps = ComponentProps<"a"> & {
   favicon?: string;
 };
 
+function hostnameFromHref(href: string | undefined): string | undefined {
+  if (!href) return undefined;
+  try {
+    return new URL(href).hostname.replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
+}
+
 export const ChainOfThoughtSearchResult = memo(
   ({
     className,
@@ -1817,9 +1822,7 @@ export const ChainOfThoughtSearchResult = memo(
     favicon,
     ...props
   }: ChainOfThoughtSearchResultProps) => {
-    const domain = href
-      ? new URL(href).hostname.replace("www.", "")
-      : undefined;
+    const domain = hostnameFromHref(href);
 
     return (
       <a

@@ -70,7 +70,7 @@ export const Source = ({ href, title, children, ...props }: SourceProps) => (
   >
     {children ?? (
       <>
-        <DotMatrixIcon name="book" className="h-4 w-4" />
+        <DotMatrixIcon name="book" size={16} />
         <span className="block font-medium">{title}</span>
       </>
     )}
