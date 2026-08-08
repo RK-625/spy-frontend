@@ -1,5 +1,3 @@
-"use client";
-
 import gsap from "gsap";
 import { createSpiderBehaviors } from "./behaviors";
 
@@ -849,6 +847,9 @@ export function initSpiderMascotAnimation({
   hiTl.call(() => behaviors.startAuto(), undefined, autoStartAt);
 
   return () => {
+    hiTl.kill();
+    floatTween.kill();
+    glowTween?.kill();
     behaviors.cleanup();
     createdCleanups.forEach((fn) => fn());
     createdNodes.forEach((n) => n.remove());

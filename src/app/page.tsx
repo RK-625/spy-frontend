@@ -19,7 +19,7 @@ const ShaderGradient = dynamic(
 
 import HeroSection from "@/components/landing/hero-section";
 
-export default function Home() {
+export default function LandingPage() {
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Black overlay dissolves slowly — holds near-full opacity for most of the duration */}

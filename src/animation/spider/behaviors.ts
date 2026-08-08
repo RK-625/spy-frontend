@@ -1,5 +1,3 @@
-"use client";
-
 import gsap from "gsap";
 
 export type SpiderBehaviorName =
@@ -322,7 +320,6 @@ export function createSpiderBehaviors(ctx: SpiderBehaviorContext) {
   };
 
   return {
-    list: () => Object.keys(animations) as SpiderBehaviorName[],
     play,
     startAuto,
     stopAuto,

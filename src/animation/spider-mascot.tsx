@@ -10,12 +10,17 @@ export default function SpiderMascot({ onReady }: { onReady?: () => void }) {
   const [svgContent, setSvgContent] = useState<string>("");
 
   useEffect(() => {
+    let cancelled = false;
     fetch("/mascot-3d.svg")
       .then((res) => res.text())
       .then((text) => {
+        if (cancelled) return;
         setSvgContent(text);
         onReady?.();
       });
+    return () => {
+      cancelled = true;
+    };
   }, [onReady]);
 
   useGSAP(

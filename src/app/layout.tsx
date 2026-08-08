@@ -11,8 +11,18 @@ const unbounded = Unbounded({
   display: "swap",
 });
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
-const interBody = Inter({subsets:['latin'],variable:'--font-body'});
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+// Same face as --font-sans; separate variable for product body tokens (chat CoT / prompt).
+const interBody = Inter({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+});
 
 const vt323 = VT323({
   variable: "--font-terminal",

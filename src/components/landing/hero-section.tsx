@@ -38,7 +38,7 @@ export default function HeroSection() {
     }
   }, [currentPhase]);
 
-  const { ref, replay } = useScramble({
+  const { ref } = useScramble({
     text,
     speed: 0.35,
     tick: 2,
@@ -50,10 +50,6 @@ export default function HeroSection() {
     range: [65, 125],
     onAnimationEnd: handleAnimationEnd,
   });
-  const replayMainRef = useRef<(() => void) | null>(null);
-  useEffect(() => {
-    replayMainRef.current = replay;
-  }, [replay]);
 
   // Second scramble for "MEET" — synced with phase 3
   const { ref: refA, replay: replayA } = useScramble({
@@ -71,7 +67,7 @@ export default function HeroSection() {
     replayARef.current = replayA;
   }, [replayA]);
 
-  // "SYPDER" scramble — separate ref for glossy purple styling
+  // "SPYDER" scramble — separate ref for glossy purple styling
   const { ref: refB, replay: replayB } = useScramble({
     text: phase2B,
     speed: 0.35,
