@@ -193,10 +193,18 @@ export const SpeechInput = ({
     speechRecognition.addEventListener("error", handleError);
 
     recognitionRef.current = speechRecognition;
-    // Defer setState to avoid cascading render warning in effect.
-    setTimeout(() => setIsRecognitionReady(true), 0);
+    // Defer ready=true to avoid cascading setState-in-effect warnings.
+    // Cancel on cleanup so unmount / Strict Mode does not setState after tear-down.
+    let cancelled = false;
+    const readyTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        setIsRecognitionReady(true);
+      }
+    }, 0);
 
     return () => {
+      cancelled = true;
+      window.clearTimeout(readyTimer);
       speechRecognition.removeEventListener("start", handleStart);
       speechRecognition.removeEventListener("end", handleEnd);
       speechRecognition.removeEventListener("soundstart", handleSoundStart);
@@ -205,7 +213,7 @@ export const SpeechInput = ({
       speechRecognition.removeEventListener("error", handleError);
       speechRecognition.stop();
       recognitionRef.current = null;
-      setTimeout(() => setIsRecognitionReady(false), 0);
+      setIsRecognitionReady(false);
     };
   }, [mode, lang]);
 
