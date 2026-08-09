@@ -91,7 +91,7 @@ async function main() {
 
   const initial = new Map(g0.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
 
-  // Paint path: start paints initial graph; setGraphData paints without settle.
+  // Paint path: setGraph paints without settle.
   let lastPaint = null;
   const loop = createGraphPaintLoop({
     graphData: g0,
@@ -99,9 +99,8 @@ async function main() {
       lastPaint = g;
     },
   });
-  loop.start();
-  assert(lastPaint != null, "start paints");
-  loop.setGraphData(g0);
+  loop.setGraph(g0);
+  assert(lastPaint != null, "setGraph paints");
   assert(lastPaint.nodes.length === g0.nodes.length, "node count preserved on paint");
 
   let paintMoved = 0;
@@ -126,7 +125,9 @@ async function main() {
   }
   assert(moved >= 1, `at least one node moved after d3 settle (moved=${moved})`);
 
-  assert(typeof loop.setGraphData === "function", "handle exposes setGraphData");
+  assert(typeof loop.setGraph === "function", "handle exposes setGraph");
+  assert(typeof loop.start === "undefined", "handle has no start");
+  assert(typeof loop.setGraphData === "undefined", "handle has no setGraphData");
   assert(typeof loop.getGraphData === "undefined", "handle has no getGraphData");
   assert(typeof loop.status === "undefined", "handle has no status");
   assert(typeof loop.step === "undefined", "handle has no step()");

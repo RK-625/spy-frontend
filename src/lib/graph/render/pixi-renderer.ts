@@ -10,7 +10,7 @@
  *
  * Module map (single file):
  * - World AABB / overscan helpers
- * - Topology prep (incidence, full RimLock, spatial index)
+ * - Topology prep (full RimLock, rim slot cache, spatial index; incidence from caller)
  * - Bake request (payload, worker/sync, full resident replace, GPU upload)
  * - Signal wave color pass (throttled rAF)
  * - Camera transform + underlay + nodes
@@ -37,7 +37,7 @@
  * - Fan fallback (MIN_SEGMENTS=32) if Shader/GlProgram init or first Mesh fails.
  *
  * C — Shared bake worker (bake-worker-pool.ts + bake-worker.ts + bake-sample.ts):
- * - Main: recomputeIncidence + full RimLock + spatial rebuild + candidate payload.
+ * - Main: full RimLock + spatial rebuild + candidate payload (incidence owned by placement/fixtures).
  * - Worker: pure DotStream sampling → transferable exact-size dots + packed edgeRanges.
  * - Latest-only: worker pending queue keeps newest seq per client; cooperative
  *   abort mid-sample after each edge when a newer bake supersedes.
@@ -77,7 +77,6 @@ import { Application, Container, Graphics } from "pixi.js";
 
 import type { RtcCamera } from "../camera/rtc-camera";
 import type { GraphData, GraphEdge, GraphNode } from "../core/graph-data";
-import { recomputeIncidence } from "../core/graph-data";
 import type { RimSlot } from "./draw-arrow";
 import { DotCircleBatch } from "./dot-circle-batch";
 import {
@@ -471,12 +470,14 @@ export function createPixiRenderer(
   }
 
   /**
-   * Main-thread incidence + full RimLock + spatial rebuild when topology dirty.
+   * Full RimLock + rim slot cache + spatial rebuild when topology dirty.
+   * Incidence (childIds/parentIds/relateIds) is owned by placement/fixtures —
+   * callers must `recomputeIncidence` before paint (product: placeTopology).
+   * Spatial index's internal incidentEdges is a separate structure rebuilt here.
    * Product path always full (no incremental / positions-only partial).
    */
   function ensureTopologyPrepared(): void {
     if (!graphData || !topologyDirty) return;
-    recomputeIncidence(graphData);
     applyRimLock(graphData, 1);
     rebuildRimSlotCache();
     spatialIndex.rebuild(graphData, edgePadWorld);
@@ -1487,6 +1488,11 @@ export function createPixiRenderer(
       lastUnderlayEmpty = true;
     },
 
+    /**
+     * Full graph install. Callers must supply GraphData with incidence already
+     * consistent with edges (product: placeTopology; fixtures: mock recompute).
+     * Renderer does not re-derive childIds/parentIds/relateIds.
+     */
     setGraphData(nextGraphData: GraphData): void {
       graphData = nextGraphData;
       nodesByIdCache = new Map(nextGraphData.nodes.map((n) => [n.id, n]));

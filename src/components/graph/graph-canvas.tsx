@@ -78,7 +78,7 @@ function formatHudNumber(n: number): string {
  * - Client maps via `placeTopology` (never GraphNode from API).
  * - Placement: `placeTopology` owns fingerprint hit/miss + settle + cache save.
  *   - Hit → assemble cached poses; miss → (0,0) settle + save.
- *   - Host only `setGraphData(graph)` (paint store; no settle option).
+ *   - Host only `setGraph(graph)` on the paint store (no settle option).
  * - Layout: dynamic-import `layout-loop-d3` paint handle (continuous layout off).
  * - Empty KB / fetch error → blank canvas (`console.warn` on error; no mock).
  * - Mock/stress fixtures stay under `lib/graph/fixtures/` for verify only.
@@ -261,8 +261,8 @@ export function GraphCanvas() {
         layoutLoop.stop();
         return;
       }
-      layoutLoop.start();
-      queueHudUpdate();
+      // Paint empty store (renderOnGraphData already queues HUD).
+      layoutLoop.setGraph(initialGraph);
 
       // Always live topology. Client never writes Falkor placement.
       // Poses: localStorage fingerprint cache (hit → paint; miss → settle+save).
@@ -280,8 +280,8 @@ export function GraphCanvas() {
             memories: data.memories,
             links: data.links,
           });
-          // placeTopology already settled on miss; paint only.
-          layoutLoop.setGraphData(graph);
+          // placeTopology already settled on miss; paint store only.
+          layoutLoop.setGraph(graph);
           return;
         }
 

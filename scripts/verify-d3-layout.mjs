@@ -6,7 +6,7 @@
  *
  * Product surface:
  *   createGraphPaintLoop({ graphData, renderOnGraphData })
- *     → start / setGraphData / stop (paint only; no settle option)
+ *     → setGraph / stop (paint only; no settle option)
  *
  * Settle is placeTopology / settleGraphData (force-recipe subpath).
  */
@@ -72,30 +72,18 @@ async function main() {
       lastPaint = g;
     },
   });
-  d3Loop.start();
-  assert(paintEmits >= 1, `start paints full graph (paintEmits=${paintEmits})`);
-
-  // start() is paint-only — initial positions unchanged.
-  let startMoved = 0;
-  for (const n of lastPaint.nodes) {
-    const f = frozen.get(n.id);
-    if (f && (f.x !== n.x || f.y !== n.y)) startMoved += 1;
-  }
-  assert(startMoved === 0, `start() does not settle (moved=${startMoved})`);
-
-  // setGraphData is paint-only (product placeTopology owns settle).
-  paintEmits = 0;
+  // setGraph is paint-only (product placeTopology owns settle).
   const mockAgain = createMockGraphData();
   const mockXY = new Map(mockAgain.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
-  d3Loop.setGraphData(mockAgain);
+  d3Loop.setGraph(mockAgain);
   const painted = lastPaint;
-  assert(paintEmits >= 1, `setGraphData paints full graph (paintEmits=${paintEmits})`);
+  assert(paintEmits >= 1, `setGraph paints full graph (paintEmits=${paintEmits})`);
 
   let defaultMoved = 0;
   for (const n of painted.nodes) {
     assert(
       Number.isFinite(n.x) && Number.isFinite(n.y),
-      `finite after setGraphData paint ${n.id}`
+      `finite after setGraph paint ${n.id}`
     );
     const f = frozen.get(n.id);
     assert(f != null, `known node ${n.id}`);
@@ -105,7 +93,7 @@ async function main() {
   }
   assert(
     defaultMoved === 0,
-    `setGraphData does not settle (moved=${defaultMoved})`
+    `setGraph does not settle (moved=${defaultMoved})`
   );
 
   // settle lives in force-recipe (moves ≥1 node vs mock).
@@ -134,19 +122,19 @@ async function main() {
       baselinePaint = g;
     },
   });
-  noSettleLoop.start();
+  noSettleLoop.setGraph(painted);
   const baselineXY = new Map(
     baselinePaint.nodes.map((n) => [n.id, { x: n.x, y: n.y }])
   );
   paintCount = 0;
-  noSettleLoop.setGraphData(baselinePaint);
+  noSettleLoop.setGraph(baselinePaint);
   let noSettleMoved = 0;
   for (const n of baselinePaint.nodes) {
     const p = baselineXY.get(n.id);
     if (p && (p.x !== n.x || p.y !== n.y)) noSettleMoved += 1;
   }
   assert(noSettleMoved === 0, `re-paint keeps positions (moved=${noSettleMoved})`);
-  assert(paintCount >= 1, `setGraphData still paints (paintCount=${paintCount})`);
+  assert(paintCount >= 1, `setGraph still paints (paintCount=${paintCount})`);
   noSettleLoop.stop();
   d3Loop.stop();
 
@@ -203,11 +191,16 @@ async function main() {
     "graph-canvas maps live topology via placeTopology"
   );
   assert(
-    canvasSrc.includes("setGraphData(graph)") &&
+    canvasSrc.includes("setGraph(graph)") &&
       !canvasSrc.includes("settle:") &&
       !canvasSrc.includes("needsLayout") &&
       !canvasSrc.includes("Array.isArray"),
-    "graph-canvas uses setGraphData(graph) only; trusts GraphApiResponse"
+    "graph-canvas uses setGraph(graph) only; trusts GraphApiResponse"
+  );
+  assert(
+    !canvasSrc.includes("layoutLoop.start") &&
+      !canvasSrc.includes("layoutLoop.setGraphData"),
+    "graph-canvas paint loop uses setGraph (no start / setGraphData)"
   );
   assert(
     !canvasSrc.includes("createMockGraphData") &&

@@ -84,8 +84,7 @@ async function main() {
       after = g;
     },
   });
-  loop.start();
-  loop.setGraphData(mock);
+  loop.setGraph(mock);
   for (const n of after.nodes) {
     const expected = ranks.get(n.id);
     assert(n.rank === expected, `paint preserves rank for ${n.id} (${n.rank} === ${expected})`);

@@ -5,15 +5,15 @@
  * via placeTopology. Dynamic-imported by `/graph` host so placement d3 stays
  * out of the static host chunk until needed.
  *
- * Product path:
- *   start() paints the empty/initial graph store;
- *   setGraphData(graph) paints poses from placeTopology (hit/miss + settle
- *   owned by placement — this loop never settles).
+ * Product path: only `setGraph` + `stop`.
+ *   setGraph(graph) replaces the paint store (clone) and emits full GraphData
+ *   via renderOnGraphData — poses come from placeTopology (hit/miss + settle
+ *   owned by placement; this store never settles, no ambient layout).
  *
  * Always emits full GraphData via `renderOnGraphData`.
- * One deep clone per setGraphData/start store update; emit shares that snapshot
+ * One deep clone per setGraph store update; emit shares that snapshot
  * (product renderer treats GraphData as read-only).
- * Ambient continuous layout: not present (stop is a no-op).
+ * Ambient continuous layout: not present (stop is a no-op for lifecycle symmetry).
  */
 
 import { cloneGraphData, type GraphData } from "../core/graph-data";
@@ -27,11 +27,12 @@ export type LayoutLoopOptions = {
   renderOnGraphData?: (graphData: GraphData) => void;
 };
 
-/** Minimal paint handle — product host uses start / setGraphData / stop only. */
+/** Minimal paint handle — product host uses setGraph / stop only. */
 export type LayoutLoopHandle = {
-  start: () => void;
+  /** Replace paint store (clone) and emit full GraphData via renderOnGraphData. */
+  setGraph: (graphData: GraphData) => void;
+  /** Lifecycle symmetry / dispose; no ambient timers to tear down. */
   stop: () => void;
-  setGraphData: (graphData: GraphData) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -48,17 +49,13 @@ export function createGraphPaintLoop(
     : { nodes: [], edges: [] };
 
   return {
-    start(): void {
+    setGraph(graphData: GraphData): void {
+      latestGraphData = cloneGraphData(graphData);
       renderOnGraphData?.(latestGraphData);
     },
 
     stop(): void {
       // no ambient timers / simulation to tear down
-    },
-
-    setGraphData(graphData: GraphData): void {
-      latestGraphData = cloneGraphData(graphData);
-      renderOnGraphData?.(latestGraphData);
     },
   };
 }
