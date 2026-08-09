@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
+
+import { generateEmbedding } from "@/ai/models";
 import { getDb, isVectorIndexesReady } from "@/lib/falkor";
-import { generateEmbedding } from "@/ai";
+
+/**
+ * GET /api/test-db — dev/ops connectivity probe (not a product surface).
+ * Hits Falkor open + vector index ensure + one embed + RETURN 1.
+ * Keep Node runtime: native Falkor driver cannot run on Edge.
+ */
+export const runtime = "nodejs";
 
 export async function GET() {
   try {
@@ -23,14 +31,18 @@ export async function GET() {
       vectorIndexesReady: isVectorIndexesReady(),
       indexes,
       ping: pingResult,
-      vector: vector,
+      // Dim only — avoid dumping a 1536-float payload from a health probe.
+      embeddingDimension: vector.length,
     });
   } catch (error) {
-    return NextResponse.json({
-      success: false,
-      message: "Failed to connect to the FalkorDb",
-      vectorIndexesReady: isVectorIndexesReady(),
-      error: error instanceof Error ? error.message : String(error),
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to connect to the FalkorDb",
+        vectorIndexesReady: isVectorIndexesReady(),
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
   }
 }

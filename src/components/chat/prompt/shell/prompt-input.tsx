@@ -1,38 +1,75 @@
 "use client";
 
 /**
- * PromptInput form: drop handlers, submit pipeline, file input + validation registration.
- * Requires outer PromptShellProvider. Draft state lives in ./context.
+ * Prompt shell: PromptInput form primitive + PromptInputWorkspace product export.
+ * PromptInput requires outer PromptInputProvider. Draft state lives in ./context.
+ * PromptInputWorkspace mounts the provider internally for /home.
  */
 
-import { InputGroup } from "@/components/ui";
+import { InputGroup, toast } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { PromptInputMessage } from "@/types/chat";
 import type { FileUIPart } from "ai";
 import {
   convertBlobUrlToDataUrl,
   filterIncomingFiles,
+  PROMPT_INPUT_ACCEPT,
+  PROMPT_INPUT_ALLOW_MULTIPLE,
+  PROMPT_INPUT_MAX_FILES,
+  PROMPT_INPUT_MAX_FILE_SIZE,
   type AttachmentError,
 } from "../attachments/prompt-input-files";
 import type {
   ChangeEventHandler,
-  FormEvent,
-  FormEventHandler,
   HTMLAttributes,
+  SubmitEvent,
+  SubmitEventHandler,
 } from "react";
-import { useCallback, useEffect, useRef } from "react";
-import { usePromptShellControllerContext } from "./context";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  PromptInputProvider,
+  usePromptInputContext,
+} from "./context";
+import { PromptInputHeader } from "../header/header";
+import { PromptInputBody } from "../body/body";
+import { PromptInputTextarea } from "../body/textarea";
+import { PromptInputFooter } from "../footer/footer";
+import { PromptInputTools } from "../footer/tools";
+import { PromptInputButton } from "../footer/button";
+import { PromptInputSubmit } from "../footer/submit";
+import { SpeechInput } from "../footer/speech-input";
+import {
+  ModelSelector,
+  ModelSelectorContent,
+  ModelSelectorEmpty,
+  ModelSelectorGroup,
+  ModelSelectorInput,
+  ModelSelectorItem,
+  ModelSelectorList,
+  ModelSelectorLogo,
+  ModelSelectorName,
+  ModelSelectorTrigger,
+} from "../footer/model-selector";
+import { PromptInputAttachments } from "../attachments/attachment-strip";
+import { DotMatrixIcon } from "@/components/dotmatrix";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
+import {
+  formatAskUserQuestionAnswer,
+  getPendingAskUserQuestion,
+} from "@/lib/ask-user-question";
+import { chefs, models } from "@/lib/models";
+import { useChatContext } from "@/contexts/ChatContext";
 
-// PROMPT_INPUT_ACCEPT lives in attachments/prompt-input-files; re-exported via
-// the `@/components/chat/prompt` barrel.
+// PROMPT_INPUT_ACCEPT / MAX_FILES / MAX_FILE_SIZE live in attachments/prompt-input-files;
+// re-exported via the `@/components/chat/prompt` barrel.
 
 // ============================================================================
 // Helpers
 // ============================================================================
 
-/** Attach dragover/drop listeners that forward FileList to onFiles. */
+/** Attach dragover/drop listeners on a form (or other element) that forward FileList to onFiles. */
 function attachFileDrop(
-  target: Document | HTMLElement,
+  target: HTMLElement,
   onFiles: (files: FileList) => void
 ): () => void {
   const onDragOver = (e: Event) => {
@@ -77,79 +114,75 @@ export type PromptInputProps = Omit<
   HTMLAttributes<HTMLFormElement>,
   "onSubmit" | "onError"
 > & {
-  // e.g., "image/*" or leave undefined for any
+  /** MIME/extension allowlist. Defaults to `PROMPT_INPUT_ACCEPT` (product SoT). */
   accept?: string;
-  multiple?: boolean;
-  // When true, accepts drops anywhere on document. Default false (opt-in).
-  globalDrop?: boolean;
-  // Minimal constraints
+  isMultiple?: boolean;
   maxFiles?: number;
-  // bytes
+  /** Max bytes per file. Defaults to `PROMPT_INPUT_MAX_FILE_SIZE`. */
   maxFileSize?: number;
   onError?: (err: AttachmentError) => void;
+  /** Sync accept gate only: throw to refuse (keep draft); return void to accept (clear). */
   onSubmit: (
     message: PromptInputMessage,
-    event: FormEvent<HTMLFormElement>
-  ) => void | Promise<void>;
+    event: SubmitEvent<HTMLFormElement>
+  ) => void;
 };
 
 export const PromptInput = ({
   className,
-  accept,
-  multiple,
-  globalDrop,
-  maxFiles,
-  maxFileSize,
+  accept = PROMPT_INPUT_ACCEPT,
+  isMultiple = PROMPT_INPUT_ALLOW_MULTIPLE,
+  maxFiles = PROMPT_INPUT_MAX_FILES,
+  maxFileSize = PROMPT_INPUT_MAX_FILE_SIZE,
   onError,
   onSubmit,
   children,
   ...props
 }: PromptInputProps) => {
-  const controller = usePromptShellControllerContext();
-  const { attachments, textInput } = controller;
+  // Destructure stable register callbacks so effects do not re-run on every keystroke
+  // (context value identity changes when textInput changes).
+  const {
+    attachments,
+    textInput,
+    __registerFileInput,
+    __registerAttachmentValidator,
+  } = usePromptInputContext();
 
   // Refs
   const inputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
-  // Latest validation props for the registered gate (stable registration effect)
-  const validationRef = useRef({ accept, maxFileSize, maxFiles, onError });
-  validationRef.current = { accept, maxFileSize, maxFiles, onError };
-
   // Register file input so external openFileDialog() works
   useEffect(() => {
-    controller.__registerFileInput(inputRef, () => inputRef.current?.click());
-  }, [controller]);
+    __registerFileInput(inputRef);
+  }, [__registerFileInput]);
 
   // Register accept/size/maxFiles gate so attachments.add is always validated
   // while PromptInput is mounted (children, drop, file picker share one path).
+  // Defaults resolve to PROMPT_INPUT_* SoT; props are optional overrides.
   useEffect(() => {
-    controller.__registerAttachmentValidator((files, { currentCount }) => {
-      const v = validationRef.current;
+    __registerAttachmentValidator((files, currentCount) => {
       return filterIncomingFiles(files, {
-        accept: v.accept,
-        maxFileSize: v.maxFileSize,
-        maxFiles: v.maxFiles,
+        accept,
+        maxFileSize,
+        maxFiles,
         currentCount,
-        onError: v.onError,
+        onError,
       });
     });
     return () => {
-      controller.__registerAttachmentValidator(null);
+      __registerAttachmentValidator(null);
     };
-  }, [controller]);
+  }, [__registerAttachmentValidator, accept, maxFileSize, maxFiles, onError]);
 
-  // Attach drop handlers on form (default) or document (globalDrop opt-in)
+  // Attach drop handlers on the prompt form only (not document-wide)
   useEffect(() => {
-    if (globalDrop) {
-      return attachFileDrop(document, attachments.add);
-    }
     const form = formRef.current;
     if (!form) {
       return;
     }
     return attachFileDrop(form, attachments.add);
-  }, [attachments.add, globalDrop]);
+  }, [attachments.add]);
 
   const handleChange: ChangeEventHandler<HTMLInputElement> = useCallback(
     (event) => {
@@ -162,7 +195,7 @@ export const PromptInput = ({
     [attachments]
   );
 
-  const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
+  const handleSubmit: SubmitEventHandler<HTMLFormElement> = useCallback(
     async (event) => {
       event.preventDefault();
 
@@ -171,7 +204,7 @@ export const PromptInput = ({
 
       try {
         // Convert blob URLs to data URLs asynchronously
-        const convertedFiles: FileUIPart[] = await Promise.all(
+        const convertedFiles: FileUIPart[] = files.length > 0 ? await Promise.all(
           files.map(async ({ id: _id, ...item }) => {
             if (item.url?.startsWith("blob:")) {
               const dataUrl = await convertBlobUrlToDataUrl(item.url);
@@ -183,26 +216,16 @@ export const PromptInput = ({
             }
             return item;
           })
-        );
+        ) : [];
 
-        const result = onSubmit({ files: convertedFiles, text }, event);
-
-        // Handle both sync and async onSubmit
-        if (result instanceof Promise) {
-          try {
-            await result;
-            attachments.clear();
-            textInput.clear();
-          } catch {
-            // Don't clear on error - user may want to retry
-          }
-        } else {
-          // Sync function completed without throwing, clear inputs
-          attachments.clear();
-          textInput.clear();
-        }
-      } catch {
-        // Don't clear on error - user may want to retry
+        // Clear-on-accept: sync onSubmit only. Throw to refuse (keep draft);
+        // return to accept (clear). Do not await stream work here.
+        onSubmit({ files: convertedFiles, text }, event);
+        attachments.clear();
+        textInput.clear();
+      } catch (error) {
+        // Conversion failed or onSubmit refused — keep draft; log only.
+        console.error(error);
       }
     },
     [attachments, textInput, onSubmit]
@@ -220,7 +243,7 @@ export const PromptInput = ({
         accept={accept}
         aria-label="Upload files"
         className="hidden"
-        multiple={multiple}
+        multiple={isMultiple}
         onChange={handleChange}
         ref={inputRef}
         title="Upload files"
@@ -239,3 +262,371 @@ export const PromptInput = ({
     </>
   );
 };
+
+// ============================================================================
+// PromptInputWorkspace — product export for /home
+// ============================================================================
+
+const ModelItem = ({
+  modelEntry,
+  isSelected,
+  onSelect,
+}: {
+  modelEntry: (typeof models)[0];
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+}) => {
+  const handleSelect = useCallback(() => {
+    onSelect(modelEntry.id);
+  }, [onSelect, modelEntry.id]);
+
+  return (
+    <ModelSelectorItem onSelect={handleSelect} value={modelEntry.name}>
+      <ModelSelectorLogo icon={modelEntry.icon} />
+      <ModelSelectorName>{modelEntry.name}</ModelSelectorName>
+      {isSelected ? (
+        <DotMatrixIcon name="check" size={ICON_GLYPH.badge} className="ml-auto" />
+      ) : (
+        <div className="ml-auto size-2.5" />
+      )}
+    </ModelSelectorItem>
+  );
+};
+
+/** Product prompt block for /home — provider + form + footer in one shell export. */
+export function PromptInputWorkspace() {
+  return (
+    <PromptInputProvider>
+      <PromptInputWorkspaceContent />
+    </PromptInputProvider>
+  );
+}
+
+/** Reads stream state from ChatProvider; owns pending-ask derivation for the shell. */
+function PromptInputWorkspaceContent() {
+  const { sendMessage, status, stop, messages } = useChatContext();
+  const pendingAsk = useMemo(
+    () => getPendingAskUserQuestion(messages),
+    [messages],
+  );
+  const {
+    attachments,
+    textInput,
+    prefs: { model, setModel, mode, setMode, useWebSearch, toggleWebSearch },
+  } = usePromptInputContext();
+
+  /**
+   * Transport only: kick off useChat sendMessage with model/mode/web prefs.
+   * No accept policy here — caller (handleSubmit) must validate first.
+   * Fire-and-forget: late stream/network failures toast; form already cleared.
+   */
+  const submitUserMessage = useCallback(
+    (
+      message: PromptInputMessage,
+      prefs: {
+        model: string;
+        mode: string;
+        useWebSearch: boolean;
+      },
+    ): void => {
+      void sendMessage(
+        {
+          text: message.text?.trim() || "",
+          files:
+            message.files && message.files.length > 0
+              ? message.files
+              : undefined,
+        },
+        {
+          body: {
+            model: prefs.model,
+            useWebSearch: prefs.useWebSearch,
+            mode: prefs.mode,
+          },
+        },
+      ).catch((error: unknown) => {
+        console.error(error);
+        toast.error("Failed to send message");
+      });
+    },
+    [sendMessage],
+  );
+
+  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+  const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
+
+  const selectedModelData = useMemo(
+    () => models.find((m) => m.id === model),
+    [model],
+  );
+
+  /**
+   * Single accept path for form submit and MCQ option clicks.
+   * Owns all validation + pending-ask shaping; then calls submitUserMessage.
+   * Option select: handleSubmit({ text: option.label, files: [] }).
+   *
+   * Sync: throws if the turn is refused (form keeps draft); returns void after
+   * transport kickoff so PromptInput clears on accept (not on stream end).
+   */
+  const handleSubmit = useCallback(
+    (message: PromptInputMessage): void => {
+      if (status !== "ready") {
+        throw new Error("Chat is not ready to send.");
+      }
+
+      const answer = message.text?.trim() ?? "";
+      const hasFiles = (message.files?.length ?? 0) > 0;
+      const prefs = { model, mode, useWebSearch };
+
+      if (pendingAsk != null) {
+        // Empty form / nothing to answer.
+        if (!answer && !hasFiles) {
+          throw new Error("Empty message.");
+        }
+        // Pure MCQ: require a choice label; files alone are not an answer.
+        if (!pendingAsk.allowCustomInput && !answer) {
+          throw new Error("Choice required.");
+        }
+
+        submitUserMessage(
+          {
+            text: formatAskUserQuestionAnswer({
+              question: pendingAsk.question,
+              answer: answer.length > 0 ? answer : "(attachment)",
+            }),
+            files: message.files,
+          },
+          prefs,
+        );
+        return;
+      }
+
+      if (!answer && !hasFiles) {
+        throw new Error("Empty message.");
+      }
+
+      submitUserMessage(
+        {
+          text: answer,
+          files: message.files,
+        },
+        prefs,
+      );
+    },
+    [submitUserMessage, pendingAsk, status, model, mode, useWebSearch],
+  );
+
+  const handleTranscriptionChange = useCallback(
+    (transcript: string) => {
+      textInput.setValue(
+        textInput.value
+          ? `${textInput.value} ${transcript}`
+          : transcript,
+      );
+    },
+    [textInput],
+  );
+
+  const handleAttachmentError = useCallback((err: { message: string }) => {
+    toast.error(err.message);
+  }, []);
+
+  const handleSpeechError = useCallback((message: string) => {
+    toast.error(message);
+  }, []);
+
+  const handleModelSelect = useCallback(
+    (modelId: string) => {
+      setModel(modelId);
+      setModelSelectorOpen(false);
+    },
+    [setModel],
+  );
+
+  const isSubmitDisabled = useMemo(
+    () =>
+      status === "ready" &&
+      ((pendingAsk != null && !pendingAsk.allowCustomInput) ||
+        (!textInput.value.trim() &&
+          attachments.files.length === 0)),
+    [
+      textInput.value,
+      attachments.files.length,
+      status,
+      pendingAsk,
+    ],
+  );
+
+  return (
+    <div className="w-full px-4 pb-4 pt-1">
+      <div className="chat-input-wrap relative">
+        <div className="chat-input-glow" />
+        <PromptInput
+          onSubmit={handleSubmit}
+          onError={handleAttachmentError}
+        >
+          <PromptInputHeader>
+            <PromptInputAttachments />
+          </PromptInputHeader>
+          <PromptInputBody
+            pendingAsk={pendingAsk}
+            onOptionSelect={(option) => {
+              try {
+                handleSubmit({ text: option.label, files: [] });
+              } catch {
+                // Not ready / refused — MCQ path has no form draft to preserve.
+              }
+            }}
+          >
+            <PromptInputTextarea />
+          </PromptInputBody>
+          <PromptInputFooter>
+            <PromptInputTools>
+              <PromptInputButton
+                onClick={attachments.openFileDialog}
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Add photos or files"
+                tooltip={{
+                  content: "Add photos or files",
+                  side: "top",
+                }}
+                className="text-text-primary hover:bg-[var(--surface-hover)]"
+              >
+                <DotMatrixIcon name="plus" size={ICON_GLYPH.toolbar} />
+              </PromptInputButton>
+              <SpeechInput
+                className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)]"
+                onTranscriptionChange={handleTranscriptionChange}
+                onError={handleSpeechError}
+                size="icon-sm"
+                variant="ghost"
+              />
+              <PromptInputButton
+                onClick={toggleWebSearch}
+                size="icon-sm"
+                variant={useWebSearch ? "default" : "ghost"}
+                aria-label={
+                  useWebSearch ? "Disable web search" : "Enable web search"
+                }
+                tooltip={{
+                  content: useWebSearch
+                    ? "Disable web search"
+                    : "Enable web search",
+                  side: "top",
+                }}
+                className={cn(
+                  "transition-colors",
+                  useWebSearch
+                    ? "bg-primary text-accent-ink hover:bg-accent-hover"
+                    : "text-text-primary hover:bg-[var(--surface-hover)]",
+                )}
+              >
+                <DotMatrixIcon name="globe" size={ICON_GLYPH.toolbar} />
+              </PromptInputButton>
+              <ModelSelector
+                onOpenChange={setModelSelectorOpen}
+                open={modelSelectorOpen}
+              >
+                <ModelSelectorTrigger asChild>
+                  <PromptInputButton
+                    data-model-trigger
+                    className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center gap-1.5"
+                    variant="ghost"
+                    aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
+                  >
+                    {selectedModelData ? (
+                      <selectedModelData.icon className="size-3 shrink-0" />
+                    ) : (
+                      <DotMatrixIcon name="settings" size={ICON_GLYPH.toolbar} />
+                    )}
+                    {selectedModelData ? (
+                      <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide">
+                        {selectedModelData.name}
+                      </span>
+                    ) : null}
+                  </PromptInputButton>
+                </ModelSelectorTrigger>
+                <ModelSelectorContent>
+                  <ModelSelectorInput placeholder="Search models..." />
+                  <ModelSelectorList>
+                    <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                    {chefs.map((chef) => (
+                      <ModelSelectorGroup heading={chef} key={chef}>
+                        {models
+                          .filter((entry) => entry.chef === chef)
+                          .map((entry) => (
+                            <ModelItem
+                              isSelected={model === entry.id}
+                              key={entry.id}
+                              modelEntry={entry}
+                              onSelect={handleModelSelect}
+                            />
+                          ))}
+                      </ModelSelectorGroup>
+                    ))}
+                  </ModelSelectorList>
+                </ModelSelectorContent>
+              </ModelSelector>
+              {selectedModelData?.mode &&
+                selectedModelData.mode.length > 0 && (
+                  <ModelSelector
+                    onOpenChange={setModeSelectorOpen}
+                    open={modeSelectorOpen}
+                  >
+                    <ModelSelectorTrigger asChild>
+                      <PromptInputButton
+                        data-model-trigger
+                        className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center justify-center px-2"
+                        variant="ghost"
+                        aria-label="Select mode"
+                      >
+                        <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide capitalize">
+                          {mode}
+                        </span>
+                      </PromptInputButton>
+                    </ModelSelectorTrigger>
+                    <ModelSelectorContent className="w-auto">
+                      <ModelSelectorList>
+                        {selectedModelData.mode.map((m) => (
+                          <ModelSelectorItem
+                            key={m}
+                            value={m}
+                            onSelect={(val) => {
+                              setMode(val);
+                              setModeSelectorOpen(false);
+                            }}
+                          >
+                            <span className="capitalize">{m}</span>
+                            {mode === m && (
+                              <DotMatrixIcon
+                                name="check"
+                                size={ICON_GLYPH.badge}
+                                className="ml-auto opacity-50"
+                              />
+                            )}
+                          </ModelSelectorItem>
+                        ))}
+                      </ModelSelectorList>
+                    </ModelSelectorContent>
+                  </ModelSelector>
+                )}
+            </PromptInputTools>
+            <PromptInputSubmit
+              className={cn(
+                "!size-8 !rounded-[var(--radius)] transition-colors duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] disabled:!opacity-100",
+                !isSubmitDisabled
+                  ? "bg-primary text-accent-ink hover:bg-accent-hover"
+                  : "text-text-primary hover:bg-[var(--surface-hover)]",
+              )}
+              variant={!isSubmitDisabled ? "default" : "ghost"}
+              disabled={isSubmitDisabled}
+              onStop={stop}
+              status={status}
+            />
+          </PromptInputFooter>
+        </PromptInput>
+      </div>
+    </div>
+  );
+}

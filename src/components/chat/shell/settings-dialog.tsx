@@ -8,18 +8,14 @@ import {
   DialogTitle,
 } from "@/components/ui";
 import { useChatContext } from "@/contexts/ChatContext";
-import { useOptionalPromptShellControllerContext } from "../prompt/shell/context";
 
-export function SettingsDialog({
-  onOpenChange,
-  open,
-}: {
-  onOpenChange: (b: boolean) => void;
+export interface SettingsDialogProps {
   open: boolean;
-}) {
+  onOpenChange: (open: boolean) => void;
+}
+
+export function SettingsDialog({ onOpenChange, open }: SettingsDialogProps) {
   const { status, messages, error } = useChatContext();
-  const controller = useOptionalPromptShellControllerContext();
-  const model = controller?.prefs.model ?? "—";
   const messageCount = messages.length;
 
   return (
@@ -38,13 +34,6 @@ export function SettingsDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-3 text-sm">
-          <div className="rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-3">
-            <div className="mb-1 text-[0.7rem] tracking-wider text-text-secondary uppercase">
-              Model
-            </div>
-            <div className="font-mono text-primary">{model}</div>
-          </div>
-
           <div className="rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-3">
             <div className="mb-1 text-[0.7rem] tracking-wider text-text-secondary uppercase">
               Status

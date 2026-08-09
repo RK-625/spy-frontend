@@ -5,13 +5,12 @@
  */
 
 import { InputGroupButton } from "@/components/ui";
+import { DotmHex9, DotmTriangle16 } from "@/components/dotmatrix";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { cn } from "@/lib/utils";
 import type { ChatStatus } from "ai";
-import { DotmTriangle16 } from "@/components/dotmatrix";
-import { DotmHex9 } from "@/components/dotmatrix";
 import { AnimatePresence, motion } from "motion/react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, MouseEvent } from "react";
 import { useCallback } from "react";
 
 export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
@@ -55,7 +54,7 @@ export const PromptInputSubmit = ({
   }
 
   const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
+    (e: MouseEvent<HTMLButtonElement>) => {
       if (isGenerating && onStop) {
         e.preventDefault();
         onStop();

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import type { CSSProperties, ElementType } from "react";
 import { memo, useMemo } from "react";
 
-export interface TextShimmerProps {
+export interface ShimmerProps {
   children: string;
   as?: ElementType;
   className?: string;
@@ -21,7 +21,7 @@ const ShimmerComponent = ({
   duration = 2,
   spread = 2,
   active = true,
-}: TextShimmerProps) => {
+}: ShimmerProps) => {
   const dynamicSpread = useMemo(
     () => (children?.length ?? 0) * spread,
     [children, spread]

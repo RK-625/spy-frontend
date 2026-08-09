@@ -4,8 +4,6 @@ import {
   UIMessage,
 } from "ai";
 
-export type { ChatStatus };
-
 export interface PromptInputMessage {
   text: string;
   files: FileUIPart[];
@@ -13,7 +11,11 @@ export interface PromptInputMessage {
 
 type UseChatApi = ReturnType<typeof import("@ai-sdk/react").useChat>;
 
-/** Stream-only chat context — prefs live on PromptShellProvider. */
+/**
+ * Stream-only chat context — prefs live on PromptInputProvider.
+ * Ask answers are normal user messages (agent ignores incomplete tool calls);
+ * no addToolOutput surface.
+ */
 export interface ChatContextValue {
   status: ChatStatus;
   messages: UIMessage[];
@@ -22,5 +24,4 @@ export interface ChatContextValue {
   stop: () => void;
   /** Same signature as useChat().sendMessage (text/files convenience form). */
   sendMessage: UseChatApi["sendMessage"];
-  addToolOutput: UseChatApi["addToolOutput"];
 }

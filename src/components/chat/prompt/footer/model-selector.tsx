@@ -1,22 +1,25 @@
+/**
+ * Model / mode selector primitives for the prompt footer.
+ * Thin Popover + Command wrappers — product wiring lives in PromptInputWorkspace.
+ */
+
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
-  CommandShortcut,
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui";
-import type { ComponentProps, ReactNode } from "react";
+import type {
+  ComponentProps,
+  FunctionComponent,
+  SVGProps,
+} from "react";
 import { cn } from "@/lib/utils";
-import { models } from "@/lib/models";
-
-
 
 export type ModelSelectorProps = ComponentProps<typeof Popover>;
 
@@ -30,16 +33,11 @@ export const ModelSelectorTrigger = (props: ModelSelectorTriggerProps) => (
   <PopoverTrigger {...props} />
 );
 
-export type ModelSelectorContentProps = ComponentProps<
-  typeof PopoverContent
-> & {
-  title?: ReactNode;
-};
+export type ModelSelectorContentProps = ComponentProps<typeof PopoverContent>;
 
 export const ModelSelectorContent = ({
   className,
   children,
-  title = "Model Selector",
   ...props
 }: ModelSelectorContentProps) => (
   <PopoverContent
@@ -54,12 +52,6 @@ export const ModelSelectorContent = ({
       {children}
     </Command>
   </PopoverContent>
-);
-
-export type ModelSelectorDialogProps = ComponentProps<typeof Popover>; // Fallback
-
-export const ModelSelectorDialog = (props: ModelSelectorDialogProps) => (
-  <Popover {...props} />
 );
 
 export type ModelSelectorInputProps = ComponentProps<typeof CommandInput>;
@@ -95,24 +87,10 @@ export const ModelSelectorItem = (props: ModelSelectorItemProps) => (
   <CommandItem {...props} />
 );
 
-export type ModelSelectorShortcutProps = ComponentProps<typeof CommandShortcut>;
-
-export const ModelSelectorShortcut = (props: ModelSelectorShortcutProps) => (
-  <CommandShortcut {...props} />
-);
-
-export type ModelSelectorSeparatorProps = ComponentProps<
-  typeof CommandSeparator
->;
-
-export const ModelSelectorSeparator = (props: ModelSelectorSeparatorProps) => (
-  <CommandSeparator {...props} />
-);
-
 export type ModelSelectorLogoProps = {
-  icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  icon: FunctionComponent<SVGProps<SVGSVGElement>>;
   className?: string;
-} & React.SVGProps<SVGSVGElement>;
+} & SVGProps<SVGSVGElement>;
 
 export const ModelSelectorLogo = ({
   icon: Icon,

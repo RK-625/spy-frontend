@@ -16,7 +16,8 @@ The **landing page** is shipped. **Primary product surface is chat** at `/home` 
 
 **Knowledge graph canvas** lives at `/graph` (Pixi v8 + RTC camera) — live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client maps topology → `GraphData`, places via localStorage fingerprint cache, and always uses one-shot d3 settle on cache miss (`ambientMotion` off). Empty KB / fetch error → blank canvas (no mock product path). Mock/stress fixtures remain under `src/lib/graph/fixtures/` for verify scripts only. Client pure-perf under quality bans has hit its product ceiling for loaded-graph pan/zoom; full DB-scale residency is not achieved (see **What's left**).
 
-**Not in live chat UI:** the in-prompt multiple-choice / morphing “ask user question” widget was removed from production `prompt-input` and parked under `src/deprecated/ask-user-question-widget/` for a future redesign.
+**Ask-user-question (live only):**
+- **Pending-ask body:** non-morph option list in production prompt shell (`body` + `ask/pending-ask`). Zero-prop `PromptInputWorkspace` wires `getPendingAskUserQuestion` / `formatAskUserQuestionAnswer` and forced-choice submit gating. Helpers: `src/lib/ask-user-question.ts`. Tool may still exist in `src/ai/tools/toolset.ts`. Morph widget and `src/deprecated/` were removed — do not reintroduce without an explicit redesign.
 
 ## The story
 
@@ -41,19 +42,19 @@ The spider is intentionally a unique robot design — its visor replaces traditi
 Everything we build must obey these. They are non-negotiable.
 
 ### 1. Complex 3D Glossy Aesthetics
-The mascot is a highly detailed, 3D glossy robot spider loaded from `mascot-3d.svg`. It uses smooth curves, gradients, and metallic purple/lavender reflections to feel alien, sleek, and full of personality.
+The brand character is a highly detailed, 3D glossy robot spider (asset: `public/mascot-3d.svg`). Smooth curves, gradients, and metallic purple/lavender reflections — alien, sleek, full of personality. **The GSAP React host (`src/animation/`) is removed** — not currently mounted on landing; remount only with an explicit redesign task.
 
 ### 2. Dark utility register (Background UI)
-While the mascot is glossy and detailed, the background UI remains a dark utility register. Sparse layout, high contrast only where it matters.
+While the spider character is glossy and detailed, the background UI remains a dark utility register. Sparse layout, high contrast only where it matters.
 
 ### 3. The spider is the character
-The 3D glossy robot spider is the emotional anchor of the entire page. It sits center stage. It features a sleek visor, antenna, and articulated mechanical legs — feeling alien and intelligent, not cartoonish.
+The 3D glossy robot spider remains the brand/emotional anchor (visor, antenna, articulated mechanical legs — alien and intelligent, not cartoonish). Design references live in Penpot + `mascot-3d.svg`; live landing currently ships without the animated host.
 
 ### 4. Color Palette
 The background uses a dynamic 3D sphere gradient in deep purples and lavender highlights (`#4A1280` / `#8838DE` / `#DDB8F8`) morphing over deepest black. Text uses lavender-white (`#ded4f0`) and a glossy purple gradient (`#e8dff8` to `#9a6ae0`). Interactive accents, focus rings, and action highlights use the lavender system (`#e8dff8` / `#C8ACFB` / `--ring` lavender). Gold/Amber is **not** part of the production UI palette.
 
 ### 5. Ambient over loud
-Animation is continuous and subtle — a morphing 3D gradient sphere, a spider bobbing gently, text scrambling phases, and a CSS glint sweep across titles. The page should feel inhabited, not performing. No flashy transitions. No attention-seeking effects.
+Animation is continuous and subtle — a morphing 3D gradient sphere, text scrambling phases, and a CSS glint sweep across titles. The page should feel inhabited, not performing. No flashy transitions. No attention-seeking effects.
 
 ### 6. Distinctive over safe
 Choose the unexpected option. Unbounded and VT323 over Inter for headings. A deep, glossy purple/lavender theme over the typical startup dark/cyan templates. A sharp-edged, dark page over the default "dark mode startup" template. If another product could swap its name and still look right, we've failed.
@@ -67,24 +68,23 @@ These are things a new engineer might not guess. They must be followed:
 
 - **Restrained rounded corners.** We use `--radius: 0.55rem` globally. Do not use fully rounded pill shapes.
 - **Deliberate pill exception: source / URL chips.** Source citations in `Sources` and `ChainOfThoughtSearchResult` use `rounded-full` (`pill-source-*` tokens). This is a deliberate exception for compact, dense reference chips; general UI controls remain `--radius`. Do not flatten these back to `--radius` without an explicit design review.
-- **Mascot is cute and 3D.** The mascot features a visor, antenna, and articulated legs. It is a glossy 3D vector loaded from `mascot-3d.svg`.
+- **Mascot is cute and 3D (brand).** Visor, antenna, articulated legs — glossy 3D vector at `public/mascot-3d.svg`. Animation host removed; do not reintroduce `src/animation/` without an explicit remount task.
 - **Lavender accents only.** Focus ring (`--ring`), interactive controls, and loaders use the lavender system. Do not reintroduce gold/amber (`#c9952a`) into production UI.
 - **Pixel Art Icons.** Do not use `lucide-react` or standard smooth vector icons in the Chat UI. Always use `DotMatrixIcon` from `@/components/dotmatrix` (pixel-art registry) to maintain the alien aesthetic.
 - **Text is never pure white.** `#ded4f0` or warm off-white `#e8e4df` for primary text, `#7a7685` for secondary, `#4a4658` for dim.
 - **All design decisions live in `brief.md`.** Read it before making any visual or structural change. That file is the constitution.
-- **Dynamic Mascot Loading.** The 3D robot spider is loaded dynamically as an SVG from the public folder (`mascot-3d.svg`), and animated using GSAP targeting specific internal IDs (`#Antenna`, `#Visor section`, `#Left 1st front leg`, `#Right leg2`, etc.).
 
 ## Short-term goal
 
-**Ship and refine the chat workspace** at `/home`: conversation stream, sidebar (recents/search/settings), chat-only prompt shell (header attachments, body, textarea, footer tools), model/web controls, and agent streaming. Chat remains the primary product surface; the graph is adjacent infrastructure.
+**Ship and refine the chat workspace** at `/home`: conversation stream, sidebar (recents/search/settings), prompt shell (header attachments, body with optional pending-ask options, textarea, footer tools), model/web controls, and agent streaming. Chat remains the primary product surface; the graph is adjacent infrastructure.
 
 Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
 
 **Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). **Live-only product path** (see [`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): single URL `/graph` — no product `?stress` / `?source` / `?layout` / `?motion`. Always fetches `/api/graph`; layout engine always `d3-settle` with ambient off; cache hit paints without re-settle, miss settles once and saves. Client pure-perf ceiling for loaded-graph pan/zoom is **achieved** under quality bans. FA2/graphology path removed. Placement architecture: [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client cache, Falkor topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Do not re-litigate ban-safe pure-perf; next graph work is full KB residency / live dirty. Details under **What's left**.
 
-**Prompt input:** production SoT is under `src/components/chat/prompt/` (`shell/prompt-input.tsx` form + `shell/context.tsx` with `PromptShellProvider` draft/prefs; barrel `@/components/chat/prompt`). Chat-only shell — no dual import paths. Do not reintroduce the morphing ask-user-question widget into live routes without an explicit redesign. Reference implementation: `src/deprecated/ask-user-question-widget/`.
+**Prompt input:** production SoT is under `src/components/chat/prompt/` (`shell/prompt-input.tsx` form + `shell/context.tsx` with `PromptInputProvider` draft/prefs; barrel `@/components/chat/prompt`). Pieces live under `header/`, `body/`, `ask/`, `attachments/`, `footer/`. **`PromptInputWorkspace` is a zero-prop product shell** (mounts provider + wires chat stream/prefs internally for `/home`). Live pending-ask is the non-morph option list (`body` + `ask/pending-ask`). Morph widget and `src/deprecated/` are gone — do not reintroduce without redesign.
 
-**Attachment accept allowlist:** single source of truth is `PROMPT_INPUT_ACCEPT` in `src/components/chat/prompt/attachments/prompt-input-files.ts` (wired from `/home` via `accept={PROMPT_INPUT_ACCEPT}`). Drag-drop and the file picker both enforce it via `filterIncomingFiles` / `matchesAccept`. Edit only that constant when expanding types. Full accepted list + intentionally excluded formats (e.g. Office binaries, archives) are documented in that file’s module header — read it before changing.
+**Attachment accept allowlist:** single source of truth is `PROMPT_INPUT_ACCEPT` in `src/components/chat/prompt/attachments/prompt-input-files.ts` (consumed inside zero-prop `PromptInputWorkspace`). Drag-drop and the file picker both enforce it via `filterIncomingFiles` / `matchesAccept`. Edit only that constant when expanding types. Allowlist includes images, text/code, `.html`/`.htm`, and Office (`.docx`/`.xlsx`/`.pptx`). Archives, video, and audio remain excluded. Full accepted + excluded tables live in that file’s module header — read it before changing.
 
 **Attachment chips:** preview tiles use restrained `--radius`. The remove control is a **small rectangular badge** (tighter radius than full `--radius` so it does not read as a circle on an ~18px hit target), DotMatrix `x`, palette `bg-background/85` + muted foreground — not a pill.
 
@@ -110,9 +110,6 @@ src/
 │   ├── schemas/              — Zod tool input schemas (SoT: *-schema.ts only; no alias shims)
 │   │   └── ask-schema.ts / upsert-schema.ts / link-schema.ts / web-search-schema.ts
 │   └── index.ts              — public `@/ai` barrel (agent + models + tools + schemas)
-├── animation/
-│   ├── spider-mascot.tsx     — Mascot React host
-│   └── spider/               — GSAP behaviors + mascot timeline
 ├── app/
 │   ├── api/                  — Backend API routes (Node.js runtime)
 │   │   ├── chat/route.ts     — Streaming chat & memory extraction loop
@@ -151,15 +148,8 @@ src/
 │   │   ├── icons/            — Pixel-art icon registry (DotMatrixIcon SoT)
 │   │   └── loaders/          — hex-9 / square-18 / triangle-16 + loader.css (SoT)
 │   └── logos/                — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
-├── deprecated/               — Not production routes; do not wire into / or /home without intent
-│   ├── ask-user-question-widget/ — Snapshot of old prompt-input morph + widget-layout tokens
-│   ├── ui-prototypes/        — Lab page + interactive question variants (archived)
-│   └── (older mascot experiments if present)
 ├── contexts/
-│   └── ChatContext.tsx       — Shared state provider for Chat UI (useChat wrapper)
-├── hooks/
-│   ├── use-mobile.ts         — Responsive layout breakpoint state hook
-│   └── use-chat-submit.ts    — Bridges ChatContext stream + prompt prefs for send
+│   └── ChatContext.tsx       — Stream-only `ChatProvider` (TooltipProvider folded in; no ChatProviderWrapper)
 ├── lib/
 │   ├── falkor.ts             — Server DB: FalkorDB connection & Cypher (topology only; no xy)
 │   ├── graph/                — Graph pure logic (Pixi pure-perf + client placement)
@@ -170,7 +160,7 @@ src/
 │   │   ├── render/           — pixi-renderer, bake stack, draw primitives, edge pulse
 │   │   ├── fixtures/mock-graph.ts — verify-only mock + stress fixtures
 │   │   └── index.ts          — public exports
-│   ├── ask-user-question.ts  — Pending-ask client helpers (no morph UI)
+│   ├── ask-user-question.ts  — Pending-ask client helpers (live non-morph path; no morph UI)
 │   ├── models.ts             — Client model catalog (id / provider list)
 │   └── utils.ts              — cn() helper for Tailwind class merging
 ├── prompts/
@@ -189,7 +179,7 @@ src/
 - **Agent tools / schemas** → `src/ai/tools/`, `src/ai/schemas/*-schema.ts` (domain barrels; no root dual-export shims)
 - **Chat UI** → `src/components/chat/{prompt,conversation,shell}/` domain barrels only (no ai-elements / root dual shims)
 
-**Note:** Chat prompt SoT is `chat/prompt/` domain tree + barrel (`PromptShellProvider` + `shell/prompt-input.tsx` form, pieces under header/body/ask/attachments/footer). The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts` without a live morph UI.
+**Note:** Chat prompt SoT is `chat/prompt/` domain tree + barrel (`PromptInputProvider` + `shell/prompt-input.tsx` form, pieces under header/body/ask/attachments/footer). Product entry is zero-prop `PromptInputWorkspace`. Live UI uses non-morph pending-ask options when the agent asks. Morph widget + `src/deprecated/`, dead hooks `use-chat-submit` / `use-mobile`, and `ChatProviderWrapper` are removed. The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts`.
 
 **Graph note:** Continuous layout off by default. FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md). **`placeTopology`** owns fingerprint hit/miss (hit → cached `{x,y}`; miss → assemble at `(0,0)` → pure `settleGraphData` → save poses). Host dynamic-imports `createGraphPaintLoop` from `layout-loop-d3` (`setGraphData(graph)` only; no settle option). Falkor holds topology only — no server placement writes. Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
 
@@ -211,7 +201,7 @@ src/
 | AI / LLM | Vercel AI SDK + Google Gemini |
 | Embeddings | `gemini-embedding-2` (Truncated to 1536 dim) |
 | Styling | Tailwind CSS v4 with CSS custom properties |
-| Mascot | Dynamic SVG (`mascot-3d.svg`) + GSAP (targets internal IDs for animation) |
+| Mascot | Brand asset `public/mascot-3d.svg` (GSAP React host removed; not mounted) |
 | Backdrop | ShaderGradient 3D canvas (`@shadergradient/react` sphere) |
 | Fonts | Unbounded + Inter + VT323 via next/font/google |
 
@@ -252,7 +242,7 @@ Hard bans remain in force (see Constraints). Do not re-open pure-perf by relaxin
 3. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
 4. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
 5. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
-6. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; do not resurrect ask-user-question morph without redesign.
+6. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; live pending-ask body stays; do not resurrect ask-user-question **morph** / `src/deprecated/` without redesign.
 
 Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 
@@ -263,8 +253,8 @@ Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
 5. Prefer package barrels for product/cross-package code: `@/components/chat`, `@/components/ui`, `@/components/dotmatrix`, `@/components/logos`, `@/ai`, `@/lib/graph`. Inside a package use relative imports (never that package barrel — avoids cycles). Flat lib modules (`@/lib/utils`, `@/lib/falkor`, …) stay single-file entry points. No dual-path root shims.
-6. CTA on landing owns its interaction state; mascot is dynamic SVG + GSAP (not Canvas/`<img>`)
-7. Do not resurrect deprecated ask-user-question morph into production without a redesign task
+6. CTA on landing owns its interaction state; spider mascot animation host is **removed** (`src/animation/` gone — asset may remain under `public/`)
+7. Do not resurrect ask-user-question **morph** / `src/deprecated/` (removed) into production without a redesign task (non-morph pending-ask in `prompt/` is already live)
 
 
 <!-- END:codebase-context -->

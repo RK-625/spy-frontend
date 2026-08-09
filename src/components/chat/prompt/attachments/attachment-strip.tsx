@@ -1,7 +1,7 @@
 "use client";
 
 import { AttachmentChip } from "./attachment-chip";
-import { usePromptInputAttachments } from "../shell/context";
+import { usePromptInputContext } from "../shell/context";
 import { usePrefersReducedMotion } from "@/components/dotmatrix";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
@@ -30,7 +30,7 @@ export const PromptInputAttachments = ({
   className,
   ...props
 }: PromptInputAttachmentsProps) => {
-  const attachments = usePromptInputAttachments();
+  const { attachments } = usePromptInputContext();
   const reduced = usePrefersReducedMotion();
 
   const hasFiles = attachments.files.length > 0;
@@ -60,7 +60,7 @@ export const PromptInputAttachments = ({
     }
   }
 
-  const isOpen = hasFiles || holdOpen;
+  const isStripExpanded = hasFiles || holdOpen;
 
   // Sync callback refs after commit — never assign ref.current during render.
   useLayoutEffect(() => {
@@ -71,9 +71,9 @@ export const PromptInputAttachments = ({
     heightFrozenRef.current = heightFrozen;
   }, [heightFrozen]);
 
-  // Measure while open and not frozen (ResizeObserver tracks chip enter/wrap).
+  // Measure while expanded and not frozen (ResizeObserver tracks chip enter/wrap).
   useLayoutEffect(() => {
-    if (!isOpen || heightFrozen) return;
+    if (!isStripExpanded || heightFrozen) return;
 
     const el = contentRef.current;
     if (!el) return;
@@ -102,11 +102,11 @@ export const PromptInputAttachments = ({
         roRafRef.current = null;
       }
     };
-  }, [isOpen, heightFrozen, attachments.files.length]);
+  }, [isStripExpanded, heightFrozen, attachments.files.length]);
 
   const heightTransition = reduced
     ? { duration: 0 }
-    : isOpen
+    : isStripExpanded
       ? { duration: 0.2, ease: "easeOut" as const }
       : { duration: 0.2, ease: "easeIn" as const };
 
@@ -125,14 +125,14 @@ export const PromptInputAttachments = ({
   return (
     <motion.div
       initial={false}
-      animate={{ height: isOpen ? contentHeight : 0 }}
+      animate={{ height: isStripExpanded ? contentHeight : 0 }}
       transition={heightTransition}
       className={cn("overflow-hidden", className)}
       {...(props as ComponentProps<typeof motion.div>)}
     >
       {/*
         Symmetric padding always on content. Collapsed height 0 + overflow
-        hidden clips it — never strip py when isOpen flips mid-animation.
+        hidden clips it — never strip py when isStripExpanded flips mid-animation.
       */}
       <div
         ref={contentRef}

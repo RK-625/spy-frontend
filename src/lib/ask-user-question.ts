@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import {
   askUserQuestionInputSchema,
   type AskUserQuestionInput,
-} from "@/ai";
+} from "@/ai/schemas/ask-schema";
 
 export type { AskUserQuestionInput };
 

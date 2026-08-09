@@ -6,9 +6,12 @@ import {
 } from "@/prompts/tools/ask-user-question";
 
 export const askUserQuestionInputSchema = z.object({
-  question: z.string().describe(askUserQuestionQuestionFieldDescription),
+  question: z
+    .string()
+    .min(1)
+    .describe(askUserQuestionQuestionFieldDescription),
   options: z
-    .array(z.string())
+    .array(z.string().min(1))
     .min(2)
     .max(5)
     .describe(askUserQuestionOptionsFieldDescription),

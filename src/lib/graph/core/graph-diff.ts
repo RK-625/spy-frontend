@@ -6,7 +6,7 @@
  * Topology change → `"all"`. Same identity + coords → empty dirty.
  */
 
-import type { GraphData, GraphEdge } from "./graph-data.ts";
+import type { GraphData, GraphEdge } from "./graph-data";
 
 export type GraphDirtyDiff =
   | {

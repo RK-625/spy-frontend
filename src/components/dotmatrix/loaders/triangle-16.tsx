@@ -2,15 +2,22 @@
 
 import type { CSSProperties } from "react";
 
-import { cx } from "../core";
-import { resolveDmxColorTokens } from "../core";
-import { useDotMatrixPhases } from "../core/hooks";
-import { styleOpacity, stylePx } from "../core";
-import { remapOpacityToTriplet } from "../core";
-import { dmxBloomRootActive, dmxDotBloomParts } from "../core";
-import { useCyclePhase } from "../core/hooks";
-import { usePrefersReducedMotion } from "../core/hooks";
-import type { DotMatrixCommonProps } from "../core";
+import {
+  cx,
+  dmxBloomHaloSpreadClass,
+  dmxBloomRootActive,
+  dmxDotBloomParts,
+  remapOpacityToTriplet,
+  resolveDmxColorTokens,
+  styleOpacity,
+  stylePx,
+  type DotMatrixCommonProps,
+} from "../core";
+import {
+  useCyclePhase,
+  useDotMatrixPhases,
+  usePrefersReducedMotion,
+} from "../core/hooks";
 
 export type DotmTriangle16Props = DotMatrixCommonProps;
 
@@ -117,9 +124,9 @@ export function DotmTriangle16({
     width: stylePx(cellPadding == null ? size : matrixSize),
     height: stylePx(cellPadding == null ? size : matrixSize),
     ["--dmx-dot-size" as const]: `${dotSize}px`,
-      ["--dmx-halo-level" as const]: halo,
+    ["--dmx-halo-level" as const]: halo,
     ["--dmx-dot-fill" as const]: dotFill,
-    color: resolvedColor
+    color: resolvedColor,
   } as CSSProperties;
 
   return (
@@ -127,7 +134,14 @@ export function DotmTriangle16({
       role="status"
       aria-live="polite"
       aria-label={ariaLabel}
-      className={cx("dmx-root", `dmx-dot-shape-${dotShape}`, muted && "dmx-muted", dmxBloomRootActive(bloom, halo) && "dmx-bloom", className)}
+      className={cx(
+        "dmx-root",
+        `dmx-dot-shape-${dotShape}`,
+        muted && "dmx-muted",
+        dmxBloomRootActive(bloom, halo) && "dmx-bloom",
+        dmxBloomHaloSpreadClass(halo),
+        className,
+      )}
       style={rootStyle}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

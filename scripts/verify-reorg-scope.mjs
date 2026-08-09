@@ -29,11 +29,7 @@ export const RENAME_MAP = [
   ["src/components/ui/svgs/google.tsx", "src/components/brand/logos/google.tsx"],
   ["src/components/ui/svgs/openai.tsx", "src/components/brand/logos/openai.tsx"],
   ["src/components/ui/svgs/openaiDark.tsx", "src/components/brand/logos/openai-dark.tsx"],
-  ["src/app/ui-prototypes/page.tsx", "src/deprecated/ui-prototypes/app-page/page.tsx"],
-  [
-    "src/components/ui-prototypes/interactive-question-variants.tsx",
-    "src/deprecated/ui-prototypes/components/interactive-question-variants.tsx",
-  ],
+  // ui-prototypes + ask-user-question morph archive removed (src/deprecated deleted).
 ];
 
 const IMPORT_SUBS = [
@@ -54,7 +50,6 @@ const IMPORT_SUBS = [
   ["@/components/chat/ChatSidebar", "@/components/chat/chat-sidebar"],
   ["@/components/chat/SettingsDialog", "@/components/chat/settings-dialog"],
   ["@/components/ui/command-palette", "@/components/chat/command-palette"],
-  ["@/components/ui-prototypes/interactive-question-variants", "@/deprecated/ui-prototypes/components/interactive-question-variants"],
   ["./ShinyText.css", "./shiny-text.css"],
   ["'./ShinyText.css'", "'./shiny-text.css'"],
   ['"./ShinyText.css"', '"./shiny-text.css"'],

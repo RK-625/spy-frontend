@@ -8,7 +8,7 @@
  *   incident edges in `O(moved × degree)` time without clearing or rebuilding the full grid.
  */
 
-import type { GraphData, GraphEdge, GraphNode } from "../core/graph-data.ts";
+import type { GraphData, GraphEdge, GraphNode } from "../core/graph-data";
 
 export type WorldAabb = {
   minX: number;

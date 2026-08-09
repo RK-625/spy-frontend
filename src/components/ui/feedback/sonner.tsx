@@ -1,22 +1,44 @@
-"use client"
+"use client";
 
-import { useTheme } from "next-themes"
-import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { DotMatrixIcon } from "@/components/dotmatrix"
-import { Spinner } from "./spinner"
+import type { CSSProperties } from "react";
+import { useTheme } from "next-themes";
+import { Toaster as Sonner, toast, type ToasterProps } from "sonner";
+import { DotMatrixIcon } from "@/components/dotmatrix";
+import { Spinner } from "./spinner";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const { theme = "system" } = useTheme();
 
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       icons={{
-        success: <DotMatrixIcon name="check" size={16} className="size-4" />,
-        info: <DotMatrixIcon name="bulb" size={16} className="size-4" />,
-        warning: <DotMatrixIcon name="bulb" size={16} className="size-4" />,
-        error: <DotMatrixIcon name="x" size={16} className="size-4" />,
+        success: (
+          <DotMatrixIcon
+            name="check"
+            size={ICON_GLYPH.inline}
+            className="size-4"
+          />
+        ),
+        info: (
+          <DotMatrixIcon
+            name="bulb"
+            size={ICON_GLYPH.inline}
+            className="size-4"
+          />
+        ),
+        warning: (
+          <DotMatrixIcon
+            name="bulb"
+            size={ICON_GLYPH.inline}
+            className="size-4"
+          />
+        ),
+        error: (
+          <DotMatrixIcon name="x" size={ICON_GLYPH.inline} className="size-4" />
+        ),
         loading: <Spinner className="size-4" />,
       }}
       style={
@@ -25,7 +47,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
           "--border-radius": "var(--radius)",
-        } as React.CSSProperties
+        } as CSSProperties
       }
       toastOptions={{
         classNames: {
@@ -34,7 +56,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       {...props}
     />
-  )
-}
+  );
+};
 
-export { Toaster }
+/** Product toast host name — prefer over package `Toaster`. */
+const AppToaster = Toaster;
+
+export { Toaster, AppToaster, toast };

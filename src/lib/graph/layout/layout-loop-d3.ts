@@ -1,8 +1,9 @@
 /**
- * Product graph paint store (layout-loop).
+ * Product graph paint store (filename legacy: layout-loop-d3).
  *
- * Dynamic-imported by `/graph` host so d3-force stays out of the static chunk
- * of unrelated modules (this file does not import force-recipe).
+ * No d3-force / force-recipe import — settle lives in placement/force-recipe
+ * via placeTopology. Dynamic-imported by `/graph` host so placement d3 stays
+ * out of the static host chunk until needed.
  *
  * Product path:
  *   start() paints the empty/initial graph store;
@@ -12,6 +13,7 @@
  * Always emits full GraphData via `renderOnGraphData`.
  * One deep clone per setGraphData/start store update; emit shares that snapshot
  * (product renderer treats GraphData as read-only).
+ * Ambient continuous layout: not present (stop is a no-op).
  */
 
 import { cloneGraphData, type GraphData } from "../core/graph-data";

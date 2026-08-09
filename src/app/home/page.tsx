@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -15,51 +16,13 @@ import {
   Source,
   SourcesContent,
   SourcesTrigger,
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorGroup,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
-  ModelSelectorLogo,
-  ModelSelectorName,
-  ModelSelectorTrigger,
-  PromptInputAttachments,
-  PromptInput,
-  PromptInputBody,
-  PromptInputButton,
-  PromptInputFooter,
-  PromptInputHeader,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
-  PROMPT_INPUT_ACCEPT,
-  usePromptInputAttachments,
-  PromptShellProvider,
-  usePromptShellControllerContext,
-  SpeechInput,
-  Suggestion,
-  Suggestions,
-  type PromptInputMessage,
-  type PromptInputWidgetOption,
+  PromptInputWorkspace,
   ChatSidebar,
 } from "@/components/chat";
-import dynamic from "next/dynamic";
 import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
-import { cn } from "@/lib/utils";
-import {
-  formatAskUserQuestionAnswer,
-  getPendingAskUserQuestion,
-} from "@/lib/ask-user-question";
-import { DotMatrixIcon } from "@/components/dotmatrix";
-import { ICON_GLYPH } from "@/lib/icon-tokens";
-import { useCallback, useMemo, useState } from "react";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
-import { useChatSubmit } from "@/hooks/use-chat-submit";
-import { TooltipProvider } from "@/components/ui";
-import { models, chefs } from "@/lib/models";
+import { AppToaster, TooltipProvider } from "@/components/ui";
 import ShinyText from "@/components/landing/shiny-text";
 
 /** Mirrors src/ai/toolset.ts webSearch input/output for UI parts */
@@ -84,69 +47,6 @@ function isWebSearchToolPart(
   return part.type === "tool-webSearch";
 }
 
-const suggestions = [
-  "What are the latest trends in AI?",
-  "How does machine learning work?",
-  "Explain quantum computing",
-  "Best practices for React development",
-  "Tell me about TypeScript benefits",
-  "How to optimize database queries?",
-  "What is the difference between SQL and NoSQL?",
-  "Explain cloud computing basics",
-];
-
-const SuggestionItem = ({
-  suggestion,
-  onClick,
-}: {
-  suggestion: string;
-  onClick: (suggestion: string) => void;
-}) => {
-  const handleClick = useCallback(() => {
-    onClick(suggestion);
-  }, [onClick, suggestion]);
-
-  return (
-    <Suggestion
-      className="rounded-[var(--radius)] font-[family-name:var(--font-body)] text-[0.75rem] font-medium tracking-wide
-                 text-lavender-muted border-[var(--border-default)] bg-[var(--surface-elevated)]/50
-                 hover:border-[var(--accent-border)] hover:bg-[var(--accent-decoration)]/20
-                 hover:text-accent-hover
-                 data-[state=selected]:border-[var(--accent-border)]
-                 data-[state=selected]:bg-[var(--accent-decoration)]/20
-                 transition-all duration-200"
-      onClick={handleClick}
-      suggestion={suggestion}
-    />
-  );
-};
-
-const ModelItem = ({
-  m,
-  isSelected,
-  onSelect,
-}: {
-  m: (typeof models)[0];
-  isSelected: boolean;
-  onSelect: (id: string) => void;
-}) => {
-  const handleSelect = useCallback(() => {
-    onSelect(m.id);
-  }, [onSelect, m.id]);
-
-  return (
-    <ModelSelectorItem onSelect={handleSelect} value={m.name}>
-      <ModelSelectorLogo icon={m.icon} />
-      <ModelSelectorName>{m.name}</ModelSelectorName>
-      {isSelected ? (
-        <DotMatrixIcon name="check" size={ICON_GLYPH.badge} className="ml-auto" />
-      ) : (
-        <div className="ml-auto size-2.5" />
-      )}
-    </ModelSelectorItem>
-  );
-};
-
 const EmptyState = () => (
   <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-12 text-center">
     <div className="text-lavender/40 font-[family-name:var(--font-terminal)] text-2xl">
@@ -160,118 +60,7 @@ const EmptyState = () => (
 );
 
 const ChatWorkspace = () => {
-  const { status, messages, error, stop } = useChatContext();
-  const { submitUserMessage } = useChatSubmit();
-  const controller = usePromptShellControllerContext();
-  const attachments = usePromptInputAttachments();
-  const {
-    model,
-    setModel,
-    mode,
-    setMode,
-    useWebSearch,
-    toggleWebSearch,
-  } = controller.prefs;
-
-  // Selector open flags stay local to this surface (not on controller)
-  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-  const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
-
-  const pendingAsk = useMemo(
-    () => getPendingAskUserQuestion(messages),
-    [messages],
-  );
-
-  const selectedModelData = useMemo(
-    () => models.find((m) => m.id === model),
-    [model],
-  );
-
-  /** Chat submit; when a pending ask is open, wrap text (or file-only) as Q:/A:. */
-  const submitAskOrChat = useCallback(
-    (message: PromptInputMessage) => {
-      if (status !== "ready") return;
-      // Forced choice: only option chips may answer.
-      if (pendingAsk != null && !pendingAsk.allowCustomInput) return;
-      const answer = message.text?.trim() ?? "";
-      const hasFiles = (message.files?.length ?? 0) > 0;
-      if (pendingAsk != null && (answer.length > 0 || hasFiles)) {
-        void submitUserMessage({
-          text: formatAskUserQuestionAnswer({
-            question: pendingAsk.question,
-            answer: answer.length > 0 ? answer : "(attachment)",
-          }),
-          files: message.files,
-        });
-        return;
-      }
-      void submitUserMessage(message);
-    },
-    [submitUserMessage, pendingAsk, status],
-  );
-
-  /** Option label → Q/A user message (same path as form submit). */
-  const handleWidgetOptionSelect = useCallback(
-    (option: PromptInputWidgetOption) => {
-      if (status !== "ready" || pendingAsk == null) return;
-      void submitUserMessage({
-        text: formatAskUserQuestionAnswer({
-          question: pendingAsk.question,
-          answer: option.label,
-        }),
-        files: [],
-      });
-    },
-    [submitUserMessage, pendingAsk, status],
-  );
-
-  const handleSuggestionClick = useCallback(
-    (suggestion: string) => {
-      if (status !== "ready") return;
-      void submitUserMessage({ text: suggestion, files: [] });
-    },
-    [submitUserMessage, status],
-  );
-
-  const handleTranscriptionChange = useCallback(
-    (transcript: string) => {
-      controller.textInput.setValue(
-        controller.textInput.value
-          ? `${controller.textInput.value} ${transcript}`
-          : transcript,
-      );
-    },
-    [controller],
-  );
-
-  const handleTextChange = useCallback(
-    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      controller.textInput.setValue(event.target.value);
-    },
-    [controller],
-  );
-
-  const handleModelSelect = useCallback(
-    (modelId: string) => {
-      setModel(modelId);
-      setModelSelectorOpen(false);
-    },
-    [setModel],
-  );
-
-  const isSubmitDisabled = useMemo(
-    () =>
-      status === "ready" &&
-      ((pendingAsk != null && !pendingAsk.allowCustomInput) ||
-        (!controller.textInput.value.trim() &&
-          attachments.files.length === 0)),
-    [
-      controller.textInput.value,
-      attachments.files.length,
-      status,
-      pendingAsk,
-    ],
-  );
+  const { status, messages, error } = useChatContext();
 
   return (
     <div className="relative flex size-full flex-col divide-y overflow-hidden">
@@ -316,7 +105,7 @@ const ChatWorkspace = () => {
                             "--color-muted-foreground": "var(--lavender-muted)",
                             /* Shimmer glint highlight: on-palette light accent (not pure white / not dark muted) */
                             "--color-background": "var(--primary)",
-                          } as React.CSSProperties
+                          } as CSSProperties
                         }
                       >
                         {thoughtParts.map((part, index) => {
@@ -422,286 +211,45 @@ const ChatWorkspace = () => {
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="flex shrink-0 flex-col gap-3 pt-4">
-        <Suggestions className="px-4">
-          {suggestions.map((suggestion) => (
-            <SuggestionItem
-              key={suggestion}
-              onClick={handleSuggestionClick}
-              suggestion={suggestion}
-            />
-          ))}
-        </Suggestions>
-        <div className="w-full px-4 pb-4 pt-1">
-          <div className="chat-input-wrap relative">
-            <div className="chat-input-glow" />
-            <PromptInput
-              globalDrop
-              multiple
-              onSubmit={submitAskOrChat}
-              accept={PROMPT_INPUT_ACCEPT}
-              maxFiles={5}
-              maxFileSize={10 * 1024 * 1024}
-            >
-              <PromptInputHeader>
-                <PromptInputAttachments />
-              </PromptInputHeader>
-              <PromptInputBody
-                pendingAsk={pendingAsk}
-                onOptionSelect={handleWidgetOptionSelect}
-              >
-                <PromptInputTextarea
-                  onChange={handleTextChange}
-                  value={controller.textInput.value}
-                />
-              </PromptInputBody>
-              <PromptInputFooter>
-                <PromptInputTools className="[&_button]:!size-8 [&_button]:!rounded-[var(--radius)] [&_button[data-model-trigger]]:!w-auto [&_button[data-model-trigger]]:!px-2">
-                  <PromptInputButton
-                    onClick={attachments.openFileDialog}
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label="Add photos or files"
-                    tooltip={{
-                      content: "Add photos or files",
-                      side: "top",
-                    }}
-                    className="text-text-primary hover:bg-[var(--surface-hover)]"
-                  >
-                    <DotMatrixIcon name="plus" size={ICON_GLYPH.toolbar} />
-                  </PromptInputButton>
-                  <SpeechInput
-                    className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)]"
-                    onTranscriptionChange={handleTranscriptionChange}
-                    size="icon-sm"
-                    variant="ghost"
-                  />
-                  <PromptInputButton
-                    onClick={toggleWebSearch}
-                    size="icon-sm"
-                    variant={useWebSearch ? "default" : "ghost"}
-                    aria-label={
-                      useWebSearch ? "Disable web search" : "Enable web search"
-                    }
-                    tooltip={{
-                      content: useWebSearch
-                        ? "Disable web search"
-                        : "Enable web search",
-                      side: "top",
-                    }}
-                    className={cn(
-                      "transition-colors",
-                      useWebSearch
-                        ? "bg-primary text-accent-ink hover:bg-accent-hover"
-                        : "text-text-primary hover:bg-[var(--surface-hover)]",
-                    )}
-                  >
-                    <DotMatrixIcon name="globe" size={ICON_GLYPH.toolbar} />
-                  </PromptInputButton>
-                  <ModelSelector
-                    onOpenChange={setModelSelectorOpen}
-                    open={modelSelectorOpen}
-                  >
-                    <ModelSelectorTrigger asChild>
-                      <PromptInputButton
-                        data-model-trigger
-                        className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center gap-1.5"
-                        variant="ghost"
-                        aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
-                      >
-                        {selectedModelData ? (
-                          <selectedModelData.icon className="size-3 shrink-0" />
-                        ) : (
-                          <DotMatrixIcon name="settings" size={ICON_GLYPH.toolbar} />
-                        )}
-                        {selectedModelData ? (
-                          <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide">
-                            {selectedModelData.name}
-                          </span>
-                        ) : null}
-                      </PromptInputButton>
-                    </ModelSelectorTrigger>
-                    <ModelSelectorContent>
-                      <ModelSelectorInput placeholder="Search models..." />
-                      <ModelSelectorList>
-                        <ModelSelectorEmpty>
-                          No models found.
-                        </ModelSelectorEmpty>
-                        {chefs.map((chef) => (
-                          <ModelSelectorGroup heading={chef} key={chef}>
-                            {models
-                              .filter((m) => m.chef === chef)
-                              .map((m) => (
-                                <ModelItem
-                                  isSelected={model === m.id}
-                                  key={m.id}
-                                  m={m}
-                                  onSelect={handleModelSelect}
-                                />
-                              ))}
-                          </ModelSelectorGroup>
-                        ))}
-                      </ModelSelectorList>
-                    </ModelSelectorContent>
-                  </ModelSelector>
-                  {selectedModelData?.mode &&
-                    selectedModelData.mode.length > 0 && (
-                      <ModelSelector
-                        onOpenChange={setModeSelectorOpen}
-                        open={modeSelectorOpen}
-                      >
-                        <ModelSelectorTrigger asChild>
-                          <PromptInputButton
-                            data-model-trigger
-                            className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center justify-center px-2"
-                            variant="ghost"
-                            aria-label="Select mode"
-                          >
-                            <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide capitalize">
-                              {mode}
-                            </span>
-                          </PromptInputButton>
-                        </ModelSelectorTrigger>
-                        <ModelSelectorContent className="w-auto">
-                          <ModelSelectorList>
-                            {selectedModelData.mode.map((m) => (
-                              <ModelSelectorItem
-                                key={m}
-                                value={m}
-                                onSelect={(val) => {
-                                  setMode(val);
-                                  setModeSelectorOpen(false);
-                                }}
-                              >
-                                <span className="capitalize">{m}</span>
-                                {mode === m && (
-                                  <DotMatrixIcon
-                                    name="check"
-                                    size={ICON_GLYPH.badge}
-                                    className="ml-auto opacity-50"
-                                  />
-                                )}
-                              </ModelSelectorItem>
-                            ))}
-                          </ModelSelectorList>
-                        </ModelSelectorContent>
-                      </ModelSelector>
-                    )}
-                </PromptInputTools>
-                <PromptInputSubmit
-                  className={cn(
-                    "!size-8 !rounded-[var(--radius)] transition-colors duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] disabled:!opacity-100",
-                    !isSubmitDisabled
-                      ? "bg-primary text-accent-ink hover:bg-accent-hover"
-                      : "text-text-primary hover:bg-[var(--surface-hover)]",
-                  )}
-                  variant={!isSubmitDisabled ? "default" : "ghost"}
-                  disabled={isSubmitDisabled}
-                  onStop={stop}
-                  status={status}
-                />
-              </PromptInputFooter>
-            </PromptInput>
-          </div>
-        </div>
+      <div className="shrink-0 pt-4">
+        <PromptInputWorkspace />
       </div>
     </div>
   );
 };
-
-const ShaderGradientCanvas = dynamic(
-  () =>
-    import("@shadergradient/react").then((mod) => ({
-      default: mod.ShaderGradientCanvas,
-    })),
-  { ssr: false },
-);
-const ShaderGradient = dynamic(
-  () =>
-    import("@shadergradient/react").then((mod) => ({
-      default: mod.ShaderGradient,
-    })),
-  { ssr: false },
-);
 
 export default function HomePage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-surface-chat workspace-root">
       <div className="fixed inset-0 z-50 bg-surface-chat pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
 
-      <div className="fixed inset-0 -z-10">
-        <ShaderGradientCanvas>
-          <ShaderGradient
-            animate="on"
-            brightness={0.7}
-            cAzimuthAngle={250}
-            cDistance={1.5}
-            cPolarAngle={140}
-            cameraZoom={10}
-            /* Hex must match :root --shader-color-* (canvas can't resolve CSS vars) */
-            color1="#4A1280"
-            color2="#8838DE"
-            color3="#DDB8F8"
-            envPreset="city"
-            grain="on"
-            lightType="3d"
-            positionX={0}
-            positionY={0}
-            positionZ={0}
-            reflection={0.5}
-            rotationX={0}
-            rotationY={0}
-            rotationZ={140}
-            shader="defaults"
-            type="sphere"
-            uAmplitude={7}
-            uDensity={0.8}
-            uFrequency={5.5}
-            uSpeed={0.3}
-            uStrength={0.4}
-            uTime={0}
-            wireframe={false}
-          />
-        </ShaderGradientCanvas>
-      </div>
-
-      <div className="fixed inset-0 z-0 bg-[var(--surface-chat-veil)] pointer-events-none" />
-
       <div className="relative z-10 flex h-screen w-full">
-        {/* Sidebar + main share ChatProvider (stream) and PromptShellProvider (draft/prefs) */}
-        <ChatProviderWrapper>
-          <ChatSidebar />
-          {/* Main chat area */}
-          <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
-            <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
-              <header className="relative flex items-center gap-3 border-b border-[var(--border-subtle)] px-6 py-4">
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-lavender/15 to-transparent" />
-                <ShinyText
-                  className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"
-                  spread={120}
-                >
-                  SPY
-                </ShinyText>
-                <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-lavender">
-                  WEAVING SIGNAL
-                </span>
-              </header>
-              <ChatWorkspace />
+        {/* Chat product shell: tooltips + stream + toaster (chat-only; root layout stays bare) */}
+        <TooltipProvider delayDuration={300}>
+          <ChatProvider>
+            <ChatSidebar />
+            {/* Main chat area */}
+            <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
+              <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
+                <header className="relative flex items-center gap-3 border-b border-[var(--border-subtle)] px-6 py-4">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-lavender/15 to-transparent" />
+                  <ShinyText
+                    className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"
+                    spread={120}
+                  >
+                    SPY
+                  </ShinyText>
+                  <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-lavender">
+                    WEAVING SIGNAL
+                  </span>
+                </header>
+                <ChatWorkspace />
+              </div>
             </div>
-          </div>
-        </ChatProviderWrapper>
+          </ChatProvider>
+          <AppToaster />
+        </TooltipProvider>
       </div>
     </div>
-  );
-}
-
-// Stream + prompt draft/prefs shared by sidebar settings and main workspace
-function ChatProviderWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <TooltipProvider delayDuration={300}>
-      <ChatProvider>
-        <PromptShellProvider>{children}</PromptShellProvider>
-      </ChatProvider>
-    </TooltipProvider>
   );
 }

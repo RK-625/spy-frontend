@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * PromptInputTextarea: controlled by PromptShellProvider draft text.
- * Requires outer PromptShellProvider.
+ * PromptInputTextarea: controlled by PromptInputProvider draft text.
+ * Requires outer PromptInputProvider.
  */
 
 import { InputGroupTextarea } from "@/components/ui";
@@ -14,10 +14,7 @@ import type {
   KeyboardEventHandler,
 } from "react";
 import { useCallback, useState } from "react";
-import {
-  usePromptInputAttachments,
-  usePromptShellControllerContext,
-} from "../shell/context";
+import { usePromptInputContext } from "../shell/context";
 
 export type PromptInputTextareaProps = ComponentProps<
   typeof InputGroupTextarea
@@ -30,8 +27,7 @@ export const PromptInputTextarea = ({
   placeholder = "What would you like to know?",
   ...props
 }: PromptInputTextareaProps) => {
-  const controller = usePromptShellControllerContext();
-  const attachments = usePromptInputAttachments();
+  const { attachments, textInput } = usePromptInputContext();
   const [isComposing, setIsComposing] = useState(false);
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
@@ -106,14 +102,14 @@ export const PromptInputTextarea = ({
   const handleCompositionEnd = useCallback(() => setIsComposing(false), []);
   const handleCompositionStart = useCallback(() => setIsComposing(true), []);
 
-  const textValue = controller.textInput.value;
+  const textValue = textInput.value;
 
   const handleTextareaChange = useCallback(
     (e: ChangeEvent<HTMLTextAreaElement>) => {
-      controller.textInput.setValue(e.currentTarget.value);
+      textInput.setValue(e.currentTarget.value);
       onChange?.(e);
     },
-    [controller, onChange],
+    [textInput, onChange],
   );
 
   const isEmpty = !textValue;

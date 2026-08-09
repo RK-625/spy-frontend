@@ -1,3 +1,5 @@
+import * as React from "react"
+
 import { cn } from "@/lib/utils"
 
 function Spinner({ className, ...props }: React.ComponentProps<"div">) {
@@ -6,7 +8,9 @@ function Spinner({ className, ...props }: React.ComponentProps<"div">) {
       role="status"
       aria-label="Loading"
       className={cn(
-        "inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent text-[rgba(200,172,251,0.55)]",
+        // Spinner geometry is circular by nature (not a pill control exception).
+        // Color from lavender token — avoid raw rgba invent.
+        "inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent text-lavender/55",
         className
       )}
       {...props}

@@ -1,6 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type ComponentType,
+} from "react";
 import { motion } from "motion/react";
 import { CommandPalette } from "./command-palette";
 import { SettingsDialog } from "./settings-dialog";
@@ -9,16 +14,20 @@ import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { DotMatrixIcon } from "@/components/dotmatrix";
 
-type SidebarMode = "icon" | "full";
-const STORAGE_KEY = "spy-sidebar-mode";
-const DEFAULT_MODE: SidebarMode = "icon";
+type SidebarDisplayMode = "icon" | "full";
+const SIDEBAR_MODE_STORAGE_KEY = "spy-sidebar-mode";
+const DEFAULT_SIDEBAR_MODE: SidebarDisplayMode = "icon";
 
-const ICON_WIDTH = 56;
-const FULL_WIDTH = 240;
-const SPRING = { type: "spring" as const, stiffness: 320, damping: 32 };
+const SIDEBAR_ICON_WIDTH = 56;
+const SIDEBAR_FULL_WIDTH = 240;
+const SIDEBAR_SPRING = {
+  type: "spring" as const,
+  stiffness: 320,
+  damping: 32,
+};
 
 interface SidebarItemProps {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: ComponentType<{ size?: number; className?: string }>;
   label: string;
   onClick: () => void;
   shortcut?: string;
@@ -36,7 +45,7 @@ function SidebarItem({
   showLabel,
   variant = "default",
 }: SidebarItemProps) {
-  const isPrimary = variant === "primary";
+  const isPrimaryVariant = variant === "primary";
 
   return (
     <button
@@ -45,11 +54,13 @@ function SidebarItem({
       className={cn(
         "group relative flex w-full items-center rounded-[var(--radius)] transition-all duration-200 outline-none",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-        !isPrimary &&
+        !isPrimaryVariant &&
           !active &&
           "text-text-primary hover:bg-[var(--surface-hover)]",
-        active && !isPrimary && "bg-[var(--surface-focus)] text-text-primary",
-        isPrimary &&
+        active &&
+          !isPrimaryVariant &&
+          "bg-[var(--surface-focus)] text-text-primary",
+        isPrimaryVariant &&
           "text-text-primary font-medium text-[0.8125rem] hover:bg-[var(--surface-hover)]",
       )}
     >
@@ -78,33 +89,34 @@ function SidebarItem({
 }
 
 export function ChatSidebar() {
-  const [mode, setMode] = useState<SidebarMode>(DEFAULT_MODE);
-  const [hydrated, setHydrated] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarMode, setSidebarMode] =
+    useState<SidebarDisplayMode>(DEFAULT_SIDEBAR_MODE);
+  const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
   useEffect(() => {
     // ponytail: defer state updates to avoid synchronous state transitions during mount
     setTimeout(() => {
       try {
-        const saved = localStorage.getItem(STORAGE_KEY);
+        const saved = localStorage.getItem(SIDEBAR_MODE_STORAGE_KEY);
         if (saved === "full" || saved === "icon") {
-          setMode(saved);
+          setSidebarMode(saved);
         }
       } catch {
         // localStorage unavailable, keep default
       }
-      setHydrated(true);
+      setSidebarModeHydrated(true);
     }, 0);
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!sidebarModeHydrated) return;
     try {
-      localStorage.setItem(STORAGE_KEY, mode);
+      localStorage.setItem(SIDEBAR_MODE_STORAGE_KEY, sidebarMode);
     } catch {
       // localStorage unavailable, ignore
     }
-  }, [mode, hydrated]);
+  }, [sidebarMode, sidebarModeHydrated]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -115,13 +127,13 @@ export function ChatSidebar() {
         !event.shiftKey
       ) {
         const target = event.target;
-        const isEditable =
+        const isEditableTarget =
           target instanceof HTMLInputElement ||
           target instanceof HTMLTextAreaElement ||
           (target instanceof HTMLElement && target.isContentEditable);
-        if (!isEditable) {
+        if (!isEditableTarget) {
           event.preventDefault();
-          setMode((prev) => (prev === "icon" ? "full" : "icon"));
+          setSidebarMode((prev) => (prev === "icon" ? "full" : "icon"));
         }
       }
     };
@@ -137,23 +149,22 @@ export function ChatSidebar() {
   }, [clearMessages]);
 
   const handleOpenSettings = useCallback(() => {
-    setSettingsOpen(true);
+    setSettingsDialogOpen(true);
   }, []);
 
-  const handleToggleMode = useCallback(() => {
-    setMode((prev) => (prev === "icon" ? "full" : "icon"));
+  const handleToggleSidebarMode = useCallback(() => {
+    setSidebarMode((prev) => (prev === "icon" ? "full" : "icon"));
   }, []);
 
-  const isFull = mode === "full";
-
-  const currentWidth = isFull ? FULL_WIDTH : ICON_WIDTH;
+  const isSidebarFull = sidebarMode === "full";
+  const sidebarWidth = isSidebarFull ? SIDEBAR_FULL_WIDTH : SIDEBAR_ICON_WIDTH;
 
   return (
     <>
       <motion.aside
         initial={false}
-        animate={{ width: currentWidth }}
-        transition={SPRING}
+        animate={{ width: sidebarWidth }}
+        transition={SIDEBAR_SPRING}
         className="relative z-20 flex h-full flex-shrink-0 flex-col border-r border-[var(--border-subtle)] bg-[var(--surface-elevated)]/85 backdrop-blur-md"
         aria-label="Conversation navigation"
       >
@@ -161,19 +172,21 @@ export function ChatSidebar() {
         <div
           className={cn(
             "flex items-center px-3 py-3",
-            isFull ? "justify-end" : "justify-center",
+            isSidebarFull ? "justify-end" : "justify-center",
           )}
         >
           <button
-            onClick={handleToggleMode}
+            onClick={handleToggleSidebarMode}
             className={cn(
               "flex size-8 items-center justify-center rounded-[var(--radius)] transition-all duration-200 outline-none",
               "text-text-primary hover:bg-[var(--surface-hover)]",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             )}
-            aria-label={isFull ? "Collapse to icons" : "Expand sidebar"}
+            aria-label={
+              isSidebarFull ? "Collapse to icons" : "Expand sidebar"
+            }
           >
-            {isFull ? (
+            {isSidebarFull ? (
               <DotMatrixIcon name="panelLeftClose" size={ICON_GLYPH.toolbar} />
             ) : (
               <DotMatrixIcon name="panelLeftOpen" size={ICON_GLYPH.toolbar} />
@@ -190,40 +203,34 @@ export function ChatSidebar() {
             "before:bg-[var(--accent-border)] before:content-['']",
             "before:transition-[width] before:duration-300 before:ease-out",
             // Length↔length only (w-auto cannot reverse-tween on collapse)
-            isFull ? "before:w-[calc(100%-1.5rem)]" : "before:w-8",
+            isSidebarFull ? "before:w-[calc(100%-1.5rem)]" : "before:w-8",
           )}
         >
           <SidebarItem
             icon={(props) => <DotMatrixIcon name="plus" {...props} />}
             label="New chat"
             onClick={handleNewChat}
-            showLabel={isFull}
+            showLabel={isSidebarFull}
             variant="primary"
           />
+          {/* cloneElement wires onClick onto SidebarItem (button) directly */}
           <CommandPalette
-            showThemeGroup={false}
             placeholder="Search conversations, actions…"
             shortcutKey="k"
             trigger={
-              <div
-                className={cn(
-                  "rounded-[var(--radius)] focus-within:ring-2 focus-within:ring-ring",
-                )}
-              >
-                <SidebarItem
-                  icon={(props) => <DotMatrixIcon name="search" {...props} />}
-                  label="Search…"
-                  onClick={() => {}}
-                  shortcut="⌘K"
-                  showLabel={isFull}
-                />
-              </div>
+              <SidebarItem
+                icon={(props) => <DotMatrixIcon name="search" {...props} />}
+                label="Search…"
+                onClick={() => {}}
+                shortcut="⌘K"
+                showLabel={isSidebarFull}
+              />
             }
           />
         </div>
 
         {/* Recents only when expanded — unmount when collapsed (no ghost DOM) */}
-        {isFull ? (
+        {isSidebarFull ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2">
               <span className="font-[family-name:var(--font-terminal)] text-[0.8125rem] font-medium uppercase tracking-[0.2em] text-text-secondary">
@@ -232,7 +239,9 @@ export function ChatSidebar() {
               <div className="h-px flex-1 bg-[var(--accent-border)]" />
             </div>
             <div className="flex flex-1 items-center justify-center px-3">
-              <span className="text-sm text-text-secondary">No conversations yet</span>
+              <span className="text-sm text-text-secondary">
+                No conversations yet
+              </span>
             </div>
           </div>
         ) : (
@@ -248,20 +257,23 @@ export function ChatSidebar() {
             "before:bg-[var(--accent-border)] before:content-['']",
             "before:transition-[width] before:duration-300 before:ease-out",
             // Length↔length only (w-auto cannot reverse-tween on collapse)
-            isFull ? "before:w-[calc(100%-1.5rem)]" : "before:w-8",
+            isSidebarFull ? "before:w-[calc(100%-1.5rem)]" : "before:w-8",
           )}
         >
           <SidebarItem
             icon={(props) => <DotMatrixIcon name="settings" {...props} />}
             label="Settings"
             onClick={handleOpenSettings}
-            active={settingsOpen}
-            showLabel={isFull}
+            active={settingsDialogOpen}
+            showLabel={isSidebarFull}
           />
         </div>
       </motion.aside>
 
-      <SettingsDialog onOpenChange={setSettingsOpen} open={settingsOpen} />
+      <SettingsDialog
+        onOpenChange={setSettingsDialogOpen}
+        open={settingsDialogOpen}
+      />
     </>
   );
 }

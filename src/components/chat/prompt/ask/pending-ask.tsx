@@ -1,20 +1,15 @@
 "use client";
 
 /**
- * Pending-ask widget leaves: question header + option chip.
+ * Pending-ask leaves: question header + option chip.
  * Body owns layout; these are presentation-only leaves.
+ * Not the deprecated morph ask-user-question widget.
  */
 
 import { cn } from "@/lib/utils";
 import type { PendingAskUserQuestion } from "@/lib/ask-user-question";
 
-export type PromptInputWidgetOption = PendingAskUserQuestion["options"][number];
-export type PromptInputWidgetResponse = [
-  {
-    question: PendingAskUserQuestion["question"];
-    response: PendingAskUserQuestion["options"][number];
-  }
-];
+export type PromptInputAskOption = PendingAskUserQuestion["options"][number];
 
 export type PromptInputQuestionProps = {
   id: string;
@@ -22,7 +17,7 @@ export type PromptInputQuestionProps = {
 };
 
 /**
- * Widget-mode question header — leaf only; no card/border/bg.
+ * Pending-ask question header — leaf only; no card/border/bg.
  * Body owns H gutter (`--prompt-body-px/py`); leaves have no horizontal pad.
  */
 export function PromptInputQuestion({
@@ -41,12 +36,12 @@ export function PromptInputQuestion({
 }
 
 export type PromptInputOptionProps = {
-  option: PromptInputWidgetOption;
-  onSelect?: (option: PromptInputWidgetOption) => void;
+  option: PromptInputAskOption;
+  onSelect?: (option: PromptInputAskOption) => void;
 };
 
 /**
- * Widget-mode option chip — leaf only; group shell stays on Body.
+ * Pending-ask option chip — leaf only; group shell stays on Body.
  * Body owns H gutter; leaves have no horizontal pad.
  */
 export function PromptInputOption({

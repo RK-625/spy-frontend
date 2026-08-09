@@ -3,24 +3,30 @@
 import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { createContext, useCallback, useContext, useMemo } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  type ReactNode,
+} from "react";
 import type { ChatContextValue } from "@/types/chat";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
 /**
  * Stream-only chat provider. Owns useChat transport + messages/status.
- * Model/mode/web prefs and submit live on PromptShellProvider / useChatSubmit.
+ * Model/mode/web prefs and submit live on PromptInputProvider / PromptInputWorkspace.
+ * Tooltip / toaster chrome live on /home page shell — not here.
  */
-export function ChatProvider({ children }: { children: React.ReactNode }) {
-  const { messages, status, stop, sendMessage, error, setMessages, addToolOutput } =
+export function ChatProvider({ children }: { children: ReactNode }) {
+  const { messages, status, stop, sendMessage, error, setMessages } =
     useChat<UIMessage>({
       id: "spy-chat",
       experimental_throttle: 50,
       transport: new DefaultChatTransport({
         api: "/api/chat",
       }),
-      messages: [] as UIMessage[],
     });
 
   const clearMessages = useCallback(() => {
@@ -35,20 +41,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       error,
       stop,
       sendMessage,
-      addToolOutput,
     }),
-    [
-      status,
-      messages,
-      clearMessages,
-      error,
-      stop,
-      sendMessage,
-      addToolOutput,
-    ],
+    [status, messages, clearMessages, error, stop, sendMessage],
   );
 
-  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
+  return (
+    <ChatContext.Provider value={value}>{children}</ChatContext.Provider>
+  );
 }
 
 export function useChatContext() {

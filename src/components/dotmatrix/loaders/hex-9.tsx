@@ -2,16 +2,23 @@
 
 import type { CSSProperties } from "react";
 
-import { cx } from "../core";
-import { resolveDmxColorTokens } from "../core";
-import { styleOpacity, stylePx } from "../core";
-import { remapOpacityToTriplet } from "../core";
-import { dmxBloomHaloSpreadClass, dmxBloomRootActive, dmxDotBloomParts } from "../core";
-import { getPatternIndexes } from "../core";
-import { useDotMatrixPhases } from "../core/hooks";
-import { useCyclePhase } from "../core/hooks";
-import { usePrefersReducedMotion } from "../core/hooks";
-import type { DotMatrixCommonProps } from "../core";
+import {
+  cx,
+  dmxBloomHaloSpreadClass,
+  dmxBloomRootActive,
+  dmxDotBloomParts,
+  getPatternIndexes,
+  remapOpacityToTriplet,
+  resolveDmxColorTokens,
+  styleOpacity,
+  stylePx,
+  type DotMatrixCommonProps,
+} from "../core";
+import {
+  useCyclePhase,
+  useDotMatrixPhases,
+  usePrefersReducedMotion,
+} from "../core/hooks";
 
 export type DotmHex9Props = DotMatrixCommonProps;
 
@@ -123,7 +130,7 @@ export function DotmHex9({
     ["--dmx-dot-fill" as const]: dotFill,
     color: resolvedColor,
     ["--dmx-dot-size" as const]: `${dotSize}px`,
-      ["--dmx-halo-level" as const]: halo,
+    ["--dmx-halo-level" as const]: halo,
     ...(ob !== undefined && { ["--dmx-opacity-base" as const]: ob }),
     ...(om !== undefined && { ["--dmx-opacity-mid" as const]: om }),
     ...(op !== undefined && { ["--dmx-opacity-peak" as const]: op }),

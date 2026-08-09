@@ -51,7 +51,7 @@ function KbdGroup({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-type CommandMenuItemDef = {
+type CommandPaletteItemDef = {
   label: string;
   icon?: React.ComponentType<{ className?: string }>;
   href?: string;
@@ -60,12 +60,12 @@ type CommandMenuItemDef = {
   description?: string;
 };
 
-export type CommandMenuGroupDef = {
+export type CommandPaletteGroupDef = {
   heading: string;
-  items: CommandMenuItemDef[];
+  items: CommandPaletteItemDef[];
 };
 
-interface CommandMenuTriggerProps
+interface CommandPaletteTriggerProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label?: string;
   shortcut?: string;
@@ -73,13 +73,14 @@ interface CommandMenuTriggerProps
 }
 
 export interface CommandPaletteProps {
-  groups?: CommandMenuGroupDef[];
+  groups?: CommandPaletteGroupDef[];
+  /** Opt-in theme actions. Product shell keeps this off (dark register). */
   showThemeGroup?: boolean;
   placeholder?: string;
   shortcutKey?: string;
   contentDelay?: number;
   trigger?: React.ReactNode;
-  triggerProps?: CommandMenuTriggerProps;
+  triggerProps?: CommandPaletteTriggerProps;
   className?: string;
   emptyMessage?: string;
 }
@@ -93,7 +94,7 @@ function isEditableTarget(target: EventTarget | null) {
   );
 }
 
-function matchesQuery(item: CommandMenuItemDef, query: string) {
+function matchesQuery(item: CommandPaletteItemDef, query: string) {
   const normalized = query.trim().toLowerCase();
 
   if (!normalized) {
@@ -135,14 +136,14 @@ function SearchShortcutBadge({
   );
 }
 
-function CommandMenuTrigger({
+function CommandPaletteTrigger({
   label = "Search…",
   shortcut = "K",
   showShortcut = true,
   className,
   onClick,
   ...props
-}: CommandMenuTriggerProps) {
+}: CommandPaletteTriggerProps) {
   const [isMac, setIsMac] = React.useState(true);
 
   React.useEffect(() => {
@@ -177,8 +178,8 @@ function CommandMenuTrigger({
 
 function CommandPalette({
   groups = [],
-  showThemeGroup = true,
-  placeholder = "Search components, pages, actions…",
+  showThemeGroup = false,
+  placeholder = "Search conversations, actions…",
   shortcutKey = "k",
   contentDelay = 150,
   trigger,
@@ -191,10 +192,10 @@ function CommandPalette({
   const { setTheme } = useTheme();
   const paletteId = React.useId().replace(/:/g, "");
 
-  const [open, setOpen] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [showContent, setShowContent] = React.useState(false);
-  const [query, setQuery] = React.useState("");
-  const debouncedQuery = useDebouncedValue(query, 120);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const debouncedQuery = useDebouncedValue(searchQuery, 120);
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [isMac, setIsMac] = React.useState(true);
 
@@ -209,7 +210,7 @@ function CommandPalette({
   }, []);
 
   React.useEffect(() => {
-    if (open) {
+    if (paletteOpen) {
       const contentId = window.setTimeout(
         () => setShowContent(true),
         contentDelay
@@ -225,10 +226,10 @@ function CommandPalette({
     // ponytail: defer state updates to avoid synchronous state transition during effect execution
     setTimeout(() => {
       setShowContent(false);
-      setQuery("");
+      setSearchQuery("");
       setActiveIndex(0);
     }, 0);
-  }, [contentDelay, open]);
+  }, [contentDelay, paletteOpen]);
 
   React.useEffect(() => {
     if (!pathname) {
@@ -237,7 +238,7 @@ function CommandPalette({
 
     // ponytail: defer state update to avoid synchronous state transition during effect execution
     setTimeout(() => {
-      setOpen(false);
+      setPaletteOpen(false);
     }, 0);
   }, [pathname]);
 
@@ -252,7 +253,7 @@ function CommandPalette({
       ) {
         event.preventDefault();
         event.stopPropagation();
-        setOpen((current) => !current);
+        setPaletteOpen((current) => !current);
       }
     };
 
@@ -263,16 +264,16 @@ function CommandPalette({
     };
   }, [shortcutKey]);
 
-  const run = React.useCallback((fn: () => void) => {
-    setOpen(false);
+  const closeThenRun = React.useCallback((fn: () => void) => {
+    setPaletteOpen(false);
     fn();
   }, []);
 
-  const handleOpen = React.useCallback(() => {
-    setOpen(true);
+  const handleOpenPalette = React.useCallback(() => {
+    setPaletteOpen(true);
   }, []);
 
-  const themeItems = React.useMemo<CommandMenuItemDef[]>(
+  const themeItems = React.useMemo<CommandPaletteItemDef[]>(
     () =>
       showThemeGroup
         ? [
@@ -323,7 +324,7 @@ function CommandPalette({
     [debouncedQuery, themeItems]
   );
 
-  const resolvedItems = React.useMemo<CommandMenuItemDef[]>(() => {
+  const resolvedItems = React.useMemo<CommandPaletteItemDef[]>(() => {
     const groupItems = filteredGroups.flatMap((group) =>
       group.items.map((item) => item)
     );
@@ -353,18 +354,18 @@ function CommandPalette({
   }, [activeIndex]);
 
   const handleItemSelect = React.useCallback(
-    (item: CommandMenuItemDef) => {
+    (item: CommandPaletteItemDef) => {
       if (item.action) {
-        run(item.action);
+        closeThenRun(item.action);
         return;
       }
 
       if (item.href) {
         const href = item.href;
-        run(() => router.push(href));
+        closeThenRun(() => router.push(href));
       }
     },
-    [router, run]
+    [router, closeThenRun]
   );
 
   const handleListKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -411,11 +412,11 @@ function CommandPalette({
     }
 
     if (event.key === "Escape") {
-      setOpen(false);
+      setPaletteOpen(false);
     }
   };
 
-  const renderItem = (item: CommandMenuItemDef, key: string) => {
+  const renderItem = (item: CommandPaletteItemDef, key: string) => {
     const index = resolvedItems.indexOf(item);
     const isActive = index === activeIndex;
 
@@ -462,27 +463,33 @@ function CommandPalette({
       {trigger ? (
         React.isValidElement<{ onClick?: () => void }>(trigger) ? (
           React.cloneElement(trigger, {
-            onClick: handleOpen,
+            onClick: handleOpenPalette,
           })
         ) : (
-          <button className="cursor-pointer" onClick={handleOpen} type="button">
+          <button
+            className="cursor-pointer"
+            onClick={handleOpenPalette}
+            type="button"
+          >
             {trigger}
           </button>
         )
       ) : (
-        <CommandMenuTrigger
+        <CommandPaletteTrigger
           shortcut={shortcutKey.toUpperCase()}
           {...triggerProps}
-          onClick={handleOpen}
+          onClick={handleOpenPalette}
         />
       )}
 
-      <DialogPrimitive.Root onOpenChange={setOpen} open={open}>
+      <DialogPrimitive.Root onOpenChange={setPaletteOpen} open={paletteOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-[220] bg-background/55 backdrop-blur-sm" />
           <DialogPrimitive.Content
             className={cn(
-              "fixed inset-x-4 top-[calc(var(--nav-stack-height-mobile)+0.75rem+env(safe-area-inset-top,0px))] z-[221] flex max-h-[calc(100dvh-var(--nav-stack-height-mobile)-1.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-background shadow-[0_28px_90px_rgba(10,10,10,0.12)] outline-none sm:inset-x-6 lg:top-[calc(var(--nav-stack-height-desktop)+1rem)] lg:left-1/2 lg:max-h-[min(560px,calc(100dvh-var(--nav-stack-height-desktop)-2rem))] lg:w-[min(680px,calc(100vw-2rem))] lg:-translate-x-1/2",
+              // Desktop-first placement (product is desktop-only v1).
+              // Avoid undefined --nav-stack-height-* tokens that invalidate calc().
+              "fixed inset-x-4 top-[12vh] z-[221] flex max-h-[min(560px,calc(100dvh-4rem))] flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-background shadow-[0_28px_90px_rgba(10,10,10,0.12)] outline-none sm:inset-x-6 sm:left-1/2 sm:w-[min(680px,calc(100vw-2rem))] sm:-translate-x-1/2",
               className
             )}
             onOpenAutoFocus={(event) => {
@@ -494,7 +501,7 @@ function CommandPalette({
               Search
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">
-              Search pages and components, or switch the site theme.
+              Search conversations and actions.
             </DialogPrimitive.Description>
 
             <div className="flex shrink-0 items-center gap-3 border-border/70 border-b px-4 py-3">
@@ -509,13 +516,13 @@ function CommandPalette({
                 className="w-full min-w-0 touch-manipulation bg-transparent text-[16px] text-foreground leading-normal outline-none placeholder:text-muted-foreground md:text-sm"
                 enterKeyHint="search"
                 inputMode="search"
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 onKeyDown={handleListKeyDown}
                 placeholder={placeholder}
                 ref={inputRef}
                 spellCheck={false}
                 type="search"
-                value={query}
+                value={searchQuery}
               />
               <SearchShortcutBadge
                 className="hidden md:inline-flex"
@@ -537,7 +544,7 @@ function CommandPalette({
               className={cn(
                 "min-h-0 overflow-hidden transition-[max-height,opacity] duration-300 ease-out",
                 showContent
-                  ? "max-h-[min(420px,calc(100dvh-var(--nav-stack-height-mobile)-7.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)))] opacity-100 lg:max-h-[420px]"
+                  ? "max-h-[min(420px,calc(100dvh-8rem))] opacity-100"
                   : "max-h-0 opacity-0"
               )}
             >
@@ -600,4 +607,4 @@ function CommandPalette({
   );
 }
 
-export { CommandPalette, CommandPalette as CommandMenu };
+export { CommandPalette };

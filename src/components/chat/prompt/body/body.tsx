@@ -11,12 +11,12 @@ import { useId } from "react";
 import {
   PromptInputOption,
   PromptInputQuestion,
-  type PromptInputWidgetOption,
+  type PromptInputAskOption,
 } from "../ask/pending-ask";
 
 export type PromptInputBodyProps = HTMLAttributes<HTMLDivElement> & {
   pendingAsk?: PendingAskUserQuestion | null;
-  onOptionSelect?: (option: PromptInputWidgetOption) => void;
+  onOptionSelect?: (option: PromptInputAskOption) => void;
 };
 
 export const PromptInputBody = ({
@@ -27,11 +27,11 @@ export const PromptInputBody = ({
   ...props
 }: PromptInputBodyProps) => {
   const questionId = useId();
-  const isWidgetMode = pendingAsk != null;
+  const hasPendingAsk = pendingAsk != null;
   const questionText = pendingAsk?.question.trim() ?? "";
   const options = pendingAsk?.options ?? [];
-  const showQuestion = isWidgetMode && questionText.length > 0;
-  const showOptions = isWidgetMode && options.length > 0;
+  const showQuestion = hasPendingAsk && questionText.length > 0;
+  const showOptions = hasPendingAsk && options.length > 0;
   // Options-only when custom write-in is disallowed.
   const showTextarea =
     pendingAsk == null || pendingAsk.allowCustomInput;
@@ -45,12 +45,12 @@ export const PromptInputBody = ({
       )}
       {...props}
     >
-      {/* Thin shell: layout only (`flex-col gap-2` when widget) — no pad.
-          Widget column aligns at Body content edge. */}
+      {/* Thin shell: layout only (`flex-col gap-2` when pending-ask) — no pad.
+          Pending-ask column aligns at Body content edge. */}
       <div
         className={cn(
           "w-full min-w-0",
-          isWidgetMode && "flex flex-col gap-2",
+          hasPendingAsk && "flex flex-col gap-2",
         )}
       >
         {showQuestion ? (

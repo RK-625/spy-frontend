@@ -129,7 +129,7 @@ const ICONS = {
 
 export type DotMatrixIconName = keyof typeof ICONS;
 
-interface DotMatrixIconProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface DotMatrixIconProps extends React.HTMLAttributes<HTMLDivElement> {
   name: DotMatrixIconName;
   size?: number;
   className?: string;

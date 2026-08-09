@@ -2,11 +2,16 @@
 
 import { useMemo } from "react";
 
-import { DotMatrixBase } from "../core";
-import { useDotMatrixPhases } from "../core/hooks";
-import { useCyclePhase } from "../core/hooks";
-import { usePrefersReducedMotion } from "../core/hooks";
-import type { DotAnimationResolver, DotMatrixCommonProps } from "../core";
+import {
+  DotMatrixBase,
+  type DotAnimationResolver,
+  type DotMatrixCommonProps,
+} from "../core";
+import {
+  useCyclePhase,
+  useDotMatrixPhases,
+  usePrefersReducedMotion,
+} from "../core/hooks";
 
 export type DotmSquare18Props = DotMatrixCommonProps;
 

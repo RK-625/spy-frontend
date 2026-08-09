@@ -7,11 +7,12 @@
  * - render/     (pixi-renderer, dot-circle-batch, draw-arrow, edge-signal-pulse, bake-*)
  * - camera/     (rtc-camera)
  * - layout/     (layout-loop-d3 paint store, rim-lock, spatial-index)
- * - fixtures/   (mock-graph)
  *
  * Live topology via `/api/graph`; `placeTopology` owns hit/miss + settle + cache.
  * Force knobs / settle / placement-cache helpers: import subpaths (verify only).
  * Layout factory: dynamic-import `createGraphPaintLoop` from `@/lib/graph/layout/layout-loop-d3`.
+ * Fixtures (mock / stress): deep-import `@/lib/graph/fixtures/mock-graph` — verify scripts
+ * only; never re-exported here (no product mock path).
  */
 
 // --- Domain DTO -----------------------------------------------------------
@@ -26,14 +27,6 @@ export {
   type RimOccupation,
   type RimOccupationKind,
 } from "./core/graph-data";
-
-// --- Fixtures (mock / stress; not live DB) --------------------------------
-export {
-  createMockGraphData,
-  createLargeStressGraphData,
-  HUB_SPOKE_COUNT,
-  type LargeStressFixtureOptions,
-} from "./fixtures/mock-graph";
 
 // --- MemoryNode / Links → GraphData (hit/miss + settle; no Falkor) --------
 export { placeTopology } from "./placement/place-topology";

@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Prompt shell draft context: text, attachments, and chat prefs (model / mode / web).
- * Requires outer PromptShellProvider. Must NOT import header/body/footer.
+ * Prompt input draft context: text, attachments, and chat prefs (model / mode / web).
+ * Requires outer PromptInputProvider. Must NOT import header/body/footer.
  *
  * PromptInput registers file-input open + attachment validation so children
  * always hit a validated `attachments.add` while state lives only here.
@@ -37,7 +37,6 @@ export interface AttachmentsValue {
   remove: (id: string) => void;
   clear: () => void;
   openFileDialog: () => void;
-  fileInputRef: RefObject<HTMLInputElement | null>;
 }
 
 /** Text field store API (context value shape, not a React context). */
@@ -53,7 +52,7 @@ export interface TextInputValue {
  */
 export type AttachmentAddValidator = (
   files: File[] | FileList,
-  ctx: { currentCount: number }
+  currentCount: number
 ) => File[];
 
 /** Chat request prefs owned by the prompt shell (not stream state). */
@@ -67,16 +66,13 @@ export interface PromptInputPrefsValue {
   toggleWebSearch: () => void;
 }
 
-/** Lifted controller state exposed by PromptShellProvider. */
-export interface PromptShellControllerValue {
+/** Draft + prefs state exposed by PromptInputProvider. */
+export interface PromptInputContextValue {
   textInput: TextInputValue;
   attachments: AttachmentsValue;
   prefs: PromptInputPrefsValue;
-  /** INTERNAL: PromptInput registers its hidden file input + open callback */
-  __registerFileInput: (
-    ref: RefObject<HTMLInputElement | null>,
-    open: () => void
-  ) => void;
+  /** INTERNAL: PromptInput registers hidden file input ref */
+  __registerFileInput: (ref: RefObject<HTMLInputElement | null>) => void;
   /**
    * INTERNAL: PromptInput registers accept/size/maxFiles validation.
    * Pass null on unmount. While set, `attachments.add` runs through it.
@@ -90,75 +86,45 @@ export interface PromptShellControllerValue {
 // Context
 // ============================================================================
 
-const PromptShellControllerContext =
-  createContext<PromptShellControllerValue | null>(null);
+const PromptInputContext = createContext<PromptInputContextValue | null>(null);
 
-/** Optional: returns null when outside PromptShellProvider. */
-export const useOptionalPromptShellControllerContext = () =>
-  useContext(PromptShellControllerContext);
-
-/** Required: throws when outside PromptShellProvider. */
-export const usePromptShellControllerContext =
-  (): PromptShellControllerValue => {
-    const controller = useContext(PromptShellControllerContext);
-    if (!controller) {
-      throw new Error(
-        "usePromptShellControllerContext must be used within a PromptShellProvider"
-      );
-    }
-    return controller;
-  };
-
-/**
- * Attachments from the single draft controller.
- * Throws when outside PromptShellProvider.
- */
-export const usePromptInputAttachments = (): AttachmentsValue => {
-  const controller = useContext(PromptShellControllerContext);
-  if (!controller) {
+/** Required: throws when outside PromptInputProvider. */
+export const usePromptInputContext = (): PromptInputContextValue => {
+  const value = useContext(PromptInputContext);
+  if (!value) {
     throw new Error(
-      "usePromptInputAttachments must be used within a PromptShellProvider"
+      "usePromptInputContext must be used within a PromptInputProvider"
     );
   }
-  return controller.attachments;
+  return value;
 };
 
 // ============================================================================
 // Provider
 // ============================================================================
 
-const DEFAULT_MODEL_ID = models[0]?.id ?? "deepseek-v4-flash";
-const DEFAULT_MODE = "high";
-const DEFAULT_USE_WEB_SEARCH = true;
-
-export type PromptShellProviderProps = PropsWithChildren<{
-  initialInput?: string;
-  maxFiles?: number;
-  initialModel?: string;
-  initialMode?: string;
-  initialUseWebSearch?: boolean;
-}>;
+/** Default model / mode / web prefs when the provider mounts. */
+export const DEFAULT_PROMPT_PREFS = {
+  model: models[0]?.id ?? "deepseek-v4-flash",
+  mode: "high" as const,
+  useWebSearch: true,
+} satisfies Pick<PromptInputPrefsValue, "model" | "mode" | "useWebSearch">;
 
 /**
  * Owns prompt draft state (text + attachments + prefs). Required wrapper for
- * PromptInput and consumers of usePromptInputAttachments / controller hooks.
+ * PromptInput and consumers of usePromptInputContext.
  */
-export const PromptShellProvider = ({
-  initialInput: initialTextInput = "",
-  maxFiles,
-  initialModel = DEFAULT_MODEL_ID,
-  initialMode = DEFAULT_MODE,
-  initialUseWebSearch = DEFAULT_USE_WEB_SEARCH,
-  children,
-}: PromptShellProviderProps) => {
+export const PromptInputProvider = ({ children }: PropsWithChildren) => {
   // ----- textInput state
-  const [textInput, setTextInput] = useState(initialTextInput);
+  const [textInput, setTextInput] = useState("");
   const clearInput = useCallback(() => setTextInput(""), []);
 
   // ----- prefs (model / mode / web) — no selector open flags
-  const [model, setModel] = useState(initialModel);
-  const [mode, setMode] = useState(initialMode);
-  const [useWebSearch, setUseWebSearch] = useState(initialUseWebSearch);
+  const [model, setModel] = useState(DEFAULT_PROMPT_PREFS.model);
+  const [mode, setMode] = useState<string>(DEFAULT_PROMPT_PREFS.mode);
+  const [useWebSearch, setUseWebSearch] = useState<boolean>(
+    DEFAULT_PROMPT_PREFS.useWebSearch,
+  );
   const toggleWebSearch = useCallback(() => {
     setUseWebSearch((prev) => !prev);
   }, []);
@@ -167,9 +133,9 @@ export const PromptShellProvider = ({
   const [attachmentFiles, setAttachmentFiles] = useState<
     (FileUIPart & { id: string })[]
   >([]);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  // oxlint-disable-next-line eslint(no-empty-function)
-  const openRef = useRef<() => void>(() => {});
+  const registeredInputRef = useRef<RefObject<HTMLInputElement | null> | null>(
+    null
+  );
   const validatorRef = useRef<AttachmentAddValidator | null>(null);
 
   const add = useCallback(
@@ -177,21 +143,13 @@ export const PromptShellProvider = ({
       setAttachmentFiles((prev) => {
         let toAdd: File[];
         if (validatorRef.current) {
-          toAdd = validatorRef.current(files, { currentCount: prev.length });
+          toAdd = validatorRef.current(files, prev.length);
         } else {
           const incoming = [...files];
           if (incoming.length === 0) {
             return prev;
           }
-          // No PromptInput gate yet: soft maxFiles cap only
-          const capacity =
-            typeof maxFiles === "number"
-              ? Math.max(0, maxFiles - prev.length)
-              : undefined;
-          toAdd =
-            typeof capacity === "number"
-              ? incoming.slice(0, capacity)
-              : incoming;
+          toAdd = incoming;
         }
         if (toAdd.length === 0) {
           return prev;
@@ -199,7 +157,7 @@ export const PromptShellProvider = ({
         return [...prev, ...filesToFileUIParts(toAdd)];
       });
     },
-    [maxFiles]
+    []
   );
 
   const remove = useCallback((id: string) => {
@@ -235,14 +193,13 @@ export const PromptShellProvider = ({
   );
 
   const openFileDialog = useCallback(() => {
-    openRef.current?.();
+    registeredInputRef.current?.current?.click();
   }, []);
 
   const attachments = useMemo<AttachmentsValue>(
     () => ({
       add,
       clear,
-      fileInputRef,
       files: attachmentFiles,
       openFileDialog,
       remove,
@@ -264,9 +221,8 @@ export const PromptShellProvider = ({
   );
 
   const __registerFileInput = useCallback(
-    (ref: RefObject<HTMLInputElement | null>, open: () => void) => {
-      fileInputRef.current = ref.current;
-      openRef.current = open;
+    (ref: RefObject<HTMLInputElement | null>) => {
+      registeredInputRef.current = ref;
     },
     []
   );
@@ -278,7 +234,7 @@ export const PromptShellProvider = ({
     []
   );
 
-  const controller = useMemo<PromptShellControllerValue>(
+  const value = useMemo<PromptInputContextValue>(
     () => ({
       __registerAttachmentValidator,
       __registerFileInput,
@@ -301,8 +257,8 @@ export const PromptShellProvider = ({
   );
 
   return (
-    <PromptShellControllerContext.Provider value={controller}>
+    <PromptInputContext.Provider value={value}>
       {children}
-    </PromptShellControllerContext.Provider>
+    </PromptInputContext.Provider>
   );
 };

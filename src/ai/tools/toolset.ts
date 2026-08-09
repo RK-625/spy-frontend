@@ -2,13 +2,13 @@ import { generateText, Output, tool, Tool } from "ai";
 import { nanoid } from "nanoid";
 import Exa from "exa-js";
 import { z } from "zod";
-import { askUserQuestionInputSchema } from "@/ai/schemas/ask-schema";
-import { upsertMemoryInputSchema } from "@/ai/schemas/upsert-schema";
-import { linkMemoriesInputSchema } from "@/ai/schemas/link-schema";
-import { searchMemoriesInputSchema } from "@/ai/schemas/search-schema";
-import { webSearchInputSchema } from "@/ai/schemas/web-search-schema";
-import { generateEmbedding } from "@/ai/models/embeddings";
-import { modelConfig } from "@/ai/models/modelstore";
+import { askUserQuestionInputSchema } from "../schemas/ask-schema";
+import { upsertMemoryInputSchema } from "../schemas/upsert-schema";
+import { linkMemoriesInputSchema } from "../schemas/link-schema";
+import { searchMemoriesInputSchema } from "../schemas/search-schema";
+import { webSearchInputSchema } from "../schemas/web-search-schema";
+import { generateEmbedding } from "../models/embeddings";
+import { modelConfig } from "../models/modelstore";
 import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
@@ -95,8 +95,8 @@ export function createToolSet(
               "upsertMemory failed: chat model is required to generate retrieval questions.",
           };
         }
-        const id: string =
-          input.id == null || input.id === "" ? nanoid() : (input.id as string);
+        const id =
+          input.id != null && input.id !== "" ? input.id : nanoid();
         const impression = input.impression ?? "";
         const confidence = input.confidence ?? 0.5;
 
@@ -199,7 +199,7 @@ export function createToolSet(
     execute: async ({ questions }) => {
       try {
         const embeddings = await Promise.all(
-          questions.map((q: string) => generateEmbedding(q)),
+          questions.map((q) => generateEmbedding(q)),
         );
         const hits = await falkorVectorSearchByQuestions(
           embeddings,
