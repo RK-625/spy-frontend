@@ -509,7 +509,7 @@ export function createPixiRenderer(
       relatesAlpha: GRAPH_EDGE_RELATES_ALPHA,
     };
 
-    // requestBake already requires graphData; topology must be ready.
+    // requestBake already requires graphData; spatial built at setGraphData.
     ensureSpatialIndexReady();
     const edgeIdSet = new Set(spatialIndex.queryEdgeIds(cullAabb));
 
