@@ -11,14 +11,13 @@ import {
   type ReactNode,
 } from "react";
 import type { ChatContextValue } from "@/types/chat";
-import { TooltipProvider } from "@/components/ui";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
 /**
  * Stream-only chat provider. Owns useChat transport + messages/status.
  * Model/mode/web prefs and submit live on PromptInputProvider / PromptInputWorkspace.
- * Tooltip chrome folded in (was ChatProviderWrapper).
+ * Tooltip / toaster chrome live on /home page shell — not here.
  */
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { messages, status, stop, sendMessage, error, setMessages } =
@@ -47,9 +46,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <ChatContext.Provider value={value}>{children}</ChatContext.Provider>
-    </TooltipProvider>
+    <ChatContext.Provider value={value}>{children}</ChatContext.Provider>
   );
 }
 

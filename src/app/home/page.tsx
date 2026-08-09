@@ -22,6 +22,7 @@ import {
 import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
 
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
+import { AppToaster, TooltipProvider } from "@/components/ui";
 import ShinyText from "@/components/landing/shiny-text";
 
 /** Mirrors src/ai/toolset.ts webSearch input/output for UI parts */
@@ -223,28 +224,31 @@ export default function HomePage() {
       <div className="fixed inset-0 z-50 bg-surface-chat pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
 
       <div className="relative z-10 flex h-screen w-full">
-        {/* Sidebar + workspace share ChatProvider (stream); prompt shell scoped in workspace */}
-        <ChatProvider>
-          <ChatSidebar />
-          {/* Main chat area */}
-          <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
-            <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
-              <header className="relative flex items-center gap-3 border-b border-[var(--border-subtle)] px-6 py-4">
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-lavender/15 to-transparent" />
-                <ShinyText
-                  className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"
-                  spread={120}
-                >
-                  SPY
-                </ShinyText>
-                <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-lavender">
-                  WEAVING SIGNAL
-                </span>
-              </header>
-              <ChatWorkspace />
+        {/* Chat product shell: tooltips + stream + toaster (chat-only; root layout stays bare) */}
+        <TooltipProvider delayDuration={300}>
+          <ChatProvider>
+            <ChatSidebar />
+            {/* Main chat area */}
+            <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
+              <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
+                <header className="relative flex items-center gap-3 border-b border-[var(--border-subtle)] px-6 py-4">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-lavender/15 to-transparent" />
+                  <ShinyText
+                    className="font-[family-name:var(--font-terminal)] text-lg font-bold tracking-widest uppercase"
+                    spread={120}
+                  >
+                    SPY
+                  </ShinyText>
+                  <span className="text-[0.65rem] font-[family-name:var(--font-terminal)] uppercase tracking-[0.3em] text-lavender">
+                    WEAVING SIGNAL
+                  </span>
+                </header>
+                <ChatWorkspace />
+              </div>
             </div>
-          </div>
-        </ChatProvider>
+          </ChatProvider>
+          <AppToaster />
+        </TooltipProvider>
       </div>
     </div>
   );
