@@ -114,12 +114,11 @@ export type PromptInputProps = Omit<
   HTMLAttributes<HTMLFormElement>,
   "onSubmit" | "onError"
 > & {
-  // e.g., "image/*" or leave undefined for any
+  /** MIME/extension allowlist. Defaults to `PROMPT_INPUT_ACCEPT` (product SoT). */
   accept?: string;
   isMultiple?: boolean;
-  // Minimal constraints
   maxFiles?: number;
-  // bytes
+  /** Max bytes per file. Defaults to `PROMPT_INPUT_MAX_FILE_SIZE`. */
   maxFileSize?: number;
   onError?: (err: AttachmentError) => void;
   /** Sync accept gate only: throw to refuse (keep draft); return void to accept (clear). */
@@ -131,17 +130,23 @@ export type PromptInputProps = Omit<
 
 export const PromptInput = ({
   className,
-  accept,
-  isMultiple,
-  maxFiles,
-  maxFileSize,
+  accept = PROMPT_INPUT_ACCEPT,
+  isMultiple = PROMPT_INPUT_ALLOW_MULTIPLE,
+  maxFiles = PROMPT_INPUT_MAX_FILES,
+  maxFileSize = PROMPT_INPUT_MAX_FILE_SIZE,
   onError,
   onSubmit,
   children,
   ...props
 }: PromptInputProps) => {
-  const promptInput = usePromptInputContext();
-  const { attachments, textInput } = promptInput;
+  // Destructure stable register callbacks so effects do not re-run on every keystroke
+  // (context value identity changes when textInput changes).
+  const {
+    attachments,
+    textInput,
+    __registerFileInput,
+    __registerAttachmentValidator,
+  } = usePromptInputContext();
 
   // Refs
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -149,13 +154,14 @@ export const PromptInput = ({
 
   // Register file input so external openFileDialog() works
   useEffect(() => {
-    promptInput.__registerFileInput(inputRef);
-  }, [promptInput]);
+    __registerFileInput(inputRef);
+  }, [__registerFileInput]);
 
   // Register accept/size/maxFiles gate so attachments.add is always validated
   // while PromptInput is mounted (children, drop, file picker share one path).
+  // Defaults resolve to PROMPT_INPUT_* SoT; props are optional overrides.
   useEffect(() => {
-    promptInput.__registerAttachmentValidator((files, currentCount) => {
+    __registerAttachmentValidator((files, currentCount) => {
       return filterIncomingFiles(files, {
         accept,
         maxFileSize,
@@ -165,9 +171,9 @@ export const PromptInput = ({
       });
     });
     return () => {
-      promptInput.__registerAttachmentValidator(null);
+      __registerAttachmentValidator(null);
     };
-  }, [promptInput, accept, maxFileSize, maxFiles, onError]);
+  }, [__registerAttachmentValidator, accept, maxFileSize, maxFiles, onError]);
 
   // Attach drop handlers on the prompt form only (not document-wide)
   useEffect(() => {
@@ -456,11 +462,7 @@ function PromptInputWorkspaceContent() {
       <div className="chat-input-wrap relative">
         <div className="chat-input-glow" />
         <PromptInput
-          isMultiple={PROMPT_INPUT_ALLOW_MULTIPLE}
           onSubmit={handleSubmit}
-          accept={PROMPT_INPUT_ACCEPT}
-          maxFiles={PROMPT_INPUT_MAX_FILES}
-          maxFileSize={PROMPT_INPUT_MAX_FILE_SIZE}
           onError={handleAttachmentError}
         >
           <PromptInputHeader>

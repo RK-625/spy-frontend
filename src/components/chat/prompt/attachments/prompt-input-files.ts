@@ -4,9 +4,9 @@
  *
  * The string `PROMPT_INPUT_ACCEPT` below is the single source of truth for the
  * product allowlist used by the chat prompt at /home (and any future docs surface).
- * Pass it to <PromptInput accept={PROMPT_INPUT_ACCEPT} /> — validation runs on
- * add (filterIncomingFiles), so the <input accept="…"> attribute stays consistent
- * with what we actually accept in code.
+ * PromptInput defaults accept / max / multiple to these constants; optional props
+ * override. Validation runs on add (filterIncomingFiles), so the <input accept>
+ * attribute stays consistent with what we actually accept in code.
  *
  * ## Why a file is rejected (e.g. HTML drag-and-drop)
  * Both the file picker `accept` attribute and runtime `matchesAccept()` share this
@@ -62,7 +62,7 @@ export type AttachmentError = {
 
 /**
  * Product allowlist: images, docs, code, structured data. Edit here, not at call sites.
- * Wired by PromptInputWorkspace: accept={PROMPT_INPUT_ACCEPT}.
+ * PromptInput defaults `accept` / max / multiple to these constants (optional props override).
  *
  * Full rationale per format in the module header above.
  */
