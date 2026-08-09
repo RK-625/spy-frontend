@@ -122,10 +122,11 @@ export type PromptInputProps = Omit<
   // bytes
   maxFileSize?: number;
   onError?: (err: AttachmentError) => void;
+  /** Sync accept gate only: throw to refuse (keep draft); return void to accept (clear). */
   onSubmit: (
     message: PromptInputMessage,
     event: SubmitEvent<HTMLFormElement>
-  ) => void | Promise<void>;
+  ) => void;
 };
 
 export const PromptInput = ({
@@ -197,7 +198,7 @@ export const PromptInput = ({
 
       try {
         // Convert blob URLs to data URLs asynchronously
-        const convertedFiles: FileUIPart[] = await Promise.all(
+        const convertedFiles: FileUIPart[] = files.length > 0 ? await Promise.all(
           files.map(async ({ id: _id, ...item }) => {
             if (item.url?.startsWith("blob:")) {
               const dataUrl = await convertBlobUrlToDataUrl(item.url);
@@ -209,19 +210,16 @@ export const PromptInput = ({
             }
             return item;
           })
-        );
+        ) : [];
 
-        // Clear-on-accept: onSubmit must throw if the turn was not started.
-        // Do not await a long-lived stream Promise here — that would hold the
-        // draft until the assistant finishes. Workspace kickoff is sync.
-        const result = onSubmit({ files: convertedFiles, text }, event);
-        if (result instanceof Promise) {
-          await result;
-        }
+        // Clear-on-accept: sync onSubmit only. Throw to refuse (keep draft);
+        // return to accept (clear). Do not await stream work here.
+        onSubmit({ files: convertedFiles, text }, event);
         attachments.clear();
         textInput.clear();
-      } catch {
-        // Conversion failed or onSubmit refused/failed before accept — keep draft.
+      } catch (error) {
+        // Conversion failed or onSubmit refused — keep draft; log only.
+        console.error(error);
       }
     },
     [attachments, textInput, onSubmit]
@@ -312,9 +310,9 @@ function PromptInputWorkspaceContent() {
   } = usePromptInputContext();
 
   /**
-   * Kick off a chat turn. Sync by design: throw if the turn is not accepted so
-   * PromptInput keeps the draft; on accept, fire sendMessage without awaiting
-   * the full stream (form clears immediately after this returns).
+   * Transport only: kick off useChat sendMessage with model/mode/web prefs.
+   * No accept policy here — caller (handleSubmit) must validate first.
+   * Fire-and-forget: late stream/network failures toast; form already cleared.
    */
   const submitUserMessage = useCallback(
     (
@@ -325,17 +323,6 @@ function PromptInputWorkspaceContent() {
         useWebSearch: boolean;
       },
     ): void => {
-      if (status !== "ready") {
-        throw new Error("Chat is not ready to send.");
-      }
-
-      const hasText = Boolean(message.text?.trim());
-      const hasAttachments = Boolean(message.files?.length);
-
-      if (!hasText && !hasAttachments) {
-        throw new Error("Empty message.");
-      }
-
       void sendMessage(
         {
           text: message.text?.trim() || "",
@@ -356,7 +343,7 @@ function PromptInputWorkspaceContent() {
         toast.error("Failed to send message");
       });
     },
-    [sendMessage, status],
+    [sendMessage],
   );
 
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
@@ -368,12 +355,12 @@ function PromptInputWorkspaceContent() {
   );
 
   /**
-   * Single send path for form submit and MCQ option clicks.
+   * Single accept path for form submit and MCQ option clicks.
+   * Owns all validation + pending-ask shaping; then calls submitUserMessage.
    * Option select: handleSubmit({ text: option.label, files: [] }).
-   * Pending ask → formatAskUserQuestionAnswer once; else normal chat.
    *
-   * Sync: returns void after accept so PromptInput clears on turn accept.
-   * Throws when the turn is not started so the form keeps the draft.
+   * Sync: throws if the turn is refused (form keeps draft); returns void after
+   * transport kickoff so PromptInput clears on accept (not on stream end).
    */
   const handleSubmit = useCallback(
     (message: PromptInputMessage): void => {
@@ -390,7 +377,7 @@ function PromptInputWorkspaceContent() {
         if (!answer && !hasFiles) {
           throw new Error("Empty message.");
         }
-        // Pure MCQ: require a choice label (option path); files alone are not an answer.
+        // Pure MCQ: require a choice label; files alone are not an answer.
         if (!pendingAsk.allowCustomInput && !answer) {
           throw new Error("Choice required.");
         }
@@ -407,7 +394,18 @@ function PromptInputWorkspaceContent() {
         );
         return;
       }
-      submitUserMessage(message, prefs);
+
+      if (!answer && !hasFiles) {
+        throw new Error("Empty message.");
+      }
+
+      submitUserMessage(
+        {
+          text: answer,
+          files: message.files,
+        },
+        prefs,
+      );
     },
     [submitUserMessage, pendingAsk, status, model, mode, useWebSearch],
   );
