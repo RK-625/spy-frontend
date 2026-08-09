@@ -5,15 +5,16 @@
  * - setGraphData(graph) — always full install → full dirty → full bake → full resident replace
  * - Finite overscan residency (OVERSCAN_MARGIN=2.0); no bake-all dual path
  * - Worker bake (onerror → sync forever); seq drops stale results
- * - Full RimLock + spatial rebuild on topology; durable merged buffer full rebuild
+ * - Full RimLock + spatial rebuild only on setGraphData install; durable merged buffer full rebuild
+ * - Pan/zoom/resize only call render() → drawFrame (no GraphData / topology re-prep)
  * - Nodes paint independent of bake; signal wave colors via rAF
  *
  * Module map (single file):
  * - World AABB / overscan helpers
- * - Topology prep (full RimLock, rim slot cache, spatial index; incidence from caller)
+ * - Topology prep at setGraphData (full RimLock, rim slot cache, spatial index; incidence from caller)
  * - Bake request (payload, worker/sync, full resident replace, GPU upload)
  * - Signal wave color pass (throttled rAF)
- * - Camera transform + underlay + nodes
+ * - Camera transform + underlay + nodes (query spatial only; no RimLock on pan)
  * - Public handle: setGraphData, render, destroy, setSignalPulsesEnabled, setCamera
  *
  * HARD RULE: camera stays outside Pixi.
@@ -37,7 +38,8 @@
  * - Fan fallback (MIN_SEGMENTS=32) if Shader/GlProgram init or first Mesh fails.
  *
  * C — Shared bake worker (bake-worker-pool.ts + bake-worker.ts + bake-sample.ts):
- * - Main: full RimLock + spatial rebuild + candidate payload (incidence owned by placement/fixtures).
+ * - Main: candidate payload from spatial query (RimLock/spatial already built at setGraphData).
+ * - Incidence owned by placement/fixtures before paint.
  * - Worker: pure DotStream sampling → transferable exact-size dots + packed edgeRanges.
  * - Latest-only: worker pending queue keeps newest seq per client; cooperative
  *   abort mid-sample after each edge when a newer bake supersedes.
@@ -47,7 +49,7 @@
  * D — Universal residency (all graph sizes):
  * - ALWAYS cullAabb = worldViewportAabb(camera, OVERSCAN_MARGIN)
  * - ALWAYS bakedOverscan = that finite AABB (never bake-all / null cull)
- * - GraphSpatialIndex: full rebuild on topology
+ * - GraphSpatialIndex: full rebuild on setGraphData only (pan queries only)
  * - Underlay: O(candidates) via spatial index + O(1) edgesById map
  * - drawFrame rebakes when tight viewport escapes bakedOverscan (hysteresis),
  *   or when edges are dirty (setGraphData / markAllEdgesDirty)
@@ -338,14 +340,9 @@ export function createPixiRenderer(
   let lastSignalUploadMs = 0;
 
   /**
-   * Incidence / RimLock / spatial-index dirty. Cleared after main-thread recompute.
-   * Separate from edge-dot dirty so we can prepare rim while worker samples.
-   */
-  let topologyDirty = true;
-
-  /**
    * Edge-dot sample dirty: "all" needs full candidate rebake; null is clean.
    * Product path is full-only (setGraphData, markAllEdgesDirty, overscan miss).
+   * Separate from topology caches (RimLock / rim slots / spatial) which rebuild only on setGraphData.
    */
   let dirtyEdgeIds: "all" | null = "all";
   /**
@@ -470,26 +467,11 @@ export function createPixiRenderer(
   }
 
   /**
-   * Full RimLock + rim slot cache + spatial rebuild when topology dirty.
-   * Incidence (childIds/parentIds/relateIds) is owned by placement/fixtures —
-   * callers must `recomputeIncidence` before paint (product: placeTopology).
-   * Spatial index's internal incidentEdges is a separate structure rebuilt here.
-   * Product path always full (no incremental / positions-only partial).
-   */
-  function ensureTopologyPrepared(): void {
-    if (!graphData || !topologyDirty) return;
-    applyRimLock(graphData, 1);
-    rebuildRimSlotCache();
-    spatialIndex.rebuild(graphData, edgePadWorld);
-    topologyDirty = false;
-  }
-
-  /**
-   * Ensure spatial index is ready for query. Rebuilds when topology dirty or
-   * when the index is empty/stale while the graph still has finite nodes.
+   * Spatial query gate: index is built at setGraphData. Defensive rebuild if
+   * graph has nodes but index was cleared without a re-install (should not
+   * happen on product path — pan only queries).
    */
   function ensureSpatialIndexReady(): void {
-    ensureTopologyPrepared();
     if (!graphData) return;
     if (graphData.nodes.length > 0 && spatialIndex.isEmpty()) {
       spatialIndex.rebuild(graphData, edgePadWorld);
@@ -1005,8 +987,6 @@ export function createPixiRenderer(
       return;
     }
 
-    ensureTopologyPrepared();
-
     const cullAabb = worldViewportAabb(camera, OVERSCAN_MARGIN);
     const overscan = cullAabb;
 
@@ -1357,10 +1337,6 @@ export function createPixiRenderer(
       return;
     }
 
-    if (topologyDirty) {
-      ensureTopologyPrepared();
-    }
-
     if (needsBake()) {
       // Overscan escape while clean: mark full dirty so requestBake runs.
       if (dirtyEdgeIds === null) {
@@ -1470,7 +1446,6 @@ export function createPixiRenderer(
       mergedEdgeOrder = [];
       nodesDirty = true;
       spatialIndex.clear();
-      topologyDirty = true;
       dirtyEdgeIds = "all";
       dirtyWhileInFlight = false;
       hasBaked = false;
@@ -1492,12 +1467,16 @@ export function createPixiRenderer(
      * Full graph install. Callers must supply GraphData with incidence already
      * consistent with edges (product: placeTopology; fixtures: mock recompute).
      * Renderer does not re-derive childIds/parentIds/relateIds.
+     * Topology caches (RimLock, rim slots, spatial) rebuild here only — not on pan/render.
      */
     setGraphData(nextGraphData: GraphData): void {
       graphData = nextGraphData;
       nodesByIdCache = new Map(nextGraphData.nodes.map((n) => [n.id, n]));
       edgesByIdCache = new Map(nextGraphData.edges.map((e) => [e.id, e]));
-      topologyDirty = true;
+      // Full topology caches once per install (product path; no pan recompute).
+      applyRimLock(nextGraphData, 1);
+      rebuildRimSlotCache();
+      spatialIndex.rebuild(nextGraphData, edgePadWorld);
 
       // Full invalidate: drop in-flight bake, clear residents, full dirty.
       if (inFlightSeq !== 0) {
