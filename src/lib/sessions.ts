@@ -2,14 +2,17 @@
  * Node / API-route only — better-sqlite3 native binding.
  * Do not import from client components or Edge runtime.
  * (server-only package not installed; enforce by import graph.)
+ *
+ * Storage model (Turn 3.5): ONE table `chat_sessions` with `messages_json`
+ * holding the full UIMessage[] blob. No `chat_messages` table.
  */
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { UIMessage } from "ai";
 import Database from "better-sqlite3";
 import {
-  ChatMessage,
-  ChatSession,
+  ChatSessionMeta,
+  type ChatSession,
 } from "@/types/session-schema";
 
 /**
@@ -38,7 +41,7 @@ export type ListSessionsParams = {
 };
 
 export type ListSessionsResult = {
-  sessions: ChatSession[];
+  sessions: ChatSessionMeta[];
   nextCursor: SessionListCursor | null;
 };
 
@@ -46,13 +49,8 @@ export type CreateSessionInput = {
   id?: string;
   title: string;
   created_at?: number;
-};
-
-export type AppendMessageInput = {
-  id?: string;
-  session_id: string;
-  role: ChatMessage["role"];
-  parts: UIMessage["parts"];
+  /** Optional initial transcript; default empty array. */
+  messages?: UIMessage[];
 };
 
 // ---------------------------------------------------------------------------
@@ -66,31 +64,24 @@ function ensureSessionsDataDir(): string {
 }
 
 /**
- * Idempotent schema setup: tables + indexes for chat sessions / messages.
- * Safe to call on every open (CREATE IF NOT EXISTS).
+ * Early-draft schema setup (wipe-friendly).
+ * Drops Turn 2/3 dual-table layout if present, then creates ONE `chat_sessions`
+ * table with nested `messages_json` (full UIMessage[] blob). No production data
+ * to migrate — safe to recreate on open for this phase.
  */
 export function setupSessionsDb(db: Database.Database): void {
   db.exec(`
-    CREATE TABLE IF NOT EXISTS chat_sessions (
-      id          TEXT PRIMARY KEY,
-      title       TEXT NOT NULL,
-      created_at  INTEGER NOT NULL,
-      updated_at  INTEGER NOT NULL
+    DROP TABLE IF EXISTS chat_sessions;
+
+    CREATE TABLE chat_sessions (
+      id            TEXT PRIMARY KEY,
+      title         TEXT NOT NULL,
+      created_at    INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL,
+      messages_json TEXT NOT NULL DEFAULT '[]'
     );
 
-    CREATE TABLE IF NOT EXISTS chat_messages (
-      id          TEXT PRIMARY KEY,
-      session_id  TEXT NOT NULL REFERENCES chat_sessions(id),
-      ordinal     INTEGER NOT NULL,
-      role        TEXT NOT NULL,
-      parts_json  TEXT NOT NULL,
-      created_at  INTEGER NOT NULL
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_chat_messages_session_ordinal
-      ON chat_messages (session_id, ordinal);
-
-    CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated_at
+    CREATE INDEX idx_chat_sessions_updated_at
       ON chat_sessions (updated_at DESC);
   `);
 }
@@ -120,34 +111,40 @@ export function getSessionsDb(): Database.Database {
 }
 
 // ---------------------------------------------------------------------------
-// Row parsers (Zod fail-soft)
+// Row / messages parsers
 // ---------------------------------------------------------------------------
 
-function parseSessionRow(row: unknown): ChatSession | null {
-  const result = ChatSession.safeParse(row);
+function parseMetaRow(row: unknown): ChatSessionMeta | null {
+  const result = ChatSessionMeta.safeParse(row);
   if (!result.success) {
-    console.error("Invalid chat_sessions row", result.error.flatten());
+    console.error("Invalid chat_sessions meta row", result.error.flatten());
     return null;
   }
   return result.data;
 }
 
-function parseMessageRow(row: unknown): ChatMessage | null {
-  const result = ChatMessage.safeParse(row);
-  if (!result.success) {
-    console.error("Invalid chat_messages row", result.error.flatten());
-    return null;
+/** Fail soft: corrupt blob → empty array (logged). */
+function parseMessagesJson(messagesJson: string): UIMessage[] {
+  try {
+    const parsed: unknown = JSON.parse(messagesJson);
+    if (!Array.isArray(parsed)) {
+      console.error("messages_json is not an array");
+      return [];
+    }
+    return parsed as UIMessage[];
+  } catch (error: unknown) {
+    console.error("Failed to parse messages_json", error);
+    return [];
   }
-  return result.data;
 }
 
 // ---------------------------------------------------------------------------
-// Session catalog CRUD
+// Session CRUD (one-table)
 // ---------------------------------------------------------------------------
 
 /**
- * Paginated Recents list: newest first (updated_at DESC, id DESC).
- * Cursor: rows strictly older than (updated_at, id).
+ * Paginated Recents list: meta only (no messages_json parse).
+ * Newest first (updated_at DESC, id DESC). Cursor: strictly older than (updated_at, id).
  */
 export function listSessions(
   params: ListSessionsParams = {},
@@ -156,15 +153,15 @@ export function listSessions(
   const limit = params.limit ?? DEFAULT_SESSION_LIST_LIMIT;
   const cursor = params.cursor ?? null;
 
-  type SessionRow = {
+  type MetaRow = {
     id: string;
     title: string;
     created_at: number;
     updated_at: number;
   };
 
-  const rows: SessionRow[] = cursor
-    ? db
+  const rows: MetaRow[] = cursor
+    ? (db
         .prepare(
           `SELECT id, title, created_at, updated_at
            FROM chat_sessions
@@ -173,19 +170,24 @@ export function listSessions(
            ORDER BY updated_at DESC, id DESC
            LIMIT ?`,
         )
-        .all(cursor.updated_at, cursor.updated_at, cursor.id, limit) as SessionRow[]
-    : db
+        .all(
+          cursor.updated_at,
+          cursor.updated_at,
+          cursor.id,
+          limit,
+        ) as MetaRow[])
+    : (db
         .prepare(
           `SELECT id, title, created_at, updated_at
            FROM chat_sessions
            ORDER BY updated_at DESC, id DESC
            LIMIT ?`,
         )
-        .all(limit) as SessionRow[];
+        .all(limit) as MetaRow[]);
 
-  const sessions: ChatSession[] = [];
+  const sessions: ChatSessionMeta[] = [];
   for (const row of rows) {
-    const parsed = parseSessionRow(row);
+    const parsed = parseMetaRow(row);
     if (parsed) sessions.push(parsed);
   }
 
@@ -204,22 +206,31 @@ export function listSessions(
 export function createSession(input: CreateSessionInput): ChatSession {
   const db = getSessionsDb();
   const now = Date.now();
+  const messages = input.messages ?? [];
   const session: ChatSession = {
     id: input.id ?? crypto.randomUUID(),
     title: input.title,
     created_at: input.created_at ?? now,
     updated_at: input.created_at ?? now,
+    messages,
   };
 
   db.prepare(
-    `INSERT INTO chat_sessions (id, title, created_at, updated_at)
-     VALUES (?, ?, ?, ?)`,
-  ).run(session.id, session.title, session.created_at, session.updated_at);
+    `INSERT INTO chat_sessions (id, title, created_at, updated_at, messages_json)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(
+    session.id,
+    session.title,
+    session.created_at,
+    session.updated_at,
+    JSON.stringify(messages),
+  );
 
   return session;
 }
 
-export function getSession(sessionId: string): ChatSession | null {
+/** Meta only — does not read messages_json. */
+export function getSession(sessionId: string): ChatSessionMeta | null {
   const db = getSessionsDb();
   const row = db
     .prepare(
@@ -229,7 +240,44 @@ export function getSession(sessionId: string): ChatSession | null {
     )
     .get(sessionId);
   if (!row) return null;
-  return parseSessionRow(row);
+  return parseMetaRow(row);
+}
+
+/** Meta + parsed messages_json nested on ChatSession. */
+export function getSessionWithMessages(
+  sessionId: string,
+): ChatSession | null {
+  const db = getSessionsDb();
+  const row = db
+    .prepare(
+      `SELECT id, title, created_at, updated_at, messages_json
+       FROM chat_sessions
+       WHERE id = ?`,
+    )
+    .get(sessionId) as
+    | {
+        id: string;
+        title: string;
+        created_at: number;
+        updated_at: number;
+        messages_json: string;
+      }
+    | undefined;
+
+  if (!row) return null;
+
+  const meta = parseMetaRow({
+    id: row.id,
+    title: row.title,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  });
+  if (!meta) return null;
+
+  return {
+    ...meta,
+    messages: parseMessagesJson(row.messages_json),
+  };
 }
 
 /**
@@ -250,114 +298,56 @@ export function setSessionTitle(
   return title;
 }
 
-// ---------------------------------------------------------------------------
-// Message transcript CRUD
-// ---------------------------------------------------------------------------
-
-/** Messages for a session, stable order (ordinal ASC). */
-export function getSessionMessages(sessionId: string): ChatMessage[] {
-  const db = getSessionsDb();
-  const rows = db
-    .prepare(
-      `SELECT id, session_id, ordinal, role, parts_json, created_at
-       FROM chat_messages
-       WHERE session_id = ?
-       ORDER BY ordinal ASC`,
-    )
-    .all(sessionId);
-
-  const messages: ChatMessage[] = [];
-  for (const row of rows) {
-    const parsed = parseMessageRow(row);
-    if (parsed) messages.push(parsed);
-  }
-  return messages;
-}
-
 /**
- * Append one message: assign next ordinal (MAX+1), insert, bump session updated_at.
- * Runs in a single transaction.
+ * Append one UIMessage: read messages_json, push, write back, bump updated_at.
+ * Single transaction. Returns the full updated session (with messages).
  */
-export function appendMessage(input: AppendMessageInput): ChatMessage {
+export function appendMessage(
+  sessionId: string,
+  message: UIMessage,
+): ChatSession {
   const db = getSessionsDb();
   const now = Date.now();
-  const id = input.id ?? crypto.randomUUID();
-  const parts_json = JSON.stringify(input.parts);
 
-  const run = db.transaction((): ChatMessage => {
-    const maxRow = db
+  const run = db.transaction((): ChatSession => {
+    const row = db
       .prepare(
-        `SELECT MAX(ordinal) AS max_ord
-         FROM chat_messages
-         WHERE session_id = ?`,
+        `SELECT id, title, created_at, updated_at, messages_json
+         FROM chat_sessions
+         WHERE id = ?`,
       )
-      .get(input.session_id) as { max_ord: number | null } | undefined;
+      .get(sessionId) as
+      | {
+          id: string;
+          title: string;
+          created_at: number;
+          updated_at: number;
+          messages_json: string;
+        }
+      | undefined;
 
-    const ordinal =
-      maxRow?.max_ord === null || maxRow?.max_ord === undefined
-        ? 0
-        : maxRow.max_ord + 1;
+    if (!row) {
+      throw new Error(`appendMessage: session not found: ${sessionId}`);
+    }
+
+    const messages = parseMessagesJson(row.messages_json);
+    messages.push(message);
+    const messages_json = JSON.stringify(messages);
 
     db.prepare(
-      `INSERT INTO chat_messages
-         (id, session_id, ordinal, role, parts_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    ).run(id, input.session_id, ordinal, input.role, parts_json, now);
-
-    db.prepare(
-      `UPDATE chat_sessions SET updated_at = ? WHERE id = ?`,
-    ).run(now, input.session_id);
+      `UPDATE chat_sessions
+       SET messages_json = ?, updated_at = ?
+       WHERE id = ?`,
+    ).run(messages_json, now, sessionId);
 
     return {
-      id,
-      session_id: input.session_id,
-      ordinal,
-      role: input.role,
-      parts_json,
-      created_at: now,
+      id: row.id,
+      title: row.title,
+      created_at: row.created_at,
+      updated_at: now,
+      messages,
     };
   });
 
   return run();
-}
-
-// ---------------------------------------------------------------------------
-// UIMessage hydration
-// ---------------------------------------------------------------------------
-
-/**
- * Map a persisted row → AI SDK UIMessage. Fail soft: log + null on bad JSON/shape.
- */
-export function messageToUIMessage(row: ChatMessage): UIMessage | null {
-  try {
-    const partsUnknown: unknown = JSON.parse(row.parts_json);
-    if (!Array.isArray(partsUnknown)) {
-      console.error("messageToUIMessage: parts_json is not an array", {
-        id: row.id,
-      });
-      return null;
-    }
-    return {
-      id: row.id,
-      role: row.role,
-      parts: partsUnknown as UIMessage["parts"],
-    };
-  } catch (error: unknown) {
-    console.error("messageToUIMessage: failed to parse parts_json", {
-      id: row.id,
-      error,
-    });
-    return null;
-  }
-}
-
-/** Hydrate full transcript for useChat / session switch. Skips corrupt rows. */
-export function getSessionUIMessages(sessionId: string): UIMessage[] {
-  const rows = getSessionMessages(sessionId);
-  const messages: UIMessage[] = [];
-  for (const row of rows) {
-    const ui = messageToUIMessage(row);
-    if (ui) messages.push(ui);
-  }
-  return messages;
 }
