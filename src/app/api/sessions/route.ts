@@ -8,9 +8,16 @@ import {
   listSessions,
   type SessionListCursor,
 } from "@/lib/sessions";
+import type { ChatSessionMeta } from "@/types/session-schema";
 
 /** better-sqlite3 — Node.js only. */
 export const runtime = "nodejs";
+
+/** POST create-or-append success body (meta only; same shape for both paths). */
+type SessionsPostResponse = {
+  ok: true;
+  session: ChatSessionMeta;
+};
 
 const SESSION_LIST_LIMIT_DEFAULT = 30;
 const SESSION_LIST_LIMIT_MIN = 1;
@@ -129,7 +136,7 @@ export async function GET(req: Request) {
 /**
  * POST /api/sessions — create-or-append
  * Body: `{ sessionId?: string, message: UIMessage }`
- * Returns meta-only session.
+ * Always returns the same meta shape: `{ ok: true, session: ChatSessionMeta }`.
  */
 export async function POST(req: Request) {
   try {
@@ -159,38 +166,37 @@ export async function POST(req: Request) {
     }
     const message = record.message as UIMessage;
 
-    const sessionId =
-      typeof record.sessionId === "string" && record.sessionId.trim().length > 0
-        ? record.sessionId.trim()
-        : null;
-
-    if (sessionId) {
-      if (!getSession(sessionId)) {
+    let id: string;
+    if (
+      typeof record.sessionId === "string" &&
+      record.sessionId.trim().length > 0
+    ) {
+      id = record.sessionId.trim();
+      if (!getSession(id)) {
         return NextResponse.json(
           { ok: false, error: "session not found" },
           { status: 404 },
         );
       }
-      appendMessage(sessionId, message);
-      const updated = getSession(sessionId);
-      if (!updated) {
-        return NextResponse.json(
-          { ok: false, error: "session not found" },
-          { status: 404 },
-        );
-      }
-      return NextResponse.json({ ok: true, session: updated });
+      appendMessage(id, message);
     } else {
       const created = createSession({
         title: titleFromMessage(message),
         messages: [message],
       });
-      const { id, title, created_at, updated_at } = created;
-      return NextResponse.json({
-        ok: true,
-        session: { id, title, created_at, updated_at },
-      });
+      id = created.id;
     }
+
+    const session = getSession(id);
+    if (!session) {
+      return NextResponse.json(
+        { ok: false, error: "session not found" },
+        { status: 404 },
+      );
+    }
+
+    const response: SessionsPostResponse = { ok: true, session };
+    return NextResponse.json(response);
   } catch (error: unknown) {
     console.error("POST /api/sessions:", error);
     return NextResponse.json(
