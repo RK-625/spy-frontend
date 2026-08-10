@@ -299,32 +299,27 @@ export function setSessionTitle(
 }
 
 /**
- * Append one UIMessage: read messages_json, push, write back, bump updated_at.
- * Single transaction. Returns the full updated session (with messages).
+ * Persist one finished UIMessage into the session blob (read → push → write).
+ * Fire-and-forget from the product path: does not return session state.
+ *
+ * Live chat UI is owned by AI SDK `useChat` after the first hydrate.
+ * - Hydrate once: `getSessionWithMessages` → `useChat({ messages })` (or registry entry).
+ * - While chatting: SDK holds message/stream state in memory.
+ * - On finish: server/client calls `appendMessage` only to durable-store — no need to
+ *   feed the return value back into React (SDK already has the message).
  */
-export function appendMessage(
-  sessionId: string,
-  message: UIMessage,
-): ChatSession {
+export function appendMessage(sessionId: string, message: UIMessage): void {
   const db = getSessionsDb();
   const now = Date.now();
 
-  const run = db.transaction((): ChatSession => {
+  const run = db.transaction((): void => {
     const row = db
       .prepare(
-        `SELECT id, title, created_at, updated_at, messages_json
+        `SELECT messages_json
          FROM chat_sessions
          WHERE id = ?`,
       )
-      .get(sessionId) as
-      | {
-          id: string;
-          title: string;
-          created_at: number;
-          updated_at: number;
-          messages_json: string;
-        }
-      | undefined;
+      .get(sessionId) as { messages_json: string } | undefined;
 
     if (!row) {
       throw new Error(`appendMessage: session not found: ${sessionId}`);
@@ -339,15 +334,7 @@ export function appendMessage(
        SET messages_json = ?, updated_at = ?
        WHERE id = ?`,
     ).run(messages_json, now, sessionId);
-
-    return {
-      id: row.id,
-      title: row.title,
-      created_at: row.created_at,
-      updated_at: now,
-      messages,
-    };
   });
 
-  return run();
+  run();
 }
