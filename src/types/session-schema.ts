@@ -19,11 +19,11 @@ export const ChatSessionMeta = z.object({
 export type ChatSessionMeta = z.infer<typeof ChatSessionMeta>;
 
 /**
- * Domain session: meta always present; `messages` only when detail-loaded
- * (lazy — list/getSession omit; getSessionWithMessages includes).
+ * Detail session: meta + required messages.
+ * Lazy load is Meta vs Session (list/getSession → Meta; getSessionWithMessages → Session).
  */
 export type ChatSession = ChatSessionMeta & {
-  messages?: UIMessage[];
+  messages: UIMessage[];
 };
 
 /**

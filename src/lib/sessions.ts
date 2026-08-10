@@ -23,9 +23,6 @@ const SESSIONS_DB_PATH = resolve(
   process.env.SESSIONS_DB_PATH ?? ".data/sessions.db",
 );
 
-/** Default page size for Recents (S0: paginated pages of 30). */
-const DEFAULT_SESSION_LIST_LIMIT = 30;
-
 /** Process-singleton; null until first successful open (failed open stays null for retry). */
 let sessionsDb: Database.Database | null = null;
 
@@ -36,7 +33,7 @@ let sessionsDb: Database.Database | null = null;
 export type SessionListCursor = { updated_at: number; id: string };
 
 export type ListSessionsParams = {
-  limit?: number;
+  limit: number;
   cursor?: SessionListCursor | null;
 };
 
@@ -45,12 +42,10 @@ export type ListSessionsResult = {
   nextCursor: SessionListCursor | null;
 };
 
+/** Product create always has first message (title derived by API). */
 export type CreateSessionInput = {
-  id?: string;
   title: string;
-  created_at?: number;
-  /** Optional initial transcript; default empty array. */
-  messages?: UIMessage[];
+  messages: UIMessage[];
 };
 
 // ---------------------------------------------------------------------------
@@ -146,11 +141,9 @@ function parseMessagesJson(messagesJson: string): UIMessage[] {
  * Paginated Recents list: meta only (no messages_json parse).
  * Newest first (updated_at DESC, id DESC). Cursor: strictly older than (updated_at, id).
  */
-export function listSessions(
-  params: ListSessionsParams = {},
-): ListSessionsResult {
+export function listSessions(params: ListSessionsParams): ListSessionsResult {
   const db = getSessionsDb();
-  const limit = params.limit ?? DEFAULT_SESSION_LIST_LIMIT;
+  const { limit } = params;
   const cursor = params.cursor ?? null;
 
   type MetaRow = {
@@ -202,17 +195,19 @@ export function listSessions(
   return { sessions, nextCursor };
 }
 
-/** Insert a new chat_sessions row. Product path: first user message only. */
+/**
+ * Insert a new chat_sessions row with the first message(s).
+ * id / timestamps always server-minted (no client overrides).
+ */
 export function createSession(input: CreateSessionInput): ChatSession {
   const db = getSessionsDb();
   const now = Date.now();
-  const messages = input.messages ?? [];
   const session: ChatSession = {
-    id: input.id ?? crypto.randomUUID(),
+    id: crypto.randomUUID(),
     title: input.title,
-    created_at: input.created_at ?? now,
-    updated_at: input.created_at ?? now,
-    messages,
+    created_at: now,
+    updated_at: now,
+    messages: input.messages,
   };
 
   db.prepare(
@@ -223,7 +218,7 @@ export function createSession(input: CreateSessionInput): ChatSession {
     session.title,
     session.created_at,
     session.updated_at,
-    JSON.stringify(messages),
+    JSON.stringify(session.messages),
   );
 
   return session;
@@ -278,24 +273,6 @@ export function getSessionWithMessages(
     ...meta,
     messages: parseMessagesJson(row.messages_json),
   };
-}
-
-/**
- * First-user-message title path: trim + slice, UPDATE title (and updated_at).
- * Single title setter — do not add a separate titleFromUserText helper.
- */
-export function setSessionTitle(
-  sessionId: string,
-  text: string,
-  maxLen?: number,
-): string {
-  const db = getSessionsDb();
-  const title = text.trim().slice(0, maxLen ?? 80);
-  const updated_at = Date.now();
-  db.prepare(
-    `UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?`,
-  ).run(title, updated_at, sessionId);
-  return title;
 }
 
 /**
