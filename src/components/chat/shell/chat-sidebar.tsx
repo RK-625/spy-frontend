@@ -142,11 +142,11 @@ export function ChatSidebar() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const { clearMessages } = useChatContext();
+  const { newChat } = useChatContext();
 
   const handleNewChat = useCallback(() => {
-    clearMessages();
-  }, [clearMessages]);
+    newChat();
+  }, [newChat]);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsDialogOpen(true);

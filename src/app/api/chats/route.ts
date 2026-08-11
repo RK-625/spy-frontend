@@ -2,34 +2,34 @@ import { NextResponse } from "next/server";
 import type { UIMessage } from "ai";
 import {
   appendMessage,
-  createSession,
-  getSession,
-  getSessionWithMessages,
-  listSessions,
-  type SessionListCursor,
-} from "@/lib/sessions";
-import type { ChatSessionMeta } from "@/types/session-schema";
+  createChatRecord,
+  getChat,
+  getChatWithMessages,
+  listChats,
+  type ChatListCursor,
+} from "@/lib/chats";
+import type { ChatMeta } from "@/types/chat-schema";
 
 /** better-sqlite3 — Node.js only. */
 export const runtime = "nodejs";
 
 /** POST create-or-append success body (meta only; same shape for both paths). */
-type SessionsPostResponse = {
+type ChatsPostResponse = {
   ok: true;
-  session: ChatSessionMeta;
+  chat: ChatMeta;
 };
 
-const SESSION_LIST_LIMIT_DEFAULT = 30;
-const SESSION_LIST_LIMIT_MIN = 1;
-const SESSION_LIST_LIMIT_MAX = 100;
-const SESSION_TITLE_MAX_LEN = 80;
-const SESSION_TITLE_FALLBACK = "New chat";
+const CHAT_LIST_LIMIT_DEFAULT = 30;
+const CHAT_LIST_LIMIT_MIN = 1;
+const CHAT_LIST_LIMIT_MAX = 100;
+const CHAT_TITLE_MAX_LEN = 80;
+const CHAT_TITLE_FALLBACK = "New chat";
 
-function encodeCursor(cursor: SessionListCursor): string {
+function encodeCursor(cursor: ChatListCursor): string {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
-function decodeCursor(raw: string): SessionListCursor | null {
+function decodeCursor(raw: string): ChatListCursor | null {
   try {
     const parsed: unknown = JSON.parse(
       Buffer.from(raw, "base64url").toString("utf8"),
@@ -48,11 +48,15 @@ function decodeCursor(raw: string): SessionListCursor | null {
 
 /** Missing → default 30; present but invalid → 400. */
 function parseLimit(raw: string | null): number | { error: string } {
-  if (raw === null || raw === "") return SESSION_LIST_LIMIT_DEFAULT;
+  if (raw === null || raw === "") return CHAT_LIST_LIMIT_DEFAULT;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < SESSION_LIST_LIMIT_MIN || n > SESSION_LIST_LIMIT_MAX) {
+  if (
+    !Number.isInteger(n) ||
+    n < CHAT_LIST_LIMIT_MIN ||
+    n > CHAT_LIST_LIMIT_MAX
+  ) {
     return {
-      error: `limit must be an integer ${SESSION_LIST_LIMIT_MIN}–${SESSION_LIST_LIMIT_MAX}`,
+      error: `limit must be an integer ${CHAT_LIST_LIMIT_MIN}–${CHAT_LIST_LIMIT_MAX}`,
     };
   }
   return n;
@@ -67,13 +71,13 @@ function titleFromMessage(message: UIMessage): string {
   }
   const joined = texts.join(" ").trim();
   return joined.length > 0
-    ? joined.slice(0, SESSION_TITLE_MAX_LEN)
-    : SESSION_TITLE_FALLBACK;
+    ? joined.slice(0, CHAT_TITLE_MAX_LEN)
+    : CHAT_TITLE_FALLBACK;
 }
 
 /**
- * GET /api/sessions
- * - `?id=` → session + messages (404 if missing)
+ * GET /api/chats
+ * - `?id=` → chat + messages (404 if missing)
  * - else → paginated meta list (`limit` default 30, optional `cursor`)
  */
 export async function GET(req: Request) {
@@ -82,47 +86,47 @@ export async function GET(req: Request) {
     const id = url.searchParams.get("id")?.trim() ?? "";
 
     if (id.length > 0) {
-      const session = getSessionWithMessages(id);
-      if (!session) {
+      const chat = getChatWithMessages(id);
+      if (!chat) {
         return NextResponse.json(
-          { ok: false, error: "session not found" },
+          { ok: false, error: "chat not found" },
           { status: 404 },
         );
       }
-      return NextResponse.json({ ok: true, session });
-    } else {
-      const limitResult = parseLimit(url.searchParams.get("limit"));
-      if (typeof limitResult === "object") {
+      return NextResponse.json({ ok: true, chat });
+    }
+
+    const limitResult = parseLimit(url.searchParams.get("limit"));
+    if (typeof limitResult === "object") {
+      return NextResponse.json(
+        { ok: false, error: limitResult.error },
+        { status: 400 },
+      );
+    }
+
+    let cursor: ChatListCursor | null = null;
+    const cursorRaw = url.searchParams.get("cursor");
+    if (cursorRaw) {
+      cursor = decodeCursor(cursorRaw);
+      if (!cursor) {
         return NextResponse.json(
-          { ok: false, error: limitResult.error },
+          { ok: false, error: "invalid cursor" },
           { status: 400 },
         );
       }
-
-      let cursor: SessionListCursor | null = null;
-      const cursorRaw = url.searchParams.get("cursor");
-      if (cursorRaw) {
-        cursor = decodeCursor(cursorRaw);
-        if (!cursor) {
-          return NextResponse.json(
-            { ok: false, error: "invalid cursor" },
-            { status: 400 },
-          );
-        }
-      }
-
-      const { sessions, nextCursor } = listSessions({
-        limit: limitResult,
-        cursor,
-      });
-      return NextResponse.json({
-        ok: true,
-        sessions,
-        nextCursor: nextCursor ? encodeCursor(nextCursor) : null,
-      });
     }
+
+    const { chats, nextCursor } = listChats({
+      limit: limitResult,
+      cursor,
+    });
+    return NextResponse.json({
+      ok: true,
+      chats,
+      nextCursor: nextCursor ? encodeCursor(nextCursor) : null,
+    });
   } catch (error: unknown) {
-    console.error("GET /api/sessions:", error);
+    console.error("GET /api/chats:", error);
     return NextResponse.json(
       {
         ok: false,
@@ -134,9 +138,11 @@ export async function GET(req: Request) {
 }
 
 /**
- * POST /api/sessions — create-or-append
- * Body: `{ sessionId?: string, message: UIMessage }`
- * Always returns the same meta shape: `{ ok: true, session: ChatSessionMeta }`.
+ * POST /api/chats — create-or-append
+ * Body: `{ chatId: string, message: UIMessage }`
+ * - row exists → append message
+ * - row missing → create with id = chatId (client-minted; first persist)
+ * Always returns meta: `{ ok: true, chat: ChatMeta }`.
  */
 export async function POST(req: Request) {
   try {
@@ -157,7 +163,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const record = body as { sessionId?: unknown; message?: unknown };
+    const record = body as { chatId?: unknown; message?: unknown };
+
     if (typeof record.message !== "object" || record.message === null) {
       return NextResponse.json(
         { ok: false, error: "message is required" },
@@ -166,39 +173,36 @@ export async function POST(req: Request) {
     }
     const message = record.message as UIMessage;
 
-    let id: string;
-    if (
-      typeof record.sessionId === "string" &&
-      record.sessionId.trim().length > 0
-    ) {
-      id = record.sessionId.trim();
-      if (!getSession(id)) {
-        return NextResponse.json(
-          { ok: false, error: "session not found" },
-          { status: 404 },
-        );
-      }
-      appendMessage(id, message);
+    if (typeof record.chatId !== "string" || record.chatId.trim().length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "chatId is required" },
+        { status: 400 },
+      );
+    }
+    const chatId = record.chatId.trim();
+
+    if (getChat(chatId)) {
+      appendMessage(chatId, message);
     } else {
-      const created = createSession({
+      createChatRecord({
+        id: chatId,
         title: titleFromMessage(message),
         messages: [message],
       });
-      id = created.id;
     }
 
-    const session = getSession(id);
-    if (!session) {
+    const chat = getChat(chatId);
+    if (!chat) {
       return NextResponse.json(
-        { ok: false, error: "session not found" },
+        { ok: false, error: "chat not found" },
         { status: 404 },
       );
     }
 
-    const response: SessionsPostResponse = { ok: true, session };
+    const response: ChatsPostResponse = { ok: true, chat };
     return NextResponse.json(response);
   } catch (error: unknown) {
-    console.error("POST /api/sessions:", error);
+    console.error("POST /api/chats:", error);
     return NextResponse.json(
       {
         ok: false,
