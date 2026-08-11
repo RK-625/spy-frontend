@@ -37,5 +37,5 @@ export interface ChatContextValue {
    * Activate chat by id. Map hit → reuse Chat instance.
    * Map miss → GET /api/chats?id= hydrate, register, then activate.
    */
-  switchChat: (chatId: string) => void;
+  switchChat: (chatId: string) => Promise<void>;
 }

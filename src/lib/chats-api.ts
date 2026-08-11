@@ -1,15 +1,11 @@
 /**
  * Browser client for `/api/chats` (fetch only).
  * Server SQLite lives in `@/lib/chats` — do not import that from client.
- * Add future list/get/delete helpers here as open/hydrate lands.
  */
 import type { UIMessage } from "ai";
+import type { ChatWithMessages } from "@/types/chat-schema";
 
-/**
- * POST create-or-replace full transcript snapshot.
- * Missing row → insert (client chatId + title from first user text).
- * Existing → overwrite messages_json + updated_at.
- */
+/** POST create-or-replace full transcript. */
 export async function saveChatMessages(
   chatId: string,
   messages: UIMessage[],
