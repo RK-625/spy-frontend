@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import type { UIMessage } from "ai";
 import {
-  appendMessage,
-  createChatRecord,
-  getChat,
   getChatWithMessages,
   listChats,
+  upsertChatMessages,
   type ChatListCursor,
 } from "@/lib/chats";
 import type { ChatMeta } from "@/types/chat-schema";
@@ -62,17 +60,26 @@ function parseLimit(raw: string | null): number | { error: string } {
   return n;
 }
 
-function titleFromMessage(message: UIMessage): string {
+function textFromMessage(message: UIMessage): string {
   const texts: string[] = [];
   for (const part of message.parts ?? []) {
     if (part.type === "text" && typeof part.text === "string") {
       texts.push(part.text);
     }
   }
-  const joined = texts.join(" ").trim();
-  return joined.length > 0
-    ? joined.slice(0, CHAT_TITLE_MAX_LEN)
-    : CHAT_TITLE_FALLBACK;
+  return texts.join(" ").trim();
+}
+
+/** First user text for create title; else fallback. */
+function titleFromMessages(messages: UIMessage[]): string {
+  for (const message of messages) {
+    if (message.role !== "user") continue;
+    const text = textFromMessage(message);
+    if (text.length > 0) {
+      return text.slice(0, CHAT_TITLE_MAX_LEN);
+    }
+  }
+  return CHAT_TITLE_FALLBACK;
 }
 
 /**
@@ -138,10 +145,10 @@ export async function GET(req: Request) {
 }
 
 /**
- * POST /api/chats — create-or-append
- * Body: `{ chatId: string, message: UIMessage }`
- * - row exists → append message
- * - row missing → create with id = chatId (client-minted; first persist)
+ * POST /api/chats — create-or-replace full transcript
+ * Body: `{ chatId: string, messages: UIMessage[] }`
+ * - row missing → create with id = chatId, title from first user text
+ * - row exists → replace messages_json + updated_at (title kept)
  * Always returns meta: `{ ok: true, chat: ChatMeta }`.
  */
 export async function POST(req: Request) {
@@ -163,15 +170,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const record = body as { chatId?: unknown; message?: unknown };
-
-    if (typeof record.message !== "object" || record.message === null) {
-      return NextResponse.json(
-        { ok: false, error: "message is required" },
-        { status: 400 },
-      );
-    }
-    const message = record.message as UIMessage;
+    const record = body as { chatId?: unknown; messages?: unknown };
 
     if (typeof record.chatId !== "string" || record.chatId.trim().length === 0) {
       return NextResponse.json(
@@ -181,23 +180,19 @@ export async function POST(req: Request) {
     }
     const chatId = record.chatId.trim();
 
-    if (getChat(chatId)) {
-      appendMessage(chatId, message);
-    } else {
-      createChatRecord({
-        id: chatId,
-        title: titleFromMessage(message),
-        messages: [message],
-      });
-    }
-
-    const chat = getChat(chatId);
-    if (!chat) {
+    if (!Array.isArray(record.messages)) {
       return NextResponse.json(
-        { ok: false, error: "chat not found" },
-        { status: 404 },
+        { ok: false, error: "messages must be an array" },
+        { status: 400 },
       );
     }
+    const messages = record.messages as UIMessage[];
+
+    const chat = upsertChatMessages({
+      id: chatId,
+      title: titleFromMessages(messages),
+      messages,
+    });
 
     const response: ChatsPostResponse = { ok: true, chat };
     return NextResponse.json(response);

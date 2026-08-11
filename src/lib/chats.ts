@@ -279,42 +279,57 @@ export function getChatWithMessages(chatId: string): ChatWithMessages | null {
 }
 
 /**
- * Persist one finished UIMessage into the chat blob (read → push → write).
- * Fire-and-forget from the product path: does not return chat state.
- *
- * Live chat UI is owned by AI SDK `useChat` after the first hydrate.
- * - Hydrate once: `getChatWithMessages` → register Chat then activate (TODO open UI).
- * - While chatting: SDK holds message/stream state in memory.
- * - On finish: server/client calls `appendMessage` only to durable-store — no need to
- *   feed the return value back into React (SDK already has the message).
+ * Full overwrite of messages_json (blob snapshot of client Chat.messages).
+ * Title is unchanged. Bumps updated_at.
+ * Live UI stays on AI SDK Chat; this is durable store only.
  */
-export function appendMessage(chatId: string, message: UIMessage): void {
+export function replaceChatMessages(
+  chatId: string,
+  messages: UIMessage[],
+): void {
   const db = getChatsDb();
   const now = Date.now();
-
-  const run = db.transaction((): void => {
-    const row = db
-      .prepare(
-        `SELECT messages_json
-         FROM chats
-         WHERE id = ?`,
-      )
-      .get(chatId) as { messages_json: string } | undefined;
-
-    if (!row) {
-      throw new Error(`appendMessage: chat not found: ${chatId}`);
-    }
-
-    const messages = parseMessagesJson(row.messages_json);
-    messages.push(message);
-    const messages_json = JSON.stringify(messages);
-
-    db.prepare(
+  const result = db
+    .prepare(
       `UPDATE chats
        SET messages_json = ?, updated_at = ?
        WHERE id = ?`,
-    ).run(messages_json, now, chatId);
-  });
+    )
+    .run(JSON.stringify(messages), now, chatId);
 
-  run();
+  if (result.changes === 0) {
+    throw new Error(`replaceChatMessages: chat not found: ${chatId}`);
+  }
+}
+
+/**
+ * Create-or-replace durable transcript for a client-minted chatId.
+ * - Missing row → insert (title only on create).
+ * - Existing row → replace messages_json + updated_at (title kept).
+ */
+export function upsertChatMessages(input: {
+  id: string;
+  title: string;
+  messages: UIMessage[];
+}): ChatMeta {
+  const existing = getChat(input.id);
+  if (existing) {
+    replaceChatMessages(input.id, input.messages);
+    const meta = getChat(input.id);
+    if (!meta) {
+      throw new Error(`upsertChatMessages: chat missing after replace: ${input.id}`);
+    }
+    return meta;
+  }
+
+  createChatRecord({
+    id: input.id,
+    title: input.title,
+    messages: input.messages,
+  });
+  const meta = getChat(input.id);
+  if (!meta) {
+    throw new Error(`upsertChatMessages: chat missing after create: ${input.id}`);
+  }
+  return meta;
 }
