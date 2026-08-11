@@ -11,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { saveChatMessages } from "@/lib/chats-api";
+import { fetchChat, saveChatMessages } from "@/lib/chats-api";
 import type { ChatContextValue } from "@/types/chat";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -25,7 +25,7 @@ const ChatContext = createContext<ChatContextValue | null>(null);
  * - Invariant: every activate goes through setActiveChat with a Chat that is
  *   (or was just) registered in the Map.
  * - On each Chat stream onFinish → saveChatMessages(chatId, messages) full snapshot.
- * - Hydrate-from-DB on cold open: next hunk via GET /api/chats.
+ * - switchChat Map miss → fetchChat → createChat → register → activate.
  */
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [activeChat, setActiveChat] = useState(() =>
@@ -49,15 +49,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Activate a chat already in the Map. Throws if missing
-   * (open/hydrate via GET /api/chats — next hunk).
+   * Activate by id: Map hit reuses live Chat; miss hydrates from GET /api/chats.
    */
-  const switchChat = useCallback((chatId: string) => {
-    const chat = chatsRef.current.get(chatId);
+  const switchChat = useCallback(async (chatId: string) => {
+    let chat = chatsRef.current.get(chatId);
     if (!chat) {
-      throw new Error(
-        `switchChat: chat not in registry: ${chatId} (hydrate before activate)`,
-      );
+      const row = await fetchChat(chatId);
+      chat = createChat(row.id, row.messages);
+      chatsRef.current.set(chat.id, chat);
     }
     setActiveChat(chat);
   }, []);

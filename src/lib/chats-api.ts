@@ -20,14 +20,16 @@ export async function saveChatMessages(
     body: JSON.stringify({ chatId, messages }),
   });
   if (!res.ok) {
-    const body: unknown = await res.json().catch(() => null);
-    const errMsg =
-      typeof body === "object" &&
-      body !== null &&
-      "error" in body &&
-      typeof (body as { error: unknown }).error === "string"
-        ? (body as { error: string }).error
-        : res.statusText;
-    throw new Error(`POST /api/chats failed: ${errMsg}`);
+    throw new Error(`POST /api/chats failed: ${res.status}`);
   }
+}
+
+/** GET /api/chats?id= — meta + messages for cold open. */
+export async function fetchChat(chatId: string): Promise<ChatWithMessages> {
+  const res = await fetch(`/api/chats?id=${encodeURIComponent(chatId)}`);
+  if (!res.ok) {
+    throw new Error(`GET /api/chats failed: ${res.status}`);
+  }
+  const data = (await res.json()) as { chat: ChatWithMessages };
+  return data.chat;
 }
