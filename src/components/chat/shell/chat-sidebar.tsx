@@ -10,9 +10,11 @@ import { motion } from "motion/react";
 import { CommandPalette } from "./command-palette";
 import { SettingsDialog } from "./settings-dialog";
 import { useChatContext } from "@/contexts/ChatContext";
+import { listChats } from "@/lib/chats-api";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { DotMatrixIcon } from "@/components/dotmatrix";
+import type { ChatMeta } from "@/types/chat-schema";
 
 type SidebarDisplayMode = "icon" | "full";
 const SIDEBAR_MODE_STORAGE_KEY = "spy-sidebar-mode";
@@ -142,11 +144,41 @@ export function ChatSidebar() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const { newChat } = useChatContext();
+  const { chatId, status, newChat, switchChat } = useChatContext();
+  const [recents, setRecents] = useState<ChatMeta[]>([]);
+
+  const isSidebarFull = sidebarMode === "full";
+  const sidebarWidth = isSidebarFull ? SIDEBAR_FULL_WIDTH : SIDEBAR_ICON_WIDTH;
+
+  // Load / refresh when expanded; again after a turn settles (new row / title bump).
+  const streamReady = status === "ready";
+  useEffect(() => {
+    if (!isSidebarFull) return;
+    let cancelled = false;
+    void listChats()
+      .then((chats) => {
+        if (!cancelled) setRecents(chats);
+      })
+      .catch((err: unknown) => {
+        console.error("listChats:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSidebarFull, chatId, streamReady]);
 
   const handleNewChat = useCallback(() => {
     newChat();
   }, [newChat]);
+
+  const handleOpenRecent = useCallback(
+    (id: string) => {
+      void switchChat(id).catch((err: unknown) => {
+        console.error("switchChat:", err);
+      });
+    },
+    [switchChat],
+  );
 
   const handleOpenSettings = useCallback(() => {
     setSettingsDialogOpen(true);
@@ -155,9 +187,6 @@ export function ChatSidebar() {
   const handleToggleSidebarMode = useCallback(() => {
     setSidebarMode((prev) => (prev === "icon" ? "full" : "icon"));
   }, []);
-
-  const isSidebarFull = sidebarMode === "full";
-  const sidebarWidth = isSidebarFull ? SIDEBAR_FULL_WIDTH : SIDEBAR_ICON_WIDTH;
 
   return (
     <>
@@ -238,11 +267,37 @@ export function ChatSidebar() {
               </span>
               <div className="h-px flex-1 bg-[var(--accent-border)]" />
             </div>
-            <div className="flex flex-1 items-center justify-center px-3">
-              <span className="text-sm text-text-secondary">
-                No conversations yet
-              </span>
-            </div>
+            {recents.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center px-3">
+                <span className="text-sm text-text-secondary">
+                  No conversations yet
+                </span>
+              </div>
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-2">
+                {recents.map((chat) => {
+                  const active = chat.id === chatId;
+                  return (
+                    <button
+                      key={chat.id}
+                      type="button"
+                      onClick={() => handleOpenRecent(chat.id)}
+                      aria-current={active ? "true" : undefined}
+                      className={cn(
+                        "w-full truncate rounded-[var(--radius)] px-2 py-1.5 text-left text-[0.8125rem] outline-none transition-colors",
+                        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                        active
+                          ? "bg-[var(--surface-focus)] text-text-primary"
+                          : "text-text-primary hover:bg-[var(--surface-hover)]",
+                      )}
+                      title={chat.title}
+                    >
+                      {chat.title}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
           <div className="min-h-0 flex-1" aria-hidden />
