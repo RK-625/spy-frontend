@@ -30,12 +30,23 @@ export async function fetchChat(chatId: string): Promise<ChatWithMessages> {
   return data.chat;
 }
 
-/** GET /api/chats — paginated meta list (first page). */
-export async function listChats(): Promise<ChatMeta[]> {
-  const res = await fetch("/api/chats");
+/** GET /api/chats — paginated meta list (optional cursor for next page). */
+export async function listChats(
+  cursor?: string | null,
+): Promise<{ chats: ChatMeta[]; nextCursor: string | null }> {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  const qs = params.toString();
+  const res = await fetch(qs ? `/api/chats?${qs}` : "/api/chats");
   if (!res.ok) {
     throw new Error(`GET /api/chats failed: ${res.status}`);
   }
-  const data = (await res.json()) as { chats: ChatMeta[] };
-  return data.chats;
+  const data = (await res.json()) as {
+    chats: ChatMeta[];
+    nextCursor: string | null;
+  };
+  return {
+    chats: data.chats,
+    nextCursor: data.nextCursor ?? null,
+  };
 }

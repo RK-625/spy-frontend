@@ -146,6 +146,8 @@ export function ChatSidebar() {
 
   const { chatId, status, newChat, switchChat } = useChatContext();
   const [recents, setRecents] = useState<ChatMeta[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const isSidebarFull = sidebarMode === "full";
   const sidebarWidth = isSidebarFull ? SIDEBAR_FULL_WIDTH : SIDEBAR_ICON_WIDTH;
@@ -156,8 +158,11 @@ export function ChatSidebar() {
     if (!isSidebarFull) return;
     let cancelled = false;
     void listChats()
-      .then((chats) => {
-        if (!cancelled) setRecents(chats);
+      .then(({ chats, nextCursor: cursor }) => {
+        if (!cancelled) {
+          setRecents(chats);
+          setNextCursor(cursor);
+        }
       })
       .catch((err: unknown) => {
         console.error("listChats:", err);
@@ -179,6 +184,26 @@ export function ChatSidebar() {
     },
     [switchChat],
   );
+
+  const handleLoadMore = useCallback(() => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    void listChats(nextCursor)
+      .then(({ chats, nextCursor: cursor }) => {
+        setRecents((prev) => {
+          const seen = new Set(prev.map((c) => c.id));
+          const appended = chats.filter((c) => !seen.has(c.id));
+          return appended.length === 0 ? prev : [...prev, ...appended];
+        });
+        setNextCursor(cursor);
+      })
+      .catch((err: unknown) => {
+        console.error("listChats:", err);
+      })
+      .finally(() => {
+        setLoadingMore(false);
+      });
+  }, [nextCursor, loadingMore]);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsDialogOpen(true);
@@ -296,6 +321,21 @@ export function ChatSidebar() {
                     </button>
                   );
                 })}
+                {nextCursor ? (
+                  <button
+                    type="button"
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className={cn(
+                      "mt-1 w-full rounded-[var(--radius)] px-2 py-1.5 text-left text-[0.8125rem] outline-none transition-colors",
+                      "text-text-secondary hover:bg-[var(--surface-hover)] hover:text-text-primary",
+                      "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                      "disabled:pointer-events-none disabled:opacity-50",
+                    )}
+                  >
+                    {loadingMore ? "Loading…" : "Load more"}
+                  </button>
+                ) : null}
               </div>
             )}
           </div>
