@@ -1,13 +1,15 @@
 # Chat session persistence — plan
 
-**Status:** Product **S0 locked** (2026-08-10); implementation via **turn-by-turn** hunks (~100–200 LOC), approve → implement  
-**Dates:** Draft 2026-08-07 · S0 lock 2026-08-10  
-**Branch context:** `chat-sessions` (chat still single in-memory session pre-implementation)  
-**Depends on:** AI SDK 6 `useChat` + `UIMessage` (`parts`-native UI already shipped on `/home`)
+**Status:** **MVP functional complete** (2026-08-11) on branch `chat-sessions`. Core path shipped (S0–S5 as-built). **S6 is deferred polish / UI only** — not required for persistence or multi-chat.  
+**Dates:** Draft 2026-08-07 · S0 lock 2026-08-10 · MVP wrap 2026-08-11  
+**Branch context:** `chat-sessions`  
+**Depends on:** AI SDK 6 `useChat` + `Chat` + `UIMessage` (`parts`-native UI already shipped on `/home`)
 
-**One-line goal:** ChatGPT/Claude-style **named conversation sessions** in the sidebar — switch between histories, persist transcripts locally, while **all sessions share one global Falkor knowledge base** and **global prompt prefs** (model / mode / web).
+**One-line goal:** ChatGPT/Claude-style **named conversation chats** in the sidebar — switch between histories, persist transcripts locally, while **all chats share one global Falkor knowledge base** and **global prompt prefs** (model / mode / web).
 
 **Delivery process:** Propose a small hunk → user approve / reject / modify → implement only that hunk. Auto-split any logical step that exceeds ~200 LOC. Optional client libs (e.g. Zustand) allowed when multi-session clarity needs them.
+
+**As-built naming:** Product code uses **chat** / `chatId` (not dual session keys). SQLite: `.data/chats.db`, table `chats`, one-blob `messages_json`. HTTP: `/api/chats`. Client registry: `activeChat` state + `Map` of open `Chat` instances; persist = full `messages[]` snapshot on stream finish.
 
 ---
 
@@ -290,12 +292,12 @@ Optional later: `PATCH /api/sessions/[id]` for title edits — not required if t
 
 | Slice | Notes |
 |---|---|
-| SQLite lib + schema + CRUD | Split across turns if >200 LOC |
-| API routes + pagination | Split list vs detail vs create |
-| Multi-session registry | Early; largest client complexity |
-| Persist / first-send create | `/api/chat` + submit body |
-| Sidebar + load more | After registry + list API |
-| Polish | Toasts, generating indicators, smoke |
+| SQLite lib + schema + CRUD | **Done** (`src/lib/chats.ts`, one-table blob) |
+| API routes + pagination | **Done** (`/api/chats` list / get / upsert) |
+| Multi-chat registry | **Done** (`ChatContext`: `activeChat` + Map of `Chat`) |
+| Persist on stream finish | **Done** (client `onFinish` → full `messages[]` POST; not `/api/chat` body) |
+| Sidebar + load more | **Done** (Recents + cursor) |
+| Polish (S6) | **Deferred** — UI only; see S6 todos below |
 
 **Not in scope (keeps size down):** auth, delete, search, per-session prefs, message edit/regenerate persistence, draft SQLite, Falkor changes.
 
@@ -322,78 +324,104 @@ Turn-by-turn delivery maps onto these slices; each slice may be multiple turns.
 - [x] Revise slice order: registry early; no empty rows; pagination 30
 - [ ] Copy summary into `AGENTS.md` **What's left** when implementation starts (optional)
 
-### S1 — SQLite foundation
+### S1 — SQLite foundation — **done** (as-built: chats)
 
-- Add `better-sqlite3` + `serverExternalPackages`
-- `src/lib/sessions.ts`: open `.data/sessions.db`, migrate schema, singleton pattern (like `falkor.ts`)
-- Types + Zod: `ChatSessionRow`, `ChatMessageRow`, `rowToUIMessage`
-- CRUD: `listSessions` (limit/cursor), `createSession`, `getSessionMessages`, `appendMessage`, `updateSessionTitle`, `touchSession`
-- **Invariant:** callers should not create sessions with zero messages in product paths (API may still expose create for first-send)
+- [x] `better-sqlite3` + `serverExternalPackages`
+- [x] `src/lib/chats.ts`: `.data/chats.db`, table `chats`, singleton open
+- [x] One-blob `messages_json` (`UIMessage[]`); title + timestamps
+- [x] CRUD: list (limit/cursor), get with messages, create, full replace / upsert
+- [x] **Invariant:** no empty rows — first write on first finished stream snapshot
 
-### S2 — Session API routes
+### S2 — Chat API routes — **done**
 
-- `GET /api/sessions` — paginated list for sidebar (`limit=30`, cursor)
-- `POST /api/sessions` — create (first-message path; not New chat)
-- `GET /api/sessions/[id]` — messages for hydration
+- [x] `GET /api/chats` — paginated list for sidebar (`limit=30`, cursor)
+- [x] `POST /api/chats` — upsert `{ chatId, messages }` (create or full overwrite)
+- [x] `GET /api/chats?id=` — messages for hydration
 
-### S3 — Multi-session registry (early)
+### S3 — Multi-chat registry — **done**
 
-- Client session registry: active surface + map of session entries
-- Ephemeral draft key (no DB id) as default `/home` surface
-- Per-session stream ownership so N concurrent streams can run
-- Global prefs stay outside the registry (or single shared prefs slice)
-- Per-session in-memory draft (textarea/attachments); no disk
-- Optional Zustand (or equivalent) if it keeps registry pure
+- [x] `activeChat` in React state + `useChat({ chat })`
+- [x] Open chats Map in ref (handlers); one client-minted `chatId` = SDK `Chat.id` = SQLite PK
+- [x] `newChat` / `switchChat` (Map hit or hydrate); N concurrent streams via kept `Chat` instances
+- [x] Global prefs remain outside per-chat registry
+- [ ] Per-chat in-memory draft (textarea/attachments) — **not built** (optional later; still global draft UX)
+- [x] No Zustand — Context + Map sufficient
 
-### S4 — Persist on chat stream + first-send create
+### S4 — Persist on stream finish — **done** (as-built path)
 
-- Extend `POST /api/chat` body: optional `sessionId`
-- Create-if-missing on first send; title from first user text
-- On finish: append user + assistant with full `parts_json`; bump `updated_at`
-- Wire live submit path to pass `sessionId` when known
+- [x] Client `Chat` `onFinish` → `saveChatMessages(chatId, messages)` via `src/lib/chats-api.ts`
+- [x] Full `messages[]` snapshot replace (not per-message append)
+- [x] Create-if-missing on first snapshot; title from first user text; bump `updated_at` on replace
+- [x] **Not used:** optional `sessionId` on `POST /api/chat` (superseded by client snapshot)
 
-### S5 — Sidebar Recents
+### S5 — Sidebar Recents — **done**
 
-- Render session list from paginated API
-- Highlight active session (none highlighted on pure empty draft, or draft distinct)
-- "New chat" → ephemeral empty draft (**no** POST)
-- Click row → activate registry entry + hydrate if needed
-- Load more (next 30)
+- [x] List from paginated API (`listChats`)
+- [x] Highlight active chat
+- [x] "New chat" → `newChat()` ephemeral empty (**no** POST)
+- [x] Click row → `switchChat` (registry + hydrate if needed)
+- [x] Load more (cursor / next 30)
 
-### S6 — Polish / edge cases
+### S6 — Polish / UI only — **deferred (not functional MVP)**
 
-- Sidebar “generating” indicator per session (3C)
-- Toast on missing/corrupt session → empty draft
-- Error toasts on failed load/save
-- Manual smoke: empty → send → reload → history; switch mid-stream; CoT/sources round-trip; New chat does not create DB row
+> These are **polish and UX improvements**, not pure functional necessities. Core multi-chat persistence works without them. Park here as todos for a later pass; do not block merge/ship of the functional path.
+
+**Description**
+
+| Item | Why polish-only |
+|------|-----------------|
+| Recents “generating” indicator | Streams already run in background (3C). Badge only makes non-active work *visible* in the sidebar. |
+| Error toasts on load/save | Failures already degrade (console / throw). Toasts improve discoverability, not correctness of the happy path. |
+| Missing/corrupt chat → toast + empty draft | Soft recovery UX; registry + API already define 404/miss behavior. |
+| Manual smoke checklist | Verification ritual; no code. |
+
+**Todos (when we choose to polish)**
+
+- [ ] **S6a — Error feedback:** toast on failed `saveChatMessages` / failed list or hydrate; keep handlers thin (reuse existing `toast` from `@/components/ui`)
+- [ ] **S6b — Missing/corrupt open:** on 404 or bad payload during `switchChat`, toast + soft recovery (e.g. stay on current or `newChat()`) — align with S0 #8
+- [ ] **S6c — Generating indicator:** subtle per-row status for **open** chats still streaming (status from live `Chat` in Map only; no second full `useChat` per row; no SQLite poll)
+- [ ] **S6d — Manual smoke** (no code): empty → send → Recents title; reload → open recent → history; switch mid-stream → both finish; CoT/sources round-trip; New chat creates **no** DB row until first finish; load more with 30+ chats
+
+**Out of S6 (still later / out of scope)**
+
+- Search conversations, delete chat, URL deep-link, per-chat prefs, draft SQLite, auth
+
+---
+
+## MVP wrap (2026-08-11)
+
+**Functional path closed.** Ship/review on `chat-sessions` can treat S1–S5 as done. S6 stays optional backlog in this file until a polish pass is scheduled.
+
+**Primary as-built surface**
+
+| Layer | Location |
+|-------|----------|
+| Server DB | `src/lib/chats.ts` |
+| HTTP | `src/app/api/chats/route.ts` |
+| Client HTTP | `src/lib/chats-api.ts` |
+| Registry + stream + persist hook | `src/contexts/ChatContext.tsx` |
+| Recents UI | `src/components/chat/shell/chat-sidebar.tsx` |
+| Types | `src/types/chat.ts`, `src/types/chat-schema.ts` |
 
 ---
 
 ## Files to create / modify (checklist)
 
-### New
+### As-built (MVP)
 
-- `src/lib/sessions.ts` (or `src/lib/chat-sessions/` if it grows)
-- `src/types/session.ts` (optional)
-- `src/app/api/sessions/route.ts`
-- `src/app/api/sessions/[id]/route.ts`
-- Client registry module (path TBD in registry turn — e.g. under `src/contexts/` or `src/lib/chat-session/`)
+- `src/lib/chats.ts` — server SQLite
+- `src/lib/chats-api.ts` — browser `fetch` to `/api/chats`
+- `src/app/api/chats/route.ts`
+- `src/types/chat-schema.ts` + `src/types/chat.ts`
+- `src/contexts/ChatContext.tsx` — registry + `onFinish` persist
+- `src/components/chat/shell/chat-sidebar.tsx` — Recents + load more
 
-### Modify
-
-- `src/contexts/ChatContext.tsx` (likely evolves with registry)
-- `src/components/chat/shell/chat-sidebar.tsx`
-- `src/app/api/chat/route.ts`
-- Live submit wiring (verify path; do not assume `use-chat-submit.ts` exists)
-- `src/types/chat.ts` as needed
-- `package.json`
-- `next.config.ts`
-
-### Unchanged
+### Unchanged (as planned)
 
 - Falkor / graph / agent toolset (KB stays global)
-- Message rendering components (`conversation/`, `/home` parts loop)
-- Global model/mode/web **prefs** behavior (still global; may share provider with per-session draft state carefully)
+- Message rendering (`conversation/`, `/home` parts loop)
+- Global model/mode/web prefs
+- `POST /api/chat` streaming path (no session id on body; persist is client snapshot)
 
 ---
 

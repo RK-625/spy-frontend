@@ -147,7 +147,7 @@ export function ChatSidebar() {
   const { chatId, status, newChat, switchChat } = useChatContext();
   const [recents, setRecents] = useState<ChatMeta[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingRecents, setLoadingRecents] = useState(false);
 
   const isSidebarFull = sidebarMode === "full";
   const sidebarWidth = isSidebarFull ? SIDEBAR_FULL_WIDTH : SIDEBAR_ICON_WIDTH;
@@ -186,8 +186,8 @@ export function ChatSidebar() {
   );
 
   const handleLoadMore = useCallback(() => {
-    if (!nextCursor || loadingMore) return;
-    setLoadingMore(true);
+    if (!nextCursor || loadingRecents) return;
+    setLoadingRecents(true);
     void listChats(nextCursor)
       .then(({ chats, nextCursor: cursor }) => {
         setRecents((prev) => {
@@ -201,9 +201,9 @@ export function ChatSidebar() {
         console.error("listChats:", err);
       })
       .finally(() => {
-        setLoadingMore(false);
+        setLoadingRecents(false);
       });
-  }, [nextCursor, loadingMore]);
+  }, [nextCursor, loadingRecents]);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsDialogOpen(true);
@@ -325,7 +325,7 @@ export function ChatSidebar() {
                   <button
                     type="button"
                     onClick={handleLoadMore}
-                    disabled={loadingMore}
+                    disabled={loadingRecents}
                     className={cn(
                       "mt-1 w-full rounded-[var(--radius)] px-2 py-1.5 text-left text-[0.8125rem] outline-none transition-colors",
                       "text-text-secondary hover:bg-[var(--surface-hover)] hover:text-text-primary",
@@ -333,7 +333,7 @@ export function ChatSidebar() {
                       "disabled:pointer-events-none disabled:opacity-50",
                     )}
                   >
-                    {loadingMore ? "Loading…" : "Load more"}
+                    {loadingRecents ? "Loading…" : "Load more"}
                   </button>
                 ) : null}
               </div>
