@@ -11,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { fetchChat } from "@/lib/chats-api";
+import { fetchChat, saveChatMessages } from "@/lib/chats-api";
 import type { ChatContextValue } from "@/types/chat";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -24,7 +24,8 @@ const ChatContext = createContext<ChatContextValue | null>(null);
  *   in event handlers (newChat / switchChat), never during render.
  * - Invariant: every activate goes through setActiveChat with a Chat that is
  *   (or was just) registered in the Map.
- * - Durability is owned by POST /api/chat (start + finish upserts).
+ * - Durability is client `saveChatMessages` — await on submit-message,
+ *   onFinish full snapshot.
  * - switchChat Map miss → fetchChat → createChat → register → activate.
  */
 export function ChatProvider({ children }: { children: ReactNode }) {
@@ -106,6 +107,25 @@ function createChat(
     messages,
     transport: new DefaultChatTransport({
       api: "/api/chat",
+      prepareSendMessagesRequest: async ({
+        id,
+        messages: outgoing,
+        trigger,
+        messageId,
+        body,
+      }) => {
+        if (trigger === "submit-message") {
+          await saveChatMessages(id, outgoing);
+        }
+        return {
+          body: { ...body, id, messages: outgoing, trigger, messageId },
+        };
+      },
     }),
+    onFinish: ({ messages: finished }) => {
+      void saveChatMessages(chatId, finished).catch((err: unknown) => {
+        console.error("saveChatMessages:", err);
+      });
+    },
   });
 }
