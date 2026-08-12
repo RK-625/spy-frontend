@@ -10,9 +10,11 @@ import { motion } from "motion/react";
 import { CommandPalette } from "./command-palette";
 import { SettingsDialog } from "./settings-dialog";
 import { useChatContext } from "@/contexts/ChatContext";
+import { listChats } from "@/lib/chats-api";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { DotMatrixIcon } from "@/components/dotmatrix";
+import type { ChatMeta } from "@/types/chat-schema";
 
 type SidebarDisplayMode = "icon" | "full";
 const SIDEBAR_MODE_STORAGE_KEY = "spy-sidebar-mode";
@@ -142,11 +144,67 @@ export function ChatSidebar() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const { clearMessages } = useChatContext();
+  const { chatId, status, newChat, switchChat, chatOrder } = useChatContext();
+  const [recents, setRecents] = useState<ChatMeta[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingRecents, setLoadingRecents] = useState(false);
+
+  const isSidebarFull = sidebarMode === "full";
+  const sidebarWidth = isSidebarFull ? SIDEBAR_FULL_WIDTH : SIDEBAR_ICON_WIDTH;
+
+  // Refresh when expanded, chat switch, active stream settle, or any chat persist
+  // (background finish / new row).
+  const streamReady = status === "ready";
+  useEffect(() => {
+    if (!isSidebarFull) return;
+    let cancelled = false;
+    void listChats()
+      .then(({ chats, nextCursor: cursor }) => {
+        if (!cancelled) {
+          setRecents(chats);
+          setNextCursor(cursor);
+        }
+      })
+      .catch((err: unknown) => {
+        console.error("listChats:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSidebarFull, chatId, streamReady, chatOrder]);
 
   const handleNewChat = useCallback(() => {
-    clearMessages();
-  }, [clearMessages]);
+    newChat();
+  }, [newChat]);
+
+  const handleOpenRecent = useCallback(
+    (id: string) => {
+      void switchChat(id).catch((err: unknown) => {
+        console.error("switchChat:", err);
+      });
+    },
+    [switchChat],
+  );
+
+  const handleLoadMore = useCallback(() => {
+    if (!nextCursor || loadingRecents) return;
+    setLoadingRecents(true);
+    void listChats(nextCursor)
+      .then(({ chats, nextCursor: cursor }) => {
+        setRecents((prev) => {
+          const seen = new Set(prev.map((c) => c.id));
+          const appended = chats.filter((c) => !seen.has(c.id));
+          return appended.length === 0 ? prev : [...prev, ...appended];
+        });
+        setNextCursor(cursor);
+      })
+      .catch((err: unknown) => {
+        console.error("listChats:", err);
+      })
+      .finally(() => {
+        setLoadingRecents(false);
+      });
+  }, [nextCursor, loadingRecents]);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsDialogOpen(true);
@@ -155,9 +213,6 @@ export function ChatSidebar() {
   const handleToggleSidebarMode = useCallback(() => {
     setSidebarMode((prev) => (prev === "icon" ? "full" : "icon"));
   }, []);
-
-  const isSidebarFull = sidebarMode === "full";
-  const sidebarWidth = isSidebarFull ? SIDEBAR_FULL_WIDTH : SIDEBAR_ICON_WIDTH;
 
   return (
     <>
@@ -238,11 +293,52 @@ export function ChatSidebar() {
               </span>
               <div className="h-px flex-1 bg-[var(--accent-border)]" />
             </div>
-            <div className="flex flex-1 items-center justify-center px-3">
-              <span className="text-sm text-text-secondary">
-                No conversations yet
-              </span>
-            </div>
+            {recents.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center px-3">
+                <span className="text-sm text-text-secondary">
+                  No conversations yet
+                </span>
+              </div>
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-2">
+                {recents.map((chat) => {
+                  const active = chat.id === chatId;
+                  return (
+                    <button
+                      key={chat.id}
+                      type="button"
+                      onClick={() => handleOpenRecent(chat.id)}
+                      aria-current={active ? "true" : undefined}
+                      className={cn(
+                        "w-full truncate rounded-[var(--radius)] px-2 py-1.5 text-left text-[0.8125rem] outline-none transition-colors",
+                        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                        active
+                          ? "bg-[var(--surface-focus)] text-text-primary"
+                          : "text-text-primary hover:bg-[var(--surface-hover)]",
+                      )}
+                      title={chat.title}
+                    >
+                      {chat.title}
+                    </button>
+                  );
+                })}
+                {nextCursor ? (
+                  <button
+                    type="button"
+                    onClick={handleLoadMore}
+                    disabled={loadingRecents}
+                    className={cn(
+                      "mt-1 w-full rounded-[var(--radius)] px-2 py-1.5 text-left text-[0.8125rem] outline-none transition-colors",
+                      "text-text-secondary hover:bg-[var(--surface-hover)] hover:text-text-primary",
+                      "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                      "disabled:pointer-events-none disabled:opacity-50",
+                    )}
+                  >
+                    {loadingRecents ? "Loading…" : "Load more"}
+                  </button>
+                ) : null}
+              </div>
+            )}
           </div>
         ) : (
           <div className="min-h-0 flex-1" aria-hidden />
