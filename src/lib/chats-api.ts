@@ -24,7 +24,16 @@ export async function saveChatMessages(
 export async function fetchChat(chatId: string): Promise<ChatWithMessages> {
   const res = await fetch(`/api/chats?id=${encodeURIComponent(chatId)}`);
   if (!res.ok) {
-    throw new Error(`GET /api/chats failed: ${res.status}`);
+    // 422 CORRUPT_MESSAGES: do not treat as empty chat (would clobber on save).
+    let detail = "";
+    try {
+      const body = (await res.json()) as { error?: string; code?: string };
+      if (body.code) detail = ` ${body.code}`;
+      else if (body.error) detail = ` ${body.error}`;
+    } catch {
+      // ignore body parse
+    }
+    throw new Error(`GET /api/chats failed: ${res.status}${detail}`);
   }
   const data = (await res.json()) as { chat: ChatWithMessages };
   return data.chat;

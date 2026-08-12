@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { UIMessage } from "ai";
 import {
+  CorruptChatError,
   getChatWithMessages,
   listChats,
   upsertChatMessages,
@@ -93,14 +94,30 @@ export async function GET(req: Request) {
     const id = url.searchParams.get("id")?.trim() ?? "";
 
     if (id.length > 0) {
-      const chat = getChatWithMessages(id);
-      if (!chat) {
-        return NextResponse.json(
-          { ok: false, error: "chat not found" },
-          { status: 404 },
-        );
+      try {
+        const chat = getChatWithMessages(id);
+        if (!chat) {
+          return NextResponse.json(
+            { ok: false, error: "chat not found" },
+            { status: 404 },
+          );
+        }
+        return NextResponse.json({ ok: true, chat });
+      } catch (error: unknown) {
+        if (error instanceof CorruptChatError) {
+          console.error("GET /api/chats corrupt:", error.chatId, error.reason);
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "chat transcript corrupt",
+              code: "CORRUPT_MESSAGES",
+              reason: error.reason,
+            },
+            { status: 422 },
+          );
+        }
+        throw error;
       }
-      return NextResponse.json({ ok: true, chat });
     }
 
     const limitResult = parseLimit(url.searchParams.get("limit"));
@@ -197,6 +214,18 @@ export async function POST(req: Request) {
     const response: ChatsPostResponse = { ok: true, chat };
     return NextResponse.json(response);
   } catch (error: unknown) {
+    if (error instanceof CorruptChatError) {
+      console.error("POST /api/chats corrupt:", error.chatId, error.reason);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "chat transcript corrupt; refuse overwrite",
+          code: "CORRUPT_MESSAGES",
+          reason: error.reason,
+        },
+        { status: 422 },
+      );
+    }
     console.error("POST /api/chats:", error);
     return NextResponse.json(
       {

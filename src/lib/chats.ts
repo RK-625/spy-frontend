@@ -108,6 +108,25 @@ export function getChatsDb(): Database.Database {
 // Row / messages parsers
 // ---------------------------------------------------------------------------
 
+export type ParseMessagesFailReason = "invalid_json" | "not_array";
+
+export type ParseMessagesResult =
+  | { ok: true; messages: UIMessage[] }
+  | { ok: false; reason: ParseMessagesFailReason };
+
+/** Thrown when a chats row exists but messages_json cannot be read safely. */
+export class CorruptChatError extends Error {
+  readonly chatId: string;
+  readonly reason: ParseMessagesFailReason;
+
+  constructor(chatId: string, reason: ParseMessagesFailReason) {
+    super(`Corrupt chat transcript: ${chatId} (${reason})`);
+    this.name = "CorruptChatError";
+    this.chatId = chatId;
+    this.reason = reason;
+  }
+}
+
 function parseMetaRow(row: unknown): ChatMeta | null {
   const result = ChatMeta.safeParse(row);
   if (!result.success) {
@@ -117,18 +136,21 @@ function parseMetaRow(row: unknown): ChatMeta | null {
   return result.data;
 }
 
-/** Fail soft: corrupt blob → empty array (logged). */
-function parseMessagesJson(messagesJson: string): UIMessage[] {
+/**
+ * Parse messages_json blob. Never fail-soft to [] — empty success would let
+ * hydrate + full snapshot overwrite destroy a corrupt-but-recoverable row.
+ */
+function parseMessagesJson(messagesJson: string): ParseMessagesResult {
   try {
     const parsed: unknown = JSON.parse(messagesJson);
     if (!Array.isArray(parsed)) {
       console.error("messages_json is not an array");
-      return [];
+      return { ok: false, reason: "not_array" };
     }
-    return parsed as UIMessage[];
+    return { ok: true, messages: parsed as UIMessage[] };
   } catch (error: unknown) {
     console.error("Failed to parse messages_json", error);
-    return [];
+    return { ok: false, reason: "invalid_json" };
   }
 }
 
@@ -240,7 +262,10 @@ export function getChat(chatId: string): ChatMeta | null {
   return parseMetaRow(row);
 }
 
-/** Meta + parsed messages_json nested on ChatWithMessages. */
+/**
+ * Meta + parsed messages_json nested on ChatWithMessages.
+ * Missing row → null. Corrupt messages_json → CorruptChatError (never empty []).
+ */
 export function getChatWithMessages(chatId: string): ChatWithMessages | null {
   const db = getChatsDb();
   const row = db
@@ -269,9 +294,14 @@ export function getChatWithMessages(chatId: string): ChatWithMessages | null {
   });
   if (!meta) return null;
 
+  const parsed = parseMessagesJson(row.messages_json);
+  if (!parsed.ok) {
+    throw new CorruptChatError(chatId, parsed.reason);
+  }
+
   return {
     ...meta,
-    messages: parseMessagesJson(row.messages_json),
+    messages: parsed.messages,
   };
 }
 
@@ -279,24 +309,32 @@ export function getChatWithMessages(chatId: string): ChatWithMessages | null {
  * Full overwrite of messages_json (blob snapshot of client Chat.messages).
  * Title is unchanged. Bumps updated_at.
  * Live UI stays on AI SDK Chat; this is durable store only.
+ * Refuses overwrite if the existing blob is unreadable (blocks silent clobber).
  */
 export function replaceChatMessages(
   chatId: string,
   messages: UIMessage[],
 ): void {
   const db = getChatsDb();
-  const now = Date.now();
-  const result = db
-    .prepare(
-      `UPDATE chats
-       SET messages_json = ?, updated_at = ?
-       WHERE id = ?`,
-    )
-    .run(JSON.stringify(messages), now, chatId);
+  const existing = db
+    .prepare(`SELECT messages_json FROM chats WHERE id = ?`)
+    .get(chatId) as { messages_json: string } | undefined;
 
-  if (result.changes === 0) {
+  if (!existing) {
     throw new Error(`replaceChatMessages: chat not found: ${chatId}`);
   }
+
+  const parsed = parseMessagesJson(existing.messages_json);
+  if (!parsed.ok) {
+    throw new CorruptChatError(chatId, parsed.reason);
+  }
+
+  const now = Date.now();
+  db.prepare(
+    `UPDATE chats
+     SET messages_json = ?, updated_at = ?
+     WHERE id = ?`,
+  ).run(JSON.stringify(messages), now, chatId);
 }
 
 /**
