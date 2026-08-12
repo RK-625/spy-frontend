@@ -29,8 +29,13 @@ const ChatContext = createContext<ChatContextValue | null>(null);
  * - switchChat Map miss → fetchChat → createChat → register → activate.
  */
 export function ChatProvider({ children }: { children: ReactNode }) {
+  const [chatOrder, setChatOrder] = useState(0);
+  const updateChatOrder = useCallback(() => {
+    setChatOrder((n) => n + 1);
+  }, []);
+
   const [activeChat, setActiveChat] = useState(() =>
-    createChat(crypto.randomUUID()),
+    createChat(crypto.randomUUID(), [], updateChatOrder),
   );
   const { messages, status, stop, sendMessage, error } = useChat<UIMessage>({
     chat: activeChat,
@@ -44,7 +49,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   /** Mint id, register empty Chat, set active (keeps other open chats). */
   const newChat = useCallback(() => {
-    const chat = createChat(crypto.randomUUID());
+    const chat = createChat(crypto.randomUUID(), [], updateChatOrder);
     chatsRef.current.set(chat.id, chat);
     setActiveChat(chat);
   }, []);
@@ -56,7 +61,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     let chat = chatsRef.current.get(chatId);
     if (!chat) {
       const row = await fetchChat(chatId);
-      chat = createChat(row.id, row.messages);
+      chat = createChat(row.id, row.messages, updateChatOrder);
       chatsRef.current.set(chat.id, chat);
     }
     setActiveChat(chat);
@@ -72,6 +77,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sendMessage,
       newChat,
       switchChat,
+      chatOrder,
     }),
     [
       activeChat.id,
@@ -82,6 +88,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sendMessage,
       newChat,
       switchChat,
+      chatOrder,
     ],
   );
 
@@ -101,6 +108,7 @@ export function useChatContext() {
 function createChat(
   chatId: string,
   messages: UIMessage[] = [],
+  updateChatOrder: () => void,
 ): Chat<UIMessage> {
   return new Chat<UIMessage>({
     id: chatId,
@@ -116,6 +124,7 @@ function createChat(
       }) => {
         if (trigger === "submit-message") {
           await saveChatMessages(id, outgoing);
+          updateChatOrder();
         }
         return {
           body: { ...body, id, messages: outgoing, trigger, messageId },
@@ -123,9 +132,11 @@ function createChat(
       },
     }),
     onFinish: ({ messages: finished }) => {
-      void saveChatMessages(chatId, finished).catch((err: unknown) => {
-        console.error("saveChatMessages:", err);
-      });
+      void saveChatMessages(chatId, finished)
+        .then(() => updateChatOrder())
+        .catch((err: unknown) => {
+          console.error("saveChatMessages:", err);
+        });
     },
   });
 }

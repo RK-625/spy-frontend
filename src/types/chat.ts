@@ -38,4 +38,6 @@ export interface ChatContextValue {
    * Map miss → GET /api/chats?id= hydrate, register, then activate.
    */
   switchChat: (chatId: string) => Promise<void>;
+  /** Catalog revision after persist; Recents refetch. */
+  chatOrder: number;
 }

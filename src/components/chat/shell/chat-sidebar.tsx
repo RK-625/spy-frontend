@@ -144,7 +144,7 @@ export function ChatSidebar() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const { chatId, status, newChat, switchChat } = useChatContext();
+  const { chatId, status, newChat, switchChat, chatOrder } = useChatContext();
   const [recents, setRecents] = useState<ChatMeta[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingRecents, setLoadingRecents] = useState(false);
@@ -152,7 +152,8 @@ export function ChatSidebar() {
   const isSidebarFull = sidebarMode === "full";
   const sidebarWidth = isSidebarFull ? SIDEBAR_FULL_WIDTH : SIDEBAR_ICON_WIDTH;
 
-  // Load / refresh when expanded; again after a turn settles (new row / title bump).
+  // Refresh when expanded, chat switch, active stream settle, or any chat persist
+  // (background finish / new row).
   const streamReady = status === "ready";
   useEffect(() => {
     if (!isSidebarFull) return;
@@ -170,7 +171,7 @@ export function ChatSidebar() {
     return () => {
       cancelled = true;
     };
-  }, [isSidebarFull, chatId, streamReady]);
+  }, [isSidebarFull, chatId, streamReady, chatOrder]);
 
   const handleNewChat = useCallback(() => {
     newChat();
