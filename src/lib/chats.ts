@@ -61,16 +61,13 @@ function ensureChatsDataDir(): string {
 }
 
 /**
- * Early-draft schema setup (wipe-friendly).
- * Drops legacy `chat_sessions` and current `chats` if present, then creates
- * ONE `chats` table with nested `messages_json` (full UIMessage[] blob).
- * No production data to migrate — safe to recreate on open for this phase.
+ * Idempotent schema setup — safe on every process open.
+ * CREATE IF NOT EXISTS only; never DROP (persistence must survive restarts).
+ * Schema changes later go through real migrations, not wipe-on-open.
  */
 export function setupChatsDb(db: Database.Database): void {
   db.exec(`
-    DROP TABLE IF EXISTS chats;
-
-    CREATE TABLE chats (
+    CREATE TABLE IF NOT EXISTS chats (
       id            TEXT PRIMARY KEY,
       title         TEXT NOT NULL,
       created_at    INTEGER NOT NULL,
@@ -78,7 +75,7 @@ export function setupChatsDb(db: Database.Database): void {
       messages_json TEXT NOT NULL DEFAULT '[]'
     );
 
-    CREATE INDEX idx_chats_updated_at
+    CREATE INDEX IF NOT EXISTS idx_chats_updated_at
       ON chats (updated_at DESC);
   `);
 }
