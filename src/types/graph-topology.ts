@@ -16,7 +16,7 @@ import type { Links, MemoryNode } from "@/types/graph-schema";
 
 export type { MemoryNode };
 
-/** Topology payload: memories + PART_OF / RELATES_TO links. */
+/** Topology payload: memories + PARENT_OF / RELATES_TO links. */
 export type GraphTopology = {
   memories: MemoryNode[];
   links: Links[];

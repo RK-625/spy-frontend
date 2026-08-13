@@ -287,7 +287,7 @@ export async function setMemoryQuestions(
 
 export async function hasOutgoingLink(
   source: string,
-  type: "PART_OF" | "RELATES_TO",
+  type: "PARENT_OF" | "RELATES_TO",
 ): Promise<boolean> {
   const validSource = z.string().min(1).parse(source);
   const graph = await getDb();
@@ -305,6 +305,31 @@ export async function hasOutgoingLink(
     return count > 0;
   } catch (error) {
     console.error("hasOutgoingLink error:", error);
+    throw error;
+  }
+}
+
+/** True if `target` already has an incoming edge of `type` (e.g. a PARENT_OF parent). */
+export async function hasIncomingLink(
+  target: string,
+  type: "PARENT_OF" | "RELATES_TO",
+): Promise<boolean> {
+  const validTarget = z.string().min(1).parse(target);
+  const graph = await getDb();
+  const query = `
+    MATCH ()-[r:${type}]->(t:Memory {id: $target})
+    RETURN count(r) AS count
+  `;
+  try {
+    const result = (await graph.query(query, {
+      params: { target: validTarget },
+    })) as { data: Array<{ count: unknown }> };
+    const countVal = result.data?.[0]?.count;
+    const count =
+      typeof countVal === "number" ? countVal : Number(countVal ?? 0);
+    return count > 0;
+  } catch (error) {
+    console.error("hasIncomingLink error:", error);
     throw error;
   }
 }
@@ -374,7 +399,7 @@ export async function createLink(link: Links) {
 }
 
 /**
- * Read-only: all Memory nodes + PART_OF / RELATES_TO links for the graph canvas.
+ * Read-only: all Memory nodes + PARENT_OF / RELATES_TO links for the graph canvas.
  * Omits embeddings. Does not write layout. Trusts write-path shape (no row filters).
  * NEVER returns MemoryQuestion or FOR_MEMORY (canvas topology is Memory-only).
  */
@@ -392,7 +417,7 @@ export async function listGraphTopology(): Promise<GraphTopology> {
 
   const linkQuery = `
     MATCH (a:Memory)-[r]->(b:Memory)
-    WHERE type(r) IN ['PART_OF', 'RELATES_TO']
+    WHERE type(r) IN ['PARENT_OF', 'RELATES_TO']
     RETURN a.id AS source, b.id AS target, type(r) AS type
   `;
 

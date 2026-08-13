@@ -70,12 +70,16 @@ export const Concept = z.object({
 });
 export type Concept = z.infer<typeof Concept>;
 
+/** Hierarchical PARENT_OF (parent → child) or associative RELATES_TO. */
+export const MemoryLinkType = z.enum(["PARENT_OF", "RELATES_TO"]);
+export type MemoryLinkType = z.infer<typeof MemoryLinkType>;
+
 export const Links = z.object({
   source: z.string().describe("The ID of the source node"),
   target: z.string().describe("The ID of the target node"),
-  type: z
-    .enum(["PART_OF", "RELATES_TO"])
-    .describe("The kind of the relation-ship between 2 nodes"),
+  type: MemoryLinkType.describe(
+    "PARENT_OF: parent → child. RELATES_TO: association.",
+  ),
 });
 /** Inferred product link row (value `Links` is the Zod schema). */
 export type Links = z.infer<typeof Links>;

@@ -200,7 +200,7 @@ src/
 
 - Desktop only for v1 (no responsive/mobile yet)
 - No sound
-- **Graph Schema strictness:** Memory edges are strictly limited to `PART_OF` (Hierarchical) and `RELATES_TO` (Associative). We do not use prerequisite or causal edges because semantic vector search on content embeddings implicitly handles those relationships.
+- **Graph Schema strictness:** Memory edges are strictly limited to `PARENT_OF` (Hierarchical, source = parent → target = child) and `RELATES_TO` (Associative). We do not use prerequisite or causal edges because semantic vector search on content embeddings implicitly handles those relationships.
 - **Node.js Runtime only:** FalkorDB native driver breaks in Edge runtime. API routes interacting with the DB must run in Node.js and require `serverExternalPackages: ["falkordb"]` in `next.config.ts`.
 - Restrained rounded corners only (--radius)
 - Former Pixi bake quality bans (maxDots / lodMul / skipOuterLats / half-res sprites / EDGE_BASE_BAND / packing floor / hierarchy silent-hide) are obsolete — that engine is gone.

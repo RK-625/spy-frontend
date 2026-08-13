@@ -53,7 +53,7 @@ export const upsertMemoryIdFieldDescription = `Existing Memory id to update cont
 Omit to create a new memory (system generates id).
 Updates change content only — tools never author geometry.
 Do NOT pass or invent canvas coordinates (x, y) or rank; the graph client places nodes from topology/cache.
-Structure (PART_OF / RELATES_TO) is via linkMemories, not this tool.
+Structure (PARENT_OF / RELATES_TO) is via linkMemories, not this tool.
 Intermediate hierarchy: create nodes here, then link correctly.`;
 
 /**
@@ -76,7 +76,7 @@ This is not a public encyclopedia and not a first-person user notebook.
 Questions are **agent-side recall probes**: things the agent would ask itself to stay stateful
 about whether *this user* already has related knowledge.
 At search time the agent embeds the same family of probes; nearest stored questions win (Q↔Q ANN).
-Keep this short — no full graph essay, no PART_OF/canvas layout.
+Keep this short — no full graph essay, no PARENT_OF/canvas layout.
 
 ## Purpose
 Power Q↔Q semantic search.

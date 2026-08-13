@@ -10,6 +10,11 @@ import {
   type CosmographRef,
 } from "@cosmograph/react";
 
+import {
+  findNodeColors,
+  findNodeRanks,
+  findNodeSizes,
+} from "@/lib/graph-functions";
 import type { MemoryNode } from "@/types/graph-schema";
 import type { GraphApiResponse } from "@/types/graph-topology";
 import { NodeDetailDialog } from "./node-detail-dialog";
@@ -17,8 +22,10 @@ import { NodeDetailDialog } from "./node-detail-dialog";
 /** Deepest register — same family as former GRAPH_BG (0x0a0a0c). */
 const GRAPH_BG = "#0a0a0c";
 const POINT_COLOR = "#c8acfb";
-const LINK_PART_OF = "#4e5a72";
+const LINK_PARENT_OF = "#4e5a72";
 const LINK_RELATES = "#6a5870";
+const LINK_PARENT_OF_STRENGTH = 1;
+const LINK_RELATES_STRENGTH = 0.25;
 
 /**
  * Live-only knowledge graph host (Cosmograph).
@@ -53,14 +60,23 @@ export function GraphCanvas() {
       enableSimulation: true,
       backgroundColor: GRAPH_BG,
       pointDefaultColor: POINT_COLOR,
+      pointColorBy: "color",
+      pointColorStrategy: "direct",
+      pointSizeBy: "size",
+      pointSizeStrategy: "direct",
+      scalePointsOnZoom: true,
       pointLabelBy: "label",
       showDynamicLabels: true,
       selectPointOnClick: "single",
       focusPointOnClick: true,
       linkColorBy: "type",
       linkColorByFn: (value: unknown) =>
-        value === "PART_OF" ? LINK_PART_OF : LINK_RELATES,
-      linkDefaultArrows: true,
+        value === "PARENT_OF" ? LINK_PARENT_OF : LINK_RELATES,
+      linkStrengthBy: "strength",
+      simulationLinkDistance: 8,
+      linkDefaultArrows: false,
+      linkArrowBy: "arrow",
+      linkArrowsSizeScale: 0.6,
       onPointClick: handlePointClick,
       statusIndicatorMode: false,
     }),
@@ -94,22 +110,42 @@ export function GraphCanvas() {
         }
         memoriesByIdRef.current = byId;
 
+        const ids = data.memories.map((memory) => memory.id);
+        const hierarchy = findNodeRanks(ids, data.links);
+        const colors = findNodeColors(hierarchy);
+        const sizes = findNodeSizes(hierarchy);
+
         const points = data.memories.map((memory) => ({
           id: memory.id,
           label: memory.name,
+          color: colors.get(memory.id) ?? POINT_COLOR,
+          size: sizes.get(memory.id) ?? 1,
         }));
-        const links = data.links.map((link) => ({
-          source: link.source,
-          target: link.target,
-          type: link.type,
-        }));
+        const links = data.links.map((link) => {
+          const isParentOf = link.type === "PARENT_OF";
+          return {
+            source: link.source,
+            target: link.target,
+            type: link.type,
+            strength: isParentOf
+              ? LINK_PARENT_OF_STRENGTH
+              : LINK_RELATES_STRENGTH,
+            arrow: isParentOf,
+          };
+        });
 
         const result = await prepareCosmographData(
           {
-            points: { pointIdBy: "id" },
+            points: {
+              pointIdBy: "id",
+              pointColorBy: "color",
+              pointSizeBy: "size",
+            },
             links: {
               linkSourceBy: "source",
               linkTargetsBy: ["target"],
+              linkStrengthBy: "strength",
+              linkArrowBy: "arrow",
             },
           },
           points,

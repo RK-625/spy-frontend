@@ -19,8 +19,8 @@ It stores **Memory** nodes. Each Memory is one focused unit of knowledge with:
 - **layout (x, y, rank)** — handled by the system for the canvas; you never invent coordinates
 
 Links between Memories are only two kinds (nothing else):
-- **PART_OF** — hierarchy. source = child (more specific), target = parent (broader container).
-  Example: "useEffect cleanup" PART_OF "React hooks".
+- **PARENT_OF** — hierarchy. source = parent (broader container), target = child (more specific).
+  Example: "React hooks" PARENT_OF "useEffect cleanup".
 - **RELATES_TO** — association without hierarchy.
   Example: "Zustand" RELATES_TO "Redux" as alternative mental models.
 
@@ -49,14 +49,14 @@ Prefer many small single-concept memories over one mega-note.
 ## Canvas layout (system-owned — critical)
 Placement on the knowledge-graph canvas is **not** your job.
 - **Never** invent, guess, or pass **x**, **y**, or free-form layout numbers.
-- **rank** (hierarchy depth) is derived on the graph client from PART_OF structure
+- **rank** (hierarchy depth) is derived on the graph client from PARENT_OF structure
   (child rank = parent rank + 1; roots at 0) — do not invent ranks.
 - The graph client places nodes from topology (content + links only in the DB).
   You do not control map coordinates.
 - **Content-only updates** (upsert with id for name/content/impression/confidence) change knowledge only;
   structure and geometry are separate.
-- **Structure**: create nodes, then set correct PART_OF links (child→parent; at most one PART_OF parent per child).
+- **Structure**: create nodes, then set correct PARENT_OF links (parent→child; at most one PARENT_OF parent per child).
   You own semantic edges, not coordinates.
 
-Your job for structure is **semantic**: good names, clear content, correct PART_OF vs RELATES_TO, correct child→parent direction.
+Your job for structure is **semantic**: good names, clear content, correct PARENT_OF vs RELATES_TO, correct parent→child direction.
 Geometry is automatic on the client map.`;
