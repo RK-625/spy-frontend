@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Product Memory row — core fields only.
  * Embeddings live on MemoryQuestion (`questionEmbedding`), never on Memory.
- * Layout (x/y/rank) is client-only via placement-cache.
+ * Layout (x/y) is client-only — Cosmograph owns GPU placement; never on this wire.
  */
 export const Memory = z.object({
   id: z.string().describe("A unique identifier to the Memory"),
@@ -42,9 +42,9 @@ export const MemoryQuestion = z.object({
 export type MemoryQuestion = z.infer<typeof MemoryQuestion>;
 
 /**
- * Lean Memory row for topology transfer / placement.
+ * Lean Memory row for topology transfer.
  * With Memory core-only, this is identical to Memory (alias).
- * Wire shape for GET `/api/graph` and `placeTopology` input.
+ * Wire shape for GET `/api/graph`; client maps memories/links → Cosmograph.
  */
 export type MemoryNode = Memory;
 

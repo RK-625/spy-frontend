@@ -11,15 +11,7 @@
     "verify:components-structure": "node scripts/verify-components-structure.mjs",
     "verify:reorg-scope": "node scripts/verify-reorg-scope.mjs",
     "verify:icon-inventory": "node scripts/verify-icon-inventory.mjs",
-    "verify:pending-ask": "node scripts/verify-pending-ask.mjs",
-    "verify:rtc-camera": "npx tsx scripts/verify-rtc-camera.mjs",
-    "verify:mock-layout": "npx tsx scripts/verify-mock-layout.mjs",
-    "verify:hierarchy": "npx tsx scripts/verify-hierarchy.mjs",
-    "verify:node-size": "npx tsx scripts/verify-node-size.mjs",
-    "verify:d3-force-recipe": "npx tsx scripts/verify-d3-force-recipe.mjs",
-    "verify:d3-layout": "npx tsx scripts/verify-d3-layout.mjs",
-    "verify:weave-layout": "npx tsx scripts/verify-weave-layout.mjs",
-    "verify:placement-cache": "node --experimental-strip-types scripts/verify-placement-cache.mjs"
+    "verify:pending-ask": "node scripts/verify-pending-ask.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.92",
@@ -49,7 +41,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "d3-force": "^3.0.0",
     "doticons": "^0.9.0",
     "embla-carousel-react": "^8.6.0",
     "exa-js": "^2.16.0",
@@ -61,7 +52,6 @@
     "next": "16.2.6",
     "next-themes": "^0.4.6",
     "pixelarticons": "^2.1.2",
-    "pixi.js": "^8.19.0",
     "radix-ui": "^1.5.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -82,7 +72,6 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.2",
     "@types/better-sqlite3": "^9.6.0",
-    "@types/d3-force": "^3.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

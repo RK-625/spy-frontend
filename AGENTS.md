@@ -14,7 +14,7 @@ Spy is an agent-first knowledge base. The user doesn't organize their own notes.
 
 The **landing page** is shipped. **Primary product surface is chat** at `/home` — conversation, sidebar, prompt shell, streaming, and agent tools. The chat should feel like talking to an alien intelligence that's already weaving your knowledge.
 
-**Knowledge graph canvas** lives at `/graph` (Cosmograph) — live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client maps topology → Cosmograph points/links; Cosmograph owns GPU layout, camera, and draw. Empty KB / fetch error → blank canvas (no mock product path). Former Pixi + RTC + bake + d3 placement engine is parked at `src/deprecated/pixi-graph/` (verify scripts only).
+**Knowledge graph canvas** lives at `/graph` (Cosmograph) — live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client maps topology → Cosmograph points/links; Cosmograph owns GPU layout, camera, and draw. Empty KB / fetch error → blank canvas (no mock product path).
 
 **Ask-user-question (live only):**
 - **Pending-ask body:** non-morph option list in production prompt shell (`body` + `ask/pending-ask`). Zero-prop `PromptInputWorkspace` wires `getPendingAskUserQuestion` / `formatAskUserQuestionAnswer` and forced-choice submit gating. Helpers: `src/lib/ask-user-question.ts`. Tool may still exist in `src/ai/tools/toolset.ts`. Morph widget and `src/deprecated/` were removed — do not reintroduce without an explicit redesign.
@@ -80,7 +80,7 @@ These are things a new engineer might not guess. They must be followed:
 
 Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
 
-**Graph (`/graph`):** interactive Pixi canvas spike (not a decorative backdrop). **Live-only product path** (see [`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): single URL `/graph` — no product `?stress` / `?source` / `?layout` / `?motion`. Always fetches `/api/graph`; layout engine always `d3-settle` with ambient off; cache hit paints without re-settle, miss settles once and saves. Client pure-perf ceiling for loaded-graph pan/zoom is **achieved** under quality bans. FA2/graphology path removed. Placement architecture: [`plans/client-placement-cache.md`](plans/client-placement-cache.md) (client cache, Falkor topology only, no server placement writes). Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Do not re-litigate ban-safe pure-perf; next graph work is full KB residency / live dirty. Details under **What's left**.
+**Graph (`/graph`):** Cosmograph canvas (not a decorative backdrop). **Live-only product path:** single URL `/graph` — no product `?stress` / `?source` / `?layout` / `?motion`. Always fetches `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client maps topology → Cosmograph points/links; Cosmograph owns GPU layout, camera, and draw. Empty KB / fetch error → blank canvas (no mock). Next graph work is full KB residency / live dirty. Details under **What's left**.
 
 **Prompt input:** production SoT is under `src/components/chat/prompt/` (`shell/prompt-input.tsx` form + `shell/context.tsx` with `PromptInputProvider` draft/prefs; barrel `@/components/chat/prompt`). Pieces live under `header/`, `body/`, `ask/`, `attachments/`, `footer/`. **`PromptInputWorkspace` is a zero-prop product shell** (mounts provider + wires chat stream/prefs internally for `/home`). Live pending-ask is the non-morph option list (`body` + `ask/pending-ask`). Morph widget and `src/deprecated/` are gone — do not reintroduce without redesign.
 
@@ -90,7 +90,7 @@ Landing (`/`) is the front door and is already in good shape — polish as neede
 
 ## Long-term vision
 
-Spy becomes a full application — a workspace where users actually throw their knowledge at the agent and watch it weave. `/graph` is already a real interactive canvas spike (Pixi + RTC camera); the long-term path is a living, navigable knowledge-graph interface backed by full KB residency — not mock-only. The spider becomes an interactive presence — responding to user activity, surfacing connections, maintaining the web in real time.
+Spy becomes a full application — a workspace where users actually throw their knowledge at the agent and watch it weave. `/graph` is already a live Cosmograph canvas; the long-term path is a living, navigable knowledge-graph interface backed by full KB residency — not mock-only. The spider becomes an interactive presence — responding to user activity, surfacing connections, maintaining the web in real time.
 
 Right now the door is open; the work is making the chat workspace feel like walking into the web, with the graph as the navigable map underneath.
 
@@ -150,8 +150,6 @@ src/
 │   └── logos/                — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
 ├── contexts/
 │   └── ChatContext.tsx       — Stream-only `ChatProvider` (TooltipProvider folded in; no ChatProviderWrapper)
-├── deprecated/
-│   └── pixi-graph/           — Parked Pixi + RTC + bake + d3 placement (not product)
 ├── lib/
 │   ├── falkor.ts             — Server DB: FalkorDB connection & Cypher (topology only; no xy)
 │   ├── ask-user-question.ts  — Pending-ask client helpers (live non-morph path; no morph UI)
@@ -168,14 +166,13 @@ src/
 
 **Placement policy (where code lives):**
 - **Graph React host** → `src/components/graph/` (Cosmograph canvas + node-detail dialog)
-- **Parked Pixi engine** → `src/deprecated/pixi-graph/` (not product imports)
 - **Server DB** → `src/lib/falkor.ts` (topology only — not under the client graph package; no product `x`/`y`/`rank` writes)
 - **Agent tools / schemas** → `src/ai/tools/`, `src/ai/schemas/*-schema.ts` (domain barrels; no root dual-export shims)
 - **Chat UI** → `src/components/chat/{prompt,conversation,shell}/` domain barrels only (no ai-elements / root dual shims)
 
 **Note:** Chat prompt SoT is `chat/prompt/` domain tree + barrel (`PromptInputProvider` + `shell/prompt-input.tsx` form, pieces under header/body/ask/attachments/footer). Product entry is zero-prop `PromptInputWorkspace`. Live UI uses non-morph pending-ask options when the agent asks. Morph widget + `src/deprecated/`, dead hooks `use-chat-submit` / `use-mobile`, and `ChatProviderWrapper` are removed. The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts`.
 
-**Graph note:** Product `/graph` is Cosmograph (`enableSimulation` on). Falkor holds topology only — no server placement writes. Pixi/RTC/bake/`placeTopology` snapshot lives under `src/deprecated/pixi-graph/`.
+**Graph note:** Product `/graph` is Cosmograph (`enableSimulation` on). Cosmograph owns layout, camera, and draw. Falkor holds topology only — no server placement writes.
 
 **Agent rules:** project instruction rules live under `.grok/rules/` (e.g. `code-perferences/`, `orchestration/`). Historical folder name `code-perferences` is intentional; do not rename without verifying the rules loader.
 
@@ -206,37 +203,16 @@ src/
 - **Graph Schema strictness:** Memory edges are strictly limited to `PART_OF` (Hierarchical) and `RELATES_TO` (Associative). We do not use prerequisite or causal edges because semantic vector search on content embeddings implicitly handles those relationships.
 - **Node.js Runtime only:** FalkorDB native driver breaks in Edge runtime. API routes interacting with the DB must run in Node.js and require `serverExternalPackages: ["falkordb"]` in `next.config.ts`.
 - Restrained rounded corners only (--radius)
-- **Graph client quality bans (still in force):** no maxDots / lodMul / skipOuterLats; no half-res soft sprites; no EDGE_BASE_BAND fatten; no packing floor 0.15 (keep 1e-6); no hierarchy silent-hide as “perf”
+- Former Pixi bake quality bans (maxDots / lodMul / skipOuterLats / half-res sprites / EDGE_BASE_BAND / packing floor / hierarchy silent-hide) are obsolete — that engine is gone.
 
 ## What's left
 
-### Done / do not re-litigate (graph pure-perf)
+Pixi bake / parked-engine work is gone — do not treat it as current product work.
 
-Client pure-perf under quality bans — **ceiling status:**
-
-| Track | Status |
-|---|---|
-| Product ceiling (static mock pan/zoom) | **Achieved** |
-| Client large-loaded-graph pure-perf (A–C) | **Achieved** for planned scope |
-| Absolute / full product KB (DB-scale data residency) | **Not achieved** — Tier D out of scope |
-
-**Achieved (ban-safe client pure-perf):**
-- World-space DotStream bake @ z=1; camera only transforms `graphContent` (never `stage.scale` for world camera)
-- Universal residency: viewport + `OVERSCAN_MARGIN=2.0` + GraphSpatialIndex + bake worker (all graph sizes)
-- Wave 2: underlay pan-decouple, packed bake payloads/transferables, O(candidates) payload, resident buffer pooling, RimLock O(E), dynamic-import layout-loop-d3 (d3-force not on static path), strip no-op setInteractionQuality settle timers
-- Large-KB track: rim-coupled dirty expansion, durable mergedDotBuffer splice, worker latest-only/cancel, incremental RimLock, spatial incidence + int keys, node redraw only when nodes dirty (`diffGraphDirty` remains in lib; product host uses full `setGraphData`)
-- Layout: product always d3 one-shot settle on cache miss; ambient off; FA2/graphology **removed** (S7). Static layout-loop impl kept for verify/labs.
-
-Hard bans remain in force (see Constraints). Do not re-open pure-perf by relaxing quality bans.
-
-### Left (next product modes — not unfinished mock pan work)
-
-1. **Client placement cache (MVP)** — **Achieved (C0–C5 MVP)**: Falkor topology only; client d3 + `localStorage` pose cache; toolset never settles/persists layout; live `/graph` cache-hit paints / cache-miss one-shot settle. **Live-only host** — **Achieved** ([`plans/graph-live-only-pivot.md`](plans/graph-live-only-pivot.md)): no mock product path, no URL layout flags. **C3b deferred:** progressive BFS stream (invisible-until-posed growth animation). See [`plans/client-placement-cache.md`](plans/client-placement-cache.md). C6 live dirty / C7 reparent later.
-2. **Ambient / continuous motion** — product ambient remains **off**. Re-enable only with an explicit product decision (impl + types still exist; no URL flag).
-3. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
-4. **Multi-mesh / deeper GPU partial** — only if profiling shows hitch on huge residents.
-5. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
-6. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; live pending-ask body stays; do not resurrect ask-user-question **morph** / `src/deprecated/` without redesign.
+1. **Live dirty / C7 reparent** — later; live `/graph` already fetches Falkor topology only (no mock, no URL layout flags).
+2. **Full KB data residency** — server viewport slices / Falkor fetch / hierarchy expand-on-drill as a **product** choice, not silent LOD. Absolute DB-scale residency is the open ceiling.
+3. **Chat `/home` shipping polish** — still the primary product surface (short-term goal above).
+4. Prompt shell, streaming, sidebar/search/settings, model/web controls — remain true short-term chat work; live pending-ask body stays; do not resurrect ask-user-question **morph** / `src/deprecated/` without redesign.
 
 Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 
