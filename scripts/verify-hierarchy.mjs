@@ -31,7 +31,7 @@ function rankById(graphData) {
 
 async function main() {
   const fixtureUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/fixtures/mock-graph.ts")
+    path.join(root, "src/deprecated/pixi-graph/fixtures/mock-graph.ts")
   ).href;
 
   const { createMockGraphData } = await import(fixtureUrl);
@@ -70,10 +70,10 @@ async function main() {
 
   // Paint path preserves ranks (no recompute); settle also preserves ranks.
   const layoutUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts")
+    path.join(root, "src/deprecated/pixi-graph/layout/layout-loop-d3.ts")
   ).href;
   const recipeUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/force-recipe.ts")
+    path.join(root, "src/deprecated/pixi-graph/placement/force-recipe.ts")
   ).href;
   const layout = await import(layoutUrl);
   const { settleGraphData } = await import(recipeUrl);

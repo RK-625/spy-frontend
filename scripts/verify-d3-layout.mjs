@@ -36,13 +36,13 @@ async function main() {
   }
 
   const fixtureUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/fixtures/mock-graph.ts")
+    path.join(root, "src/deprecated/pixi-graph/fixtures/mock-graph.ts")
   ).href;
   const loopUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts")
+    path.join(root, "src/deprecated/pixi-graph/layout/layout-loop-d3.ts")
   ).href;
   const recipeUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/force-recipe.ts")
+    path.join(root, "src/deprecated/pixi-graph/placement/force-recipe.ts")
   ).href;
 
   const { createMockGraphData } = await import(fixtureUrl);
@@ -54,7 +54,7 @@ async function main() {
     "createGraphPaintLoop exported (product paint entry)"
   );
   assert(
-    !fs.existsSync(path.join(root, "src/lib/graph/layout/layout-loop.ts")),
+    !fs.existsSync(path.join(root, "src/deprecated/pixi-graph/layout/layout-loop.ts")),
     "layout-loop.ts thin wrapper deleted"
   );
 
@@ -139,7 +139,7 @@ async function main() {
   d3Loop.stop();
 
   const layoutD3Src = fs.readFileSync(
-    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts"),
+    path.join(root, "src/deprecated/pixi-graph/layout/layout-loop-d3.ts"),
     "utf8"
   );
   assert(
@@ -220,7 +220,7 @@ async function main() {
   );
 
   const barrelSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/index.ts"),
+    path.join(root, "src/deprecated/pixi-graph/index.ts"),
     "utf8"
   );
   assert(

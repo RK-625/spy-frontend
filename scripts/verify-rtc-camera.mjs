@@ -36,7 +36,7 @@ function approxRel(a, b, relEps, absEps, msg) {
 
 async function main() {
   const camUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/camera/rtc-camera.ts")
+    path.join(root, "src/deprecated/pixi-graph/camera/rtc-camera.ts")
   ).href;
   const { createRtcCamera } = await import(camUrl);
 

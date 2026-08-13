@@ -75,16 +75,16 @@ function stubMemory(partial) {
 
 async function main() {
   const fixtureUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/fixtures/mock-graph.ts")
+    path.join(root, "src/deprecated/pixi-graph/fixtures/mock-graph.ts")
   ).href;
   const recipeUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/force-recipe.ts")
+    path.join(root, "src/deprecated/pixi-graph/placement/force-recipe.ts")
   ).href;
   const placeUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/place-topology.ts")
+    path.join(root, "src/deprecated/pixi-graph/placement/place-topology.ts")
   ).href;
   const cacheUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/placement-cache.ts")
+    path.join(root, "src/deprecated/pixi-graph/placement/placement-cache.ts")
   ).href;
 
   const { createMockGraphData } = await import(fixtureUrl);
@@ -330,11 +330,11 @@ async function main() {
 
   // Paint store + canvas: no d3-force on product host static path.
   assert(
-    !fs.existsSync(path.join(root, "src/lib/graph/layout/layout-loop.ts")),
+    !fs.existsSync(path.join(root, "src/deprecated/pixi-graph/layout/layout-loop.ts")),
     "layout-loop.ts thin wrapper deleted"
   );
   const layoutLoopD3Src = fs.readFileSync(
-    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts"),
+    path.join(root, "src/deprecated/pixi-graph/layout/layout-loop-d3.ts"),
     "utf8"
   );
   assert(
@@ -372,25 +372,25 @@ async function main() {
   // Source fences: dead helpers / dual settle paths must stay deleted.
   console.log("\n--- removed-API source fences ---");
   const forceRecipeSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/placement/force-recipe.ts"),
+    path.join(root, "src/deprecated/pixi-graph/placement/force-recipe.ts"),
     "utf8"
   );
   const placeSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/placement/place-topology.ts"),
+    path.join(root, "src/deprecated/pixi-graph/placement/place-topology.ts"),
     "utf8"
   );
   const cacheSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/placement/placement-cache.ts"),
+    path.join(root, "src/deprecated/pixi-graph/placement/placement-cache.ts"),
     "utf8"
   );
   const barrelSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/index.ts"),
+    path.join(root, "src/deprecated/pixi-graph/index.ts"),
     "utf8"
   );
 
   assert(
     !fs.existsSync(
-      path.join(root, "src/lib/graph/placement/from-memory-graph.ts")
+      path.join(root, "src/deprecated/pixi-graph/placement/from-memory-graph.ts")
     ),
     "from-memory-graph.ts deleted (replaced by place-topology)"
   );
@@ -469,7 +469,7 @@ async function main() {
   );
   assert(
     !fs.existsSync(
-      path.join(root, "src/lib/graph/placement/memory-placement.ts")
+      path.join(root, "src/deprecated/pixi-graph/placement/memory-placement.ts")
     ),
     "memory-placement.ts is gone"
   );
@@ -497,11 +497,11 @@ async function main() {
 
   // Pixi dead-surface fences (hang timer / bakeAll dual path / insetSegment).
   const rendererSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/render/pixi-renderer.ts"),
+    path.join(root, "src/deprecated/pixi-graph/render/pixi-renderer.ts"),
     "utf8"
   );
   const drawArrowSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/render/draw-arrow.ts"),
+    path.join(root, "src/deprecated/pixi-graph/render/draw-arrow.ts"),
     "utf8"
   );
   assert(

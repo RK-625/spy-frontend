@@ -64,13 +64,13 @@ function maxPairwiseDistance(nodes) {
 
 async function main() {
   const placeUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/place-topology.ts")
+    path.join(root, "src/deprecated/pixi-graph/placement/place-topology.ts")
   ).href;
   const recipeUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/force-recipe.ts")
+    path.join(root, "src/deprecated/pixi-graph/placement/force-recipe.ts")
   ).href;
   const placementCacheUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/placement-cache.ts")
+    path.join(root, "src/deprecated/pixi-graph/placement/placement-cache.ts")
   ).href;
 
   const { placeTopology } = await import(placeUrl);
@@ -166,28 +166,28 @@ async function main() {
   console.log("\n--- Phase 1 removal fences ---");
   assert(
     !fs.existsSync(
-      path.join(root, "src/lib/graph/placement/from-memory-graph.ts")
+      path.join(root, "src/deprecated/pixi-graph/placement/from-memory-graph.ts")
     ),
     "from-memory-graph.ts deleted"
   );
   const placeSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/placement/place-topology.ts"),
+    path.join(root, "src/deprecated/pixi-graph/placement/place-topology.ts"),
     "utf8"
   );
   const barrelSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/index.ts"),
+    path.join(root, "src/deprecated/pixi-graph/index.ts"),
     "utf8"
   );
   const layoutLoopD3Src = fs.readFileSync(
-    path.join(root, "src/lib/graph/layout/layout-loop-d3.ts"),
+    path.join(root, "src/deprecated/pixi-graph/layout/layout-loop-d3.ts"),
     "utf8"
   );
   const graphScaleSrc = fs.readFileSync(
-    path.join(root, "src/lib/graph/core/graph-scale.ts"),
+    path.join(root, "src/deprecated/pixi-graph/core/graph-scale.ts"),
     "utf8"
   );
   assert(
-    !fs.existsSync(path.join(root, "src/lib/graph/layout/layout-loop.ts")),
+    !fs.existsSync(path.join(root, "src/deprecated/pixi-graph/layout/layout-loop.ts")),
     "layout-loop.ts thin wrapper deleted"
   );
   assert(
@@ -287,7 +287,7 @@ async function main() {
   console.log("\n--- memory-placement gone / product rank APIs ---");
   assert(
     !fs.existsSync(
-      path.join(root, "src/lib/graph/placement/memory-placement.ts")
+      path.join(root, "src/deprecated/pixi-graph/placement/memory-placement.ts")
     ),
     "memory-placement.ts is gone"
   );

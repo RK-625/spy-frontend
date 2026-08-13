@@ -24,7 +24,7 @@ function assert(cond, msg) {
 
 async function main() {
   const scaleUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/core/graph-scale.ts")
+    path.join(root, "src/deprecated/pixi-graph/core/graph-scale.ts")
   ).href;
   const scale = await import(scaleUrl);
   const {

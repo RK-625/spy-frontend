@@ -46,7 +46,7 @@ function createMockLocalStorage() {
 
 async function main() {
   const placementCacheUrl = pathToFileURL(
-    path.join(root, "src/lib/graph/placement/placement-cache.ts")
+    path.join(root, "src/deprecated/pixi-graph/placement/placement-cache.ts")
   ).href;
   const placementCache = await import(placementCacheUrl);
 

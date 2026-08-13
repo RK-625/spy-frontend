@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui";
-import type { GraphNode } from "@/lib/graph";
+import type { MemoryNode } from "@/types/graph-schema";
 
 function formatConfidence(value: number | undefined): string | null {
   if (value == null || !Number.isFinite(value)) return null;
@@ -24,20 +24,15 @@ export function NodeDetailDialog({
   open,
   onOpenChange,
 }: {
-  node: GraphNode | null;
+  node: MemoryNode | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const title = node?.label?.trim() || node?.id || "Node";
+  const title = node?.name?.trim() || node?.id || "Node";
   const content =
     node?.content?.trim() ||
-    (node
-      ? `No content woven for “${title}” yet.`
-      : "");
+    (node ? `No content woven for “${title}” yet.` : "");
   const confidenceLabel = formatConfidence(node?.confidence);
-  const childCount = node?.childIds?.length ?? 0;
-  const parentCount = node?.parentIds?.length ?? 0;
-  const relateCount = node?.relateIds?.length ?? 0;
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -50,19 +45,7 @@ export function NodeDetailDialog({
             {title}
           </DialogTitle>
           <DialogDescription className="text-sm text-text-secondary">
-            {node ? (
-              <>
-                Rank {node.rank}
-                <span className="mx-1.5 text-text-dim">·</span>
-                {parentCount} parent{parentCount === 1 ? "" : "s"}
-                <span className="mx-1.5 text-text-dim">·</span>
-                {childCount} child{childCount === 1 ? "" : "ren"}
-                <span className="mx-1.5 text-text-dim">·</span>
-                {relateCount} relate{relateCount === 1 ? "" : "s"}
-              </>
-            ) : (
-              "Memory node"
-            )}
+            Memory node
           </DialogDescription>
         </DialogHeader>
 

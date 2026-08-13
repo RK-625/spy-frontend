@@ -14,7 +14,7 @@ Spy is an agent-first knowledge base. The user doesn't organize their own notes.
 
 The **landing page** is shipped. **Primary product surface is chat** at `/home` — conversation, sidebar, prompt shell, streaming, and agent tools. The chat should feel like talking to an alien intelligence that's already weaving your knowledge.
 
-**Knowledge graph canvas** lives at `/graph` (Pixi v8 + RTC camera) — live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client maps topology → `GraphData`, places via localStorage fingerprint cache, and always uses one-shot d3 settle on cache miss (`ambientMotion` off). Empty KB / fetch error → blank canvas (no mock product path). Mock/stress fixtures remain under `src/lib/graph/fixtures/` for verify scripts only. Client pure-perf under quality bans has hit its product ceiling for loaded-graph pan/zoom; full DB-scale residency is not achieved (see **What's left**).
+**Knowledge graph canvas** lives at `/graph` (Cosmograph) — live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client maps topology → Cosmograph points/links; Cosmograph owns GPU layout, camera, and draw. Empty KB / fetch error → blank canvas (no mock product path). Former Pixi + RTC + bake + d3 placement engine is parked at `src/deprecated/pixi-graph/` (verify scripts only).
 
 **Ask-user-question (live only):**
 - **Pending-ask body:** non-morph option list in production prompt shell (`body` + `ask/pending-ask`). Zero-prop `PromptInputWorkspace` wires `getPendingAskUserQuestion` / `formatAskUserQuestionAnswer` and forced-choice submit gating. Helpers: `src/lib/ask-user-question.ts`. Tool may still exist in `src/ai/tools/toolset.ts`. Morph widget and `src/deprecated/` were removed — do not reintroduce without an explicit redesign.
@@ -136,8 +136,8 @@ src/
 │   │   ├── conversation/     — Message stream SoT (conversation, message, CoT, sources, …)
 │   │   ├── shell/            — Product chrome SoT (sidebar, settings, command palette)
 │   │   └── index.ts          — chat barrel (prefer domain folders or this barrel)
-│   ├── graph/                — Graph React host (not pure logic)
-│   │   ├── graph-canvas.tsx  — Host for `/graph` (Pixi renderer + camera + bake)
+│   ├── graph/                — Graph React host (Cosmograph)
+│   │   ├── graph-canvas.tsx  — Host for `/graph` (live topology → Cosmograph)
 │   │   └── node-detail-dialog.tsx — Node inspector overlay
 │   ├── landing/              — Landing/marketing surfaces
 │   │   ├── hero-section.tsx  — Hero layout
@@ -150,16 +150,10 @@ src/
 │   └── logos/                — Provider mark SVGs (OpenAI, Anthropic, Google, DeepSeek)
 ├── contexts/
 │   └── ChatContext.tsx       — Stream-only `ChatProvider` (TooltipProvider folded in; no ChatProviderWrapper)
+├── deprecated/
+│   └── pixi-graph/           — Parked Pixi + RTC + bake + d3 placement (not product)
 ├── lib/
 │   ├── falkor.ts             — Server DB: FalkorDB connection & Cypher (topology only; no xy)
-│   ├── graph/                — Graph pure logic (Pixi pure-perf + client placement)
-│   │   ├── camera/           — rtc-camera (never stage.scale for world camera)
-│   │   ├── core/             — graph-data, graph-diff, graph-scale, graph-style
-│   │   ├── layout/           — layout-loop-d3 (`createGraphPaintLoop`; dynamic import), rim-lock, spatial-index
-│   │   ├── placement/        — place-topology (hit/miss), force-recipe (pure settle), placement-cache
-│   │   ├── render/           — pixi-renderer, bake stack, draw primitives, edge pulse
-│   │   ├── fixtures/mock-graph.ts — verify-only mock + stress fixtures
-│   │   └── index.ts          — public exports
 │   ├── ask-user-question.ts  — Pending-ask client helpers (live non-morph path; no morph UI)
 │   ├── models.ts             — Client model catalog (id / provider list)
 │   └── utils.ts              — cn() helper for Tailwind class merging
@@ -173,15 +167,15 @@ src/
 ```
 
 **Placement policy (where code lives):**
-- **Graph pure logic** → `src/lib/graph/` subdomains (`placement/`, `layout/`, `render/`, `camera/`, `core/`)
-- **Graph React host** → `src/components/graph/` (`graph-canvas`, node-detail dialog)
+- **Graph React host** → `src/components/graph/` (Cosmograph canvas + node-detail dialog)
+- **Parked Pixi engine** → `src/deprecated/pixi-graph/` (not product imports)
 - **Server DB** → `src/lib/falkor.ts` (topology only — not under the client graph package; no product `x`/`y`/`rank` writes)
 - **Agent tools / schemas** → `src/ai/tools/`, `src/ai/schemas/*-schema.ts` (domain barrels; no root dual-export shims)
 - **Chat UI** → `src/components/chat/{prompt,conversation,shell}/` domain barrels only (no ai-elements / root dual shims)
 
 **Note:** Chat prompt SoT is `chat/prompt/` domain tree + barrel (`PromptInputProvider` + `shell/prompt-input.tsx` form, pieces under header/body/ask/attachments/footer). Product entry is zero-prop `PromptInputWorkspace`. Live UI uses non-morph pending-ask options when the agent asks. Morph widget + `src/deprecated/`, dead hooks `use-chat-submit` / `use-mobile`, and `ChatProviderWrapper` are removed. The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts`.
 
-**Graph note:** Continuous layout off by default. FA2/graphology removed; placement policy follows [`plans/client-placement-cache.md`](plans/client-placement-cache.md). **`placeTopology`** owns fingerprint hit/miss (hit → cached `{x,y}`; miss → assemble at `(0,0)` → pure `settleGraphData` → save poses). Host dynamic-imports `createGraphPaintLoop` from `layout-loop-d3` (`setGraph(graph)` only; no settle option). Falkor holds topology only — no server placement writes. Deprecated cleanup program: [`plans/safe-deprecated-cleanup.md`](plans/safe-deprecated-cleanup.md). Universal residency (viewport + overscan + spatial index + bake worker) applies for all graph sizes under quality bans.
+**Graph note:** Product `/graph` is Cosmograph (`enableSimulation` on). Falkor holds topology only — no server placement writes. Pixi/RTC/bake/`placeTopology` snapshot lives under `src/deprecated/pixi-graph/`.
 
 **Agent rules:** project instruction rules live under `.grok/rules/` (e.g. `code-perferences/`, `orchestration/`). Historical folder name `code-perferences` is intentional; do not rename without verifying the rules loader.
 
@@ -252,7 +246,7 @@ Graph is **adjacent infrastructure**; chat-first short-term goal stands.
 2. Run `npm run dev` — `localhost:3000` (`/` landing, `/home` chat, `/graph` live knowledge graph)
 3. Optional structure checks: `npm run verify:components-structure`, `npm run verify:reorg-scope`, `npm run verify:widget-cleanup`
 4. Open Penpot — design references on the "Spy" canvas
-5. Prefer package barrels for product/cross-package code: `@/components/chat`, `@/components/ui`, `@/components/dotmatrix`, `@/components/logos`, `@/ai`, `@/lib/graph`. Inside a package use relative imports (never that package barrel — avoids cycles). Flat lib modules (`@/lib/utils`, `@/lib/falkor`, …) stay single-file entry points. No dual-path root shims.
+5. Prefer package barrels for product/cross-package code: `@/components/chat`, `@/components/ui`, `@/components/dotmatrix`, `@/components/logos`, `@/ai`, `@/components/graph`. Inside a package use relative imports (never that package barrel — avoids cycles). Flat lib modules (`@/lib/utils`, `@/lib/falkor`, …) stay single-file entry points. No dual-path root shims.
 6. CTA on landing owns its interaction state; spider mascot animation host is **removed** (`src/animation/` gone — asset may remain under `public/`)
 7. Do not resurrect ask-user-question **morph** / `src/deprecated/` (removed) into production without a redesign task (non-morph pending-ask in `prompt/` is already live)
 
