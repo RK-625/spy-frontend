@@ -76,7 +76,7 @@ export function GraphCanvas() {
       simulationLinkDistance: 8,
       linkDefaultArrows: false,
       linkArrowBy: "arrow",
-      linkArrowsSizeScale: 0.6,
+      linkArrowsSizeScale: 2,
       onPointClick: handlePointClick,
       statusIndicatorMode: false,
     }),
