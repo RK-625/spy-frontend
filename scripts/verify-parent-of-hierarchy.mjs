@@ -99,9 +99,9 @@ assert(
 );
 
 const sizes = findNodeSizes({ ranks, rootById });
-assert(sizes.get("dsa") === 1, "root size 1/(0+1)");
-assert(sizes.get("arrays") === 0.5, "rank-1 size 1/2");
-assert(sizes.get("binary-search") === 1 / 3, "rank-2 size 1/3");
+assert(sizes.get("dsa") === 8, "root size POINT_SIZE_BASE_PX/(0+1)");
+assert(sizes.get("arrays") === 4, "rank-1 size 8/2");
+assert(sizes.get("binary-search") === 8 / 3, "rank-2 size 8/3");
 
 const existing = [
   { source: "dsa", target: "arrays", type: "PARENT_OF" },

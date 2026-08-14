@@ -26,8 +26,9 @@ const LINK_PARENT_OF = "#8a96b4";
 const LINK_RELATES = "#9a7ab8";
 const LINK_PARENT_OF_STRENGTH = 1;
 const LINK_RELATES_STRENGTH = 0.05;
-const LINK_PARENT_OF_WIDTH = 2;
-const LINK_RELATES_WIDTH = 0.8;
+/** Cosmograph direct widths are pixels 1:1 (default link ~1). Keep under node sizes. */
+const LINK_PARENT_OF_WIDTH = 1;
+const LINK_RELATES_WIDTH = 0.5;
 
 /**
  * Live-only knowledge graph host (Cosmograph).
@@ -87,7 +88,7 @@ export function GraphCanvas() {
       linkVisibilityMinTransparency: 0.25,
       linkDefaultArrows: false,
       linkArrowBy: "arrow",
-      linkArrowsSizeScale: 4,
+      linkArrowsSizeScale: 1,
       onPointClick: handlePointClick,
       statusIndicatorMode: false,
     }),

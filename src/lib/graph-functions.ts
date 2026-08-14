@@ -79,9 +79,17 @@ export function findNodeColors({
   return colors;
 }
 
-/** Root = 1. Deeper → smaller. No min/max clamp — zoom owns screen scale. */
+/**
+ * Cosmograph `pointSizeStrategy: "direct"` treats values as pixel sizes 1:1
+ * (cosmos default point is ~4; auto range is [2, 9]). Rank weight alone
+ * (0–1) renders as sub-pixel dots — scale to readable screen pixels.
+ * Root largest; deeper ranks smaller. Zoom still scales when enabled on host.
+ */
+export const POINT_SIZE_BASE_PX = 8;
+
+/** Root ≈ POINT_SIZE_BASE_PX; deeper → smaller (rank 1 ≈ 4, rank 2 ≈ 2.67, …). */
 export function sizeFromRank(rank: number): number {
-  return 1 / (rank + 1);
+  return POINT_SIZE_BASE_PX / (rank + 1);
 }
 
 export function findNodeSizes({ ranks }: NodeHierarchy): Map<string, number> {
