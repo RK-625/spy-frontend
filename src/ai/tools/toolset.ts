@@ -12,7 +12,7 @@ import { modelConfig } from "../models/modelstore";
 import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
-  hasOutgoingLink,
+  createParentOfLink as falkorCreateParentOfLink,
   setMemoryQuestions as falkorSetMemoryQuestions,
   vectorSearchByQuestions as falkorVectorSearchByQuestions,
 } from "@/lib/falkor";
@@ -172,16 +172,11 @@ export function createToolSet(
     inputSchema: linkMemoriesInputSchema,
     execute: async ({ source, target, type }) => {
       try {
-        if (type === "PART_OF") {
-          const hasParent = await hasOutgoingLink(source, "PART_OF");
-          if (hasParent) {
-            return {
-              error: `Link failed: Memory '${source}' already has a PART_OF parent link. A Memory can have at most one PART_OF parent.`,
-            };
-          }
+        if (type === "PARENT_OF") {
+          await falkorCreateParentOfLink({ source, target, type });
+        } else {
+          await falkorCreateLink({ source, target, type });
         }
-
-        await falkorCreateLink({ source, target, type });
 
         return { type, source, target };
       } catch (error) {

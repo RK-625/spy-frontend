@@ -7,15 +7,14 @@ import type { GraphApiResponse } from "@/types/graph-topology";
  * GET /api/graph — read-only Memory + Links topology for `/graph`.
  *
  * - No embeddings in the payload.
- * - Topology only (no x/y/rank). Client owns placement via localStorage cache
- *   (`plans/client-placement-cache.md`); this route never reads/writes poses.
+ * - Topology only (no x/y/rank). This route never reads/writes poses.
  * - Wire SoT: `GraphApiResponse` / `GraphTopology` in `@/types/graph-topology`
- *   (`MemoryNode[]` + `links[]`, not GraphNode). Client maps via
- *   `placeTopology`.
+ *   (`MemoryNode[]` + `links[]`, not GraphNode). Client Cosmograph maps
+ *   memories/links to points/links.
  * - Empty DB → `{ ok: true, empty: true, memories: [], links: [] }`.
  *
- * Product canvas (`/graph`, live-only — `plans/graph-live-only-pivot.md`):
- * always fetches this route on mount. Empty KB / error → blank canvas (no mock).
+ * Product canvas (`/graph`, live-only): always fetches this route on mount.
+ * Empty KB / error → blank canvas (no mock).
  * No product URL flags for source/mock/stress/layout/motion.
  */
 export const runtime = "nodejs";

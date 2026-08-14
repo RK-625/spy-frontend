@@ -209,6 +209,6 @@ Do NOT look like:
 - Desktop only for v1 (no responsive/mobile yet)
 - No sound
 - Product is a real Next.js app with API routes (not a pure static marketing demo). Design work should still avoid inventing new backend contracts without product intent.
-- Graph edges (when using memory graph): `PART_OF` and `RELATES_TO` only — see `AGENTS.md`
+- Graph edges (when using memory graph): `PARENT_OF` (parent → child) and `RELATES_TO` only — see `AGENTS.md`
 - Node.js runtime for FalkorDB-touching routes (not Edge)
 - Restrained rounded corners only (`--radius`)

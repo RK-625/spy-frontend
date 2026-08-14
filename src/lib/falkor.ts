@@ -287,7 +287,7 @@ export async function setMemoryQuestions(
 
 export async function hasOutgoingLink(
   source: string,
-  type: "PART_OF" | "RELATES_TO",
+  type: "PARENT_OF" | "RELATES_TO",
 ): Promise<boolean> {
   const validSource = z.string().min(1).parse(source);
   const graph = await getDb();
@@ -305,6 +305,31 @@ export async function hasOutgoingLink(
     return count > 0;
   } catch (error) {
     console.error("hasOutgoingLink error:", error);
+    throw error;
+  }
+}
+
+/** True if `target` already has an incoming edge of `type` (e.g. a PARENT_OF parent). */
+export async function hasIncomingLink(
+  target: string,
+  type: "PARENT_OF" | "RELATES_TO",
+): Promise<boolean> {
+  const validTarget = z.string().min(1).parse(target);
+  const graph = await getDb();
+  const query = `
+    MATCH ()-[r:${type}]->(t:Memory {id: $target})
+    RETURN count(r) AS count
+  `;
+  try {
+    const result = (await graph.query(query, {
+      params: { target: validTarget },
+    })) as { data: Array<{ count: unknown }> };
+    const countVal = result.data?.[0]?.count;
+    const count =
+      typeof countVal === "number" ? countVal : Number(countVal ?? 0);
+    return count > 0;
+  } catch (error) {
+    console.error("hasIncomingLink error:", error);
     throw error;
   }
 }
@@ -374,7 +399,64 @@ export async function createLink(link: Links) {
 }
 
 /**
- * Read-only: all Memory nodes + PART_OF / RELATES_TO links for the graph canvas.
+ * Atomic PARENT_OF create: one Cypher write that MERGEs when the child has no
+ * *different* PARENT_OF parent. Same source→target is idempotent (MERGE no-op).
+ * A different parent blocks (no reparent / last-wins). Empty result is classified
+ * via hasIncomingLink (error message only; write is atomic).
+ */
+export async function createParentOfLink(link: Links): Promise<"PARENT_OF"> {
+  const parsed = LinksSchema.parse(link);
+  if (parsed.type !== "PARENT_OF") {
+    throw new Error(
+      `createParentOfLink requires type PARENT_OF, got ${parsed.type}`,
+    );
+  }
+
+  const graph = await getDb();
+
+  // Block only a *different* parent; same-source edge does not bind as blocker.
+  const query = `
+    MATCH (source:Memory {id: $source})
+    MATCH (target:Memory {id: $target})
+    OPTIONAL MATCH (other)-[existing:PARENT_OF]->(target)
+    WHERE other.id <> $source
+    WITH source, target, existing
+    WHERE existing IS NULL
+    MERGE (source)-[r:PARENT_OF]->(target)
+    RETURN type(r) AS type
+  `;
+
+  try {
+    const result = (await graph.query(query, {
+      params: { source: parsed.source, target: parsed.target },
+    })) as { data: Array<{ type: string }> };
+
+    if (result.data.length > 0) {
+      return "PARENT_OF";
+    }
+
+    // Write did not land — classify for the tool error string only.
+    const alreadyHasParent = await hasIncomingLink(
+      parsed.target,
+      "PARENT_OF",
+    );
+    if (alreadyHasParent) {
+      throw new Error(
+        `Link failed: Memory '${parsed.target}' already has a PARENT_OF parent. A Memory can have at most one PARENT_OF parent.`,
+      );
+    }
+
+    throw new Error(
+      `Link not created — source (${parsed.source}) or target (${parsed.target}) not found`,
+    );
+  } catch (error) {
+    console.error("Create PARENT_OF Link Error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Read-only: all Memory nodes + PARENT_OF / RELATES_TO links for the graph canvas.
  * Omits embeddings. Does not write layout. Trusts write-path shape (no row filters).
  * NEVER returns MemoryQuestion or FOR_MEMORY (canvas topology is Memory-only).
  */
@@ -392,7 +474,7 @@ export async function listGraphTopology(): Promise<GraphTopology> {
 
   const linkQuery = `
     MATCH (a:Memory)-[r]->(b:Memory)
-    WHERE type(r) IN ['PART_OF', 'RELATES_TO']
+    WHERE type(r) IN ['PARENT_OF', 'RELATES_TO']
     RETURN a.id AS source, b.id AS target, type(r) AS type
   `;
 

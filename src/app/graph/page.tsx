@@ -7,8 +7,8 @@ export const metadata: Metadata = {
 
 /**
  * Live-only knowledge graph product route (`/graph`).
- * Client boundary is GraphCanvas ("use client") — Pixi + RTC + paint mount there only.
- * No URL query flags; always live GET `/api/graph` (see graph-live-only-pivot).
+ * Client boundary is GraphCanvas ("use client") — Cosmograph mount there only.
+ * No URL query flags; always live GET `/api/graph`.
  */
 export default function GraphPage() {
   return <GraphCanvas />;
