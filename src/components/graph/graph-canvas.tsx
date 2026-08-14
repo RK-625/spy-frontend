@@ -22,8 +22,8 @@ import { NodeDetailDialog } from "./node-detail-dialog";
 /** Deepest register — same family as former GRAPH_BG (0x0a0a0c). */
 const GRAPH_BG = "#0a0a0c";
 const POINT_COLOR = "#c8acfb";
-const LINK_PARENT_OF = "#4e5a72";
-const LINK_RELATES = "#6a5870";
+const LINK_PARENT_OF = "#8a96b4";
+const LINK_RELATES = "#9a7ab8";
 const LINK_PARENT_OF_STRENGTH = 1;
 const LINK_RELATES_STRENGTH = 0.25;
 
@@ -73,11 +73,10 @@ export function GraphCanvas() {
       selectPointOnClick: false,
       focusPointOnClick: false,
       focusPointOnLabelClick: false,
-      linkColorBy: "type",
-      linkColorByFn: (value: unknown) =>
-        value === "PARENT_OF" ? LINK_PARENT_OF : LINK_RELATES,
+      linkColorBy: "color",
+      linkColorStrategy: "direct",
       linkStrengthBy: "strength",
-      simulationLinkDistance: 8,
+      simulationLinkDistance: 4,
       linkDefaultArrows: false,
       linkArrowBy: "arrow",
       linkArrowsSizeScale: 2,
@@ -131,6 +130,7 @@ export function GraphCanvas() {
             source: link.source,
             target: link.target,
             type: link.type,
+            color: isParentOf ? LINK_PARENT_OF : LINK_RELATES,
             strength: isParentOf
               ? LINK_PARENT_OF_STRENGTH
               : LINK_RELATES_STRENGTH,
@@ -148,6 +148,7 @@ export function GraphCanvas() {
             links: {
               linkSourceBy: "source",
               linkTargetsBy: ["target"],
+              linkColorBy: "color",
               linkStrengthBy: "strength",
               linkArrowBy: "arrow",
             },
