@@ -25,7 +25,16 @@ const POINT_COLOR = "#c8acfb";
 const LINK_PARENT_OF = "#8a96b4";
 const LINK_RELATES = "#9a7ab8";
 const LINK_PARENT_OF_STRENGTH = 1;
-const LINK_RELATES_STRENGTH = 0.05;
+const LINK_RELATES_STRENGTH = 0.3;
+const SIMULATION_REPULSION = 1.0;
+const SIMULATION_LINK_DISTANCE = 10;
+const SIMULATION_CENTER = 0.5;
+const SIMULATION_GRAVITY = 0; // default 0.25 squashes the star
+const SIMULATION_LINK_DIST_RANDOM_RANGE: NonNullable<
+  CosmographConfig["simulationLinkDistRandomVariationRange"]
+> = [1, 1]; // [1,1] kills spoke jitter
+const SIMULATION_LINK_SPRING = 1;
+const ARROW_SIZE_SCALE = 3;
 // Width left to Cosmograph (`linkDefaultWidth`, typically 1).
 // const LINK_PARENT_OF_WIDTH = 0.8;
 // const LINK_RELATES_WIDTH = 0.35;
@@ -67,29 +76,22 @@ export function GraphCanvas() {
       pointColorStrategy: "direct",
       pointSizeBy: "size",
       pointSizeStrategy: "direct",
-      // Fit-zoom on a small graph multiplies world sizes. Keep both
-      // points and links in screen pixels (cosmos defaults: false).
       scalePointsOnZoom: false,
-      scaleLinksOnZoom: false,
       hoveredPointCursor: "pointer",
-      pointLabelBy: "label",
-      showDynamicLabels: true,
-      showHoveredPointLabel: true,
       renderHoveredPointRing: true,
       hoveredPointRingColor: "#e8dff8",
-      selectPointOnClick: false,
-      focusPointOnClick: false,
-      focusPointOnLabelClick: false,
       linkColorBy: "color",
       linkColorStrategy: "direct",
-      // linkWidthBy / linkWidthStrategy omitted — Cosmograph default width
       linkStrengthBy: "strength",
-      simulationLinkDistance: 20,
-      linkVisibilityDistanceRange: [50, 150],
-      linkVisibilityMinTransparency: 0.25,
+      simulationRepulsion: SIMULATION_REPULSION,
+      simulationCenter: SIMULATION_CENTER,
+      simulationGravity: SIMULATION_GRAVITY,
+      simulationLinkDistRandomVariationRange: SIMULATION_LINK_DIST_RANDOM_RANGE,
+      simulationLinkDistance: SIMULATION_LINK_DISTANCE,
+      simulationLinkSpring: SIMULATION_LINK_SPRING,
       linkDefaultArrows: false,
       linkArrowBy: "arrow",
-      linkArrowsSizeScale: 1,
+      linkArrowsSizeScale: ARROW_SIZE_SCALE,
       onPointClick: handlePointClick,
       statusIndicatorMode: false,
     }),
