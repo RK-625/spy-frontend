@@ -26,9 +26,9 @@ const LINK_PARENT_OF = "#8a96b4";
 const LINK_RELATES = "#9a7ab8";
 const LINK_PARENT_OF_STRENGTH = 1;
 const LINK_RELATES_STRENGTH = 0.05;
-/** Screen-stable px (scaleLinksOnZoom off). Cosmos default link ~1. */
-const LINK_PARENT_OF_WIDTH = 0.8;
-const LINK_RELATES_WIDTH = 0.35;
+// Width left to Cosmograph (`linkDefaultWidth`, typically 1).
+// const LINK_PARENT_OF_WIDTH = 0.8;
+// const LINK_RELATES_WIDTH = 0.35;
 
 /**
  * Live-only knowledge graph host (Cosmograph).
@@ -82,8 +82,7 @@ export function GraphCanvas() {
       focusPointOnLabelClick: false,
       linkColorBy: "color",
       linkColorStrategy: "direct",
-      linkWidthBy: "width",
-      linkWidthStrategy: "direct",
+      // linkWidthBy / linkWidthStrategy omitted — Cosmograph default width
       linkStrengthBy: "strength",
       simulationLinkDistance: 20,
       linkVisibilityDistanceRange: [50, 150],
@@ -145,7 +144,6 @@ export function GraphCanvas() {
             strength: isParentOf
               ? LINK_PARENT_OF_STRENGTH
               : LINK_RELATES_STRENGTH,
-            width: isParentOf ? LINK_PARENT_OF_WIDTH : LINK_RELATES_WIDTH,
             arrow: isParentOf,
           };
         });
@@ -161,7 +159,6 @@ export function GraphCanvas() {
               linkSourceBy: "source",
               linkTargetsBy: ["target"],
               linkColorBy: "color",
-              linkWidthBy: "width",
               linkStrengthBy: "strength",
               linkArrowBy: "arrow",
             },
