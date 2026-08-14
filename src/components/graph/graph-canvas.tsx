@@ -26,9 +26,9 @@ const LINK_PARENT_OF = "#8a96b4";
 const LINK_RELATES = "#9a7ab8";
 const LINK_PARENT_OF_STRENGTH = 1;
 const LINK_RELATES_STRENGTH = 0.05;
-/** Cosmograph direct widths are pixels 1:1 (default link ~1). Keep under node sizes. */
-const LINK_PARENT_OF_WIDTH = 1;
-const LINK_RELATES_WIDTH = 0.5;
+/** Screen-stable px (scaleLinksOnZoom off). Cosmos default link ~1. */
+const LINK_PARENT_OF_WIDTH = 0.8;
+const LINK_RELATES_WIDTH = 0.35;
 
 /**
  * Live-only knowledge graph host (Cosmograph).
@@ -68,7 +68,9 @@ export function GraphCanvas() {
       pointSizeBy: "size",
       pointSizeStrategy: "direct",
       scalePointsOnZoom: true,
-      scaleLinksOnZoom: true,
+      // World-scale links explode when fit-zoom is high (tight cluster).
+      // Cosmos default: false — keep stroke width in screen pixels.
+      scaleLinksOnZoom: false,
       hoveredPointCursor: "pointer",
       pointLabelBy: "label",
       showDynamicLabels: true,
@@ -83,7 +85,7 @@ export function GraphCanvas() {
       linkWidthBy: "width",
       linkWidthStrategy: "direct",
       linkStrengthBy: "strength",
-      simulationLinkDistance: 2,
+      simulationLinkDistance: 20,
       linkVisibilityDistanceRange: [50, 150],
       linkVisibilityMinTransparency: 0.25,
       linkDefaultArrows: false,
