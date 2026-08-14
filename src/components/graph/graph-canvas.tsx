@@ -26,6 +26,8 @@ const LINK_PARENT_OF = "#8a96b4";
 const LINK_RELATES = "#9a7ab8";
 const LINK_PARENT_OF_STRENGTH = 1;
 const LINK_RELATES_STRENGTH = 0.25;
+const LINK_PARENT_OF_WIDTH = 2;
+const LINK_RELATES_WIDTH = 0.8;
 
 /**
  * Live-only knowledge graph host (Cosmograph).
@@ -65,6 +67,8 @@ export function GraphCanvas() {
       pointSizeBy: "size",
       pointSizeStrategy: "direct",
       scalePointsOnZoom: true,
+      scaleLinksOnZoom: true,
+      hoveredPointCursor: "pointer",
       pointLabelBy: "label",
       showDynamicLabels: true,
       showHoveredPointLabel: true,
@@ -75,8 +79,12 @@ export function GraphCanvas() {
       focusPointOnLabelClick: false,
       linkColorBy: "color",
       linkColorStrategy: "direct",
+      linkWidthBy: "width",
+      linkWidthStrategy: "direct",
       linkStrengthBy: "strength",
       simulationLinkDistance: 4,
+      linkVisibilityDistanceRange: [50, 150],
+      linkVisibilityMinTransparency: 0.25,
       linkDefaultArrows: false,
       linkArrowBy: "arrow",
       linkArrowsSizeScale: 2,
@@ -134,6 +142,7 @@ export function GraphCanvas() {
             strength: isParentOf
               ? LINK_PARENT_OF_STRENGTH
               : LINK_RELATES_STRENGTH,
+            width: isParentOf ? LINK_PARENT_OF_WIDTH : LINK_RELATES_WIDTH,
             arrow: isParentOf,
           };
         });
@@ -149,6 +158,7 @@ export function GraphCanvas() {
               linkSourceBy: "source",
               linkTargetsBy: ["target"],
               linkColorBy: "color",
+              linkWidthBy: "width",
               linkStrengthBy: "strength",
               linkArrowBy: "arrow",
             },
