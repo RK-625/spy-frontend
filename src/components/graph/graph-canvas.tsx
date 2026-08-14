@@ -70,7 +70,7 @@ export function GraphCanvas() {
       showHoveredPointLabel: true,
       renderHoveredPointRing: true,
       hoveredPointRingColor: "#e8dff8",
-      selectPointOnClick: "single",
+      selectPointOnClick: false,
       focusPointOnClick: false,
       focusPointOnLabelClick: false,
       linkColorBy: "type",
