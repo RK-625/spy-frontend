@@ -71,7 +71,8 @@ export function GraphCanvas() {
       renderHoveredPointRing: true,
       hoveredPointRingColor: "#e8dff8",
       selectPointOnClick: "single",
-      focusPointOnClick: true,
+      focusPointOnClick: false,
+      focusPointOnLabelClick: false,
       linkColorBy: "type",
       linkColorByFn: (value: unknown) =>
         value === "PARENT_OF" ? LINK_PARENT_OF : LINK_RELATES,
