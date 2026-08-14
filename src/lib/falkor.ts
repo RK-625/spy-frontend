@@ -399,6 +399,63 @@ export async function createLink(link: Links) {
 }
 
 /**
+ * Atomic PARENT_OF create: one Cypher write that MERGEs when the child has no
+ * *different* PARENT_OF parent. Same source→target is idempotent (MERGE no-op).
+ * A different parent blocks (no reparent / last-wins). Empty result is classified
+ * via hasIncomingLink (error message only; write is atomic).
+ */
+export async function createParentOfLink(link: Links): Promise<"PARENT_OF"> {
+  const parsed = LinksSchema.parse(link);
+  if (parsed.type !== "PARENT_OF") {
+    throw new Error(
+      `createParentOfLink requires type PARENT_OF, got ${parsed.type}`,
+    );
+  }
+
+  const graph = await getDb();
+
+  // Block only a *different* parent; same-source edge does not bind as blocker.
+  const query = `
+    MATCH (source:Memory {id: $source})
+    MATCH (target:Memory {id: $target})
+    OPTIONAL MATCH (other)-[existing:PARENT_OF]->(target)
+    WHERE other.id <> $source
+    WITH source, target, existing
+    WHERE existing IS NULL
+    MERGE (source)-[r:PARENT_OF]->(target)
+    RETURN type(r) AS type
+  `;
+
+  try {
+    const result = (await graph.query(query, {
+      params: { source: parsed.source, target: parsed.target },
+    })) as { data: Array<{ type: string }> };
+
+    if (result.data.length > 0) {
+      return "PARENT_OF";
+    }
+
+    // Write did not land — classify for the tool error string only.
+    const alreadyHasParent = await hasIncomingLink(
+      parsed.target,
+      "PARENT_OF",
+    );
+    if (alreadyHasParent) {
+      throw new Error(
+        `Link failed: Memory '${parsed.target}' already has a PARENT_OF parent. A Memory can have at most one PARENT_OF parent.`,
+      );
+    }
+
+    throw new Error(
+      `Link not created — source (${parsed.source}) or target (${parsed.target}) not found`,
+    );
+  } catch (error) {
+    console.error("Create PARENT_OF Link Error:", error);
+    throw error;
+  }
+}
+
+/**
  * Read-only: all Memory nodes + PARENT_OF / RELATES_TO links for the graph canvas.
  * Omits embeddings. Does not write layout. Trusts write-path shape (no row filters).
  * NEVER returns MemoryQuestion or FOR_MEMORY (canvas topology is Memory-only).

@@ -12,7 +12,7 @@ import { modelConfig } from "../models/modelstore";
 import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
-  hasIncomingLink,
+  createParentOfLink as falkorCreateParentOfLink,
   setMemoryQuestions as falkorSetMemoryQuestions,
   vectorSearchByQuestions as falkorVectorSearchByQuestions,
 } from "@/lib/falkor";
@@ -173,15 +173,10 @@ export function createToolSet(
     execute: async ({ source, target, type }) => {
       try {
         if (type === "PARENT_OF") {
-          const hasParent = await hasIncomingLink(target, "PARENT_OF");
-          if (hasParent) {
-            return {
-              error: `Link failed: Memory '${target}' already has a PARENT_OF parent. A Memory can have at most one PARENT_OF parent.`,
-            };
-          }
+          await falkorCreateParentOfLink({ source, target, type });
+        } else {
+          await falkorCreateLink({ source, target, type });
         }
-
-        await falkorCreateLink({ source, target, type });
 
         return { type, source, target };
       } catch (error) {

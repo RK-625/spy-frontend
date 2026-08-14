@@ -163,12 +163,30 @@ const toolset = fs.readFileSync(
   "utf8",
 );
 assert(
-  toolset.includes('hasIncomingLink(target, "PARENT_OF")'),
-  "one-parent guard is incoming PARENT_OF on the child (target)",
+  toolset.includes("falkorCreateParentOfLink") ||
+    toolset.includes("createParentOfLink"),
+  "linkMemories uses atomic createParentOfLink for PARENT_OF",
+);
+assert(
+  !toolset.includes('hasIncomingLink(target, "PARENT_OF")'),
+  "toolset does not check-then-create PARENT_OF (TOCTOU)",
 );
 assert(
   !toolset.includes("hasOutgoingLink(source"),
   "old outgoing-from-child PART_OF guard is gone",
+);
+
+const falkor = fs.readFileSync(path.join(root, "src/lib/falkor.ts"), "utf8");
+assert(
+  falkor.includes("export async function createParentOfLink"),
+  "falkor exports createParentOfLink",
+);
+assert(
+  falkor.includes("OPTIONAL MATCH (other)-[existing:PARENT_OF]->(target)") &&
+    (falkor.includes("other.id <> $source") ||
+      falkor.includes("WHERE other.id <> $source")) &&
+    falkor.includes("WHERE existing IS NULL"),
+  "createParentOfLink Cypher blocks only a different parent (other.id <> $source)",
 );
 
 if (failed > 0) {
