@@ -85,11 +85,17 @@ export function findNodeColors({
  * (0–1) renders as sub-pixel dots — scale to readable screen pixels.
  * Root largest; deeper ranks smaller. Host keeps scalePointsOnZoom off.
  */
-export const POINT_SIZE_BASE_PX = 8;
+export const POINT_SIZE_BASE_PX = 15;
 
 /** Root ≈ POINT_SIZE_BASE_PX; deeper → smaller (rank 1 ≈ 4, rank 2 ≈ 2.67, …). */
 export function sizeFromRank(rank: number): number {
   return POINT_SIZE_BASE_PX / (rank + 1);
+}
+
+/** PARENT_OF spring from child rank. Inverse of parent+child size pair; no cap. Rank 1 ≈ 0.67; deeper → stronger. */
+export function strengthFromChildRank(childRank: number): number {
+  const r = Math.max(1, childRank);
+  return (r * (r + 1)) / (2 * r + 1);
 }
 
 export function findNodeSizes({ ranks }: NodeHierarchy): Map<string, number> {

@@ -14,6 +14,7 @@ import {
   findNodeColors,
   findNodeRanks,
   findNodeSizes,
+  strengthFromChildRank,
 } from "@/lib/graph-functions";
 import type { MemoryNode } from "@/types/graph-schema";
 import type { GraphApiResponse } from "@/types/graph-topology";
@@ -24,16 +25,15 @@ const GRAPH_BG = "#0a0a0c";
 const POINT_COLOR = "#c8acfb";
 const LINK_PARENT_OF = "#8a96b4";
 const LINK_RELATES = "#9a7ab8";
-const LINK_PARENT_OF_STRENGTH = 1;
 const LINK_RELATES_STRENGTH = 0.3;
-const SIMULATION_REPULSION = 1.0;
-const SIMULATION_LINK_DISTANCE = 10;
+const SIMULATION_REPULSION = 0.4;
+const SIMULATION_LINK_DISTANCE = 3;
 const SIMULATION_CENTER = 0.5;
 const SIMULATION_GRAVITY = 0; // default 0.25 squashes the star
 const SIMULATION_LINK_DIST_RANDOM_RANGE: NonNullable<
   CosmographConfig["simulationLinkDistRandomVariationRange"]
 > = [1, 1]; // [1,1] kills spoke jitter
-const SIMULATION_LINK_SPRING = 1;
+const SIMULATION_LINK_SPRING = 1.5;
 const ARROW_SIZE_SCALE = 3;
 // Width left to Cosmograph (`linkDefaultWidth`, typically 1).
 // const LINK_PARENT_OF_WIDTH = 0.8;
@@ -83,6 +83,8 @@ export function GraphCanvas() {
       linkColorBy: "color",
       linkColorStrategy: "direct",
       linkStrengthBy: "strength",
+      // Pass column through; default log-range would flatten rank strengths.
+      linkStrengthByFn: (value: number) => value,
       simulationRepulsion: SIMULATION_REPULSION,
       simulationCenter: SIMULATION_CENTER,
       simulationGravity: SIMULATION_GRAVITY,
@@ -144,7 +146,7 @@ export function GraphCanvas() {
             type: link.type,
             color: isParentOf ? LINK_PARENT_OF : LINK_RELATES,
             strength: isParentOf
-              ? LINK_PARENT_OF_STRENGTH
+              ? strengthFromChildRank(hierarchy.ranks.get(link.target) ?? 1)
               : LINK_RELATES_STRENGTH,
             arrow: isParentOf,
           };
