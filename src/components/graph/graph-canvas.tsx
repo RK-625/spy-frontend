@@ -67,9 +67,9 @@ export function GraphCanvas() {
       pointColorStrategy: "direct",
       pointSizeBy: "size",
       pointSizeStrategy: "direct",
-      scalePointsOnZoom: true,
-      // World-scale links explode when fit-zoom is high (tight cluster).
-      // Cosmos default: false — keep stroke width in screen pixels.
+      // Fit-zoom on a small graph multiplies world sizes. Keep both
+      // points and links in screen pixels (cosmos defaults: false).
+      scalePointsOnZoom: false,
       scaleLinksOnZoom: false,
       hoveredPointCursor: "pointer",
       pointLabelBy: "label",
