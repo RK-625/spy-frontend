@@ -25,7 +25,7 @@ const POINT_COLOR = "#c8acfb";
 const LINK_PARENT_OF = "#8a96b4";
 const LINK_RELATES = "#9a7ab8";
 const LINK_PARENT_OF_STRENGTH = 1;
-const LINK_RELATES_STRENGTH = 0.25;
+const LINK_RELATES_STRENGTH = 0.05;
 
 /**
  * Live-only knowledge graph host (Cosmograph).
@@ -76,10 +76,10 @@ export function GraphCanvas() {
       linkColorBy: "color",
       linkColorStrategy: "direct",
       linkStrengthBy: "strength",
-      simulationLinkDistance: 4,
+      simulationLinkDistance: 2,
       linkDefaultArrows: false,
       linkArrowBy: "arrow",
-      linkArrowsSizeScale: 2,
+      linkArrowsSizeScale: 4,
       onPointClick: handlePointClick,
       statusIndicatorMode: false,
     }),
