@@ -1,17 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { DirectedGraph } from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
 import { createEdgeArrowProgram, drawDiscNodeHover } from "sigma/rendering";
 
-import {
-  findNodeColors,
-  findNodeRanks,
-  findNodeSizes,
-  strengthFromChildRank,
-} from "@/lib/graph-functions";
+import { buildLayoutGraph, POINT_COLOR } from "@/lib/graph-functions";
 import type { Links, MemoryNode } from "@/types/graph-schema";
 import type { GraphApiResponse } from "@/types/graph-topology";
 
@@ -19,12 +13,6 @@ import { NodeDetailDialog } from "./node-detail-dialog";
 
 /** Deepest register — same family as former GRAPH_BG (0x0a0a0c). */
 const GRAPH_BG = "#0a0a0c";
-const POINT_COLOR = "#c8acfb";
-const LINK_PARENT_OF = "#8a96b4";
-const LINK_RELATES = "#9a7ab8";
-/** FA2 edge weight for RELATES_TO (not a layout spring). */
-const RELATES_FA2_WEIGHT = 0.3;
-const EDGE_SIZE = 1;
 /** PARENT_OF heads only — 4× Sigma default (2.5 / 2). Shaft stays EDGE_SIZE. */
 const PARENT_ARROW_PROGRAM = createEdgeArrowProgram({
   lengthToThicknessRatio: 10,
@@ -34,62 +22,10 @@ const PARENT_ARROW_PROGRAM = createEdgeArrowProgram({
 const FA2_ITERATIONS = 360;
 const FA2_STEPS_PER_FRAME = 2;
 
-interface SigmaNodeAttrs {
-  x: number;
-  y: number;
-  size: number;
-  color: string;
-  label: string;
-}
-
-interface SigmaEdgeAttrs {
-  color: string;
-  size: number;
-  type: "arrow" | "line";
-  weight: number;
-}
-
-type SigmaGraph = DirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>;
-
 type SigmaTopology = {
   memories: MemoryNode[];
   links: Links[];
 };
-
-/** Circle-seeded topology only — FA2 runs live after Sigma mounts. */
-function buildLayoutGraph(memories: MemoryNode[], links: Links[]): SigmaGraph {
-  const graph = new DirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>();
-  const ids = memories.map((memory) => memory.id);
-  const hierarchy = findNodeRanks(ids, links);
-  const colors = findNodeColors(hierarchy);
-  const sizes = findNodeSizes(hierarchy);
-  const count = memories.length;
-  memories.forEach((memory, index) => {
-    const angle = (2 * Math.PI * index) / Math.max(count, 1);
-    graph.addNode(memory.id, {
-      x: Math.cos(angle),
-      y: Math.sin(angle),
-      size: sizes.get(memory.id) ?? 1,
-      color: colors.get(memory.id) ?? POINT_COLOR,
-      label: memory.name,
-    });
-  });
-  for (const link of links) {
-    if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue;
-    if (graph.hasEdge(link.source, link.target)) continue;
-    const isParentOf = link.type === "PARENT_OF";
-    graph.addEdge(link.source, link.target, {
-      color: isParentOf ? LINK_PARENT_OF : LINK_RELATES,
-      size: EDGE_SIZE,
-      type: isParentOf ? "arrow" : "line",
-      weight: isParentOf
-        ? strengthFromChildRank(hierarchy.ranks.get(link.target) ?? 1)
-        : RELATES_FA2_WEIGHT,
-    });
-  }
-
-  return graph;
-}
 
 /**
  * Live-only knowledge graph host (graphology FA2 + Sigma).

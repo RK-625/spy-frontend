@@ -118,26 +118,35 @@ assert(
     : `leftover PART_OF in ${partOfHits.map((f) => f.rel).join(", ")}`,
 );
 
+const layoutGraph = fs.readFileSync(
+  path.join(root, "src/lib/graph-functions.ts"),
+  "utf8",
+);
+assert(
+  layoutGraph.includes('link.type === "PARENT_OF"'),
+  "layout graph compares hierarchy as PARENT_OF",
+);
+assert(
+  !/isPartOf \? link\.target : link\.source/.test(layoutGraph),
+  "layout graph does not flip PARENT_OF endpoints",
+);
+assert(
+  layoutGraph.includes("addEdge(link.source, link.target"),
+  "layout graph maps source→target as stored",
+);
+assert(
+  layoutGraph.includes('type: isParentOf ? "arrow" : "line"') &&
+    layoutGraph.includes("strengthFromChildRank"),
+  "strength/arrow still hierarchy vs RELATES",
+);
+
 const canvas = fs.readFileSync(
   path.join(root, "src/components/graph/sigma-canvas.tsx"),
   "utf8",
 );
 assert(
-  canvas.includes('link.type === "PARENT_OF"'),
-  "canvas compares hierarchy as PARENT_OF",
-);
-assert(
-  !/isPartOf \? link\.target : link\.source/.test(canvas),
-  "canvas does not flip PARENT_OF endpoints",
-);
-assert(
-  canvas.includes("addEdge(link.source, link.target"),
-  "canvas maps source→target as stored",
-);
-assert(
-  canvas.includes('type: isParentOf ? "arrow" : "line"') &&
-    canvas.includes("strengthFromChildRank"),
-  "strength/arrow still hierarchy vs RELATES",
+  canvas.includes("buildLayoutGraph"),
+  "canvas still seeds Sigma via buildLayoutGraph",
 );
 
 const toolset = fs.readFileSync(

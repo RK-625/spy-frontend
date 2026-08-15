@@ -1,4 +1,30 @@
-import type { Links } from "@/types/graph-schema";
+import { DirectedGraph } from "graphology";
+
+import type { Links, MemoryNode } from "@/types/graph-schema";
+
+export const POINT_COLOR = "#c8acfb";
+export const LINK_PARENT_OF = "#8a96b4";
+export const LINK_RELATES = "#9a7ab8";
+/** FA2 edge weight for RELATES_TO (not a layout spring). */
+export const RELATES_FA2_WEIGHT = 0.3;
+export const EDGE_SIZE = 1;
+
+export interface SigmaNodeAttrs {
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  label: string;
+}
+
+export interface SigmaEdgeAttrs {
+  color: string;
+  size: number;
+  type: "arrow" | "line";
+  weight: number;
+}
+
+export type SigmaGraph = DirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>;
 
 export type NodeHierarchy = {
   ranks: Map<string, number>;
@@ -63,7 +89,7 @@ export function findNodeColors({
   for (const [id, rootId] of rootById) {
     colors.set(
       id,
-      rootId == null ? "#c8acfb" : shade(hueOf(rootId), ranks.get(id) ?? 0),
+      rootId == null ? POINT_COLOR : shade(hueOf(rootId), ranks.get(id) ?? 0),
     );
   }
   return colors;
@@ -114,4 +140,42 @@ function shade(h: number, rank: number): string {
       .padStart(2, "0");
   };
   return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+/** Circle-seeded topology only — FA2 runs live after Sigma mounts. */
+export function buildLayoutGraph(
+  memories: MemoryNode[],
+  links: Links[],
+): SigmaGraph {
+  const graph = new DirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>();
+  const ids = memories.map((memory) => memory.id);
+  const hierarchy = findNodeRanks(ids, links);
+  const colors = findNodeColors(hierarchy);
+  const sizes = findNodeSizes(hierarchy);
+  const count = memories.length;
+  memories.forEach((memory, index) => {
+    const angle = (2 * Math.PI * index) / Math.max(count, 1);
+    graph.addNode(memory.id, {
+      x: Math.cos(angle),
+      y: Math.sin(angle),
+      size: sizes.get(memory.id) ?? 1,
+      color: colors.get(memory.id) ?? POINT_COLOR,
+      label: memory.name,
+    });
+  });
+  for (const link of links) {
+    if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue;
+    if (graph.hasEdge(link.source, link.target)) continue;
+    const isParentOf = link.type === "PARENT_OF";
+    graph.addEdge(link.source, link.target, {
+      color: isParentOf ? LINK_PARENT_OF : LINK_RELATES,
+      size: EDGE_SIZE,
+      type: isParentOf ? "arrow" : "line",
+      weight: isParentOf
+        ? strengthFromChildRank(hierarchy.ranks.get(link.target) ?? 1)
+        : RELATES_FA2_WEIGHT,
+    });
+  }
+
+  return graph;
 }
