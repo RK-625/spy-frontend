@@ -1,5 +1,5 @@
 /**
- * Drive shipped PARENT_OF rank / color / one-parent helpers.
+ * Drive shipped PARENT_OF rank / color helpers.
  *
  * Run: npx tsx scripts/verify-parent-of-hierarchy.mjs
  * Or:  npm run verify:parent-of-hierarchy
@@ -51,7 +51,6 @@ const {
   findNodeRanks,
   findNodeColors,
   findNodeSizes,
-  childHasIncomingParentOf,
   POINT_SIZE_BASE_PX,
 } = await import(
   pathToFileURL(path.join(root, "src/lib/graph-functions.ts")).href
@@ -108,30 +107,6 @@ assert(sizes.get("arrays") === POINT_SIZE_BASE_PX / 2, "rank-1 size base/2");
 assert(
   sizes.get("binary-search") === POINT_SIZE_BASE_PX / 3,
   "rank-2 size base/3",
-);
-
-const existing = [
-  { source: "dsa", target: "arrays", type: "PARENT_OF" },
-  { source: "dsa", target: "graphs", type: "PARENT_OF" },
-];
-assert(
-  childHasIncomingParentOf(existing, "arrays"),
-  "arrays already has incoming PARENT_OF — second parent rejected",
-);
-assert(
-  !childHasIncomingParentOf(existing, "heaps"),
-  "heaps has no parent — PARENT_OF dsa→heaps allowed",
-);
-assert(
-  childHasIncomingParentOf(existing, "graphs"),
-  "graphs already a child of dsa",
-);
-assert(
-  !childHasIncomingParentOf(
-    [{ source: "dsa", target: "arrays", type: "RELATES_TO" }],
-    "arrays",
-  ),
-  "RELATES_TO is not a parent",
 );
 
 const live = collectLiveText();

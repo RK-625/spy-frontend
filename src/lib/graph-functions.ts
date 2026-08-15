@@ -8,16 +8,6 @@ export type NodeHierarchy = {
 
 type Walk = { rank: number; rootId: string | null };
 
-/** True if `childId` already has an incoming PARENT_OF (one parent max). */
-export function childHasIncomingParentOf(
-  links: readonly Links[],
-  childId: string,
-): boolean {
-  return links.some(
-    (link) => link.type === "PARENT_OF" && link.target === childId,
-  );
-}
-
 /** PARENT_OF only. Parent → child. First parent wins. */
 export function findNodeRanks(
   nodeIds: readonly string[],
