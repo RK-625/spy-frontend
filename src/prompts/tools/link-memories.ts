@@ -30,4 +30,4 @@ For PARENT_OF this MUST be the child (more specific node).`;
 export const linkMemoriesTypeFieldDescription = `PARENT_OF: hierarchical parent→child (source=parent, target=child).
 RELATES_TO: associative link with no hierarchy.
 Your job is correct links only (and removing a wrong old PARENT_OF when that is supported).
-The graph client derives rank from PARENT_OF and places nodes from topology; tools never author geometry.`;
+The graph client derives rank from PARENT_OF and places nodes from topology.`;

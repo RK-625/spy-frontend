@@ -11,10 +11,8 @@ import {
 } from "@/lib/policy-tokens";
 
 /** Policy-derived target count for MemoryQuestion generation. */
-export const MEMORY_QUESTION_COUNT_TARGET = Math.min(
-  MEMORY_QUESTION_COUNT_MAX,
-  Math.max(MEMORY_QUESTION_COUNT_MIN, MEMORY_QUESTIONS_PER_MEMORY),
-);
+export const MEMORY_QUESTION_COUNT_TARGET =
+  Math.max(MEMORY_QUESTION_COUNT_MIN, MEMORY_QUESTIONS_PER_MEMORY);
 
 /** `tool({ description })` for upsertMemory in the product toolset. */
 export const upsertMemoryToolDescription = `Create or update a Memory node in the knowledge graph.
@@ -27,13 +25,12 @@ Structure via linkMemories.`;
 
 /** Short how-to bullet for the agent system prompt. */
 export const UPSERT_MEMORY_AGENT_BULLET = `create (omit id) or update (pass id).
-Short name, clear content, optional impression/confidence.
+Short name, clear content, impression and confidence.
 The system auto-generates retrieval questions via LLM for Q↔Q search — do **not** invent or pass questions.
-When they correct earlier knowledge, update the same id if you have it.
-Never pass layout fields.`;
+When they correct earlier knowledge, update the same id if you have it.`;
 
 /** Zod `.describe(...)` for the `name` field on upsertMemory input schema. */
-export const upsertMemoryNameFieldDescription = `Short title / node label for the knowledge graph
+export const upsertMemoryNameFieldDescription = `Short title / node label of the memory.
 (e.g. 'React Server Components', not a full paragraph).`;
 
 /** Zod `.describe(...)` for the `content` field on upsertMemory input schema. */
@@ -41,18 +38,16 @@ export const upsertMemoryContentFieldDescription = `Facts, knowledge, or a clear
 Keep focused — one concept per node when possible.`;
 
 /** Zod `.describe(...)` for the optional `impression` field on upsertMemory input schema. */
-export const upsertMemoryImpressionFieldDescription = `Spy's evolving read of how the user relates to this knowledge —
-their grasp, interest, confusion, or emotional angle. Omit if unknown.`;
+export const upsertMemoryImpressionFieldDescription = `Spy's evolving read of how the user relates to this memory —
+their grasp, interest, confusion, or emotional angle.`;
 
 /** Zod `.describe(...)` for the optional `confidence` field on upsertMemory input schema. */
-export const upsertMemoryConfidenceFieldDescription = `How solid the user's grasp of this memory is, from 0 (uncertain) to 1 (firm).
-Omit if unknown; defaults to 0.5.`;
+export const upsertMemoryConfidenceFieldDescription = `How solid the user's grasp of this memory is, from 0 (uncertain) to 1 (firm).`;
 
 /** Zod `.describe(...)` for the optional `id` field on upsertMemory input schema. */
 export const upsertMemoryIdFieldDescription = `Existing Memory id to update content/name/impression/confidence.
 Omit to create a new memory (system generates id).
-Updates change content only — tools never author geometry.
-Do NOT pass or invent canvas coordinates (x, y) or rank; the graph client places nodes from topology/cache.
+Updates change content only.
 Structure (PARENT_OF / RELATES_TO) is via linkMemories, not this tool.
 Intermediate hierarchy: create nodes here, then link correctly.`;
 

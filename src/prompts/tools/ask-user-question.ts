@@ -4,7 +4,7 @@
  */
 
 /** `tool({ description })` for askUserQuestion in the product toolset. */
-export const askUserQuestionToolDescription = `Resolve ambiguity or force a decision with a multiple-choice question (2–5 options).
+export const askUserQuestionToolDescription = `Resolve ambiguity over a topic or force the user to pick a choice with a multiple-choice question (2–5 options).
 Set allowCustomInput true only when a write-in is reasonable.
 Do not use for open-ended chat.`;
 

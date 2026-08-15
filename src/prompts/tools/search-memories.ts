@@ -35,7 +35,7 @@ Prefer synonym / related-concept diversity, not only the exact title keyword.
 Not first-person user-meta ("What do I know about…?"); not generic fluff.`;
 
 /** Short how-to bullet for the agent system prompt. */
-export const SEARCH_MEMORIES_AGENT_BULLET = `pass 1–N natural-language questions in ${MEMORY_SEARCH_AGENT_RECALL_STYLE}.
+export const SEARCH_MEMORIES_AGENT_BULLET = `You can pass 1–N natural-language questions in ${MEMORY_SEARCH_AGENT_RECALL_STYLE}.
 Expand synonyms / related concepts (same family as stored MemoryQuestions) for better Q↔Q hits.
 Multi-ANN + RRF over stored MemoryQuestions returns Memory hits.
-Use before create to avoid duplicates and to find ids for update/link.`;
+Use before create to avoid duplicates and to find ids for update/link OR to find existing memories of the user for a better understanding of what the user already knows.`;
