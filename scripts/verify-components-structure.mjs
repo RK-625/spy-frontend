@@ -86,8 +86,7 @@ const required = [
   "src/components/logos/deepseek.tsx",
 
   // graph host
-  "src/components/graph/graph-canvas.tsx",
-  "src/components/graph/d3-canvas.tsx",
+  "src/components/graph/sigma-canvas.tsx",
   "src/components/graph/node-detail-dialog.tsx",
 ];
 

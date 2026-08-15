@@ -2,15 +2,14 @@ import type { Metadata } from "next";
 import { SigmaCanvas } from "@/components/graph";
 
 export const metadata: Metadata = {
-  title: "Graph · Spy",
+  title: "Sigma · Spy",
 };
 
 /**
- * Live-only knowledge graph product route (`/graph`).
+ * Live-only knowledge graph Sigma route (`/sigma`).
  * Client boundary is SigmaCanvas ("use client") — graphology FA2 + Sigma draw there only.
- * GET `/api/graph` remains the product topology route; this page mounts SigmaCanvas.
- * No URL query flags; live topology only.
+ * No URL query flags; always live GET `/api/sigma`.
  */
-export default function GraphPage() {
+export default function SigmaPage() {
   return <SigmaCanvas />;
 }

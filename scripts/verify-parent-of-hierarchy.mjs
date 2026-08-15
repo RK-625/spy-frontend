@@ -52,6 +52,7 @@ const {
   findNodeColors,
   findNodeSizes,
   childHasIncomingParentOf,
+  POINT_SIZE_BASE_PX,
 } = await import(
   pathToFileURL(path.join(root, "src/lib/graph-functions.ts")).href
 );
@@ -99,9 +100,15 @@ assert(
 );
 
 const sizes = findNodeSizes({ ranks, rootById });
-assert(sizes.get("dsa") === 8, "root size POINT_SIZE_BASE_PX/(0+1)");
-assert(sizes.get("arrays") === 4, "rank-1 size 8/2");
-assert(sizes.get("binary-search") === 8 / 3, "rank-2 size 8/3");
+assert(
+  sizes.get("dsa") === POINT_SIZE_BASE_PX,
+  "root size POINT_SIZE_BASE_PX/(0+1)",
+);
+assert(sizes.get("arrays") === POINT_SIZE_BASE_PX / 2, "rank-1 size base/2");
+assert(
+  sizes.get("binary-search") === POINT_SIZE_BASE_PX / 3,
+  "rank-2 size base/3",
+);
 
 const existing = [
   { source: "dsa", target: "arrays", type: "PARENT_OF" },
@@ -137,7 +144,7 @@ assert(
 );
 
 const canvas = fs.readFileSync(
-  path.join(root, "src/components/graph/graph-canvas.tsx"),
+  path.join(root, "src/components/graph/sigma-canvas.tsx"),
   "utf8",
 );
 assert(
@@ -149,12 +156,12 @@ assert(
   "canvas does not flip PARENT_OF endpoints",
 );
 assert(
-  canvas.includes("source: link.source") &&
-    canvas.includes("target: link.target"),
+  canvas.includes("addEdge(link.source, link.target"),
   "canvas maps source→target as stored",
 );
 assert(
-  canvas.includes("LINK_PARENT_OF_STRENGTH") && canvas.includes("arrow: isParentOf"),
+  canvas.includes('type: isParentOf ? "arrow" : "line"') &&
+    canvas.includes("strengthFromChildRank"),
   "strength/arrow still hierarchy vs RELATES",
 );
 

@@ -3,7 +3,7 @@
  *
  * Client-safe SoT (no Node, Falkor, or embeddings). Used by:
  * - server: `listGraphTopology` (falkor), `GET /api/graph`
- * - client: `/graph` host (`graph-canvas`) maps topology → Cosmograph points/links
+ * - client: `/graph` host (`sigma-canvas`) maps topology → Sigma nodes/edges
  *
  * Topology is Memory-only (core fields). Embeddings live on MemoryQuestion
  * (`questionEmbedding`) and are never on this wire payload.

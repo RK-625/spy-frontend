@@ -9,8 +9,8 @@ import type { GraphApiResponse } from "@/types/graph-topology";
  * - No embeddings in the payload.
  * - Topology only (no x/y/rank). This route never reads/writes poses.
  * - Wire SoT: `GraphApiResponse` / `GraphTopology` in `@/types/graph-topology`
- *   (`MemoryNode[]` + `links[]`, not GraphNode). Client Cosmograph maps
- *   memories/links to points/links.
+ *   (`MemoryNode[]` + `links[]`, not GraphNode). Client Sigma maps
+ *   memories/links to nodes/edges.
  * - Empty DB → `{ ok: true, empty: true, memories: [], links: [] }`.
  *
  * Product canvas (`/graph`, live-only): always fetches this route on mount.

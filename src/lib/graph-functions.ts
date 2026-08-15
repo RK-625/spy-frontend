@@ -80,10 +80,9 @@ export function findNodeColors({
 }
 
 /**
- * Cosmograph `pointSizeStrategy: "direct"` treats values as pixel sizes 1:1
- * (cosmos default point is ~4; auto range is [2, 9]). Rank weight alone
- * (0–1) renders as sub-pixel dots — scale to readable screen pixels.
- * Root largest; deeper ranks smaller. Host keeps scalePointsOnZoom off.
+ * Node sizes are screen pixels for Sigma. Rank weight alone (0–1) would
+ * render as sub-pixel dots — scale to readable screen pixels.
+ * Root largest; deeper ranks smaller.
  */
 export const POINT_SIZE_BASE_PX = 15;
 
