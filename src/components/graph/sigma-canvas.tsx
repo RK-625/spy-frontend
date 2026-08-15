@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { DirectedGraph } from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
-import { EdgeArrowProgram } from "sigma/rendering";
+import { createEdgeArrowProgram, drawDiscNodeHover } from "sigma/rendering";
 
 import {
   findNodeColors,
@@ -25,6 +25,11 @@ const LINK_RELATES = "#9a7ab8";
 /** FA2 edge weight for RELATES_TO (not a layout spring). */
 const RELATES_FA2_WEIGHT = 0.3;
 const EDGE_SIZE = 1;
+/** PARENT_OF heads only — 4× Sigma default (2.5 / 2). Shaft stays EDGE_SIZE. */
+const PARENT_ARROW_PROGRAM = createEdgeArrowProgram({
+  lengthToThicknessRatio: 10,
+  widenessToThicknessRatio: 8,
+});
 /** Live FA2 budget: 360 steps × 2/frame ≈ 180 frames (~3s at 60fps). */
 const FA2_ITERATIONS = 360;
 const FA2_STEPS_PER_FRAME = 2;
@@ -156,13 +161,15 @@ export function SigmaCanvas() {
       const instance = new Sigma(graph, host, {
         defaultNodeColor: POINT_COLOR,
         renderLabels: false,
-        defaultDrawNodeHover: () => {},
+        defaultDrawNodeHover: (context, data, settings) =>
+          drawDiscNodeHover(context, { ...data, label: null }, settings),
         itemSizesReference: "screen",
+        minEdgeThickness: 0,
         autoRescale: true,
         autoCenter: true,
         minCameraRatio: 0.3,
         defaultEdgeType: "line",
-        edgeProgramClasses: { arrow: EdgeArrowProgram },
+        edgeProgramClasses: { arrow: PARENT_ARROW_PROGRAM },
         allowInvalidContainer: false,
       });
       instance.on("clickNode", ({ node }) => {
