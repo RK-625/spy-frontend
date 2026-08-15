@@ -14,7 +14,7 @@ Spy is an agent-first knowledge base. The user doesn't organize their own notes.
 
 The **landing page** is shipped. **Primary product surface is chat** at `/home` — conversation, sidebar, prompt shell, streaming, and agent tools. The chat should feel like talking to an alien intelligence that's already weaving your knowledge.
 
-**Knowledge graph canvas** lives at `/graph` (and `/sigma`) — Sigma + graphology FA2. Live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client Sigma host maps topology; Sigma + graphology FA2 own layout, camera, and draw. Empty KB / fetch error → blank canvas (no mock product path).
+**Knowledge graph canvas** lives at `/graph` — Sigma + graphology FA2. Live topology only via `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client Sigma host maps topology; Sigma + graphology FA2 own layout, camera, and draw. Empty KB / fetch error → blank canvas (no mock product path).
 
 **Ask-user-question (live only):**
 - **Pending-ask body:** non-morph option list in production prompt shell (`body` + `ask/pending-ask`). Zero-prop `PromptInputWorkspace` wires `getPendingAskUserQuestion` / `formatAskUserQuestionAnswer` and forced-choice submit gating. Helpers: `src/lib/ask-user-question.ts`. Tool may still exist in `src/ai/tools/toolset.ts`. Morph widget and `src/deprecated/` were removed — do not reintroduce without an explicit redesign.
@@ -80,7 +80,7 @@ These are things a new engineer might not guess. They must be followed:
 
 Landing (`/`) is the front door and is already in good shape — polish as needed, but do not treat “build the landing from scratch” as the primary goal.
 
-**Graph (`/graph`):** Sigma canvas (graphology FA2; also `/sigma`). **Live-only product path:** `/graph` — no product `?stress` / `?source` / `?layout` / `?motion`. Always fetches `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client Sigma host maps topology; Sigma + graphology FA2 own layout, camera, and draw. Empty KB / fetch error → blank canvas (no mock). Next graph work is full KB residency / live dirty. Details under **What's left**.
+**Graph (`/graph`):** Sigma canvas (graphology FA2). **Live-only product path:** `/graph` — no product `?stress` / `?source` / `?layout` / `?motion`. Always fetches `GET /api/graph` (Falkor memories + links; no embeddings, no server xy). Client Sigma host maps topology; Sigma + graphology FA2 own layout, camera, and draw. Empty KB / fetch error → blank canvas (no mock). Next graph work is full KB residency / live dirty. Details under **What's left**.
 
 **Prompt input:** production SoT is under `src/components/chat/prompt/` (`shell/prompt-input.tsx` form + `shell/context.tsx` with `PromptInputProvider` draft/prefs; barrel `@/components/chat/prompt`). Pieces live under `header/`, `body/`, `ask/`, `attachments/`, `footer/`. **`PromptInputWorkspace` is a zero-prop product shell** (mounts provider + wires chat stream/prefs internally for `/home`). Live pending-ask is the non-morph option list (`body` + `ask/pending-ask`). Morph widget and `src/deprecated/` are gone — do not reintroduce without redesign.
 
@@ -137,7 +137,7 @@ src/
 │   │   ├── shell/            — Product chrome SoT (sidebar, settings, command palette)
 │   │   └── index.ts          — chat barrel (prefer domain folders or this barrel)
 │   ├── graph/                — Graph React host (Sigma)
-│   │   ├── sigma-canvas.tsx  — Host for `/graph` and `/sigma` (live topology → Sigma)
+│   │   ├── sigma-canvas.tsx  — Host for `/graph` (live topology → Sigma)
 │   │   └── node-detail-dialog.tsx — Node inspector overlay
 │   ├── landing/              — Landing/marketing surfaces
 │   │   ├── hero-section.tsx  — Hero layout
@@ -172,7 +172,7 @@ src/
 
 **Note:** Chat prompt SoT is `chat/prompt/` domain tree + barrel (`PromptInputProvider` + `shell/prompt-input.tsx` form, pieces under header/body/ask/attachments/footer). Product entry is zero-prop `PromptInputWorkspace`. Live UI uses non-morph pending-ask options when the agent asks. Morph widget + `src/deprecated/`, dead hooks `use-chat-submit` / `use-mobile`, and `ChatProviderWrapper` are removed. The AI `askUserQuestion` tool may still exist in `src/ai/tools/toolset.ts`.
 
-**Graph note:** Product `/graph` (and `/sigma`) is Sigma (graphology FA2). Sigma + graphology FA2 own layout, camera, and draw. Falkor holds topology only — no server placement writes.
+**Graph note:** Product `/graph` is Sigma (graphology FA2). Sigma + graphology FA2 own layout, camera, and draw. Falkor holds topology only — no server placement writes.
 
 **Agent rules:** project instruction rules live under `.grok/rules/` (e.g. `code-perferences/`, `orchestration/`). Historical folder name `code-perferences` is intentional; do not rename without verifying the rules loader.
 
