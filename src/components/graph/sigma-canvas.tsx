@@ -90,7 +90,7 @@ function buildLayoutGraph(memories: MemoryNode[], links: Links[]): SigmaGraph {
 
 /**
  * Live-only knowledge graph host (graphology FA2 + Sigma).
- * GET `/api/sigma` → circle seed → Sigma draw + live FA2 (rAF).
+ * GET `/api/graph` → circle seed → Sigma draw + live FA2 (rAF).
  * Empty KB / fetch error → blank canvas (no mock).
  */
 export function SigmaCanvas() {
@@ -110,7 +110,7 @@ export function SigmaCanvas() {
 
     void (async () => {
       try {
-        const res = await fetch("/api/sigma");
+        const res = await fetch("/api/graph");
         const data = (await res.json()) as GraphApiResponse;
         if (cancelled) return;
 
