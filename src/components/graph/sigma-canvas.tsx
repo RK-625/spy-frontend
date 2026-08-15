@@ -59,7 +59,6 @@ function buildLayoutGraph(memories: MemoryNode[], links: Links[]): SigmaGraph {
   const colors = findNodeColors(hierarchy);
   const sizes = findNodeSizes(hierarchy);
   const count = memories.length;
-
   memories.forEach((memory, index) => {
     const angle = (2 * Math.PI * index) / Math.max(count, 1);
     graph.addNode(memory.id, {
@@ -70,7 +69,6 @@ function buildLayoutGraph(memories: MemoryNode[], links: Links[]): SigmaGraph {
       label: memory.name,
     });
   });
-
   for (const link of links) {
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue;
     if (graph.hasEdge(link.source, link.target)) continue;
@@ -158,6 +156,7 @@ export function SigmaCanvas() {
       const instance = new Sigma(graph, host, {
         defaultNodeColor: POINT_COLOR,
         renderLabels: false,
+        defaultDrawNodeHover: () => {},
         itemSizesReference: "screen",
         autoRescale: true,
         autoCenter: true,
