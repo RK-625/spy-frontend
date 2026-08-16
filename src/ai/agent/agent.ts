@@ -6,6 +6,7 @@ import {
 } from "ai";
 import { createToolSet } from "../tools/toolset";
 import { modelConfig } from "../models/modelstore";
+import { slimJson } from "../slim-json";
 import { systemPrompt } from "@/prompts/system-prompt";
 
 export async function runAgent({
@@ -40,6 +41,22 @@ export async function runAgent({
     // Non-web: room for upsertMemory + manageLinks (+ ask) without truncating.
     stopWhen: useWebSearch ? stepCountIs(25) : stepCountIs(8),
     providerOptions: resolvedProviderOptions,
+    experimental_onToolCallFinish(event) {
+      const { toolCall, success, durationMs, stepNumber } = event;
+      const payload = {
+        step: stepNumber,
+        ms: durationMs,
+        input: toolCall.input,
+        ...(success
+          ? { output: slimJson(event.output) }
+          : { error: slimJson(event.error) }),
+      };
+      if (success) {
+        console.log("[tool]", toolCall.toolName, payload);
+      } else {
+        console.error("[tool]", toolCall.toolName, payload);
+      }
+    },
   });
   return result;
 }

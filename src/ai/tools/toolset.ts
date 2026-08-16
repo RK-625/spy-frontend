@@ -10,6 +10,7 @@ import { getMemoriesInputSchema } from "../schemas/get-schema";
 import { webSearchInputSchema } from "../schemas/web-search-schema";
 import { generateEmbedding } from "../models/embeddings";
 import { modelConfig } from "../models/modelstore";
+import { slimJson } from "../slim-json";
 import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
@@ -135,6 +136,12 @@ export function createToolSet(
           output: Output.array({
             element: z.string().min(1).max(RETRIEVAL_QUESTION_MAX_CHARS),
           }),
+          onFinish({ text }) {
+            console.log("[tool]", "upsertMemory:questions", {
+              input: slimJson(memoryPayload),
+              output: slimJson(text),
+            });
+          },
         });
         if (output == null) {
           throw new Error("upsertMemory: model returned no output.");
