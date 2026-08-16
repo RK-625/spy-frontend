@@ -15,7 +15,7 @@ import {
 } from "@/types/graph-schema";
 import type { GraphTopology } from "@/types/graph-topology";
 import {
-  MEMORY_SEARCH_RRF_K,
+  MEMORY_SEARCH_MIN_COSINE,
   MEMORY_SEARCH_TOP_K,
 } from "@/lib/policy-tokens";
 import { z } from "zod";
@@ -146,41 +146,23 @@ export async function getDb() {
   return graph;
 }
 
-/**
- * Reciprocal Rank Fusion over per-query memory id rankings.
- * Rank is 1-based. When the same memory appears multiple times in one list,
- * only the best (lowest) rank contributes for that list.
- */
-function fuseRankedMemoryIdsWithRrf(
-  rankedMemoryIdLists: string[][],
-  rrfK: number = MEMORY_SEARCH_RRF_K,
-): Map<string, number> {
-  const rrfScoresByMemoryId = new Map<string, number>();
-  for (const list of rankedMemoryIdLists) {
-    const seenInList = new Set<string>();
-    list.forEach((memoryId, index) => {
-      if (seenInList.has(memoryId)) return;
-      seenInList.add(memoryId);
-      const rank = index + 1;
-      const contribution = 1 / (rrfK + rank);
-      rrfScoresByMemoryId.set(
-        memoryId,
-        (rrfScoresByMemoryId.get(memoryId) ?? 0) + contribution,
-      );
-    });
-  }
-  return rrfScoresByMemoryId;
-}
+/** Local ANN row from Cypher — slim id/name/score only (not a full Memory). */
+type AnnProbeRow = {
+  id: string;
+  name: string;
+  score: number;
+};
 
 /**
- * Product vector search: multi-ANN over MemoryQuestion.questionEmbedding, follow
- * FOR_MEMORY to parent Memory, fuse with RRF by memory id.
- * Returns lean MemorySearchHit[] (no embeddings, no MemoryQuestion rows).
+ * Product vector search: each probe embedding is its own ANN lookup over
+ * MemoryQuestion.questionEmbedding (FOR_MEMORY → Memory). Per-probe cosine
+ * floor (MEMORY_SEARCH_MIN_COSINE); no cross-probe fusion.
+ * Returns MemorySearchHit[][] aligned with embeddings (results[i] = probe i).
  */
 export async function vectorSearchByQuestions(
   embeddings: number[][],
   topK: number = MEMORY_SEARCH_TOP_K,
-): Promise<MemorySearchHit[]> {
+): Promise<MemorySearchHit[][]> {
   if (embeddings.length === 0) {
     return [];
   }
@@ -192,50 +174,37 @@ export async function vectorSearchByQuestions(
     MATCH (node)-[:FOR_MEMORY]->(m:Memory)
     RETURN m.id AS id,
            m.name AS name,
-           m.content AS content,
-           m.impression AS impression,
-           m.confidence AS confidence,
            score
   `;
 
-  const memoryById = new Map<string, MemoryNode>();
-  const rankedLists: string[][] = [];
-
   try {
+    const results: MemorySearchHit[][] = [];
+
     for (const embedding of embeddings) {
       const result = (await graph.query(annQuery, {
         params: { topK, embedding },
-      })) as { data: MemorySearchHit[] };
+      })) as { data: AnnProbeRow[] };
 
-      const orderedIds: string[] = [];
+      const bestByMemoryId = new Map<string, MemorySearchHit>();
       for (const row of result.data ?? []) {
-        if (!memoryById.has(row.id)) {
-          memoryById.set(row.id, {
+        if (row.score < MEMORY_SEARCH_MIN_COSINE) continue;
+        const prior = bestByMemoryId.get(row.id);
+        if (prior == null || row.score > prior.score) {
+          bestByMemoryId.set(row.id, {
             id: row.id,
             name: row.name,
-            content: row.content,
-            impression: row.impression,
-            confidence: row.confidence,
+            score: row.score,
           });
         }
-        orderedIds.push(row.id);
       }
-      rankedLists.push(orderedIds);
+
+      const probeHits = Array.from(bestByMemoryId.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK);
+      results.push(probeHits);
     }
 
-    const rrfScoresByMemoryId = fuseRankedMemoryIdsWithRrf(
-      rankedLists,
-      MEMORY_SEARCH_RRF_K,
-    );
-    const hits: MemorySearchHit[] = [];
-    for (const [memoryId, score] of rrfScoresByMemoryId) {
-      const node = memoryById.get(memoryId);
-      if (node == null) continue;
-      hits.push({ ...node, score });
-    }
-
-    hits.sort((a, b) => b.score - a.score);
-    return hits.slice(0, topK);
+    return results;
   } catch (error) {
     console.error("vectorSearchByQuestions error:", error);
     throw error;

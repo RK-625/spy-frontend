@@ -48,8 +48,15 @@ export type MemoryQuestion = z.infer<typeof MemoryQuestion>;
  */
 export type MemoryNode = Memory;
 
-/** Vector search hit: Memory + fused RRF score. */
-export type MemorySearchHit = MemoryNode & { score: number };
+/**
+ * Slim vector-search hit for one probe: id + name + best ANN cosine.
+ * Score is that probe’s cosine, not RRF, and not a full Memory body.
+ */
+export type MemorySearchHit = {
+  id: string;
+  name: string;
+  score: number;
+};
 
 /** Recursive PARENT_OF child in a getMemories cone. */
 export type MemoryChild = {

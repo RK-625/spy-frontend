@@ -60,6 +60,7 @@ Examples (surface → topic / home Memory → parent to search; attach as noted)
 - Zustand vs Redux discussion → each concept its own node; RELATES_TO each other (not PARENT_OF).
 - React hooks PARENT_OF useEffect cleanup (tighter child under hooks).
 **Search that address:** "searchMemories" probes must include surface + topic + that parent (synonym or close sibling if slots remain). Do not search only the title they typed.
+results is one list per probe; empty = miss. Parent-only hit → hang new topic as child; surface/topic hit → refine that id.
 Search existing memories before every create.
 After search, getMemories on the candidate id (hops 1 to see parent/children) before refine or attach.
 getMemories can request RELATES_TO (or both linkTypes) when you need associations; copy those triples into manageLinks remove/upsert.

@@ -20,9 +20,11 @@ First classify the turn (surface → topic → one parent), then pass 1–${MEMO
 (e.g. a Dijkstra → shortest path algorithm + Graph Data Structures).
 Expand synonyms / related concepts so a probe about surface can hit the correct memories or parent memories for example - "shortest path" can hit a Dijkstra Memory.
 Probes are agent-side recall: third-person about whether the user already knows something.
-Multi-ANN + RRF returns Memory hits.
+Each probe is embedded and searched independently (Q↔Q ANN). results[i] is that probe’s survivors: {id, name, cosine score}.
+Hits below the server cosine floor are omitted. Empty inner list = that probe missed; all empty = new topic.
+Parent-only hit → create child, do not refine the parent. Surface/topic hit → refine that id.
+Use getMemories on a chosen id for body.
 Use before create to find a same-pattern id, a parent, or children to adopt.
-Hits give ids; use getMemories to inspect.
 Does not invent layout or write nodes.`;
 
 /**
@@ -32,13 +34,16 @@ export const searchMemoriesQuestionsFieldDescription = `1–${MEMORY_SEARCH_MAX_
 agent-stateful third-person probes covering surface + pattern/topic + one parent
 (e.g. "Has the user studied House Robber?", "Does the user know DP on arrays?",
 "Has the user studied dynamic programming?").
-Each is embedded; multi-ANN + RRF returns Memory hits.
+Each is embedded and searched independently (Q↔Q ANN); results[i] lists that probe’s survivors (id, name, cosine).
+Hits below the server cosine floor are omitted. Empty inner list = miss; all empty = new topic.
 Not first-person user-meta; not generic fluff; not title-only.`;
 
 /** Short how-to bullet for the agent system prompt. */
 export const SEARCH_MEMORIES_AGENT_BULLET = `You can pass 1–N natural-language questions in ${MEMORY_SEARCH_AGENT_RECALL_STYLE}.
 Expand synonyms / related concepts (same family as stored MemoryQuestions) for better Q↔Q hits.
-Multi-ANN + RRF over stored MemoryQuestions returns Memory hits.
+Each probe is embedded and searched independently; results[i] is that probe’s survivors (id, name, cosine score).
+Hits below the server cosine floor are omitted. Empty inner list = that probe missed; all empty = new topic.
 Classify the turn first, then probe surface + pattern + one parent.
-Hits give ids; use getMemories to inspect.
+Parent-only hit → create child, do not refine the parent. Surface/topic hit → refine that id.
+Use getMemories on a chosen id for body.
 Use hits to refine the same-pattern id, hang under a parent, or adopt children.`;
