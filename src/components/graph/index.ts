@@ -1,12 +1,13 @@
 /**
- * Graph React host barrel — product surface for `/graph` via SigmaCanvas
- * (graphology FA2 + Sigma).
+ * Graph React host barrel — product surface for `/graph` via SigmaCanvasHost
+ * (dynamic, client-only; Sigma never evaluates in Node).
  *
- * Prefer: `import { SigmaCanvas, NodeDetailDialog } from "@/components/graph"`.
+ * Prefer: `import { SigmaCanvasHost, NodeDetailDialog } from "@/components/graph"`.
  * Inside graph/* use relative imports (never this barrel — avoids cycles).
+ * Do not re-export SigmaCanvas here — that pulls WebGL into the RSC graph.
  *
  * `/graph` is Sigma. Sigma + graphology FA2 own layout + camera + draw.
  */
 
-export { SigmaCanvas } from "./sigma-canvas";
+export { SigmaCanvasHost } from "./sigma-canvas-host";
 export { NodeDetailDialog } from "./node-detail-dialog";
