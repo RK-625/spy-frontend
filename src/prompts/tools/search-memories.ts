@@ -22,6 +22,7 @@ Expand synonyms / related concepts so a probe about surface can hit the correct 
 Probes are agent-side recall: third-person about whether the user already knows something.
 Multi-ANN + RRF returns Memory hits.
 Use before create to find a same-pattern id, a parent, or children to adopt.
+Hits give ids; use getMemories to inspect.
 Does not invent layout or write nodes.`;
 
 /**
@@ -39,4 +40,5 @@ export const SEARCH_MEMORIES_AGENT_BULLET = `You can pass 1–N natural-language
 Expand synonyms / related concepts (same family as stored MemoryQuestions) for better Q↔Q hits.
 Multi-ANN + RRF over stored MemoryQuestions returns Memory hits.
 Classify the turn first, then probe surface + pattern + one parent.
+Hits give ids; use getMemories to inspect.
 Use hits to refine the same-pattern id, hang under a parent, or adopt children.`;

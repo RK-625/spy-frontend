@@ -23,6 +23,13 @@ export {
 } from "./search-memories";
 
 export {
+  GET_MEMORIES_AGENT_BULLET,
+  getMemoriesToolDescription,
+  getMemoriesIdFieldDescription,
+  getMemoriesHopsFieldDescription,
+} from "./get-memories";
+
+export {
   LINK_MEMORIES_AGENT_BULLET,
   linkMemoriesToolDescription,
   linkMemoriesSourceFieldDescription,

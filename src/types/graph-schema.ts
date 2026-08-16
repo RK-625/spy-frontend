@@ -51,6 +51,19 @@ export type MemoryNode = Memory;
 /** Vector search hit: Memory + fused RRF score. */
 export type MemorySearchHit = MemoryNode & { score: number };
 
+/** Recursive PARENT_OF child in a getMemories cone. */
+export type MemoryChild = {
+  memory: Memory;
+  children: MemoryChild[];
+};
+
+/** PARENT_OF neighborhood around a center Memory (ancestors up, descendants down). */
+export type MemoryCone = {
+  memory: Memory;
+  ancestors: Memory[];
+  descendants: MemoryChild[];
+};
+
 export const Concept = z.object({
   id: z.string().describe("A unique identifier to the node"),
   name: z.string().describe("The main title of the node"),

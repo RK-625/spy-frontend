@@ -7,6 +7,7 @@ import { GRAPH_CONTEXT } from "./graph-context";
 import {
   ASK_USER_QUESTION_AGENT_BULLET,
   LINK_MEMORIES_AGENT_BULLET,
+  GET_MEMORIES_AGENT_BULLET,
   SEARCH_MEMORIES_AGENT_BULLET,
   UPSERT_MEMORY_AGENT_BULLET,
   WEB_SEARCH_AGENT_BULLET,
@@ -28,6 +29,7 @@ Still answer in prose; tools run alongside talk, they do not replace it.`;
 
 const TOOLSET = `## These are the tools you can use to manage the knowledge graph and even interact with the user:
 - **searchMemories**: ${SEARCH_MEMORIES_AGENT_BULLET}
+- **getMemories**: ${GET_MEMORIES_AGENT_BULLET}
 - **upsertMemory**: ${UPSERT_MEMORY_AGENT_BULLET}
 - **linkMemories**: ${LINK_MEMORIES_AGENT_BULLET}
 - **webSearch**: ${WEB_SEARCH_AGENT_BULLET}

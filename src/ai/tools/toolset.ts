@@ -6,6 +6,7 @@ import { askUserQuestionInputSchema } from "../schemas/ask-schema";
 import { upsertMemoryInputSchema } from "../schemas/upsert-schema";
 import { linkMemoriesInputSchema } from "../schemas/link-schema";
 import { searchMemoriesInputSchema } from "../schemas/search-schema";
+import { getMemoriesInputSchema } from "../schemas/get-schema";
 import { webSearchInputSchema } from "../schemas/web-search-schema";
 import { generateEmbedding } from "../models/embeddings";
 import { modelConfig } from "../models/modelstore";
@@ -15,6 +16,7 @@ import {
   createParentOfLink as falkorCreateParentOfLink,
   setMemoryQuestions as falkorSetMemoryQuestions,
   vectorSearchByQuestions as falkorVectorSearchByQuestions,
+  getMemoryCone as falkorGetMemoryCone,
 } from "@/lib/falkor";
 import { MEMORY_SEARCH_TOP_K } from "@/lib/policy-tokens";
 import {
@@ -22,6 +24,7 @@ import {
   askUserQuestionToolDescription,
   linkMemoriesToolDescription,
   memoryQuestionsGenerationSystem,
+  getMemoriesToolDescription,
   searchMemoriesToolDescription,
   upsertMemoryToolDescription,
   webSearchToolDescription,
@@ -210,11 +213,31 @@ export function createToolSet(
     },
   });
 
+  const getMemories: Tool = tool({
+    description: getMemoriesToolDescription,
+    inputSchema: getMemoriesInputSchema,
+    execute: async ({ id, hops }) => {
+      try {
+        const cone = await falkorGetMemoryCone(id, hops ?? 0);
+        if (cone == null) {
+          return { error: "Memory not found" };
+        }
+        return cone;
+      } catch (error) {
+        console.error("getMemories tool error:", error);
+        const message =
+          error instanceof Error ? error.message : "Failed to get memories.";
+        return { error: message };
+      }
+    },
+  });
+
   return {
     webSearch,
     askUserQuestion,
     upsertMemory,
     linkMemories,
     searchMemories,
+    getMemories,
   };
 }

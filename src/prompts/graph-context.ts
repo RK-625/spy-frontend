@@ -61,6 +61,7 @@ Examples (surface → topic / home Memory → parent to search; attach as noted)
 - React hooks PARENT_OF useEffect cleanup (tighter child under hooks).
 **Search that address:** "searchMemories" probes must include surface + topic + that parent (synonym or close sibling if slots remain). Do not search only the title they typed.
 Search existing memories before every create.
+After search, getMemories on the candidate id (hops 1 to see parent/children) before refine or attach.
 **Attach:** topic hit → refine that id. Topic new + parent hit → create the topic as a **child** (PARENT_OF parent→topic). Topic new + no parent in the graph → create the topic as a **root**. Do not invent a textbook spine so it has somewhere to hang.
 **Instance vs pattern:** store the method, pattern, or takeaway. A new problem, prompt, or framing of the same logic is an instance — not a new Memory. Same method → same id (refine).
 **Refine:** upsert the existing id. Append what is new. Raise confidence if their grasp improved.

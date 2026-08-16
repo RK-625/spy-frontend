@@ -7,6 +7,8 @@ import {
   type Memory,
   type Links,
   type MemorySearchHit,
+  type MemoryChild,
+  type MemoryCone,
   type MemoryNode,
   type MemoryQuestion,
 } from "@/types/graph-schema";
@@ -19,7 +21,7 @@ import { z } from "zod";
 
 /** Re-export wire SoT from client-safe `@/types/graph-topology` (do not redefine). */
 export type { GraphTopology, MemoryNode } from "@/types/graph-topology";
-export type { MemorySearchHit } from "@/types/graph-schema";
+export type { MemorySearchHit, MemoryChild, MemoryCone } from "@/types/graph-schema";
 
 const GRAPH_NAME = "spy_brain";
 
@@ -332,6 +334,132 @@ export async function hasIncomingLink(
     console.error("hasIncomingLink error:", error);
     throw error;
   }
+}
+
+/** Cypher Memory core RETURN (no embeddings, no MemoryQuestion). */
+const MEMORY_CORE_RETURN = `
+           m.id AS id,
+           m.name AS name,
+           m.content AS content,
+           m.impression AS impression,
+           m.confidence AS confidence
+`;
+
+/**
+ * Read one Memory by id (core fields only). Unknown id → null (does not throw).
+ */
+export async function getMemory(id: string): Promise<Memory | null> {
+  const validId = z.string().min(1).parse(id);
+  const graph = await getDb();
+  const query = `
+    MATCH (m:Memory {id: $id})
+    RETURN ${MEMORY_CORE_RETURN}
+  `;
+  try {
+    const result = (await graph.query(query, {
+      params: { id: validId },
+    })) as { data: Memory[] };
+    const row = result.data?.[0];
+    if (row == null) return null;
+    return row;
+  } catch (error) {
+    console.error("getMemory error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Walk the incoming PARENT_OF chain (one parent max per hop).
+ * Stops on missing parent or visited-set cycle. Missing gens omitted.
+ */
+async function collectAncestors(
+  graph: FalkorGraph,
+  startId: string,
+  hops: number,
+  visited: Set<string>,
+): Promise<Memory[]> {
+  const ancestors: Memory[] = [];
+  let currentId = startId;
+  const query = `
+    MATCH (m:Memory)-[:PARENT_OF]->(c:Memory {id: $id})
+    RETURN ${MEMORY_CORE_RETURN}
+  `;
+
+  for (let hop = 0; hop < hops; hop++) {
+    const result = (await graph.query(query, {
+      params: { id: currentId },
+    })) as { data: Memory[] };
+    const row = result.data?.[0];
+    if (row == null) break;
+    if (visited.has(row.id)) break;
+    visited.add(row.id);
+    ancestors.push(row);
+    currentId = row.id;
+  }
+
+  return ancestors;
+}
+
+/**
+ * Walk outgoing PARENT_OF children to `remainingHops` depth.
+ * Visited-set cycle fuse skips already-seen ids (not a hop ceiling).
+ */
+async function collectDescendants(
+  graph: FalkorGraph,
+  parentId: string,
+  remainingHops: number,
+  visited: Set<string>,
+): Promise<MemoryChild[]> {
+  if (remainingHops <= 0) return [];
+
+  const query = `
+    MATCH (p:Memory {id: $id})-[:PARENT_OF]->(m:Memory)
+    RETURN ${MEMORY_CORE_RETURN}
+  `;
+  const result = (await graph.query(query, {
+    params: { id: parentId },
+  })) as { data: Memory[] };
+
+  const children: MemoryChild[] = [];
+  for (const memory of result.data ?? []) {
+    if (visited.has(memory.id)) continue;
+    visited.add(memory.id);
+    const nested = await collectDescendants(
+      graph,
+      memory.id,
+      remainingHops - 1,
+      visited,
+    );
+    children.push({ memory, children: nested });
+  }
+  return children;
+}
+
+/**
+ * PARENT_OF cone around a Memory: ancestors up, descendants down.
+ * hops 0 = center only. Unknown id → null. RELATES_TO / siblings omitted.
+ */
+export async function getMemoryCone(
+  id: string,
+  hops: number,
+): Promise<MemoryCone | null> {
+  const validId = z.string().min(1).parse(id);
+  const memory = await getMemory(validId);
+  if (memory == null) return null;
+  if (hops === 0) {
+    return { memory, ancestors: [], descendants: [] };
+  }
+
+  const graph = await getDb();
+  const visited = new Set<string>([memory.id]);
+  const ancestors = await collectAncestors(graph, memory.id, hops, visited);
+  const descendants = await collectDescendants(
+    graph,
+    memory.id,
+    hops,
+    visited,
+  );
+  return { memory, ancestors, descendants };
 }
 
 /**

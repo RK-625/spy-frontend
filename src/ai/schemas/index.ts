@@ -5,6 +5,7 @@
  * Zod + prompt field copy only — never Falkor/toolset.
  */
 export * from "./ask-schema";
+export * from "./get-schema";
 export * from "./link-schema";
 export * from "./search-schema";
 export * from "./upsert-schema";
