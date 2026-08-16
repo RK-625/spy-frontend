@@ -57,11 +57,16 @@ export type MemoryChild = {
   children: MemoryChild[];
 };
 
-/** PARENT_OF neighborhood around a center Memory (ancestors up, descendants down). */
+/**
+ * Neighborhood around a center Memory.
+ * PARENT_OF cone (ancestors up, descendants down) and/or center-incident RELATES_TO.
+ * `relatesTo` is always present (empty when not requested or none exist).
+ */
 export type MemoryCone = {
   memory: Memory;
   ancestors: Memory[];
   descendants: MemoryChild[];
+  relatesTo: Links[];
 };
 
 export const Concept = z.object({
@@ -99,3 +104,19 @@ export type Links = z.infer<typeof Links>;
 
 export const Link = Links;
 export type Link = Links;
+
+/** Per-edge outcome inside a manageLinks remove or upsert batch. */
+export type ManageLinkItemResult = {
+  source: string;
+  target: string;
+  type: MemoryLinkType;
+  ok: boolean;
+  error?: string;
+};
+
+/** Aggregated results for one manageLinks array (remove or upsert). */
+export type ManageLinksBatchResult = {
+  succeeded: number;
+  total: number;
+  results: ManageLinkItemResult[];
+};

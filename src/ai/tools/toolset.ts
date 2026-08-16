@@ -4,7 +4,7 @@ import Exa from "exa-js";
 import { z } from "zod";
 import { askUserQuestionInputSchema } from "../schemas/ask-schema";
 import { upsertMemoryInputSchema } from "../schemas/upsert-schema";
-import { linkMemoriesInputSchema } from "../schemas/link-schema";
+import { manageLinksInputSchema } from "../schemas/link-schema";
 import { searchMemoriesInputSchema } from "../schemas/search-schema";
 import { getMemoriesInputSchema } from "../schemas/get-schema";
 import { webSearchInputSchema } from "../schemas/web-search-schema";
@@ -13,16 +13,20 @@ import { modelConfig } from "../models/modelstore";
 import {
   upsertMemory as falkorUpsertMemory,
   createLink as falkorCreateLink,
-  createParentOfLink as falkorCreateParentOfLink,
+  deleteLink as falkorDeleteLink,
   setMemoryQuestions as falkorSetMemoryQuestions,
   vectorSearchByQuestions as falkorVectorSearchByQuestions,
   getMemoryCone as falkorGetMemoryCone,
 } from "@/lib/falkor";
 import { MEMORY_SEARCH_TOP_K } from "@/lib/policy-tokens";
+import type {
+  ManageLinkItemResult,
+  ManageLinksBatchResult,
+} from "@/types/graph-schema";
 import {
   MEMORY_QUESTIONS_USER_PROMPT_PREFIX,
   askUserQuestionToolDescription,
-  linkMemoriesToolDescription,
+  manageLinksToolDescription,
   memoryQuestionsGenerationSystem,
   getMemoriesToolDescription,
   searchMemoriesToolDescription,
@@ -170,22 +174,70 @@ export function createToolSet(
     },
   });
 
-  const linkMemories: Tool = tool({
-    description: linkMemoriesToolDescription,
-    inputSchema: linkMemoriesInputSchema,
-    execute: async ({ source, target, type }) => {
+  const manageLinks: Tool = tool({
+    description: manageLinksToolDescription,
+    inputSchema: manageLinksInputSchema,
+    execute: async ({ remove, upsert }) => {
       try {
-        if (type === "PARENT_OF") {
-          await falkorCreateParentOfLink({ source, target, type });
-        } else {
-          await falkorCreateLink({ source, target, type });
+        const removeResults: ManageLinkItemResult[] = [];
+        let removeSucceeded = 0;
+        for (const link of remove) {
+          const { source, target, type } = link;
+          try {
+            await falkorDeleteLink(link);
+            removeResults.push({ source, target, type, ok: true });
+            removeSucceeded += 1;
+          } catch (error) {
+            console.error("manageLinks remove item error:", error);
+            const message =
+              error instanceof Error ? error.message : "Failed to remove link.";
+            removeResults.push({
+              source,
+              target,
+              type,
+              ok: false,
+              error: message,
+            });
+          }
         }
 
-        return { type, source, target };
+        const upsertResults: ManageLinkItemResult[] = [];
+        let upsertSucceeded = 0;
+        for (const link of upsert) {
+          const { source, target, type } = link;
+          try {
+            await falkorCreateLink(link);
+            upsertResults.push({ source, target, type, ok: true });
+            upsertSucceeded += 1;
+          } catch (error) {
+            console.error("manageLinks upsert item error:", error);
+            const message =
+              error instanceof Error ? error.message : "Failed to upsert link.";
+            upsertResults.push({
+              source,
+              target,
+              type,
+              ok: false,
+              error: message,
+            });
+          }
+        }
+
+        const removeBatch: ManageLinksBatchResult = {
+          succeeded: removeSucceeded,
+          total: remove.length,
+          results: removeResults,
+        };
+        const upsertBatch: ManageLinksBatchResult = {
+          succeeded: upsertSucceeded,
+          total: upsert.length,
+          results: upsertResults,
+        };
+        return { remove: removeBatch, upsert: upsertBatch };
       } catch (error) {
-        console.error("linkMemories tool error:", error);
+        console.error("manageLinks tool error:", error);
         const message =
-          error instanceof Error ? error.message : "Failed to link memories.";
+          error instanceof Error ? error.message : "Failed to manage links.";
         return { error: message };
       }
     },
@@ -216,9 +268,9 @@ export function createToolSet(
   const getMemories: Tool = tool({
     description: getMemoriesToolDescription,
     inputSchema: getMemoriesInputSchema,
-    execute: async ({ id, hops }) => {
+    execute: async ({ id, hops, linkTypes }) => {
       try {
-        const cone = await falkorGetMemoryCone(id, hops ?? 0);
+        const cone = await falkorGetMemoryCone(id, hops ?? 0, linkTypes);
         if (cone == null) {
           return { error: "Memory not found" };
         }
@@ -236,7 +288,7 @@ export function createToolSet(
     webSearch,
     askUserQuestion,
     upsertMemory,
-    linkMemories,
+    manageLinks,
     searchMemories,
     getMemories,
   };

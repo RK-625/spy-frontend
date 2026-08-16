@@ -6,6 +6,7 @@ import {
   Links as LinksSchema,
   type Memory,
   type Links,
+  type MemoryLinkType,
   type MemorySearchHit,
   type MemoryChild,
   type MemoryCone,
@@ -436,30 +437,69 @@ async function collectDescendants(
 }
 
 /**
- * PARENT_OF cone around a Memory: ancestors up, descendants down.
- * hops 0 = center only. Unknown id → null. RELATES_TO / siblings omitted.
+ * Load RELATES_TO edges incident on the center Memory only (incoming + outgoing).
+ * Not a BFS — never walks beyond the center.
+ */
+async function collectCenterRelatesTo(
+  graph: FalkorGraph,
+  centerId: string,
+): Promise<Links[]> {
+  const query = `
+    MATCH (a:Memory)-[r:RELATES_TO]->(b:Memory)
+    WHERE a.id = $id OR b.id = $id
+    RETURN a.id AS source, b.id AS target, type(r) AS type
+  `;
+  const result = (await graph.query(query, {
+    params: { id: centerId },
+  })) as { data: Array<{ source: string; target: string; type: string }> };
+
+  return (result.data ?? []).map((row) =>
+    LinksSchema.parse({
+      source: row.source,
+      target: row.target,
+      type: row.type,
+    }),
+  );
+}
+
+/**
+ * Neighborhood around a Memory: PARENT_OF cone and/or center RELATES_TO.
+ * - PARENT_OF in linkTypes + hops > 0 → ancestors/descendants cone
+ * - RELATES_TO in linkTypes → center-incident relatesTo only
+ * - only RELATES_TO → ignore hops
+ * - both → cone + relatesTo
+ * Empty linkTypes (should not reach here if schema enforces min 1) → no walks.
+ * hops NEVER walks RELATES_TO. Unknown id → null.
  */
 export async function getMemoryCone(
   id: string,
   hops: number,
+  linkTypes: MemoryLinkType[],
 ): Promise<MemoryCone | null> {
   const validId = z.string().min(1).parse(id);
   const memory = await getMemory(validId);
   if (memory == null) return null;
-  if (hops === 0) {
-    return { memory, ancestors: [], descendants: [] };
+
+  const wantParentOf = linkTypes.includes("PARENT_OF");
+  const wantRelatesTo = linkTypes.includes("RELATES_TO");
+
+  let ancestors: Memory[] = [];
+  let descendants: MemoryChild[] = [];
+  let relatesTo: Links[] = [];
+
+  if (wantParentOf && hops > 0) {
+    const graph = await getDb();
+    const visited = new Set<string>([memory.id]);
+    ancestors = await collectAncestors(graph, memory.id, hops, visited);
+    descendants = await collectDescendants(graph, memory.id, hops, visited);
   }
 
-  const graph = await getDb();
-  const visited = new Set<string>([memory.id]);
-  const ancestors = await collectAncestors(graph, memory.id, hops, visited);
-  const descendants = await collectDescendants(
-    graph,
-    memory.id,
-    hops,
-    visited,
-  );
-  return { memory, ancestors, descendants };
+  if (wantRelatesTo) {
+    const graph = await getDb();
+    relatesTo = await collectCenterRelatesTo(graph, memory.id);
+  }
+
+  return { memory, ancestors, descendants, relatesTo };
 }
 
 /**
@@ -497,8 +537,17 @@ export async function upsertMemory(memory: Memory) {
   }
 }
 
+/**
+ * Public create for a directed Memory edge.
+ * PARENT_OF delegates to createParentOfLink (sticky single parent).
+ * RELATES_TO MERGEs the associative edge.
+ */
 export async function createLink(link: Links) {
   const parsed = LinksSchema.parse(link);
+  if (parsed.type === "PARENT_OF") {
+    return createParentOfLink(parsed);
+  }
+
   const graph = await getDb();
 
   const query = `
@@ -527,10 +576,40 @@ export async function createLink(link: Links) {
 }
 
 /**
+ * Delete one typed directed Memory edge.
+ * Missing edge or endpoints → `"absent"` (success no-op). Present → `"deleted"`.
+ */
+export async function deleteLink(link: Links): Promise<"deleted" | "absent"> {
+  const parsed = LinksSchema.parse(link);
+  const graph = await getDb();
+
+  const query = `
+    MATCH (source:Memory {id: $source})-[r:${parsed.type}]->(target:Memory {id: $target})
+    DELETE r
+    RETURN 1 AS deleted
+  `;
+
+  try {
+    const result = (await graph.query(query, {
+      params: { source: parsed.source, target: parsed.target },
+    })) as { data: Array<{ deleted: number }> };
+
+    if (result.data.length === 0) {
+      return "absent";
+    }
+    return "deleted";
+  } catch (error) {
+    console.error("Delete Link Error:", error);
+    throw error;
+  }
+}
+
+/**
  * Atomic PARENT_OF create: one Cypher write that MERGEs when the child has no
  * *different* PARENT_OF parent. Same source→target is idempotent (MERGE no-op).
  * A different parent blocks (no reparent / last-wins). Empty result is classified
  * via hasIncomingLink (error message only; write is atomic).
+ * Internal sticky-parent write — call via createLink for product upserts.
  */
 export async function createParentOfLink(link: Links): Promise<"PARENT_OF"> {
   const parsed = LinksSchema.parse(link);

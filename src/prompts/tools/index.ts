@@ -27,15 +27,15 @@ export {
   getMemoriesToolDescription,
   getMemoriesIdFieldDescription,
   getMemoriesHopsFieldDescription,
+  getMemoriesLinkTypesFieldDescription,
 } from "./get-memories";
 
 export {
-  LINK_MEMORIES_AGENT_BULLET,
-  linkMemoriesToolDescription,
-  linkMemoriesSourceFieldDescription,
-  linkMemoriesTargetFieldDescription,
-  linkMemoriesTypeFieldDescription,
-} from "./link-memories";
+  MANAGE_LINKS_AGENT_BULLET,
+  manageLinksToolDescription,
+  manageLinksRemoveFieldDescription,
+  manageLinksUpsertFieldDescription,
+} from "./manage-links";
 
 export {
   WEB_SEARCH_AGENT_BULLET,

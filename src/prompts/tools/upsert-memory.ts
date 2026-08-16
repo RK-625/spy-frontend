@@ -21,7 +21,7 @@ Prefer small focused memories; omit id to create, pass id to update content only
 The system auto-generates agent-side retrieval questions via LLM for later Q↔Q search —
 do not invent or pass questions yourself.
 Do not pass canvas coordinates or rank — placement is client-side on the graph map.
-Structure via linkMemories.`;
+Structure via manageLinks.`;
 
 /** Short how-to bullet for the agent system prompt. */
 export const UPSERT_MEMORY_AGENT_BULLET = `create (omit id) or update (pass id).
@@ -49,7 +49,7 @@ export const upsertMemoryConfidenceFieldDescription = `How solid the user's gras
 export const upsertMemoryIdFieldDescription = `Existing Memory id to update content/name/impression/confidence.
 Omit to create a new memory (system generates id).
 Updates change content only.
-Structure (PARENT_OF / RELATES_TO) is via linkMemories, not this tool.
+Structure (PARENT_OF / RELATES_TO) is via manageLinks, not this tool.
 Intermediate hierarchy: create nodes here, then link correctly.`;
 
 /**

@@ -154,9 +154,22 @@ const toolset = fs.readFileSync(
   "utf8",
 );
 assert(
-  toolset.includes("falkorCreateParentOfLink") ||
-    toolset.includes("createParentOfLink"),
-  "linkMemories uses atomic createParentOfLink for PARENT_OF",
+  toolset.includes("manageLinks") &&
+    (toolset.includes("falkorCreateLink") || toolset.includes("createLink")),
+  "manageLinks upsert uses createLink",
+);
+assert(
+  !toolset.includes("createParentOfLink") &&
+    !toolset.includes("falkorCreateParentOfLink"),
+  "toolset does not call createParentOfLink directly",
+);
+assert(
+  toolset.includes("falkorDeleteLink") || toolset.includes("deleteLink"),
+  "manageLinks uses deleteLink for remove",
+);
+assert(
+  !toolset.includes("linkMemories"),
+  "toolset has no linkMemories dual writer",
 );
 assert(
   !toolset.includes('hasIncomingLink(target, "PARENT_OF")'),
@@ -173,11 +186,40 @@ assert(
   "falkor exports createParentOfLink",
 );
 assert(
+  falkor.includes("export async function createLink") &&
+    falkor.includes('parsed.type === "PARENT_OF"') &&
+    falkor.includes("createParentOfLink(parsed)"),
+  "createLink delegates PARENT_OF to createParentOfLink",
+);
+assert(
+  falkor.includes("export async function deleteLink"),
+  "falkor exports deleteLink",
+);
+assert(
+  !falkor.includes("isParentOfAncestor"),
+  "falkor has no isParentOfAncestor cycle walk",
+);
+assert(
   falkor.includes("OPTIONAL MATCH (other)-[existing:PARENT_OF]->(target)") &&
     (falkor.includes("other.id <> $source") ||
       falkor.includes("WHERE other.id <> $source")) &&
     falkor.includes("WHERE existing IS NULL"),
   "createParentOfLink Cypher blocks only a different parent (other.id <> $source)",
+);
+
+const liveProduct = live.filter(
+  (f) =>
+    !f.rel.startsWith("plans/") &&
+    (f.text.includes("linkMemories") ||
+      f.text.includes("LINK_MEMORIES") ||
+      f.text.includes("linkMemoriesInputSchema") ||
+      f.text.includes("link-memories")),
+);
+assert(
+  liveProduct.length === 0,
+  liveProduct.length === 0
+    ? "no leftover linkMemories product references in src/"
+    : `leftover linkMemories in ${liveProduct.map((f) => f.rel).join(", ")}`,
 );
 
 if (failed > 0) {

@@ -37,7 +37,7 @@ export async function runAgent({
     system: systemPrompt,
     messages: modelMessages,
     tools,
-    // Non-web: room for upsertMemory + linkMemories (+ ask) without truncating.
+    // Non-web: room for upsertMemory + manageLinks (+ ask) without truncating.
     stopWhen: useWebSearch ? stepCountIs(25) : stepCountIs(8),
     providerOptions: resolvedProviderOptions,
   });
