@@ -13,9 +13,9 @@ Geometry / rank are never LLM-authored — the graph client derives rank and pla
 /** Short how-to bullet for the agent system prompt. */
 export const LINK_MEMORIES_AGENT_BULLET = `connect two existing Memory ids only.
 PARENT_OF: source = parent, target = child (one parent max).
-RELATES_TO: associative.
-Upsert both ends first, then link.
-Do not invent ids.`;
+RELATES_TO: extra homes / association — never a second PARENT_OF.
+After a broader write, PARENT_OF obvious existing children (especially unparented stubs).
+Upsert both ends first, then link. Do not invent ids.`;
 
 /** Zod `.describe(...)` for the `source` field on linkMemories input schema. */
 export const linkMemoriesSourceFieldDescription = `Memory id of the source node. Both nodes must already exist (upsert first).

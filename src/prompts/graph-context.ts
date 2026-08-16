@@ -38,8 +38,37 @@ Skip (do not weave):
 - Secrets or sensitive data they did not mean to keep as knowledge
 - Anything too vague to be a useful node — if load-bearing but fuzzy, distill into a clear small memory first
 
-When unsure: ask the user for clarification before adding to or modifying the knowledge base.
-Prefer many small single-concept memories over one mega-note.
+When unsure whether something is durable, or which parent it belongs under, ask the user for clarification.
+Do not ask before an obvious refine or an obvious adopt.
+Prefer one concept or pattern per node — not one mega-note, and not one node per example.
+
+## How to place
+**Surface → topic:** the surface is the vessel (article, paper, problem, puzzle, syntax, API, doubt, question). The topic is the durable concept on the graph — idea, pattern, or mechanism — not the vessel. If they asked about the concept itself (OOP, TCP, Java classes), surface ≈ topic. If they brought a vessel, strip it. Name one parent: the smallest broader box. Mapping is turn-internal; it drives search and place only.
+
+Examples (surface → topic / home Memory → parent to search; attach as noted):
+- LC 198 House Robber → DP on arrays → Dynamic programming. No House Robber node. Derived from: LC 198.
+- LC 704 then LC 33 (both binary search) → Binary search → Searching. Same id; append Derived from: LC 704, LC 33.
+- LC 96 Unique BSTs / Catalan → Catalan numbers (or DP counting) → Dynamic programming. Combinatorics is RELATES_TO, not a second PARENT_OF.
+- MCM / top-down vs bottom-up on a DP problem → the DP pattern (e.g. interval DP or MCM), not one node per approach name unless they are studying that approach as the topic.
+- Quant expected-value puzzle → Expected value / probability → Probability.
+- useContext snippet / framework syntax → Context / hooks → React (or Hooks if that node exists).
+- Later they study React and Hooks is already a root → adopt: React PARENT_OF Hooks. Do not prebuild Programming → JavaScript → Frontend → React from one hook turn.
+- Raft paper / article → Raft / consensus → Distributed systems.
+- "Why did the handshake fail?" → TCP handshake → TCP / networking.
+- "Explain OOP" / Java classes / a networking fundamental → that topic is the home (surface ≈ topic).
+- Java "synchronized" doubt → Java concurrency / locks → Java.
+- Zustand vs Redux discussion → each concept its own node; RELATES_TO each other (not PARENT_OF).
+- React hooks PARENT_OF useEffect cleanup (tighter child under hooks).
+**Search that address:** "searchMemories" probes must include surface + topic + that parent (synonym or close sibling if slots remain). Do not search only the title they typed.
+Search existing memories before every create.
+**Attach:** topic hit → refine that id. Topic new + parent hit → create the topic as a **child** (PARENT_OF parent→topic). Topic new + no parent in the graph → create the topic as a **root**. Do not invent a textbook spine so it has somewhere to hang.
+**Instance vs pattern:** store the method, pattern, or takeaway. A new problem, prompt, or framing of the same logic is an instance — not a new Memory. Same method → same id (refine).
+**Refine:** upsert the existing id. Append what is new. Raise confidence if their grasp improved.
+**Sources footer:** end content with a "Derived from:" list (topics, problems, discussions, articles that fed this node). On refine, never drop existing Derived from lines; only append.
+**Stub parent (rare):** at most **one** this turn, and only if classify named an obvious parent that is missing. A stub is one line: inferred container; the user has not studied this yet; created because they learned [child]. Low confidence. No textbook definition. Prefer a root over a guessed stub.
+**Upgrade stubs:** when they later study that container, update the **same id**. Do not create a second node with the same role.
+**Adopt on broader write:** when you create or first fill a broader concept, search for existing memories that belong under it (especially roots). If the home is obvious, PARENT_OF them now — do not leave the link missing. Ask only when two parents are plausible.
+**One PARENT_OF** (tighter concept is the parent). Extra homes are RELATES_TO.
 
 Rules:
 - **Content-only updates** (upsert with id for name/content/impression/confidence) change knowledge only;

@@ -25,17 +25,18 @@ Structure via linkMemories.`;
 
 /** Short how-to bullet for the agent system prompt. */
 export const UPSERT_MEMORY_AGENT_BULLET = `create (omit id) or update (pass id).
-Short name, clear content, impression and confidence.
-The system auto-generates retrieval questions via LLM for Q↔Q search — do **not** invent or pass questions.
-When they correct earlier knowledge, update the same id if you have it.`;
+Name the topic (stripped vessel), not the article/problem/snippet title.
+Same topic → same id; new topic + existing parent → child; else root.
+Append takeaway + Derived from: lines (never drop existing ones).
+The system auto-generates retrieval questions via LLM for Q↔Q search — do **not** invent or pass questions.`;
 
 /** Zod `.describe(...)` for the `name` field on upsertMemory input schema. */
-export const upsertMemoryNameFieldDescription = `Short title / node label of the memory.
-(e.g. 'React Server Components', not a full paragraph).`;
+export const upsertMemoryNameFieldDescription = `Short topic label for the graph — the concept, not the vessel
+(e.g. 'DP on arrays' not 'LeetCode 198 House Robber'; 'TCP handshake' not 'why did my connection fail').`;
 
 /** Zod `.describe(...)` for the `content` field on upsertMemory input schema. */
-export const upsertMemoryContentFieldDescription = `Facts, knowledge, or a clear explanation to store on this memory.
-Keep focused — one concept per node when possible.`;
+export const upsertMemoryContentFieldDescription = `The pattern, method, or takeaway — not a raw problem statement or session dump.
+One concept per node. End with a Derived from: list; on update, keep old lines and append new sources.`;
 
 /** Zod `.describe(...)` for the optional `impression` field on upsertMemory input schema. */
 export const upsertMemoryImpressionFieldDescription = `Spy's evolving read of how the user relates to this memory —
