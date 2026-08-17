@@ -1,49 +1,32 @@
 /**
  * Narrative for searchMemories (Q↔Q weave search path).
- * Tool description, schema field describe, agent bullet, agent-recall style snippet.
+ * Tool description + agent bullet + field describes + shared recall-style snippet.
  */
 
 import { MEMORY_SEARCH_MAX_QUESTIONS } from "@/lib/policy-tokens";
 
 /**
- * Short agent-stateful recall style guidance reused by system bullet and related copy.
- * Symmetric with MemoryQuestion generation (third-person about the user + synonyms).
+ * Short agent-stateful recall style guidance reused by search field copy and upsert questions.
+ * Symmetric with stored MemoryQuestion probes (third-person about the user + synonyms).
  */
 export const MEMORY_SEARCH_AGENT_RECALL_STYLE = `agent-stateful third-person probes about the user's knowledge
 (e.g. "Has the user studied Dijkstra's algorithm?", "Does the user know about shortest-path algorithms?",
 "Has the user seen graph pathfinding?")`;
 
 /** `tool({ description })` for searchMemories in the product toolset. */
-export const searchMemoriesToolDescription = `Semantic search over the knowledge graph via MemoryQuestion embeddings (Q↔Q).
-First classify the turn (surface → topic → one parent), then pass 1–${MEMORY_SEARCH_MAX_QUESTIONS} probes covering that family — not only the title they typed
-(e.g. a House Robber puzzle → DP on arrays + dynamic programming).
-(e.g. a Dijkstra → shortest path algorithm + Graph Data Structures).
-Expand synonyms / related concepts so a probe about surface can hit the correct memories or parent memories for example - "shortest path" can hit a Dijkstra Memory.
-Probes are agent-side recall: third-person about whether the user already knows something.
-Each probe is embedded and searched independently (Q↔Q ANN). results[i] is that probe’s survivors: {id, name, cosine score}.
-Hits below the server cosine floor are omitted. Empty inner list = that probe missed; all empty = new topic.
-Parent-only hit → create child, do not refine the parent. Surface/topic hit → refine that id.
-Use getMemories on a chosen id for body.
-Use before create to find a same-pattern id, a parent, or children to adopt.
-Does not invent layout or write nodes.`;
-
-/**
- * Zod `.describe(...)` for the `questions` field on searchMemories input schema.
- */
-export const searchMemoriesQuestionsFieldDescription = `1–${MEMORY_SEARCH_MAX_QUESTIONS} natural-language questions —
-agent-stateful third-person probes covering surface + pattern/topic + one parent
-(e.g. "Has the user studied House Robber?", "Does the user know DP on arrays?",
-"Has the user studied dynamic programming?").
-Each is embedded and searched independently (Q↔Q ANN); results[i] lists that probe’s survivors (id, name, cosine).
-Hits below the server cosine floor are omitted. Empty inner list = miss; all empty = new topic.
-Not first-person user-meta; not generic fluff; not title-only.`;
+export const searchMemoriesToolDescription = `Semantic search over the knowledge graph (Q↔Q ANN).
+Pass 1–${MEMORY_SEARCH_MAX_QUESTIONS} third-person recall probes; each is embedded and searched independently.
+results[i] is that probe's survivors ({id, name, cosine}). Hits below the server cosine floor are omitted.
+Empty inner list = that probe missed; all empty = no stored match (retry with a different probe set if needed).
+Does not write nodes or invent layout.`;
 
 /** Short how-to bullet for the agent system prompt. */
-export const SEARCH_MEMORIES_AGENT_BULLET = `You can pass 1–N natural-language questions in ${MEMORY_SEARCH_AGENT_RECALL_STYLE}.
-Expand synonyms / related concepts (same family as stored MemoryQuestions) for better Q↔Q hits.
-Each probe is embedded and searched independently; results[i] is that probe’s survivors (id, name, cosine score).
-Hits below the server cosine floor are omitted. Empty inner list = that probe missed; all empty = new topic.
-Classify the turn first, then probe surface + pattern + one parent.
-Parent-only hit → create child, do not refine the parent. Surface/topic hit → refine that id.
-Use getMemories on a chosen id for body.
-Use hits to refine the same-pattern id, hang under a parent, or adopt children.`;
+export const SEARCH_MEMORIES_AGENT_BULLET = `Tool for semantic recall over the graph — for understanding what the user already knows,
+getting context for a better response, or finding related Memories before create, refine, or attach,
+leading to reuse over duplicate weave.
+Does not write nodes or invent ids.`;
+
+/** Zod `.describe(...)` for the `questions` field on searchMemories input schema. */
+export const searchMemoriesQuestionsFieldDescription = `1–${MEMORY_SEARCH_MAX_QUESTIONS} ${MEMORY_SEARCH_AGENT_RECALL_STYLE}.
+Each string is one probe; results[i] is that probe's hit list.
+Not first-person user-meta; not generic fluff; not title-only keyword spam.`;
