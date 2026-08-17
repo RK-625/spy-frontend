@@ -474,6 +474,7 @@ export async function getMemoryCone(
 /**
  * Upsert Memory core fields only (id, name, content, impression, confidence).
  * Product search questions are written separately via setMemoryQuestions.
+ * Create path: MERGE + SET all four core fields; full Memory row required.
  */
 export async function upsertMemory(memory: Memory) {
   const parsed = MemorySchema.parse(memory);
@@ -502,6 +503,50 @@ export async function upsertMemory(memory: Memory) {
     return result.data[0]?.id;
   } catch (error) {
     console.error("Upsert Memory Error:", error);
+    throw error;
+  }
+}
+
+/** Patchable core fields on an existing Memory (id is the MATCH key, not a field). */
+export type MemoryPatchFields = Partial<
+  Pick<Memory, "name" | "content" | "impression" | "confidence">
+>;
+
+/**
+ * Patch an existing Memory: MATCH by id only (never MERGE a half-node).
+ * Sets only provided keys; omitted keys stay stored. Unknown id → throw.
+ * Does not Memory.parse a partial row.
+ */
+export async function patchMemory(
+  id: string,
+  fields: MemoryPatchFields,
+): Promise<string> {
+  const validId = z.string().min(1).parse(id);
+  const props: MemoryPatchFields = {};
+  if (fields.name !== undefined) props.name = fields.name;
+  if (fields.content !== undefined) props.content = fields.content;
+  if (fields.impression !== undefined) props.impression = fields.impression;
+  if (fields.confidence !== undefined) props.confidence = fields.confidence;
+
+  const graph = await getDb();
+  const query = `
+    MATCH (m:Memory {id: $id})
+    SET m += $props
+    RETURN m.id AS id
+  `;
+
+  try {
+    const result = (await graph.query(query, {
+      params: { id: validId, props },
+    })) as { data: Array<{ id: string }> };
+
+    const patchedId = result.data?.[0]?.id;
+    if (patchedId == null) {
+      throw new Error(`Memory not found: ${validId}`);
+    }
+    return patchedId;
+  } catch (error) {
+    console.error("patchMemory error:", error);
     throw error;
   }
 }

@@ -13,9 +13,9 @@ It stores **Memory** nodes. Each Memory is one focused unit of knowledge/learnin
 - **content** — the facts, explanation, the current user's learning of the concept
 - **impression** — Spy's read of how the user relates to this (grasp, confusion, interest, stance) — evolves as they do - Your takeaway on the user's knowledge of this concept
 - **confidence** — 0–1 how solid their grasp seems
-- **retrieval questions embeddings** — system auto-generates agent-side recall probes (third-person about the user's knowledge,
-  e.g. "Has the user studied …?", "Does the user know about …?") with synonym diversity for Q↔Q ANN;
-  you never invent or pass those questions. When you search, use the same probe family. This helps in finding relevant memories using the Semantic search via tools.
+- **retrieval questions** — on create and name/content refine you write agent-side recall probes (same probe family as search:
+  third-person about the user's knowledge, e.g. "Has the user studied …?", "Does the user know about …?", with synonym diversity);
+  the system only embeds them for Q↔Q ANN. Impression/confidence-only patches leave probes unchanged.
 
 Links between Memories are only two kinds (nothing else):
 - **PARENT_OF** — hierarchy. source = parent (broader container), target = child (more specific).
@@ -66,7 +66,7 @@ After search, getMemories on the candidate id (hops 1 to see parent/children) be
 getMemories can request RELATES_TO (or both linkTypes) when you need associations; copy those triples into manageLinks remove/upsert.
 **Attach:** topic hit → refine that id. Topic new + parent hit → create the topic as a **child** (PARENT_OF parent→topic). Topic new + no parent in the graph → create the topic as a **root**. Do not invent a textbook spine so it has somewhere to hang.
 **Instance vs pattern:** store the method, pattern, or takeaway. A new problem, prompt, or framing of the same logic is an instance — not a new Memory. Same method → same id (refine).
-**Refine:** upsert the existing id. Append what is new. Raise confidence if their grasp improved.
+**Refine:** pass id + only changed fields; do not resend unchanged content. Append what is new when you send content. Raise confidence / refresh impression without rewriting content.
 **Sources footer:** end content with a "Derived from:" list (topics, problems, discussions, articles that fed this node). On refine, never drop existing Derived from lines; only append.
 **Stub parent (rare):** at most **one** this turn, and only if classify named an obvious parent that is missing. A stub is one line: inferred container; the user has not studied this yet; created because they learned [child]. Low confidence. No textbook definition. Prefer a root over a guessed stub.
 **Upgrade stubs:** when they later study that container, update the **same id**. Do not create a second node with the same role.

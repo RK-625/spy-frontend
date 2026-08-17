@@ -33,7 +33,7 @@ export const MemoryQuestion = z.object({
   id: z.string().describe("Unique id for this MemoryQuestion"),
   text: z
     .string()
-    .describe("Natural-language retrieval question (LLM-generated at write)"),
+    .describe("Natural-language retrieval question (agent-provided at write)"),
   questionEmbedding: z
     .number()
     .array()

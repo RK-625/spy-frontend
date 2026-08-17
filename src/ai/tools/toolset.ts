@@ -1,7 +1,6 @@
-import { generateText, Output, tool, Tool } from "ai";
+import { tool, Tool } from "ai";
 import { nanoid } from "nanoid";
 import Exa from "exa-js";
-import { z } from "zod";
 import { askUserQuestionInputSchema } from "../schemas/ask-schema";
 import { upsertMemoryInputSchema } from "../schemas/upsert-schema";
 import { manageLinksInputSchema } from "../schemas/link-schema";
@@ -9,39 +8,31 @@ import { searchMemoriesInputSchema } from "../schemas/search-schema";
 import { getMemoriesInputSchema } from "../schemas/get-schema";
 import { webSearchInputSchema } from "../schemas/web-search-schema";
 import { generateEmbedding } from "../models/embeddings";
-import { modelConfig } from "../models/modelstore";
-import { slimJson } from "../slim-json";
 import {
   upsertMemory as falkorUpsertMemory,
+  patchMemory as falkorPatchMemory,
+  getMemory as falkorGetMemory,
   createLink as falkorCreateLink,
   deleteLink as falkorDeleteLink,
   setMemoryQuestions as falkorSetMemoryQuestions,
   vectorSearchByQuestions as falkorVectorSearchByQuestions,
   getMemoryCone as falkorGetMemoryCone,
+  type MemoryPatchFields,
 } from "@/lib/falkor";
 import { MEMORY_SEARCH_TOP_K } from "@/lib/policy-tokens";
 import type {
   ManageLinkItemResult,
   ManageLinksBatchResult,
+  MemoryQuestion,
 } from "@/types/graph-schema";
 import {
-  MEMORY_QUESTIONS_USER_PROMPT_PREFIX,
   askUserQuestionToolDescription,
   manageLinksToolDescription,
-  memoryQuestionsGenerationSystem,
   getMemoriesToolDescription,
   searchMemoriesToolDescription,
   upsertMemoryToolDescription,
   webSearchToolDescription,
 } from "@/prompts/tools";
-
-export type CreateToolSetOptions = {
-  /** Chat model id for tool-side LLM work (e.g. MemoryQuestion generation). */
-  model?: string;
-};
-
-/** Max chars per generated retrieval question (schema element cap). */
-const RETRIEVAL_QUESTION_MAX_CHARS = 500;
 
 /** Lazy Exa client — never construct at module load (missing key must not kill chat). */
 function getExaClient(): Exa | null {
@@ -50,13 +41,23 @@ function getExaClient(): Exa | null {
   return new Exa(key);
 }
 
+/** Embed agent-provided probe texts into MemoryQuestion rows (ids + vectors). */
+async function embedQuestionRows(texts: string[]): Promise<MemoryQuestion[]> {
+  const questionEmbeddings = await Promise.all(
+    texts.map((text) => generateEmbedding(text)),
+  );
+  return texts.map((text, index) => ({
+    id: nanoid(),
+    text,
+    questionEmbedding: questionEmbeddings[index]!,
+  }));
+}
+
 /**
- * Build the product tool registry. Pass `model` so upsertMemory can generate
- * retrieval questions with the user's selected chat model.
+ * Build the product tool registry.
+ * Retrieval probes are agent-authored on upsertMemory; this toolset only embeds.
  */
-export function createToolSet(
-  opts?: CreateToolSetOptions,
-): Record<string, Tool> {
+export function createToolSet(): Record<string, Tool> {
   const webSearch: Tool = tool({
     description: webSearchToolDescription,
     inputSchema: webSearchInputSchema,
@@ -96,82 +97,54 @@ export function createToolSet(
     inputSchema: upsertMemoryInputSchema,
     execute: async (input) => {
       try {
-        const modelId = opts?.model;
-        if (modelId == null || modelId.trim() === "") {
+        // --- Create: omit id; core fields + questions required ---
+        if (!("id" in input)) {
+          const { name, content, impression, confidence, questions } = input;
+          const id = nanoid();
+          const rows = await embedQuestionRows(questions);
+
+          await falkorUpsertMemory({
+            id,
+            name,
+            content,
+            impression,
+            confidence,
+          });
+          await falkorSetMemoryQuestions(id, rows);
+
+          return { id, name, questionCount: rows.length };
+        }
+
+        // --- Patch: id present; only provided keys overwrite ---
+        const existing = await falkorGetMemory(input.id);
+        if (existing == null) {
+          return { error: "Memory not found" };
+        }
+
+        const patch: MemoryPatchFields = {};
+        if (input.name !== undefined) patch.name = input.name;
+        if (input.content !== undefined) patch.content = input.content;
+        if (input.impression !== undefined) patch.impression = input.impression;
+        if (input.confidence !== undefined) patch.confidence = input.confidence;
+
+        if (Object.keys(patch).length > 0) {
+          await falkorPatchMemory(input.id, patch);
+        }
+
+        const mergedName = input.name ?? existing.name;
+
+        if (input.questions !== undefined) {
+          const rows = await embedQuestionRows(input.questions);
+          await falkorSetMemoryQuestions(input.id, rows);
           return {
-            error:
-              "upsertMemory failed: chat model is required to generate retrieval questions.",
+            id: input.id,
+            name: mergedName,
+            questionCount: rows.length,
           };
         }
-        const id =
-          input.id != null && input.id !== "" ? input.id : nanoid();
-        const impression = input.impression ?? "";
-        const confidence = input.confidence ?? 0.5;
 
-        // 1. Generate questions before any Memory write — fail whole tool if Q-gen fails.
-        const memoryPayload: {
-          name: string;
-          content: string;
-          impression?: string;
-          confidence?: number;
-        } = {
-          name: input.name,
-          content: input.content,
-        };
-        if (input.impression != null && input.impression !== "") {
-          memoryPayload.impression = input.impression;
-        }
-        if (input.confidence != null) {
-          memoryPayload.confidence = input.confidence;
-        }
-
-        const { model } = modelConfig({ model: modelId });
-        const { output } = await generateText({
-          model,
-          system: memoryQuestionsGenerationSystem,
-          prompt: [
-            MEMORY_QUESTIONS_USER_PROMPT_PREFIX,
-            JSON.stringify(memoryPayload),
-          ].join("\n\n"),
-          output: Output.array({
-            element: z.string().min(1).max(RETRIEVAL_QUESTION_MAX_CHARS),
-          }),
-          onFinish({ text }) {
-            console.log("[tool]", "upsertMemory:questions", {
-              input: slimJson(memoryPayload),
-              output: slimJson(text),
-            });
-          },
-        });
-        if (output == null) {
-          throw new Error("upsertMemory: model returned no output.");
-        }
-        const questionTexts = output;
-
-        // 2. Upsert core Memory.
-        await falkorUpsertMemory({
-          id,
-          name: input.name,
-          content: input.content,
-          impression,
-          confidence,
-        });
-
-        // 3. Embed each question + set MemoryQuestions (fail tool if this fails).
-        const questionEmbeddings = await Promise.all(
-          questionTexts.map((text) => generateEmbedding(text)),
-        );
-        const questions = questionTexts.map((text, index) => {
-          const questionEmbedding = questionEmbeddings[index];
-          return {
-            id: nanoid(),
-            text,
-            questionEmbedding,
-          };
-        });
-        await falkorSetMemoryQuestions(id, questions);
-
-        return { id, name: input.name, questionCount: questions.length };
+        // Impression/confidence-only: no re-embed.
+        return { id: input.id, name: mergedName };
       } catch (error) {
         console.error("upsertMemory tool error:", error);
         const message =

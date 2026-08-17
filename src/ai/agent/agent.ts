@@ -26,8 +26,8 @@ export async function runAgent({
   const modelMessages = await convertToModelMessages(messages, {
     ignoreIncompleteToolCalls: true,
   });
-  // Model-scoped tools so upsertMemory can LLM-generate retrieval questions.
-  const toolSet = createToolSet({ model });
+  // Product tools are model-agnostic; chat model stays on modelConfig only.
+  const toolSet = createToolSet();
   // Only webSearch is optional; memory weave + askUserQuestion stay always on.
   const { webSearch, ...toolsWithoutSearch } = toolSet;
   const tools = useWebSearch ? toolSet : toolsWithoutSearch;

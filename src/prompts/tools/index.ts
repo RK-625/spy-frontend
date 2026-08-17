@@ -4,15 +4,14 @@
 
 export {
   MEMORY_QUESTION_COUNT_TARGET,
-  MEMORY_QUESTIONS_USER_PROMPT_PREFIX,
   UPSERT_MEMORY_AGENT_BULLET,
-  memoryQuestionsGenerationSystem,
   upsertMemoryToolDescription,
   upsertMemoryNameFieldDescription,
   upsertMemoryContentFieldDescription,
   upsertMemoryImpressionFieldDescription,
   upsertMemoryConfidenceFieldDescription,
   upsertMemoryIdFieldDescription,
+  upsertMemoryQuestionsFieldDescription,
 } from "./upsert-memory";
 
 export {
