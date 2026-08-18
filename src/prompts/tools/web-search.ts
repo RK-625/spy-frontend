@@ -1,14 +1,13 @@
 /**
  * Narrative for webSearch (external facts / verification path).
- * Tool description + agent bullet.
+ * Tool description + agent bullet + query field describe.
  */
 
 /** `tool({ description })` for webSearch in the product toolset. */
-export const webSearchToolDescription = `Search the web for up-to-date information, news, details, and facts.`;
+export const webSearchToolDescription = `Search the web for current facts, news, articles, and details.`;
 
 /** Short how-to bullet for the agent system prompt. */
-export const WEB_SEARCH_AGENT_BULLET = `current facts, news, or verification; weave durable results into memories when they should stick.`;
+export const WEB_SEARCH_AGENT_BULLET = `Look up current facts or sources on the web.`;
 
 /** Zod `.describe(...)` for the `query` field on webSearch input schema. */
-export const webSearchQueryFieldDescription = `The search query to look up on the web —
-keywords or a short natural-language phrase for current facts, news, or details.`;
+export const webSearchQueryFieldDescription = `Keywords or a short natural-language phrase to look up.`;
