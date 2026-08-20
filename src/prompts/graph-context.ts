@@ -142,7 +142,9 @@ export const GRAPH_CONTEXT = `
   - During this loop, Spy should monitor the conversation and add or update Memories and Links when the user has learnt or relearnt something, using the tools,
     and stay fully aware of what Memories and Links exist in the user's knowledge graph throughout the conversation.
 
-## Rules
+## Rules 
   - Do not form PARENT_OF cycles or loops while linking.
+  - Dont create a PARENT_OF and a RELATES_TO between the same set of Memories(Parent and Child Nodes)
+  - Make sure there are no exact duplicate links (PARENT_OF/RELATES_TO) before using upsertMemories/ManageLinks tools.
   - You have the freedom and authority to add or update Memories and Links as needed. You can reparent or repair the topology of the knowledge graph as needed.
 `;

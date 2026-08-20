@@ -1,4 +1,4 @@
-import { DirectedGraph } from "graphology";
+import { MultiDirectedGraph } from "graphology";
 
 import type { Links, MemoryNode } from "@/types/graph-schema";
 
@@ -24,7 +24,8 @@ export interface SigmaEdgeAttrs {
   weight: number;
 }
 
-export type SigmaGraph = DirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>;
+/** Multi so PARENT_OF + RELATES_TO can share a directed pair. */
+export type SigmaGraph = MultiDirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>;
 
 export type NodeHierarchy = {
   ranks: Map<string, number>;
@@ -142,12 +143,17 @@ function shade(h: number, rank: number): string {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
+/** Edge key: source + target + link type (exact-duplicate guard). */
+function layoutEdgeKey(link: Links): string {
+  return `${link.source}\0${link.target}\0${link.type}`;
+}
+
 /** Circle-seeded topology only — FA2 runs live after Sigma mounts. */
 export function buildLayoutGraph(
   memories: MemoryNode[],
   links: Links[],
 ): SigmaGraph {
-  const graph = new DirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>();
+  const graph = new MultiDirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>();
   const ids = memories.map((memory) => memory.id);
   const hierarchy = findNodeRanks(ids, links);
   const colors = findNodeColors(hierarchy);
@@ -165,9 +171,10 @@ export function buildLayoutGraph(
   });
   for (const link of links) {
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue;
-    if (graph.hasEdge(link.source, link.target)) continue;
+    const edgeKey = layoutEdgeKey(link);
+    if (graph.hasEdge(edgeKey)) continue;
     const isParentOf = link.type === "PARENT_OF";
-    graph.addEdge(link.source, link.target, {
+    graph.addEdgeWithKey(edgeKey, link.source, link.target, {
       color: isParentOf ? LINK_PARENT_OF : LINK_RELATES,
       size: EDGE_SIZE,
       type: isParentOf ? "arrow" : "line",

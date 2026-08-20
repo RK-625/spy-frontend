@@ -54,6 +54,7 @@ const {
   findNodeRanks,
   findNodeColors,
   findNodeSizes,
+  buildLayoutGraph,
   POINT_SIZE_BASE_PX,
 } = await import(
   pathToFileURL(path.join(root, "src/lib/graph-functions.ts")).href
@@ -134,13 +135,42 @@ assert(
   "layout graph does not flip PARENT_OF endpoints",
 );
 assert(
-  layoutGraph.includes("addEdge(link.source, link.target"),
-  "layout graph maps source→target as stored",
+  layoutGraph.includes("MultiDirectedGraph") &&
+    layoutGraph.includes("addEdgeWithKey"),
+  "layout graph is multi + keyed edges (typed parallels allowed)",
+);
+assert(
+  !layoutGraph.includes("hasEdge(link.source, link.target)"),
+  "layout graph does not skip on endpoint-only hasEdge",
 );
 assert(
   layoutGraph.includes('type: isParentOf ? "arrow" : "line"') &&
     layoutGraph.includes("strengthFromChildRank"),
   "strength/arrow still hierarchy vs RELATES",
+);
+
+const multiMemories = [
+  { id: "a", name: "A", content: "", confidence: 1 },
+  { id: "b", name: "B", content: "", confidence: 1 },
+];
+const typedPair = buildLayoutGraph(multiMemories, [
+  { source: "a", target: "b", type: "PARENT_OF" },
+  { source: "a", target: "b", type: "RELATES_TO" },
+]);
+assert(
+  typedPair.size === 2 && typedPair.multi === true,
+  "A PARENT_OF B + A RELATES_TO B → two edges on multi graph",
+);
+const dupParent = buildLayoutGraph(multiMemories, [
+  { source: "a", target: "b", type: "PARENT_OF" },
+  { source: "a", target: "b", type: "PARENT_OF" },
+]);
+assert(
+  dupParent.size === 1 &&
+    [...dupParent.edgeEntries()].every(
+      ({ attributes }) => attributes.type === "arrow",
+    ),
+  "duplicate PARENT_OF A→B collapses to one hierarchy edge",
 );
 
 const canvas = fs.readFileSync(
