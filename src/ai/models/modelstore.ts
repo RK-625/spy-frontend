@@ -10,9 +10,9 @@ import { type SharedV3ProviderOptions } from "@ai-sdk/provider";
 let metaProvider: ReturnType<typeof createOpenAI> | undefined;
 
 function metaLanguageModel(modelId: string): LanguageModel {
-  const apiKey = process.env.MODEL_API_KEY;
+  const apiKey = process.env.MUSE_SPARK_KEY;
   if (!apiKey) {
-    throw new Error("MODEL_API_KEY is not set");
+    throw new Error("MUSE_SPARK_KEY is not set");
   }
   metaProvider ??= createOpenAI({
     name: "meta",
