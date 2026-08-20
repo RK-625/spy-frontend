@@ -9,7 +9,7 @@ import { buildLayoutGraph, POINT_COLOR } from "@/lib/graph-functions";
 import type { Links, MemoryNode } from "@/types/graph-schema";
 import type { GraphApiResponse } from "@/types/graph-topology";
 
-import { NodeDetailDialog } from "./node-detail-dialog";
+import { Editor } from "./editor/editor";
 
 /** Deepest register — same family as former GRAPH_BG (0x0a0a0c). */
 const GRAPH_BG = "#0a0a0c";
@@ -37,12 +37,6 @@ export function SigmaCanvas() {
   const memoriesByIdRef = useRef<Map<string, MemoryNode>>(new Map());
   const [topology, setTopology] = useState<SigmaTopology | null>(null);
   const [selectedNode, setSelectedNode] = useState<MemoryNode | null>(null);
-  const [nodeDialogOpen, setNodeDialogOpen] = useState(false);
-
-  const handleNodeDialogOpenChange = (open: boolean) => {
-    setNodeDialogOpen(open);
-    if (!open) setSelectedNode(null);
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -112,7 +106,6 @@ export function SigmaCanvas() {
         const memory = memoriesByIdRef.current.get(node);
         if (memory == null) return;
         setSelectedNode(memory);
-        setNodeDialogOpen(true);
       });
       renderer = instance;
 
@@ -161,11 +154,13 @@ export function SigmaCanvas() {
         aria-label="Knowledge graph canvas. Click a node to inspect. Drag to pan, wheel to zoom."
       />
 
-      <NodeDetailDialog
-        node={selectedNode}
-        open={nodeDialogOpen}
-        onOpenChange={handleNodeDialogOpenChange}
-      />
+      {selectedNode ? (
+        <Editor
+          key={selectedNode.id}
+          node={selectedNode}
+          onClose={() => setSelectedNode(null)}
+        />
+      ) : null}
 
       <header
         className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 p-3 sm:p-4"

@@ -87,7 +87,7 @@ const required = [
 
   // graph host
   "src/components/graph/sigma-canvas.tsx",
-  "src/components/graph/node-detail-dialog.tsx",
+  "src/components/graph/editor/editor.tsx",
 ];
 
 const forbidden = [
