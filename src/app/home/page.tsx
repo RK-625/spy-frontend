@@ -19,32 +19,50 @@ import {
   PromptInputWorkspace,
   ChatSidebar,
 } from "@/components/chat";
-import type { SourceUrlUIPart, ToolUIPart, UIMessage } from "ai";
+import type {
+  DynamicToolUIPart,
+  ReasoningUIPart,
+  SourceUrlUIPart,
+  ToolUIPart,
+  UIMessage,
+} from "ai";
 
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { AppToaster, TooltipProvider } from "@/components/ui";
+import { Excalidraw } from "@/components/logos";
 import ShinyText from "@/components/landing/shiny-text";
 
-/** Mirrors src/ai/toolset.ts webSearch input/output for UI parts */
-type SpyUITools = {
-  webSearch: {
-    input: { query: string };
-    output: {
-      results?: Array<{ title?: string; url: string; text?: string }>;
-      error?: string;
-    };
-  };
-};
 
-type WebSearchToolPart = Extract<
-  ToolUIPart<SpyUITools>,
-  { type: "tool-webSearch" }
->;
+function isReasoning(
+  part: UIMessage["parts"][number],
+): part is ReasoningUIPart {
+  return part.type === "reasoning";
+}
 
 function isWebSearchToolPart(
   part: UIMessage["parts"][number],
-): part is WebSearchToolPart {
+): part is ToolUIPart {
   return part.type === "tool-webSearch";
+}
+function isDynamicToolUIPart(
+  part: UIMessage["parts"][number],
+): part is DynamicToolUIPart {
+  return part.type === "dynamic-tool";
+}
+function dynamicToolStepStatus(
+  state: DynamicToolUIPart["state"],
+): "active" | "complete" {
+  switch (state) {
+    case "output-available":
+    case "output-error":
+    case "output-denied":
+      return "complete";
+    case "input-streaming":
+    case "input-available":
+    case "approval-requested":
+    case "approval-responded":
+      return "active";
+  }
 }
 
 const EmptyState = () => (
@@ -87,7 +105,9 @@ const ChatWorkspace = () => {
                   {(() => {
                     const thoughtParts = message.parts.filter(
                       (p) =>
-                        p.type === "reasoning" || isWebSearchToolPart(p),
+                        p.type === "reasoning" ||
+                        isWebSearchToolPart(p) ||
+                        isDynamicToolUIPart(p),
                     );
 
                     if (thoughtParts.length === 0) return null;
@@ -109,13 +129,13 @@ const ChatWorkspace = () => {
                         }
                       >
                         {thoughtParts.map((part, index) => {
-                          if (part.type === "reasoning") {
+                          if (isReasoning(part)) {
                             const preview = part.text
                               ? part.text
-                                  .trim()
-                                  .slice(0, 120)
-                                  .replace(/\n/g, " ") +
-                                (part.text.length > 120 ? "…" : "")
+                                .trim()
+                                .slice(0, 120)
+                                .replace(/\n/g, " ") +
+                              (part.text.length > 120 ? "…" : "")
                               : "Thinking…";
                             return (
                               <ChainOfThoughtStep
@@ -130,20 +150,23 @@ const ChatWorkspace = () => {
                             if (part.state !== "output-available") {
                               return null;
                             }
-                            const query = part.input.query ?? "Web search";
-                            const results =
-                              part.output.error != null
-                                ? []
-                                : (part.output.results ?? []);
-
+                            const input = part.input as { query?: string };
+                            const { results } = part.output as {
+                              results?: Array<{
+                                title?: string;
+                                url: string;
+                                text?: string;
+                              }>;
+                              error?: string;
+                            };
                             return (
                               <ChainOfThoughtStep
                                 key={`search-${index}`}
                                 icon="globe"
-                                label={query}
+                                label={input.query}
                                 status="complete"
                               >
-                                {results.length > 0 ? (
+                                {results && results?.length > 0 ? (
                                   <ChainOfThoughtSearchResults>
                                     {results.slice(0, 6).map((r, ri) => (
                                       <ChainOfThoughtSearchResult
@@ -154,6 +177,25 @@ const ChatWorkspace = () => {
                                   </ChainOfThoughtSearchResults>
                                 ) : null}
                               </ChainOfThoughtStep>
+                            );
+                          }
+                          if (isDynamicToolUIPart(part)) {
+                            const isError = part.state === "output-error";
+                            return (
+                              <ChainOfThoughtStep
+                                key={part.toolCallId ?? index}
+                                icon={
+                                  <Excalidraw
+                                    className="size-3 shrink-0"
+                                    aria-hidden
+                                  />
+                                }
+                                label={part.toolName}
+                                status={dynamicToolStepStatus(part.state)}
+                                description={
+                                  isError ? part.errorText : undefined
+                                }
+                              />
                             );
                           }
                           return null;

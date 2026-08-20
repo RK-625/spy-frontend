@@ -1714,7 +1714,7 @@ export const ChainOfThoughtContent = memo(
 export type ChainOfThoughtStepStatus = "active" | "complete" | "pending";
 
 export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
-  icon?: DotMatrixIconName;
+  icon?: DotMatrixIconName | ReactNode;
   label: ReactNode;
   description?: ReactNode;
   status?: ChainOfThoughtStepStatus;
@@ -1761,7 +1761,11 @@ export const ChainOfThoughtStep = memo(
             stepIconColors[status],
           )}
         >
-          <DotMatrixIcon name={icon} size={10} />
+          {typeof icon === "string" ? (
+            <DotMatrixIcon name={icon as DotMatrixIconName} size={10} />
+          ) : (
+            icon
+          )}
         </div>
         {/* Vertical connector — always draw unless isLast */}
         {!isLast && (
