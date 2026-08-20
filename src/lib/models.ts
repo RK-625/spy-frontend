@@ -1,4 +1,4 @@
-import { Deepseek } from "@/components/logos";
+import { Deepseek, Meta } from "@/components/logos";
 import type { AIModel } from "@/types/models";
 
 export const models: AIModel[] = [
@@ -9,6 +9,7 @@ export const models: AIModel[] = [
     name: "DeepSeek V4 Pro",
     icon: Deepseek,
     mode: ["high", "max"],
+    defaultMode: "high",
   },
   {
     chef: "DeepSeek",
@@ -17,7 +18,17 @@ export const models: AIModel[] = [
     name: "DeepSeek V4 Flash",
     icon: Deepseek,
     mode: ["high", "max"],
+    defaultMode: "high",
+  },
+  {
+    chef: "Meta",
+    chefSlug: "meta",
+    id: "muse-spark-1.2",
+    name: "Muse Spark 1.2",
+    icon: Meta,
+    mode: ["minimal", "low", "medium", "high", "xhigh"],
+    defaultMode: "medium",
   },
 ];
 
-export const chefs = ["DeepSeek"];
+export const chefs = ["DeepSeek", "Meta"];

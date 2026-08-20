@@ -84,6 +84,7 @@ const required = [
   "src/components/logos/anthropic-white.tsx",
   "src/components/logos/google.tsx",
   "src/components/logos/deepseek.tsx",
+  "src/components/logos/meta.tsx",
 
   // graph host
   "src/components/graph/sigma-canvas.tsx",

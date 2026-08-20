@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI, openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
 import { deepseek } from "@ai-sdk/deepseek";
@@ -6,6 +6,21 @@ import { models } from "@/lib/models";
 import type { AIModel } from "@/types/models";
 import { EmbeddingModel, LanguageModel } from "ai";
 import { type SharedV3ProviderOptions } from "@ai-sdk/provider";
+
+let metaProvider: ReturnType<typeof createOpenAI> | undefined;
+
+function metaLanguageModel(modelId: string): LanguageModel {
+  const apiKey = process.env.MODEL_API_KEY;
+  if (!apiKey) {
+    throw new Error("MODEL_API_KEY is not set");
+  }
+  metaProvider ??= createOpenAI({
+    name: "meta",
+    baseURL: "https://api.meta.ai/v1",
+    apiKey,
+  });
+  return metaProvider(modelId);
+}
 
 export const modelConfig = ({
   model,
@@ -42,6 +57,17 @@ export const modelConfig = ({
         providerOptions: mode
           ? { deepseek: { reasoningEffort: mode } }
           : undefined,
+      };
+    case "Meta":
+      return {
+        model: metaLanguageModel(model),
+        providerOptions: {
+          openai: {
+            forceReasoning: true,
+            include: ["reasoning.encrypted_content"],
+            ...(mode ? { reasoningEffort: mode } : {}),
+          },
+        },
       };
     default:
       throw new Error(`Unknown model: ${model}`);

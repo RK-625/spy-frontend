@@ -10,5 +10,6 @@ export interface AIModel {
   name: string;
   icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
   mode: string[];
+  defaultMode: string;
 }
 
