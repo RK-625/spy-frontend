@@ -24,12 +24,14 @@ Pass id to patch only the fields you send — do not resend unchanged content.
 On create or name/content patch, pass ${MEMORY_QUESTION_COUNT_MIN}–${MEMORY_QUESTION_COUNT_MAX} retrieval probes (style on the questions field); the system embeds and replaces the stored set.
 Impression/confidence-only: omit questions (no re-embed).
 Questions-only: refresh probes without rewriting other fields.
+Create, name/content, and questions writes are all-or-nothing: embed first when questions are sent, then one graph write — failure returns { error } and leaves the graph unchanged.
 Do not pass question ids or embeddings. Does not invent layout or rank.`;
 
 /** Short how-to bullet for the agent system prompt. */
 export const UPSERT_MEMORY_AGENT_BULLET = `Tool for creating or refining Memories — for weaving what the user has learned into the graph,
 leading to durable, searchable knowledge.
-Omit id to create; pass id to patch only changed fields. Name/content writes need a full questions set.`;
+Omit id to create; pass id to patch only changed fields. Name/content writes need a full questions set.
+Create/name-content/questions writes are all-or-nothing (failure → { error }, graph unchanged).`;
 
 /** Zod `.describe(...)` for the optional `id` field on upsertMemory input schema. */
 export const upsertMemoryIdFieldDescription = `Omit to create (system generates id). Pass an existing Memory id to patch — required on patch.

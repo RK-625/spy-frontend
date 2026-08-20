@@ -204,6 +204,16 @@ assert(
   !/\$up\d+_source/.test(toolset) && !/\$rm\d+_source/.test(toolset),
   "manageLinks no longer unrolls upN/rmN clause params",
 );
+assert(
+  !toolset.includes("falkorSetMemoryQuestions") &&
+    !toolset.includes("setMemoryQuestions as falkorSetMemoryQuestions"),
+  "upsertMemory tool path no longer calls setMemoryQuestions",
+);
+assert(
+  toolset.includes("upsertMemory failed (all-or-nothing)") &&
+    toolset.includes("memoryQuestionCreateCypher"),
+  "upsertMemory is embed-then-one-query all-or-nothing",
+);
 
 const falkor = fs.readFileSync(path.join(root, "src/lib/falkor.ts"), "utf8");
 assert(

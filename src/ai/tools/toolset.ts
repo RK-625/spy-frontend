@@ -9,14 +9,9 @@ import { getMemoriesInputSchema } from "../schemas/get-schema";
 import { webSearchInputSchema } from "../schemas/web-search-schema";
 import { generateEmbedding } from "../models/embeddings";
 import {
-  upsertMemory as falkorUpsertMemory,
-  patchMemory as falkorPatchMemory,
-  getMemory as falkorGetMemory,
   getDb,
-  setMemoryQuestions as falkorSetMemoryQuestions,
   vectorSearchByQuestions as falkorVectorSearchByQuestions,
   getMemoryCone as falkorGetMemoryCone,
-  type MemoryPatchFields,
 } from "@/lib/falkor";
 import { MEMORY_SEARCH_TOP_K } from "@/lib/policy-tokens";
 import type {
@@ -48,6 +43,47 @@ function manageLinksEngineErrorMessage(error: unknown): string {
   if (/not found/i.test(raw)) return raw;
   if (/already has a PARENT_OF/i.test(raw)) return raw;
   return raw;
+}
+
+/** Readable fragment for upsertMemory all-or-nothing catch. */
+function upsertMemoryEngineErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Failed to upsert memory.";
+}
+
+/**
+ * Unrolled MemoryQuestion CREATE clauses for one GRAPH.QUERY.
+ * MATCH attach by Memory id so clauses stay valid after CREATE Memory or
+ * MATCH+SET+delete old probes in the same query. Per-param vecf32($qN_emb)
+ * (UNWIND map.vecf32 is unreliable in Falkor).
+ */
+function memoryQuestionCreateCypher(
+  rows: MemoryQuestion[],
+  memoryId: string,
+): {
+  cypher: string;
+  params: Record<string, string | number[]>;
+} {
+  const params: Record<string, string | number[]> = { memoryId };
+  const createClauses = rows.map((row, index) => {
+    const idKey = `q${index}_id`;
+    const textKey = `q${index}_text`;
+    const embKey = `q${index}_emb`;
+    params[idKey] = row.id;
+    params[textKey] = row.text;
+    params[embKey] = row.questionEmbedding;
+    return `
+      CREATE (mq${index}:MemoryQuestion {
+        id: $${idKey},
+        text: $${textKey},
+        questionEmbedding: vecf32($${embKey})
+      })-[:FOR_MEMORY]->(mqMem)`;
+  });
+  return {
+    cypher: `
+      MATCH (mqMem:Memory {id: $memoryId})
+      ${createClauses.join("\n")}`,
+    params,
+  };
 }
 
 /** Lazy Exa client — never construct at module load (missing key must not kill chat). */
@@ -113,59 +149,105 @@ export function createToolSet(): Record<string, Tool> {
     inputSchema: upsertMemoryInputSchema,
     execute: async (input) => {
       try {
-        // --- Create: omit id; core fields + questions required ---
-        if (!("id" in input)) {
-          const { name, content, impression, confidence, questions } = input;
-          const id = nanoid();
-          const rows = await embedQuestionRows(questions);
+        const graph = await getDb();
+        const rows =
+          input.questions !== undefined
+            ? await embedQuestionRows(input.questions)
+            : null;
 
-          await falkorUpsertMemory({
-            id,
-            name,
-            content,
-            impression,
-            confidence,
+        // --- Create: omit id; rows already embedded; one GRAPH.QUERY ---
+        if (!("id" in input)) {
+          const { name, content, impression, confidence } = input;
+          const id = nanoid();
+          // Create schema requires questions; rows is non-null here.
+          if (rows == null) {
+            return { error: "questions required to create a Memory" };
+          }
+          const questionWrite = memoryQuestionCreateCypher(rows, id);
+
+          const query = `
+            CREATE (m:Memory {
+              id: $id,
+              name: $name,
+              content: $content,
+              impression: $impression,
+              confidence: $confidence
+            })
+            WITH m
+            ${questionWrite.cypher}
+            RETURN m.id AS id
+          `;
+
+          await graph.query(query, {
+            params: {
+              id,
+              name,
+              content,
+              impression,
+              confidence,
+              ...questionWrite.params,
+            },
           });
-          await falkorSetMemoryQuestions(id, rows);
 
           return { id, name, questionCount: rows.length };
         }
 
-        // --- Patch: id present; only provided keys overwrite ---
-        const existing = await falkorGetMemory(input.id);
-        if (existing == null) {
+        // --- Patch: rows already embedded when questions present; one GRAPH.QUERY ---
+        const props: Record<string, string | number> = {};
+        if (input.name !== undefined) props.name = input.name;
+        if (input.content !== undefined) props.content = input.content;
+        if (input.impression !== undefined) props.impression = input.impression;
+        if (input.confidence !== undefined) props.confidence = input.confidence;
+        const params: Record<
+          string,
+          string | number | number[] | Record<string, string | number>
+        > = { id: input.id, props };
+        let query: string;
+        if (rows != null) {
+          const questionWrite = memoryQuestionCreateCypher(rows, input.id);
+          Object.assign(params, questionWrite.params);
+          // SET + replace probes in the same query so failure rolls back both.
+          query = `
+            MATCH (m:Memory {id: $id})
+            SET m += $props
+            WITH m
+            OPTIONAL MATCH (m)<-[:FOR_MEMORY]-(oldq:MemoryQuestion)
+            DETACH DELETE oldq
+            WITH DISTINCT m
+            ${questionWrite.cypher}
+            RETURN m.id AS id, m.name AS name
+          `;
+        } else {
+          // Impression/confidence-only (or empty props edge): SET only, no probe rewrite.
+          query = `
+            MATCH (m:Memory {id: $id})
+            SET m += $props
+            RETURN m.id AS id, m.name AS name
+          `;
+        }
+
+        const result = (await graph.query(query, { params })) as {
+          data: Array<{ id: string; name: string }>;
+        };
+        const row = result.data?.[0];
+        if (row == null) {
           return { error: "Memory not found" };
         }
 
-        const patch: MemoryPatchFields = {};
-        if (input.name !== undefined) patch.name = input.name;
-        if (input.content !== undefined) patch.content = input.content;
-        if (input.impression !== undefined) patch.impression = input.impression;
-        if (input.confidence !== undefined) patch.confidence = input.confidence;
-
-        if (Object.keys(patch).length > 0) {
-          await falkorPatchMemory(input.id, patch);
-        }
-
-        const mergedName = input.name ?? existing.name;
-
-        if (input.questions !== undefined) {
-          const rows = await embedQuestionRows(input.questions);
-          await falkorSetMemoryQuestions(input.id, rows);
+        if (rows != null) {
           return {
-            id: input.id,
-            name: mergedName,
+            id: row.id,
+            name: row.name,
             questionCount: rows.length,
           };
         }
 
-        // Impression/confidence-only: no re-embed.
-        return { id: input.id, name: mergedName };
+        return { id: row.id, name: row.name };
       } catch (error) {
         console.error("upsertMemory tool error:", error);
-        const message =
-          error instanceof Error ? error.message : "Failed to upsert memory.";
-        return { error: message };
+        return {
+          error: `upsertMemory failed (all-or-nothing); graph unchanged. ${upsertMemoryEngineErrorMessage(error)}`,
+        };
       }
     },
   });
