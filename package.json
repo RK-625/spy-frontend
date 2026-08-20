@@ -19,6 +19,7 @@
     "@ai-sdk/deepseek": "^2.0.44",
     "@ai-sdk/devtools": "^0.0.20",
     "@ai-sdk/google": "^3.0.88",
+    "@ai-sdk/mcp": "^1.0.71",
     "@ai-sdk/openai": "^3.0.80",
     "@ai-sdk/react": "^3.0.210",
     "@assistant-ui/react": "^0.14.26",

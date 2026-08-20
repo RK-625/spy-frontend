@@ -52,6 +52,7 @@ import {
 } from "../footer/model-selector";
 import { PromptInputAttachments } from "../attachments/attachment-strip";
 import { DotMatrixIcon } from "@/components/dotmatrix";
+import { Excalidraw } from "@/components/logos";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import {
   formatAskUserQuestionAnswer,
@@ -312,11 +313,20 @@ function PromptInputWorkspaceContent() {
   const {
     attachments,
     textInput,
-    prefs: { model, setModel, mode, setMode, useWebSearch, toggleWebSearch },
+    prefs: {
+      model,
+      setModel,
+      mode,
+      setMode,
+      useWebSearch,
+      toggleWebSearch,
+      useExcalidraw,
+      toggleExcalidraw,
+    },
   } = usePromptInputContext();
 
   /**
-   * Transport only: kick off useChat sendMessage with model/mode/web prefs.
+   * Transport only: kick off useChat sendMessage with model/mode/web/excalidraw prefs.
    * No accept policy here — caller (handleSubmit) must validate first.
    * Fire-and-forget: late stream/network failures toast; form already cleared.
    */
@@ -327,6 +337,7 @@ function PromptInputWorkspaceContent() {
         model: string;
         mode: string;
         useWebSearch: boolean;
+        useExcalidraw: boolean;
       },
     ): void => {
       void sendMessage(
@@ -341,6 +352,7 @@ function PromptInputWorkspaceContent() {
           body: {
             model: prefs.model,
             useWebSearch: prefs.useWebSearch,
+            useExcalidraw: prefs.useExcalidraw,
             mode: prefs.mode,
           },
         },
@@ -376,7 +388,7 @@ function PromptInputWorkspaceContent() {
 
       const answer = message.text?.trim() ?? "";
       const hasFiles = (message.files?.length ?? 0) > 0;
-      const prefs = { model, mode, useWebSearch };
+      const prefs = { model, mode, useWebSearch, useExcalidraw };
 
       if (pendingAsk != null) {
         // Empty form / nothing to answer.
@@ -413,7 +425,15 @@ function PromptInputWorkspaceContent() {
         prefs,
       );
     },
-    [submitUserMessage, pendingAsk, status, model, mode, useWebSearch],
+    [
+      submitUserMessage,
+      pendingAsk,
+      status,
+      model,
+      mode,
+      useWebSearch,
+      useExcalidraw,
+    ],
   );
 
   const handleTranscriptionChange = useCallback(
@@ -525,6 +545,28 @@ function PromptInputWorkspaceContent() {
                 )}
               >
                 <DotMatrixIcon name="globe" size={ICON_GLYPH.toolbar} />
+              </PromptInputButton>
+              <PromptInputButton
+                onClick={toggleExcalidraw}
+                size="icon-sm"
+                variant={useExcalidraw ? "default" : "ghost"}
+                aria-label={
+                  useExcalidraw ? "Disable Excalidraw" : "Enable Excalidraw"
+                }
+                tooltip={{
+                  content: useExcalidraw
+                    ? "Disable Excalidraw"
+                    : "Enable Excalidraw",
+                  side: "top",
+                }}
+                className={cn(
+                  "transition-colors",
+                  useExcalidraw
+                    ? "bg-primary text-accent-ink hover:bg-accent-hover"
+                    : "text-text-primary hover:bg-[var(--surface-hover)]",
+                )}
+              >
+                <Excalidraw className="size-5 shrink-0" />
               </PromptInputButton>
               <ModelSelector
                 onOpenChange={setModelSelectorOpen}
