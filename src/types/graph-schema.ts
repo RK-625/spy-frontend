@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Product Memory row — core fields only.
  * Embeddings live on MemoryQuestion (`questionEmbedding`), never on Memory.
- * Layout (x/y) is client-only — Cosmograph owns GPU placement; never on this wire.
+ * Layout (x/y) is client-only — Sigma + graphology FA2 own placement; never on this wire.
  */
 export const Memory = z.object({
   id: z.string().describe("A unique identifier to the Memory"),
@@ -33,7 +33,7 @@ export const MemoryQuestion = z.object({
   id: z.string().describe("Unique id for this MemoryQuestion"),
   text: z
     .string()
-    .describe("Natural-language retrieval question (LLM-generated at write)"),
+    .describe("Natural-language retrieval question (agent-provided at write)"),
   questionEmbedding: z
     .number()
     .array()
@@ -44,12 +44,37 @@ export type MemoryQuestion = z.infer<typeof MemoryQuestion>;
 /**
  * Lean Memory row for topology transfer.
  * With Memory core-only, this is identical to Memory (alias).
- * Wire shape for GET `/api/graph`; client maps memories/links → Cosmograph.
+ * Wire shape for GET `/api/graph`; client Sigma host maps memories/links.
  */
 export type MemoryNode = Memory;
 
-/** Vector search hit: Memory + fused RRF score. */
-export type MemorySearchHit = MemoryNode & { score: number };
+/**
+ * Slim vector-search hit for one probe: id + name + best ANN cosine.
+ * Score is that probe’s cosine, not RRF, and not a full Memory body.
+ */
+export type MemorySearchHit = {
+  id: string;
+  name: string;
+  score: number;
+};
+
+/** Recursive PARENT_OF child in a getMemories cone. */
+export type MemoryChild = {
+  memory: Memory;
+  children: MemoryChild[];
+};
+
+/**
+ * Neighborhood around a center Memory.
+ * PARENT_OF cone (ancestors up, descendants down) and/or center-incident RELATES_TO.
+ * `relatesTo` is always present (empty when not requested or none exist).
+ */
+export type MemoryCone = {
+  memory: Memory;
+  ancestors: Memory[];
+  descendants: MemoryChild[];
+  relatesTo: Links[];
+};
 
 export const Concept = z.object({
   id: z.string().describe("A unique identifier to the node"),
@@ -86,3 +111,24 @@ export type Links = z.infer<typeof Links>;
 
 export const Link = Links;
 export type Link = Links;
+
+/** Per-edge outcome inside a manageLinks remove or upsert batch. */
+export type ManageLinkItemResult = {
+  source: string;
+  target: string;
+  type: MemoryLinkType;
+  ok: boolean;
+  error?: string;
+};
+
+/** Aggregated results for one manageLinks array (remove or upsert). */
+export type ManageLinksBatchResult = {
+  succeeded: number;
+  total: number;
+  results: ManageLinkItemResult[];
+};
+
+/** manageLinks tool result: both batches on success, or `{ error }` only on failure. */
+export type ManageLinksResult =
+  | { remove: ManageLinksBatchResult; upsert: ManageLinksBatchResult }
+  | { error: string };

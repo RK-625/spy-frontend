@@ -6,20 +6,23 @@ import {
   Links as LinksSchema,
   type Memory,
   type Links,
+  type MemoryLinkType,
   type MemorySearchHit,
+  type MemoryChild,
+  type MemoryCone,
   type MemoryNode,
   type MemoryQuestion,
 } from "@/types/graph-schema";
 import type { GraphTopology } from "@/types/graph-topology";
 import {
-  MEMORY_SEARCH_RRF_K,
+  MEMORY_SEARCH_MIN_COSINE,
   MEMORY_SEARCH_TOP_K,
 } from "@/lib/policy-tokens";
 import { z } from "zod";
 
 /** Re-export wire SoT from client-safe `@/types/graph-topology` (do not redefine). */
 export type { GraphTopology, MemoryNode } from "@/types/graph-topology";
-export type { MemorySearchHit } from "@/types/graph-schema";
+export type { MemorySearchHit, MemoryChild, MemoryCone } from "@/types/graph-schema";
 
 const GRAPH_NAME = "spy_brain";
 
@@ -143,41 +146,23 @@ export async function getDb() {
   return graph;
 }
 
-/**
- * Reciprocal Rank Fusion over per-query memory id rankings.
- * Rank is 1-based. When the same memory appears multiple times in one list,
- * only the best (lowest) rank contributes for that list.
- */
-function fuseRankedMemoryIdsWithRrf(
-  rankedMemoryIdLists: string[][],
-  rrfK: number = MEMORY_SEARCH_RRF_K,
-): Map<string, number> {
-  const rrfScoresByMemoryId = new Map<string, number>();
-  for (const list of rankedMemoryIdLists) {
-    const seenInList = new Set<string>();
-    list.forEach((memoryId, index) => {
-      if (seenInList.has(memoryId)) return;
-      seenInList.add(memoryId);
-      const rank = index + 1;
-      const contribution = 1 / (rrfK + rank);
-      rrfScoresByMemoryId.set(
-        memoryId,
-        (rrfScoresByMemoryId.get(memoryId) ?? 0) + contribution,
-      );
-    });
-  }
-  return rrfScoresByMemoryId;
-}
+/** Local ANN row from Cypher — slim id/name/score only (not a full Memory). */
+type AnnProbeRow = {
+  id: string;
+  name: string;
+  score: number;
+};
 
 /**
- * Product vector search: multi-ANN over MemoryQuestion.questionEmbedding, follow
- * FOR_MEMORY to parent Memory, fuse with RRF by memory id.
- * Returns lean MemorySearchHit[] (no embeddings, no MemoryQuestion rows).
+ * Product vector search: each probe embedding is its own ANN lookup over
+ * MemoryQuestion.questionEmbedding (FOR_MEMORY → Memory). Per-probe cosine
+ * floor (MEMORY_SEARCH_MIN_COSINE); no cross-probe fusion.
+ * Returns MemorySearchHit[][] aligned with embeddings (results[i] = probe i).
  */
 export async function vectorSearchByQuestions(
   embeddings: number[][],
   topK: number = MEMORY_SEARCH_TOP_K,
-): Promise<MemorySearchHit[]> {
+): Promise<MemorySearchHit[][]> {
   if (embeddings.length === 0) {
     return [];
   }
@@ -189,50 +174,37 @@ export async function vectorSearchByQuestions(
     MATCH (node)-[:FOR_MEMORY]->(m:Memory)
     RETURN m.id AS id,
            m.name AS name,
-           m.content AS content,
-           m.impression AS impression,
-           m.confidence AS confidence,
            score
   `;
 
-  const memoryById = new Map<string, MemoryNode>();
-  const rankedLists: string[][] = [];
-
   try {
+    const results: MemorySearchHit[][] = [];
+
     for (const embedding of embeddings) {
       const result = (await graph.query(annQuery, {
         params: { topK, embedding },
-      })) as { data: MemorySearchHit[] };
+      })) as { data: AnnProbeRow[] };
 
-      const orderedIds: string[] = [];
+      const bestByMemoryId = new Map<string, MemorySearchHit>();
       for (const row of result.data ?? []) {
-        if (!memoryById.has(row.id)) {
-          memoryById.set(row.id, {
+        if (row.score < MEMORY_SEARCH_MIN_COSINE) continue;
+        const prior = bestByMemoryId.get(row.id);
+        if (prior == null || row.score > prior.score) {
+          bestByMemoryId.set(row.id, {
             id: row.id,
             name: row.name,
-            content: row.content,
-            impression: row.impression,
-            confidence: row.confidence,
+            score: row.score,
           });
         }
-        orderedIds.push(row.id);
       }
-      rankedLists.push(orderedIds);
+
+      const probeHits = Array.from(bestByMemoryId.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK);
+      results.push(probeHits);
     }
 
-    const rrfScoresByMemoryId = fuseRankedMemoryIdsWithRrf(
-      rankedLists,
-      MEMORY_SEARCH_RRF_K,
-    );
-    const hits: MemorySearchHit[] = [];
-    for (const [memoryId, score] of rrfScoresByMemoryId) {
-      const node = memoryById.get(memoryId);
-      if (node == null) continue;
-      hits.push({ ...node, score });
-    }
-
-    hits.sort((a, b) => b.score - a.score);
-    return hits.slice(0, topK);
+    return results;
   } catch (error) {
     console.error("vectorSearchByQuestions error:", error);
     throw error;
@@ -334,9 +306,175 @@ export async function hasIncomingLink(
   }
 }
 
+/** Cypher Memory core RETURN (no embeddings, no MemoryQuestion). */
+const MEMORY_CORE_RETURN = `
+           m.id AS id,
+           m.name AS name,
+           m.content AS content,
+           m.impression AS impression,
+           m.confidence AS confidence
+`;
+
+/**
+ * Read one Memory by id (core fields only). Unknown id → null (does not throw).
+ */
+export async function getMemory(id: string): Promise<Memory | null> {
+  const validId = z.string().min(1).parse(id);
+  const graph = await getDb();
+  const query = `
+    MATCH (m:Memory {id: $id})
+    RETURN ${MEMORY_CORE_RETURN}
+  `;
+  try {
+    const result = (await graph.query(query, {
+      params: { id: validId },
+    })) as { data: Memory[] };
+    const row = result.data?.[0];
+    if (row == null) return null;
+    return row;
+  } catch (error) {
+    console.error("getMemory error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Walk the incoming PARENT_OF chain (one parent max per hop).
+ * Stops on missing parent or visited-set cycle. Missing gens omitted.
+ */
+async function collectAncestors(
+  graph: FalkorGraph,
+  startId: string,
+  hops: number,
+  visited: Set<string>,
+): Promise<Memory[]> {
+  const ancestors: Memory[] = [];
+  let currentId = startId;
+  const query = `
+    MATCH (m:Memory)-[:PARENT_OF]->(c:Memory {id: $id})
+    RETURN ${MEMORY_CORE_RETURN}
+  `;
+
+  for (let hop = 0; hop < hops; hop++) {
+    const result = (await graph.query(query, {
+      params: { id: currentId },
+    })) as { data: Memory[] };
+    const row = result.data?.[0];
+    if (row == null) break;
+    if (visited.has(row.id)) break;
+    visited.add(row.id);
+    ancestors.push(row);
+    currentId = row.id;
+  }
+
+  return ancestors;
+}
+
+/**
+ * Walk outgoing PARENT_OF children to `remainingHops` depth.
+ * Visited-set cycle fuse skips already-seen ids (not a hop ceiling).
+ */
+async function collectDescendants(
+  graph: FalkorGraph,
+  parentId: string,
+  remainingHops: number,
+  visited: Set<string>,
+): Promise<MemoryChild[]> {
+  if (remainingHops <= 0) return [];
+
+  const query = `
+    MATCH (p:Memory {id: $id})-[:PARENT_OF]->(m:Memory)
+    RETURN ${MEMORY_CORE_RETURN}
+  `;
+  const result = (await graph.query(query, {
+    params: { id: parentId },
+  })) as { data: Memory[] };
+
+  const children: MemoryChild[] = [];
+  for (const memory of result.data ?? []) {
+    if (visited.has(memory.id)) continue;
+    visited.add(memory.id);
+    const nested = await collectDescendants(
+      graph,
+      memory.id,
+      remainingHops - 1,
+      visited,
+    );
+    children.push({ memory, children: nested });
+  }
+  return children;
+}
+
+/**
+ * Load RELATES_TO edges incident on the center Memory only (incoming + outgoing).
+ * Not a BFS — never walks beyond the center.
+ */
+async function collectCenterRelatesTo(
+  graph: FalkorGraph,
+  centerId: string,
+): Promise<Links[]> {
+  const query = `
+    MATCH (a:Memory)-[r:RELATES_TO]->(b:Memory)
+    WHERE a.id = $id OR b.id = $id
+    RETURN a.id AS source, b.id AS target, type(r) AS type
+  `;
+  const result = (await graph.query(query, {
+    params: { id: centerId },
+  })) as { data: Array<{ source: string; target: string; type: string }> };
+
+  return (result.data ?? []).map((row) =>
+    LinksSchema.parse({
+      source: row.source,
+      target: row.target,
+      type: row.type,
+    }),
+  );
+}
+
+/**
+ * Neighborhood around a Memory: PARENT_OF cone and/or center RELATES_TO.
+ * - PARENT_OF in linkTypes + hops > 0 → ancestors/descendants cone
+ * - RELATES_TO in linkTypes → center-incident relatesTo only
+ * - only RELATES_TO → ignore hops
+ * - both → cone + relatesTo
+ * Empty linkTypes (should not reach here if schema enforces min 1) → no walks.
+ * hops NEVER walks RELATES_TO. Unknown id → null.
+ */
+export async function getMemoryCone(
+  id: string,
+  hops: number,
+  linkTypes: MemoryLinkType[],
+): Promise<MemoryCone | null> {
+  const validId = z.string().min(1).parse(id);
+  const memory = await getMemory(validId);
+  if (memory == null) return null;
+
+  const wantParentOf = linkTypes.includes("PARENT_OF");
+  const wantRelatesTo = linkTypes.includes("RELATES_TO");
+
+  let ancestors: Memory[] = [];
+  let descendants: MemoryChild[] = [];
+  let relatesTo: Links[] = [];
+
+  if (wantParentOf && hops > 0) {
+    const graph = await getDb();
+    const visited = new Set<string>([memory.id]);
+    ancestors = await collectAncestors(graph, memory.id, hops, visited);
+    descendants = await collectDescendants(graph, memory.id, hops, visited);
+  }
+
+  if (wantRelatesTo) {
+    const graph = await getDb();
+    relatesTo = await collectCenterRelatesTo(graph, memory.id);
+  }
+
+  return { memory, ancestors, descendants, relatesTo };
+}
+
 /**
  * Upsert Memory core fields only (id, name, content, impression, confidence).
  * Product search questions are written separately via setMemoryQuestions.
+ * Create path: MERGE + SET all four core fields; full Memory row required.
  */
 export async function upsertMemory(memory: Memory) {
   const parsed = MemorySchema.parse(memory);
@@ -369,8 +507,61 @@ export async function upsertMemory(memory: Memory) {
   }
 }
 
+/** Patchable core fields on an existing Memory (id is the MATCH key, not a field). */
+export type MemoryPatchFields = Partial<
+  Pick<Memory, "name" | "content" | "impression" | "confidence">
+>;
+
+/**
+ * Patch an existing Memory: MATCH by id only (never MERGE a half-node).
+ * Sets only provided keys; omitted keys stay stored. Unknown id → throw.
+ * Does not Memory.parse a partial row.
+ */
+export async function patchMemory(
+  id: string,
+  fields: MemoryPatchFields,
+): Promise<string> {
+  const validId = z.string().min(1).parse(id);
+  const props: MemoryPatchFields = {};
+  if (fields.name !== undefined) props.name = fields.name;
+  if (fields.content !== undefined) props.content = fields.content;
+  if (fields.impression !== undefined) props.impression = fields.impression;
+  if (fields.confidence !== undefined) props.confidence = fields.confidence;
+
+  const graph = await getDb();
+  const query = `
+    MATCH (m:Memory {id: $id})
+    SET m += $props
+    RETURN m.id AS id
+  `;
+
+  try {
+    const result = (await graph.query(query, {
+      params: { id: validId, props },
+    })) as { data: Array<{ id: string }> };
+
+    const patchedId = result.data?.[0]?.id;
+    if (patchedId == null) {
+      throw new Error(`Memory not found: ${validId}`);
+    }
+    return patchedId;
+  } catch (error) {
+    console.error("patchMemory error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Public create for a directed Memory edge.
+ * PARENT_OF delegates to createParentOfLink (sticky single parent).
+ * RELATES_TO MERGEs the associative edge.
+ */
 export async function createLink(link: Links) {
   const parsed = LinksSchema.parse(link);
+  if (parsed.type === "PARENT_OF") {
+    return createParentOfLink(parsed);
+  }
+
   const graph = await getDb();
 
   const query = `
@@ -399,10 +590,40 @@ export async function createLink(link: Links) {
 }
 
 /**
+ * Delete one typed directed Memory edge.
+ * Missing edge or endpoints → `"absent"` (success no-op). Present → `"deleted"`.
+ */
+export async function deleteLink(link: Links): Promise<"deleted" | "absent"> {
+  const parsed = LinksSchema.parse(link);
+  const graph = await getDb();
+
+  const query = `
+    MATCH (source:Memory {id: $source})-[r:${parsed.type}]->(target:Memory {id: $target})
+    DELETE r
+    RETURN 1 AS deleted
+  `;
+
+  try {
+    const result = (await graph.query(query, {
+      params: { source: parsed.source, target: parsed.target },
+    })) as { data: Array<{ deleted: number }> };
+
+    if (result.data.length === 0) {
+      return "absent";
+    }
+    return "deleted";
+  } catch (error) {
+    console.error("Delete Link Error:", error);
+    throw error;
+  }
+}
+
+/**
  * Atomic PARENT_OF create: one Cypher write that MERGEs when the child has no
  * *different* PARENT_OF parent. Same source→target is idempotent (MERGE no-op).
  * A different parent blocks (no reparent / last-wins). Empty result is classified
  * via hasIncomingLink (error message only; write is atomic).
+ * Internal sticky-parent write — call via createLink for product upserts.
  */
 export async function createParentOfLink(link: Links): Promise<"PARENT_OF"> {
   const parsed = LinksSchema.parse(link);

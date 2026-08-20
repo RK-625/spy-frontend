@@ -84,10 +84,11 @@ const required = [
   "src/components/logos/anthropic-white.tsx",
   "src/components/logos/google.tsx",
   "src/components/logos/deepseek.tsx",
+  "src/components/logos/meta.tsx",
 
   // graph host
-  "src/components/graph/graph-canvas.tsx",
-  "src/components/graph/node-detail-dialog.tsx",
+  "src/components/graph/sigma-canvas.tsx",
+  "src/components/graph/editor/editor.tsx",
 ];
 
 const forbidden = [

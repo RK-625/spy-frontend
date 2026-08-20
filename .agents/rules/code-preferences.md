@@ -1,17 +1,11 @@
----
-description: "Code preferences and engineering balance guidelines"
-alwaysApply: true
----
-
 # Preferences
 
-## Code Structure
-  - Code needs to be structured, following simple modular components, separated in sections, maintainable and sorted in dependency order(bottom-up) following the isloation principle ensuring that every feature, module, or component is entirely self-contained, predictable, and decoupled. By treating each directory as an independent micro-system with a strict public interface, we prevent tangled dependencies, eliminate 'spaghetti code,' and make the codebase instantly navigable for any developer.
-  - Naming convention for the functions, variables , components, folders , files should be clear, strict, symmetrical, simple, clear, and distinct and reflect it function or purpose. The names should be functional and descriptive, avoiding generic names like `isOpen` or `toggle`.
-  - Every module, domain directory, or nested subdirectory at ANY level of the project hierarchy MUST be physically organized following the isolation principle — acting as a self-contained, decoupled micro-system with a flat or shallow directory structure appropriate to the functionality of its files, maintaining strict topological dependency order.
-  - Any module or domain directory containing 5 or more files (e.g., `src/lib/graph/`, `src/components/chat/`) MUST be physically organized into subdirectories by responsibility (e.g., `cache/`, `renderer/`, `camera/`, `physics/`), while maintaining a top-level `index.ts` barrel export for clean `@/` domain imports. Every directory must follow the isolation principle by acting as a self-contained micro-system with a strict public interface.
+## Code & Codebase Structure
+  - Code needs to be structured, following simple modular components, separated in sections, maintainable and sorted in dependency order(bottom-up) following the isloation principle ensuring that every feature, module, or component is entirely self-contained, predictable, and decoupled.
+  - Naming convention for the functions, variables , components, folders , files should be clear, strict, symmetrical, simple, clear, and distinct and reflect its function or purpose. The names should be functional and descriptive, avoiding generic names like `isOpen` or `toggle`.
+  - Every module, domain directory, or nested subdirectory at ANY level of the project hierarchy MUST be physically organized following the isolation principle — acting as a self-contained, decoupled micro-system with a flat or shallow directory structure appropriate to the functionality of its files, maintaining strict topological dependency order in the codebase we prevent tangled dependencies, eliminate 'spaghetti code,' and make the codebase instantly navigable for any developer.Any module or domain directory containing 5 or more files MUST be physically organized into subdirectories by responsibility for better organization and maintainability.
   - never use "any" type in Typescript
-  - As the codebase grows, you have figure to balance between over-engineering and under-engineering.Instead weight out the benefits and trade-offs of each approach and choose the one that best fits the current and future needs of the codebase.(Use orchesteation here for opinions from other agents).These are some examples of what i meant. In case of confusion and dilemma **orchestrate** use third-agents seek thier advice on the issue.
+  - As the codebase grows, you have figure to balance between over-engineering and under-engineering.Instead weight out the benefits and trade-offs of each approach and choose the one that best fits the current and future needs of the codebase.(Use orchesteation here for opinions from other agents).These are some examples of what i meant. In case of confusion and dilemma **orchestrate** use third-party agents seek thier advice on the issue.
     - **State Management**
       - **Under-Engineering**: Managing shared state with only useState + prop drilling across many components or deep levels in the component tree.
       - **Over-Engineering**: Introducing React Context + custom hooks + reducer for 1–2 simple pieces of local state that are only passed down 1–2 levels to a few closely related child components.

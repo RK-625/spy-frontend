@@ -437,10 +437,12 @@ function PromptInputWorkspaceContent() {
 
   const handleModelSelect = useCallback(
     (modelId: string) => {
+      const entry = models.find((m) => m.id === modelId);
       setModel(modelId);
+      if (entry) setMode(entry.defaultMode);
       setModelSelectorOpen(false);
     },
-    [setModel],
+    [setModel, setMode],
   );
 
   const isSubmitDisabled = useMemo(

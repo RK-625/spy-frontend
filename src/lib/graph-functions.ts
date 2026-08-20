@@ -1,4 +1,31 @@
-import type { Links } from "@/types/graph-schema";
+import { MultiDirectedGraph } from "graphology";
+
+import type { Links, MemoryNode } from "@/types/graph-schema";
+
+export const POINT_COLOR = "#c8acfb";
+export const LINK_PARENT_OF = "#8a96b4";
+export const LINK_RELATES = "#9a7ab8";
+/** FA2 edge weight for RELATES_TO (not a layout spring). */
+export const RELATES_FA2_WEIGHT = 0.3;
+export const EDGE_SIZE = 1;
+
+export interface SigmaNodeAttrs {
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  label: string;
+}
+
+export interface SigmaEdgeAttrs {
+  color: string;
+  size: number;
+  type: "arrow" | "line";
+  weight: number;
+}
+
+/** Multi so PARENT_OF + RELATES_TO can share a directed pair. */
+export type SigmaGraph = MultiDirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>;
 
 export type NodeHierarchy = {
   ranks: Map<string, number>;
@@ -7,16 +34,6 @@ export type NodeHierarchy = {
 };
 
 type Walk = { rank: number; rootId: string | null };
-
-/** True if `childId` already has an incoming PARENT_OF (one parent max). */
-export function childHasIncomingParentOf(
-  links: readonly Links[],
-  childId: string,
-): boolean {
-  return links.some(
-    (link) => link.type === "PARENT_OF" && link.target === childId,
-  );
-}
 
 /** PARENT_OF only. Parent → child. First parent wins. */
 export function findNodeRanks(
@@ -73,15 +90,28 @@ export function findNodeColors({
   for (const [id, rootId] of rootById) {
     colors.set(
       id,
-      rootId == null ? "#c8acfb" : shade(hueOf(rootId), ranks.get(id) ?? 0),
+      rootId == null ? POINT_COLOR : shade(hueOf(rootId), ranks.get(id) ?? 0),
     );
   }
   return colors;
 }
 
-/** Root = 1. Deeper → smaller. No min/max clamp — zoom owns screen scale. */
+/**
+ * Node sizes are screen pixels for Sigma. Rank weight alone (0–1) would
+ * render as sub-pixel dots — scale to readable screen pixels.
+ * Root largest; deeper ranks smaller.
+ */
+export const POINT_SIZE_BASE_PX = 15;
+
+/** Root ≈ POINT_SIZE_BASE_PX; deeper → smaller (rank 1 ≈ 4, rank 2 ≈ 2.67, …). */
 export function sizeFromRank(rank: number): number {
-  return 1 / (rank + 1);
+  return POINT_SIZE_BASE_PX / (rank + 1);
+}
+
+/** PARENT_OF spring from child rank. Inverse of parent+child size pair; no cap. Rank 1 ≈ 0.67; deeper → stronger. */
+export function strengthFromChildRank(childRank: number): number {
+  const r = Math.max(1, childRank);
+  return (r * (r + 1)) / (2 * r + 1);
 }
 
 export function findNodeSizes({ ranks }: NodeHierarchy): Map<string, number> {
@@ -111,4 +141,48 @@ function shade(h: number, rank: number): string {
       .padStart(2, "0");
   };
   return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+/** Edge key: source + target + link type (exact-duplicate guard). */
+function layoutEdgeKey(link: Links): string {
+  return `${link.source}\0${link.target}\0${link.type}`;
+}
+
+/** Circle-seeded topology only — FA2 runs live after Sigma mounts. */
+export function buildLayoutGraph(
+  memories: MemoryNode[],
+  links: Links[],
+): SigmaGraph {
+  const graph = new MultiDirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>();
+  const ids = memories.map((memory) => memory.id);
+  const hierarchy = findNodeRanks(ids, links);
+  const colors = findNodeColors(hierarchy);
+  const sizes = findNodeSizes(hierarchy);
+  const count = memories.length;
+  memories.forEach((memory, index) => {
+    const angle = (2 * Math.PI * index) / Math.max(count, 1);
+    graph.addNode(memory.id, {
+      x: Math.cos(angle),
+      y: Math.sin(angle),
+      size: sizes.get(memory.id) ?? 1,
+      color: colors.get(memory.id) ?? POINT_COLOR,
+      label: memory.name,
+    });
+  });
+  for (const link of links) {
+    if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue;
+    const edgeKey = layoutEdgeKey(link);
+    if (graph.hasEdge(edgeKey)) continue;
+    const isParentOf = link.type === "PARENT_OF";
+    graph.addEdgeWithKey(edgeKey, link.source, link.target, {
+      color: isParentOf ? LINK_PARENT_OF : LINK_RELATES,
+      size: EDGE_SIZE,
+      type: isParentOf ? "arrow" : "line",
+      weight: isParentOf
+        ? strengthFromChildRank(hierarchy.ranks.get(link.target) ?? 1)
+        : RELATES_FA2_WEIGHT,
+    });
+  }
+
+  return graph;
 }

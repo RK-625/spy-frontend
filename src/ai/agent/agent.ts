@@ -6,6 +6,7 @@ import {
 } from "ai";
 import { createToolSet } from "../tools/toolset";
 import { modelConfig } from "../models/modelstore";
+import { slimJson } from "../slim-json";
 import { systemPrompt } from "@/prompts/system-prompt";
 
 export async function runAgent({
@@ -25,8 +26,8 @@ export async function runAgent({
   const modelMessages = await convertToModelMessages(messages, {
     ignoreIncompleteToolCalls: true,
   });
-  // Model-scoped tools so upsertMemory can LLM-generate retrieval questions.
-  const toolSet = createToolSet({ model });
+  // Product tools are model-agnostic; chat model stays on modelConfig only.
+  const toolSet = createToolSet();
   // Only webSearch is optional; memory weave + askUserQuestion stay always on.
   const { webSearch, ...toolsWithoutSearch } = toolSet;
   const tools = useWebSearch ? toolSet : toolsWithoutSearch;
@@ -37,9 +38,25 @@ export async function runAgent({
     system: systemPrompt,
     messages: modelMessages,
     tools,
-    // Non-web: room for upsertMemory + linkMemories (+ ask) without truncating.
+    // Non-web: room for upsertMemory + manageLinks (+ ask) without truncating.
     stopWhen: useWebSearch ? stepCountIs(25) : stepCountIs(8),
     providerOptions: resolvedProviderOptions,
+    experimental_onToolCallFinish(event) {
+      const { toolCall, success, durationMs, stepNumber } = event;
+      const payload = {
+        step: stepNumber,
+        ms: durationMs,
+        input: toolCall.input,
+        ...(success
+          ? { output: slimJson(event.output) }
+          : { error: slimJson(event.error) }),
+      };
+      if (success) {
+        console.log("[tool]", toolCall.toolName, payload);
+      } else {
+        console.error("[tool]", toolCall.toolName, payload);
+      }
+    },
   });
   return result;
 }

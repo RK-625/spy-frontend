@@ -1,5 +1,5 @@
 /**
- * Drive shipped PARENT_OF rank / color / one-parent helpers.
+ * Drive shipped PARENT_OF rank / color helpers.
  *
  * Run: npx tsx scripts/verify-parent-of-hierarchy.mjs
  * Or:  npm run verify:parent-of-hierarchy
@@ -40,7 +40,10 @@ function collectLiveText() {
     }
   };
   walk(path.join(root, "src"));
-  files.push(path.join(root, "AGENTS.md"), path.join(root, "brief.md"));
+  for (const extra of ["AGENTS.md", "Agents.md", "brief.md"]) {
+    const p = path.join(root, extra);
+    if (fs.existsSync(p)) files.push(p);
+  }
   return files.map((p) => ({
     rel: path.relative(root, p),
     text: fs.readFileSync(p, "utf8"),
@@ -51,7 +54,8 @@ const {
   findNodeRanks,
   findNodeColors,
   findNodeSizes,
-  childHasIncomingParentOf,
+  buildLayoutGraph,
+  POINT_SIZE_BASE_PX,
 } = await import(
   pathToFileURL(path.join(root, "src/lib/graph-functions.ts")).href
 );
@@ -99,32 +103,14 @@ assert(
 );
 
 const sizes = findNodeSizes({ ranks, rootById });
-assert(sizes.get("dsa") === 1, "root size 1/(0+1)");
-assert(sizes.get("arrays") === 0.5, "rank-1 size 1/2");
-assert(sizes.get("binary-search") === 1 / 3, "rank-2 size 1/3");
-
-const existing = [
-  { source: "dsa", target: "arrays", type: "PARENT_OF" },
-  { source: "dsa", target: "graphs", type: "PARENT_OF" },
-];
 assert(
-  childHasIncomingParentOf(existing, "arrays"),
-  "arrays already has incoming PARENT_OF — second parent rejected",
+  sizes.get("dsa") === POINT_SIZE_BASE_PX,
+  "root size POINT_SIZE_BASE_PX/(0+1)",
 );
+assert(sizes.get("arrays") === POINT_SIZE_BASE_PX / 2, "rank-1 size base/2");
 assert(
-  !childHasIncomingParentOf(existing, "heaps"),
-  "heaps has no parent — PARENT_OF dsa→heaps allowed",
-);
-assert(
-  childHasIncomingParentOf(existing, "graphs"),
-  "graphs already a child of dsa",
-);
-assert(
-  !childHasIncomingParentOf(
-    [{ source: "dsa", target: "arrays", type: "RELATES_TO" }],
-    "arrays",
-  ),
-  "RELATES_TO is not a parent",
+  sizes.get("binary-search") === POINT_SIZE_BASE_PX / 3,
+  "rank-2 size base/3",
 );
 
 const live = collectLiveText();
@@ -136,26 +122,64 @@ assert(
     : `leftover PART_OF in ${partOfHits.map((f) => f.rel).join(", ")}`,
 );
 
-const canvas = fs.readFileSync(
-  path.join(root, "src/components/graph/graph-canvas.tsx"),
+const layoutGraph = fs.readFileSync(
+  path.join(root, "src/lib/graph-functions.ts"),
   "utf8",
 );
 assert(
-  canvas.includes('link.type === "PARENT_OF"'),
-  "canvas compares hierarchy as PARENT_OF",
+  layoutGraph.includes('link.type === "PARENT_OF"'),
+  "layout graph compares hierarchy as PARENT_OF",
 );
 assert(
-  !/isPartOf \? link\.target : link\.source/.test(canvas),
-  "canvas does not flip PARENT_OF endpoints",
+  !/isPartOf \? link\.target : link\.source/.test(layoutGraph),
+  "layout graph does not flip PARENT_OF endpoints",
 );
 assert(
-  canvas.includes("source: link.source") &&
-    canvas.includes("target: link.target"),
-  "canvas maps source→target as stored",
+  layoutGraph.includes("MultiDirectedGraph") &&
+    layoutGraph.includes("addEdgeWithKey"),
+  "layout graph is multi + keyed edges (typed parallels allowed)",
 );
 assert(
-  canvas.includes("LINK_PARENT_OF_STRENGTH") && canvas.includes("arrow: isParentOf"),
+  !layoutGraph.includes("hasEdge(link.source, link.target)"),
+  "layout graph does not skip on endpoint-only hasEdge",
+);
+assert(
+  layoutGraph.includes('type: isParentOf ? "arrow" : "line"') &&
+    layoutGraph.includes("strengthFromChildRank"),
   "strength/arrow still hierarchy vs RELATES",
+);
+
+const multiMemories = [
+  { id: "a", name: "A", content: "", confidence: 1 },
+  { id: "b", name: "B", content: "", confidence: 1 },
+];
+const typedPair = buildLayoutGraph(multiMemories, [
+  { source: "a", target: "b", type: "PARENT_OF" },
+  { source: "a", target: "b", type: "RELATES_TO" },
+]);
+assert(
+  typedPair.size === 2 && typedPair.multi === true,
+  "A PARENT_OF B + A RELATES_TO B → two edges on multi graph",
+);
+const dupParent = buildLayoutGraph(multiMemories, [
+  { source: "a", target: "b", type: "PARENT_OF" },
+  { source: "a", target: "b", type: "PARENT_OF" },
+]);
+assert(
+  dupParent.size === 1 &&
+    [...dupParent.edgeEntries()].every(
+      ({ attributes }) => attributes.type === "arrow",
+    ),
+  "duplicate PARENT_OF A→B collapses to one hierarchy edge",
+);
+
+const canvas = fs.readFileSync(
+  path.join(root, "src/components/graph/sigma-canvas.tsx"),
+  "utf8",
+);
+assert(
+  canvas.includes("buildLayoutGraph"),
+  "canvas still seeds Sigma via buildLayoutGraph",
 );
 
 const toolset = fs.readFileSync(
@@ -163,9 +187,36 @@ const toolset = fs.readFileSync(
   "utf8",
 );
 assert(
-  toolset.includes("falkorCreateParentOfLink") ||
-    toolset.includes("createParentOfLink"),
-  "linkMemories uses atomic createParentOfLink for PARENT_OF",
+  toolset.includes("manageLinks") &&
+    toolset.includes("getDb") &&
+    toolset.includes("graph.query"),
+  "manageLinks runs one graph.query via getDb",
+);
+assert(
+  !toolset.includes("falkorCreateLink") &&
+    !toolset.includes("falkorDeleteLink") &&
+    !toolset.includes("createParentOfLink") &&
+    !toolset.includes("falkorCreateParentOfLink"),
+  "manageLinks does not loop createLink/deleteLink or call createParentOfLink",
+);
+assert(
+  (toolset.includes("UNWIND") || toolset.includes("MERGE")) &&
+    toolset.includes("OPTIONAL MATCH (other)-[:PARENT_OF]") &&
+    toolset.includes("all-or-nothing") &&
+    !toolset.includes("failOrd") &&
+    !toolset.includes("missing_endpoint") &&
+    !toolset.includes("parent_blocked"),
+  "manageLinks uses a simple write query (sticky in-query; no validate-first reason codes)",
+);
+assert(
+  !toolset.includes("manageLinksOkBatch") &&
+    !toolset.includes("classifyManageLinksFailure") &&
+    !toolset.includes("failOrd"),
+  "manageLinks has no classify/ok-batch / failOrd trail helpers",
+);
+assert(
+  !toolset.includes("linkMemories"),
+  "toolset has no linkMemories dual writer",
 );
 assert(
   !toolset.includes('hasIncomingLink(target, "PARENT_OF")'),
@@ -175,6 +226,24 @@ assert(
   !toolset.includes("hasOutgoingLink(source"),
   "old outgoing-from-child PART_OF guard is gone",
 );
+assert(
+  !toolset.includes("applyLinkBatch"),
+  "no applyLinkBatch helper — batch Cypher lives in manageLinks",
+);
+assert(
+  !/\$up\d+_source/.test(toolset) && !/\$rm\d+_source/.test(toolset),
+  "manageLinks no longer unrolls upN/rmN clause params",
+);
+assert(
+  !toolset.includes("falkorSetMemoryQuestions") &&
+    !toolset.includes("setMemoryQuestions as falkorSetMemoryQuestions"),
+  "upsertMemory tool path no longer calls setMemoryQuestions",
+);
+assert(
+  toolset.includes("upsertMemory failed (all-or-nothing)") &&
+    toolset.includes("memoryQuestionCreateCypher"),
+  "upsertMemory is embed-then-one-query all-or-nothing",
+);
 
 const falkor = fs.readFileSync(path.join(root, "src/lib/falkor.ts"), "utf8");
 assert(
@@ -182,11 +251,40 @@ assert(
   "falkor exports createParentOfLink",
 );
 assert(
+  falkor.includes("export async function createLink") &&
+    falkor.includes('parsed.type === "PARENT_OF"') &&
+    falkor.includes("createParentOfLink(parsed)"),
+  "createLink delegates PARENT_OF to createParentOfLink",
+);
+assert(
+  falkor.includes("export async function deleteLink"),
+  "falkor exports deleteLink",
+);
+assert(
+  !falkor.includes("isParentOfAncestor"),
+  "falkor has no isParentOfAncestor cycle walk",
+);
+assert(
   falkor.includes("OPTIONAL MATCH (other)-[existing:PARENT_OF]->(target)") &&
     (falkor.includes("other.id <> $source") ||
       falkor.includes("WHERE other.id <> $source")) &&
     falkor.includes("WHERE existing IS NULL"),
   "createParentOfLink Cypher blocks only a different parent (other.id <> $source)",
+);
+
+const liveProduct = live.filter(
+  (f) =>
+    !f.rel.startsWith("plans/") &&
+    (f.text.includes("linkMemories") ||
+      f.text.includes("LINK_MEMORIES") ||
+      f.text.includes("linkMemoriesInputSchema") ||
+      f.text.includes("link-memories")),
+);
+assert(
+  liveProduct.length === 0,
+  liveProduct.length === 0
+    ? "no leftover linkMemories product references in src/"
+    : `leftover linkMemories in ${liveProduct.map((f) => f.rel).join(", ")}`,
 );
 
 if (failed > 0) {

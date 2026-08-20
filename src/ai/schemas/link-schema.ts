@@ -1,20 +1,25 @@
 import { z } from "zod";
-import { MemoryLinkType } from "@/types/graph-schema";
+import { Links } from "@/types/graph-schema";
 import {
-  linkMemoriesSourceFieldDescription,
-  linkMemoriesTargetFieldDescription,
-  linkMemoriesTypeFieldDescription,
-} from "@/prompts/tools/link-memories";
+  manageLinksRemoveFieldDescription,
+  manageLinksUpsertFieldDescription,
+} from "@/prompts/tools/manage-links";
 
 /**
- * Tool input for directed Memory edges.
+ * Tool input for batch Memory edge structure (remove then upsert).
  * Topology only — tools never author canvas geometry or rank.
  * Graph client derives rank from PARENT_OF (parent → child).
+ * Output: `{ remove, upsert }` all-ok batches on success, or `{ error }` only on failure.
  */
-export const linkMemoriesInputSchema = z.object({
-  source: z.string().min(1).describe(linkMemoriesSourceFieldDescription),
-  target: z.string().min(1).describe(linkMemoriesTargetFieldDescription),
-  type: MemoryLinkType.describe(linkMemoriesTypeFieldDescription),
+export const manageLinksInputSchema = z.object({
+  remove: z
+    .array(Links)
+    .default([])
+    .describe(manageLinksRemoveFieldDescription),
+  upsert: z
+    .array(Links)
+    .default([])
+    .describe(manageLinksUpsertFieldDescription),
 });
 
-export type LinkMemoriesInput = z.infer<typeof linkMemoriesInputSchema>;
+export type ManageLinksInput = z.infer<typeof manageLinksInputSchema>;

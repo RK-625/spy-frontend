@@ -16,5 +16,5 @@ export const MEMORY_SEARCH_MAX_QUESTIONS = 5;
 /** Fixed result count for Memory vector search (tool + falkor). */
 export const MEMORY_SEARCH_TOP_K = 10;
 
-/** RRF constant k for multi-query fusion over MemoryQuestion ANN hits. */
-export const MEMORY_SEARCH_RRF_K = 60;
+/** Min ANN cosine for a probe hit to survive (per-probe floor; not fused). */
+export const MEMORY_SEARCH_MIN_COSINE = 0.65;
