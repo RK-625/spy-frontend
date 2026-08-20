@@ -144,5 +144,5 @@ export const GRAPH_CONTEXT = `
 
 ## Rules
   - Do not form PARENT_OF cycles or loops while linking.
-  - You have the freedom and authority to add or update Memories and Links as needed. You can reparent or update the topology of the knowledge graph as needed.
+  - You have the freedom and authority to add or update Memories and Links as needed. You can reparent or repair the topology of the knowledge graph as needed.
 `;

@@ -12,8 +12,7 @@ import {
   upsertMemory as falkorUpsertMemory,
   patchMemory as falkorPatchMemory,
   getMemory as falkorGetMemory,
-  createLink as falkorCreateLink,
-  deleteLink as falkorDeleteLink,
+  getDb,
   setMemoryQuestions as falkorSetMemoryQuestions,
   vectorSearchByQuestions as falkorVectorSearchByQuestions,
   getMemoryCone as falkorGetMemoryCone,
@@ -21,8 +20,9 @@ import {
 } from "@/lib/falkor";
 import { MEMORY_SEARCH_TOP_K } from "@/lib/policy-tokens";
 import type {
-  ManageLinkItemResult,
+  Links,
   ManageLinksBatchResult,
+  ManageLinksResult,
   MemoryQuestion,
 } from "@/types/graph-schema";
 import {
@@ -33,6 +33,22 @@ import {
   upsertMemoryToolDescription,
   webSearchToolDescription,
 } from "@/prompts/tools";
+
+/** Map Falkor/Cypher assert failures to the readable manageLinks error fragment. */
+function manageLinksEngineErrorMessage(error: unknown): string {
+  const raw =
+    error instanceof Error ? error.message : "Failed to manage links.";
+  // Sticky PARENT_OF assert uses 1/0 (toInteger(string) is null in Falkor, not an error).
+  if (/division by zero/i.test(raw)) {
+    return "Link failed: Memory already has a PARENT_OF parent. A Memory can have at most one PARENT_OF parent.";
+  }
+  if (/endpoint was not found/i.test(raw)) {
+    return "Link not created — source or target not found";
+  }
+  if (/not found/i.test(raw)) return raw;
+  if (/already has a PARENT_OF/i.test(raw)) return raw;
+  return raw;
+}
 
 /** Lazy Exa client — never construct at module load (missing key must not kill chat). */
 function getExaClient(): Exa | null {
@@ -157,68 +173,117 @@ export function createToolSet(): Record<string, Tool> {
   const manageLinks: Tool = tool({
     description: manageLinksToolDescription,
     inputSchema: manageLinksInputSchema,
-    execute: async ({ remove, upsert }) => {
+    execute: async ({ remove, upsert }): Promise<ManageLinksResult> => {
+      const emptyBatch = (): ManageLinksBatchResult => ({
+        succeeded: 0,
+        total: 0,
+        results: [],
+      });
+      const okBatch = (links: Links[]): ManageLinksBatchResult => ({
+        succeeded: links.length,
+        total: links.length,
+        results: links.map((link) => ({
+          source: link.source,
+          target: link.target,
+          type: link.type,
+          ok: true,
+        })),
+      });
+
       try {
-        const removeResults: ManageLinkItemResult[] = [];
-        let removeSucceeded = 0;
-        for (const link of remove) {
-          const { source, target, type } = link;
-          try {
-            await falkorDeleteLink(link);
-            removeResults.push({ source, target, type, ok: true });
-            removeSucceeded += 1;
-          } catch (error) {
-            console.error("manageLinks remove item error:", error);
-            const message =
-              error instanceof Error ? error.message : "Failed to remove link.";
-            removeResults.push({
-              source,
-              target,
-              type,
-              ok: false,
-              error: message,
-            });
-          }
+        if (remove.length === 0 && upsert.length === 0) {
+          return { remove: emptyBatch(), upsert: emptyBatch() };
         }
 
-        const upsertResults: ManageLinkItemResult[] = [];
-        let upsertSucceeded = 0;
-        for (const link of upsert) {
-          const { source, target, type } = link;
-          try {
-            await falkorCreateLink(link);
-            upsertResults.push({ source, target, type, ok: true });
-            upsertSucceeded += 1;
-          } catch (error) {
-            console.error("manageLinks upsert item error:", error);
-            const message =
-              error instanceof Error ? error.message : "Failed to upsert link.";
-            upsertResults.push({
-              source,
-              target,
-              type,
-              ok: false,
-              error: message,
-            });
+        // One GRAPH.QUERY: DELETE removes, then MERGE upserts. Asserts force
+        // engine rollback on missing upsert endpoints or sticky PARENT_OF.
+        type LinkEndpointParam = { source: string; target: string };
+
+        const removeParentOf: LinkEndpointParam[] = remove
+          .filter((r) => r.type === "PARENT_OF")
+          .map(({ source, target }) => ({ source, target }));
+        const removeRelatesTo: LinkEndpointParam[] = remove
+          .filter((r) => r.type === "RELATES_TO")
+          .map(({ source, target }) => ({ source, target }));
+        const upsertParentOf: LinkEndpointParam[] = upsert
+          .filter((u) => u.type === "PARENT_OF")
+          .map(({ source, target }) => ({ source, target }));
+        const upsertRelatesTo: LinkEndpointParam[] = upsert
+          .filter((u) => u.type === "RELATES_TO")
+          .map(({ source, target }) => ({ source, target }));
+
+        const stages: string[] = [];
+        const pushStage = (cypher: string) => {
+          if (stages.length > 0) {
+            stages.push(`WITH count(*) AS _bridge${stages.length}`);
           }
+          stages.push(cypher.trim());
+        };
+
+        if (removeParentOf.length > 0) {
+          pushStage(`
+            UNWIND $removeParentOf AS rm
+            OPTIONAL MATCH (rms:Memory {id: rm.source})-[rmr:PARENT_OF]->(rmt:Memory {id: rm.target})
+            FOREACH (_ IN CASE WHEN rmr IS NOT NULL THEN [1] ELSE [] END | DELETE rmr)
+          `);
+        }
+        if (removeRelatesTo.length > 0) {
+          pushStage(`
+            UNWIND $removeRelatesTo AS rm
+            OPTIONAL MATCH (rms:Memory {id: rm.source})-[rmr:RELATES_TO]->(rmt:Memory {id: rm.target})
+            FOREACH (_ IN CASE WHEN rmr IS NOT NULL THEN [1] ELSE [] END | DELETE rmr)
+          `);
         }
 
-        const removeBatch: ManageLinksBatchResult = {
-          succeeded: removeSucceeded,
-          total: remove.length,
-          results: removeResults,
+        // One stage per PARENT_OF so same-query deletes + earlier MERGEs are visible.
+        // Missing endpoints: MATCH-style require via MERGE (null endpoint errors).
+        // Sticky other parent: 1/0 aborts the query so earlier deletes roll back.
+        for (let i = 0; i < upsertParentOf.length; i++) {
+          pushStage(`
+            WITH $upsertParentOf[${i}] AS up
+            OPTIONAL MATCH (us:Memory {id: up.source})
+            OPTIONAL MATCH (ut:Memory {id: up.target})
+            OPTIONAL MATCH (other)-[:PARENT_OF]->(ut)
+            WHERE other.id <> up.source
+            WITH us, ut, up, other,
+              1 / CASE
+                WHEN other IS NOT NULL THEN 0
+                ELSE 1
+              END AS _ok
+            MERGE (us)-[:PARENT_OF]->(ut)
+          `);
+        }
+
+        // OPTIONAL + MERGE: missing endpoint errors the query (MATCH alone yields 0 rows).
+        if (upsertRelatesTo.length > 0) {
+          pushStage(`
+            UNWIND $upsertRelatesTo AS up
+            OPTIONAL MATCH (us:Memory {id: up.source})
+            OPTIONAL MATCH (ut:Memory {id: up.target})
+            MERGE (us)-[:RELATES_TO]->(ut)
+          `);
+        }
+
+        const query = `${stages.join("\n")}\nRETURN count(*) AS done`;
+        const params = {
+          removeParentOf,
+          removeRelatesTo,
+          upsertParentOf,
+          upsertRelatesTo,
         };
-        const upsertBatch: ManageLinksBatchResult = {
-          succeeded: upsertSucceeded,
-          total: upsert.length,
-          results: upsertResults,
+
+        const graph = await getDb();
+        await graph.query(query, { params });
+
+        return {
+          remove: okBatch(remove),
+          upsert: okBatch(upsert),
         };
-        return { remove: removeBatch, upsert: upsertBatch };
       } catch (error) {
         console.error("manageLinks tool error:", error);
-        const message =
-          error instanceof Error ? error.message : "Failed to manage links.";
-        return { error: message };
+        return {
+          error: `manageLinks failed (all-or-nothing); graph unchanged. ${manageLinksEngineErrorMessage(error)}`,
+        };
       }
     },
   });

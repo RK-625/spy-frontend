@@ -40,7 +40,10 @@ function collectLiveText() {
     }
   };
   walk(path.join(root, "src"));
-  files.push(path.join(root, "AGENTS.md"), path.join(root, "brief.md"));
+  for (const extra of ["AGENTS.md", "Agents.md", "brief.md"]) {
+    const p = path.join(root, extra);
+    if (fs.existsSync(p)) files.push(p);
+  }
   return files.map((p) => ({
     rel: path.relative(root, p),
     text: fs.readFileSync(p, "utf8"),
@@ -155,17 +158,31 @@ const toolset = fs.readFileSync(
 );
 assert(
   toolset.includes("manageLinks") &&
-    (toolset.includes("falkorCreateLink") || toolset.includes("createLink")),
-  "manageLinks upsert uses createLink",
+    toolset.includes("getDb") &&
+    toolset.includes("graph.query"),
+  "manageLinks runs one graph.query via getDb",
 );
 assert(
-  !toolset.includes("createParentOfLink") &&
+  !toolset.includes("falkorCreateLink") &&
+    !toolset.includes("falkorDeleteLink") &&
+    !toolset.includes("createParentOfLink") &&
     !toolset.includes("falkorCreateParentOfLink"),
-  "toolset does not call createParentOfLink directly",
+  "manageLinks does not loop createLink/deleteLink or call createParentOfLink",
 );
 assert(
-  toolset.includes("falkorDeleteLink") || toolset.includes("deleteLink"),
-  "manageLinks uses deleteLink for remove",
+  (toolset.includes("UNWIND") || toolset.includes("MERGE")) &&
+    toolset.includes("OPTIONAL MATCH (other)-[:PARENT_OF]") &&
+    toolset.includes("all-or-nothing") &&
+    !toolset.includes("failOrd") &&
+    !toolset.includes("missing_endpoint") &&
+    !toolset.includes("parent_blocked"),
+  "manageLinks uses a simple write query (sticky in-query; no validate-first reason codes)",
+);
+assert(
+  !toolset.includes("manageLinksOkBatch") &&
+    !toolset.includes("classifyManageLinksFailure") &&
+    !toolset.includes("failOrd"),
+  "manageLinks has no classify/ok-batch / failOrd trail helpers",
 );
 assert(
   !toolset.includes("linkMemories"),
@@ -178,6 +195,14 @@ assert(
 assert(
   !toolset.includes("hasOutgoingLink(source"),
   "old outgoing-from-child PART_OF guard is gone",
+);
+assert(
+  !toolset.includes("applyLinkBatch"),
+  "no applyLinkBatch helper — batch Cypher lives in manageLinks",
+);
+assert(
+  !/\$up\d+_source/.test(toolset) && !/\$rm\d+_source/.test(toolset),
+  "manageLinks no longer unrolls upN/rmN clause params",
 );
 
 const falkor = fs.readFileSync(path.join(root, "src/lib/falkor.ts"), "utf8");

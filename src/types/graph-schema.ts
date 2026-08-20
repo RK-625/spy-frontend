@@ -127,3 +127,8 @@ export type ManageLinksBatchResult = {
   total: number;
   results: ManageLinkItemResult[];
 };
+
+/** manageLinks tool result: both batches on success, or `{ error }` only on failure. */
+export type ManageLinksResult =
+  | { remove: ManageLinksBatchResult; upsert: ManageLinksBatchResult }
+  | { error: string };
