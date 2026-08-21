@@ -1,3 +1,11 @@
 {
-  "tasteLearning": true
+  "tasteLearning": true,
+  "permissions": {
+    "allow": [
+      "Shell(curl -sS -o /dev/null -w %{http_code} -> %{redirect_url}\\n --max-time 10 https://mcp.excalidraw.com/mcp)",
+      "Shell(curl -sS -o /dev/null -w %{http_code} -> %{redirect_url}\\n --max-time 10 https://mcp.excalidraw.com/)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
 }

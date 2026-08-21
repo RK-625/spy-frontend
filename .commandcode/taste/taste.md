@@ -17,6 +17,8 @@
 - Keep responses concise and direct. User prefers short answers and clear next-step proposals over long explanations. Confidence: 0.80
 - When iterating on code, independently audit and fix all known issues before reporting back — don't present a list of issues and ask permission; fix them first, then confirm they're resolved. Confidence: 0.75
 - Do not make confident claims about external tools' directory structures, config paths, or internals without verifying them first. If unsure, qualify statements or check before asserting. Confidence: 0.80
+- When presenting reviews of completed work, include a numeric score/rating alongside findings organized by severity — user explicitly asks for scored assessments ("tell me your thoughts and score me"). Confidence: 0.60
+- User tends to implement large migrations/refactors personally, then return for review and verification rather than delegating implementation — offer to review/verify/smoke-test their work instead of taking over coding. Confidence: 0.60
 
 # code-style
 - When disabling functionality, comment out code rather than deleting it. User wants to preserve the original code for reference and potential restoration. Confidence: 0.90
@@ -40,5 +42,9 @@
 - For inline flex multi-word scrambles (e.g., "MEET THE SYPDER"), use CSS gap utilities (`gap-{n}`) for spacing between words, not trailing whitespace in text constants. Confidence: 0.65
 
 # command-code
+- Use Command Code's native hooks system (user-level ~/.commandcode/settings.json) for integrations and automation rather than shell wrapper workarounds. The hooks fire on PreToolUse, PostToolUse, and Stop events. Confidence: 0.70
+- Agent skills are installed under `.commandcode/skills` (e.g., via `npx skills add`) — check for and use relevant installed skills (such as vendor-provided migration skills) when performing guided tasks like framework upgrades. Confidence: 0.65
+
+ommand-code
 - Use Command Code's native hooks system (user-level ~/.commandcode/settings.json) for integrations and automation rather than shell wrapper workarounds. The hooks fire on PreToolUse, PostToolUse, and Stop events. Confidence: 0.70
 
