@@ -30,6 +30,8 @@
     "@codemirror/state": "^6.7.1",
     "@codemirror/view": "^6.43.9",
     "@lezer/highlight": "^1.2.3",
+    "@modelcontextprotocol/ext-apps": "^1.7.5",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@nanostores/react": "github:ai/react",
     "@radix-ui/react-dialog": "^1.1.17",
     "@radix-ui/react-use-controllable-state": "^1.2.3",

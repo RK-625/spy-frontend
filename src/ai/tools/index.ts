@@ -7,4 +7,6 @@ export * from "./toolset";
 export {
   EXCALIDRAW_MCP_URL,
   connectExcalidrawMcp,
+  getCachedMcpAppHtmlByUri,
+  getMcpAppUriByToolName,
 } from "./excalidraw-mcp";
