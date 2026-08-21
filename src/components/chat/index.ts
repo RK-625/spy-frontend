@@ -8,7 +8,7 @@
  *   - `./prompt/*`       — PromptInputProvider + PromptInput* UI
  *   - `./conversation/*` — message stream, CoT, sources, shimmer
  *   - `./shell/*`        — sidebar, settings dialog, command palette
- *   - `./mcp-app/*`      — Excalidraw MCP App host (create_view iframe)
+ *   - `./mcp-app/*`      — Excalidraw MCP App host (MCPAppRenderer)
  */
 export * from "./shell";
 export * from "./prompt";

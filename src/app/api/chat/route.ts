@@ -1,3 +1,4 @@
+import { createUIMessageStreamResponse, toUIMessageStream } from "ai";
 import { runAgent } from "@/ai/agent";
 
 /** Agent tools touch FalkorDB native driver — must not run on Edge. */
@@ -8,7 +9,9 @@ export async function POST(req: Request) {
   try {
     const payload = await req.json();
     const streamResult = await runAgent(payload);
-    return streamResult.toUIMessageStreamResponse();
+    return createUIMessageStreamResponse({
+      stream: toUIMessageStream({ stream: streamResult.stream }),
+    });
   } catch (error) {
     console.error("API ROUTE ERROR DETECTED:", error);
     throw error;

@@ -39,7 +39,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
   const { messages, status, stop, sendMessage, error } = useChat<UIMessage>({
     chat: activeChat,
-    experimental_throttle: 50,
+    throttle: 50,
   });
 
   /** Open chats by id. Not render input — handlers only. */

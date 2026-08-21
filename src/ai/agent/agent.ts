@@ -2,7 +2,7 @@ import {
   streamText,
   convertToModelMessages,
   type UIMessage,
-  stepCountIs,
+  isStepCount,
   type ToolSet,
 } from "ai";
 import { createToolSet } from "../tools/toolset";
@@ -49,29 +49,28 @@ export async function runAgent({
     modelConfig({ model, mode });
   const result = streamText({
     model: resolvedModel,
-    system: buildSystemPrompt({ useExcalidraw }),
+    instructions: buildSystemPrompt({ useExcalidraw }),
     messages: modelMessages,
     tools,
     // Non-web: room for upsertMemory + manageLinks (+ ask) without truncating.
     // Web or Excalidraw MCP tool loops need a higher step budget.
-    stopWhen: stepCountIs(useWebSearch || useExcalidraw ? 25 : 8),
+    stopWhen: isStepCount(useWebSearch || useExcalidraw ? 25 : 8),
     providerOptions: resolvedProviderOptions,
-    onFinish: async () => {
+    onEnd: async () => {
       if (closeExcalidraw) {
         await closeExcalidraw();
       }
     },
-    experimental_onToolCallFinish(event) {
-      const { toolCall, success, durationMs, stepNumber } = event;
+    onToolExecutionEnd(event) {
+      const { toolCall, toolExecutionMs, toolOutput } = event;
       const payload = {
-        step: stepNumber,
-        ms: durationMs,
+        ms: toolExecutionMs,
         input: toolCall.input,
-        ...(success
-          ? { output: slimJson(event.output) }
-          : { error: slimJson(event.error) }),
+        ...(toolOutput.type === "tool-result"
+          ? { output: slimJson(toolOutput.output) }
+          : { error: slimJson(toolOutput.error) }),
       };
-      if (success) {
+      if (toolOutput.type === "tool-result") {
         console.log("[tool]", toolCall.toolName, payload);
       } else {
         console.error("[tool]", toolCall.toolName, payload);
