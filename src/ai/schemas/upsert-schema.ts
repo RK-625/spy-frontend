@@ -17,7 +17,8 @@ import {
  * (placement cache) — never present on this schema; the LLM must not invent
  * coordinates or rank.
  *
- * Union so TypeScript narrows: omit id = create (core fields + questions);
+ * Single object schema (DeepSeek-compatible JSON Schema type: object):
+ * omit id = create (core fields + questions required via superRefine);
  * pass id = patch (at least one field). Product Memory row stays a full row.
  */
 
@@ -28,24 +29,13 @@ const upsertMemoryQuestionsSchema = z
   .max(MEMORY_QUESTION_COUNT_MAX)
   .describe(upsertMemoryQuestionsFieldDescription);
 
-const createMemoryInputSchema = z.object({
-  name: z.string().min(1).describe(upsertMemoryNameFieldDescription),
-  content: z.string().min(1).describe(upsertMemoryContentFieldDescription),
-  impression: z
-    .string()
-    .min(1)
-    .describe(upsertMemoryImpressionFieldDescription),
-  confidence: z
-    .number()
-    .min(0)
-    .max(1)
-    .describe(upsertMemoryConfidenceFieldDescription),
-  questions: upsertMemoryQuestionsSchema,
-});
-
-const patchMemoryInputSchema = z
+export const upsertMemoryInputSchema = z
   .object({
-    id: z.string().min(1).describe(upsertMemoryIdFieldDescription),
+    id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(upsertMemoryIdFieldDescription),
     name: z
       .string()
       .min(1)
@@ -58,6 +48,7 @@ const patchMemoryInputSchema = z
       .describe(upsertMemoryContentFieldDescription),
     impression: z
       .string()
+      .min(1)
       .optional()
       .describe(upsertMemoryImpressionFieldDescription),
     confidence: z
@@ -69,6 +60,49 @@ const patchMemoryInputSchema = z
     questions: upsertMemoryQuestionsSchema.optional(),
   })
   .superRefine((data, ctx) => {
+    const isCreate = data.id === undefined;
+
+    if (isCreate) {
+      // Create: all core fields + questions required (same as old createMemoryInputSchema).
+      if (data.name === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "name is required to create a Memory",
+          path: ["name"],
+        });
+      }
+      if (data.content === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "content is required to create a Memory",
+          path: ["content"],
+        });
+      }
+      if (data.impression === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "impression is required to create a Memory",
+          path: ["impression"],
+        });
+      }
+      if (data.confidence === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "confidence is required to create a Memory",
+          path: ["confidence"],
+        });
+      }
+      if (data.questions === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "questions are required to create a Memory",
+          path: ["questions"],
+        });
+      }
+      return;
+    }
+
+    // Patch: at least one field; name/content requires questions.
     const hasPatchField =
       data.name !== undefined ||
       data.content !== undefined ||
@@ -94,11 +128,5 @@ const patchMemoryInputSchema = z
       });
     }
   });
-
-/** Patch first so `{ id, … }` is not stripped into a create. */
-export const upsertMemoryInputSchema = z.union([
-  patchMemoryInputSchema,
-  createMemoryInputSchema,
-]);
 
 export type UpsertMemoryInput = z.infer<typeof upsertMemoryInputSchema>;
