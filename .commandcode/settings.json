@@ -1,3 +1,17 @@
 {
-  "tasteLearning": true
+  "tasteLearning": true,
+  "permissions": {
+    "allow": [
+      "Shell(curl -sS -o /dev/null -w %{http_code} -> %{redirect_url}\\n --max-time 10 https://mcp.excalidraw.com/mcp)",
+      "Shell(curl -sS -o /dev/null -w %{http_code} -> %{redirect_url}\\n --max-time 10 https://mcp.excalidraw.com/)",
+      "Shell(for:*)",
+      "Shell(do:*)",
+      "Shell(done:*)",
+      "Shell(npx tsc --noEmit 2 >& 1)",
+      "Shell(npx eslint src/ai/tools/excalidraw-mcp.ts src/components/chat/mcp-app src/app/api/mcp-apps src/app/mcp-app-sandbox src/app/home/page.tsx 2 >& 1)",
+      "Shell(echo '=== Is mcp-app-host.ts staged? ==='; git ls-files --error-unmatch src/components/chat/mcp-app/mcp-app-host.ts 2>&1; echo '--- staged set ---'; git diff --cached --name-only)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
 }

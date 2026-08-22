@@ -5,7 +5,7 @@ import { deepseek } from "@ai-sdk/deepseek";
 import { models } from "@/lib/models";
 import type { AIModel } from "@/types/models";
 import { EmbeddingModel, LanguageModel } from "ai";
-import { type SharedV3ProviderOptions } from "@ai-sdk/provider";
+import { type SharedV4ProviderOptions } from "@ai-sdk/provider";
 
 let metaProvider: ReturnType<typeof createOpenAI> | undefined;
 
@@ -28,7 +28,7 @@ export const modelConfig = ({
 }: {
   model: string;
   mode?: string;
-}): { model: LanguageModel; providerOptions?: SharedV3ProviderOptions } => {
+}): { model: LanguageModel; providerOptions?: SharedV4ProviderOptions } => {
   const found = models.find((m: AIModel) => m.id === model);
   if (!found) {
     throw new Error(`Unknown model: ${model}`);

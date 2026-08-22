@@ -2,22 +2,26 @@ import {
   streamText,
   convertToModelMessages,
   type UIMessage,
-  stepCountIs,
+  isStepCount,
+  type ToolSet,
 } from "ai";
 import { createToolSet } from "../tools/toolset";
+import { connectExcalidrawMcp } from "../tools/excalidraw-mcp";
 import { modelConfig } from "../models/modelstore";
 import { slimJson } from "../slim-json";
-import { systemPrompt } from "@/prompts/system-prompt";
+import { buildSystemPrompt } from "@/prompts/system-prompt";
 
 export async function runAgent({
   messages,
   model,
   useWebSearch,
+  useExcalidraw,
   mode,
 }: {
   messages: UIMessage[];
   model: string;
   useWebSearch: boolean;
+  useExcalidraw?: boolean;
   mode?: string;
 }) {
   // Client-side tools (e.g. askUserQuestion) may be input-available with no
@@ -28,30 +32,45 @@ export async function runAgent({
   });
   // Product tools are model-agnostic; chat model stays on modelConfig only.
   const toolSet = createToolSet();
-  // Only webSearch is optional; memory weave + askUserQuestion stay always on.
+  // webSearch and Excalidraw MCP are optional; memory weave + ask stay on.
   const { webSearch, ...toolsWithoutSearch } = toolSet;
-  const tools = useWebSearch ? toolSet : toolsWithoutSearch;
+  const baseTools = useWebSearch ? toolSet : toolsWithoutSearch;
+
+  const { tools: mcpTools, close: closeExcalidraw } = useExcalidraw
+    ? await connectExcalidrawMcp().catch((error) => {
+      console.error("[excalidraw-mcp] connect failed:", error);
+      return { tools: {}, close: () => Promise.resolve() };
+    })
+    : {};
+
+  const tools: ToolSet = { ...baseTools, ...mcpTools };
+
   const { model: resolvedModel, providerOptions: resolvedProviderOptions } =
     modelConfig({ model, mode });
   const result = streamText({
     model: resolvedModel,
-    system: systemPrompt,
+    instructions: buildSystemPrompt({ useExcalidraw }),
     messages: modelMessages,
     tools,
     // Non-web: room for upsertMemory + manageLinks (+ ask) without truncating.
-    stopWhen: useWebSearch ? stepCountIs(25) : stepCountIs(8),
+    // Web or Excalidraw MCP tool loops need a higher step budget.
+    stopWhen: isStepCount(useWebSearch || useExcalidraw ? 25 : 8),
     providerOptions: resolvedProviderOptions,
-    experimental_onToolCallFinish(event) {
-      const { toolCall, success, durationMs, stepNumber } = event;
+    onEnd: async () => {
+      if (closeExcalidraw) {
+        await closeExcalidraw();
+      }
+    },
+    onToolExecutionEnd(event) {
+      const { toolCall, toolExecutionMs, toolOutput } = event;
       const payload = {
-        step: stepNumber,
-        ms: durationMs,
+        ms: toolExecutionMs,
         input: toolCall.input,
-        ...(success
-          ? { output: slimJson(event.output) }
-          : { error: slimJson(event.error) }),
+        ...(toolOutput.type === "tool-result"
+          ? { output: slimJson(toolOutput.output) }
+          : { error: slimJson(toolOutput.error) }),
       };
-      if (success) {
+      if (toolOutput.type === "tool-result") {
         console.log("[tool]", toolCall.toolName, payload);
       } else {
         console.error("[tool]", toolCall.toolName, payload);

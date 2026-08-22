@@ -6,6 +6,7 @@
 import { GRAPH_CONTEXT } from "./graph-context";
 import {
   ASK_USER_QUESTION_AGENT_BULLET,
+  EXCALIDRAW_AGENT_BULLET,
   MANAGE_LINKS_AGENT_BULLET,
   GET_MEMORIES_AGENT_BULLET,
   SEARCH_MEMORIES_AGENT_BULLET,
@@ -47,9 +48,14 @@ While you talk, keep the web maintained.
 You need not announce every tool call unless they care; the weave is ambient.
 If a write fails, adapt without claiming it was stored.`;
 
-export const systemPrompt = [
-  ROLE,
-  GRAPH_CONTEXT,
-  TOOLSET,
-  BEHAVIOR,
-].join("\n\n");
+/** Build the system prompt; optionally append Excalidraw guidance when enabled. */
+export function buildSystemPrompt({
+  useExcalidraw = false,
+}: {
+  useExcalidraw?: boolean;
+} = {}): string {
+  const toolset = useExcalidraw
+    ? `${TOOLSET}\n- **Excalidraw**: ${EXCALIDRAW_AGENT_BULLET}`
+    : TOOLSET;
+  return [ROLE, GRAPH_CONTEXT, toolset, BEHAVIOR].join("\n\n");
+}

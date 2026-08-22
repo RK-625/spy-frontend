@@ -6,6 +6,8 @@
 - Design-first in Penpot before code. Check Penpot for component references and design specs before making visual changes. Confidence: 0.85
 - Build and test animations in isolation before integrating into layout. Get the core animation right first, then wire it into page components. Confidence: 0.80
 - Use audio notification (pop sound) to alert user when a task is complete, rather than visual system notifications. Confidence: 0.75
+- When one instance of a pattern/bug is identified (e.g., speculative tolerance code), proactively sweep the broader codebase — including files in the git status / unstaged diffs — for the same pattern, rather than only addressing the file at hand. Confidence: 0.70
+- After the user makes a batch of uncommitted changes, run typecheck + lint and give an explicit go/no-go on whether they can commit or if fixes remain before committing. Confidence: 0.65
 
 # gsap
 - Prefer SVG `<rect>`-based character animation using GSAP tweens on individual SVG elements via refs, following the Claude mascot animation article pattern. Confidence: 0.85
@@ -16,10 +18,13 @@
 # communication
 - Keep responses concise and direct. User prefers short answers and clear next-step proposals over long explanations. Confidence: 0.80
 - When iterating on code, independently audit and fix all known issues before reporting back — don't present a list of issues and ask permission; fix them first, then confirm they're resolved. Confidence: 0.75
-- Do not make confident claims about external tools' directory structures, config paths, or internals without verifying them first. If unsure, qualify statements or check before asserting. Confidence: 0.80
+- Do not make confident claims about external tools' directory structures, config paths, or internals without verifying them first — check the installed package's actual source/dist and, where feasible, probe live services empirically instead of relying on docs or assumptions. If unsure, qualify statements or check before asserting. Confidence: 0.85
+- When presenting reviews of completed work, include a numeric score/rating alongside findings organized by severity — user explicitly asks for scored assessments ("tell me your thoughts and score me"). Confidence: 0.60
+- User tends to implement large migrations/refactors personally, then return for review and verification rather than delegating implementation — offer to review/verify/smoke-test their work instead of taking over coding. Confidence: 0.60
 
 # code-style
 - When disabling functionality, comment out code rather than deleting it. User wants to preserve the original code for reference and potential restoration. Confidence: 0.90
+- Prefers removing speculative/defensive code paths that aren't exercised by the actual integration (e.g., MIME fallbacks for non-conformant servers when the only live server is conformant) — reintroduce only when a second server proves it necessary. Keep scope minimal and specific to the current integration. Confidence: 0.70
 
 # component-layering
 - For noise-field-bg component: Layer order is NoiseTexture (bottom) → NoiseField (middle) → Text (top). Confidence: 0.65
@@ -40,5 +45,9 @@
 - For inline flex multi-word scrambles (e.g., "MEET THE SYPDER"), use CSS gap utilities (`gap-{n}`) for spacing between words, not trailing whitespace in text constants. Confidence: 0.65
 
 # command-code
+- Use Command Code's native hooks system (user-level ~/.commandcode/settings.json) for integrations and automation rather than shell wrapper workarounds. The hooks fire on PreToolUse, PostToolUse, and Stop events. Confidence: 0.70
+- Agent skills are installed under `.commandcode/skills` (e.g., via `npx skills add`) — check for and use relevant installed skills (such as vendor-provided migration skills) when performing guided tasks like framework upgrades. Confidence: 0.65
+
+ommand-code
 - Use Command Code's native hooks system (user-level ~/.commandcode/settings.json) for integrations and automation rather than shell wrapper workarounds. The hooks fire on PreToolUse, PostToolUse, and Stop events. Confidence: 0.70
 

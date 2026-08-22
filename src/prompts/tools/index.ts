@@ -1,5 +1,5 @@
 /**
- * Barrel for product-tool prompt modules (weave + web + ask).
+ * Barrel for product-tool prompt modules (weave + web + ask + excalidraw).
  */
 
 export {
@@ -41,6 +41,8 @@ export {
   webSearchToolDescription,
   webSearchQueryFieldDescription,
 } from "./web-search";
+
+export { EXCALIDRAW_AGENT_BULLET } from "./excalidraw";
 
 export {
   ASK_USER_QUESTION_AGENT_BULLET,

@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Prompt input draft context: text, attachments, and chat prefs (model / mode / web).
+ * Prompt input draft context: text, attachments, and chat prefs
+ * (model / mode / web / excalidraw).
  * Requires outer PromptInputProvider. Must NOT import header/body/footer.
  *
  * PromptInput registers file-input open + attachment validation so children
@@ -64,6 +65,9 @@ export interface PromptInputPrefsValue {
   useWebSearch: boolean;
   setUseWebSearch: (enabled: boolean) => void;
   toggleWebSearch: () => void;
+  useExcalidraw: boolean;
+  setUseExcalidraw: (enabled: boolean) => void;
+  toggleExcalidraw: () => void;
 }
 
 /** Draft + prefs state exposed by PromptInputProvider. */
@@ -103,12 +107,16 @@ export const usePromptInputContext = (): PromptInputContextValue => {
 // Provider
 // ============================================================================
 
-/** Default model / mode / web prefs when the provider mounts. */
+/** Default model / mode / web / excalidraw prefs when the provider mounts. */
 export const DEFAULT_PROMPT_PREFS = {
   model: models[0]?.id ?? "deepseek-v4-flash",
   mode: models[0]?.defaultMode ?? "high",
   useWebSearch: true,
-} satisfies Pick<PromptInputPrefsValue, "model" | "mode" | "useWebSearch">;
+  useExcalidraw: false,
+} satisfies Pick<
+  PromptInputPrefsValue,
+  "model" | "mode" | "useWebSearch" | "useExcalidraw"
+>;
 
 /**
  * Owns prompt draft state (text + attachments + prefs). Required wrapper for
@@ -119,7 +127,7 @@ export const PromptInputProvider = ({ children }: PropsWithChildren) => {
   const [textInput, setTextInput] = useState("");
   const clearInput = useCallback(() => setTextInput(""), []);
 
-  // ----- prefs (model / mode / web) — no selector open flags
+  // ----- prefs (model / mode / web / excalidraw) — no selector open flags
   const [model, setModel] = useState(DEFAULT_PROMPT_PREFS.model);
   const [mode, setMode] = useState<string>(DEFAULT_PROMPT_PREFS.mode);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(
@@ -127,6 +135,12 @@ export const PromptInputProvider = ({ children }: PropsWithChildren) => {
   );
   const toggleWebSearch = useCallback(() => {
     setUseWebSearch((prev) => !prev);
+  }, []);
+  const [useExcalidraw, setUseExcalidraw] = useState<boolean>(
+    DEFAULT_PROMPT_PREFS.useExcalidraw,
+  );
+  const toggleExcalidraw = useCallback(() => {
+    setUseExcalidraw((prev) => !prev);
   }, []);
 
   // ----- attachments state
@@ -216,8 +230,18 @@ export const PromptInputProvider = ({ children }: PropsWithChildren) => {
       useWebSearch,
       setUseWebSearch,
       toggleWebSearch,
+      useExcalidraw,
+      setUseExcalidraw,
+      toggleExcalidraw,
     }),
-    [model, mode, useWebSearch, toggleWebSearch]
+    [
+      model,
+      mode,
+      useWebSearch,
+      toggleWebSearch,
+      useExcalidraw,
+      toggleExcalidraw,
+    ]
   );
 
   const __registerFileInput = useCallback(

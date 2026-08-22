@@ -8,7 +8,9 @@
  *   - `./prompt/*`       — PromptInputProvider + PromptInput* UI
  *   - `./conversation/*` — message stream, CoT, sources, shimmer
  *   - `./shell/*`        — sidebar, settings dialog, command palette
+ *   - `./mcp-app/*`      — MCP App host (MCPAppCard + MCPAppRenderer)
  */
 export * from "./shell";
 export * from "./prompt";
 export * from "./conversation";
+export * from "./mcp-app";
