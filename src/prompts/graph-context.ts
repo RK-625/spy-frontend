@@ -20,7 +20,7 @@ export const GRAPH_CONTEXT = `
   - **name** — short title of the learning / concept / topic
   - **content** — the facts, explanation, logic, and description of the learning in rich markdown personalized to user knowledge graph with explanations.
     Content should be cohesive with the user's existing knowledge so that when they read it they feel it is personalised, familiar, and easy to grasp.Dont store references of the 'surface' unless surface is same as the topic.
-    Cause surface can be anything like a random doubt, quant proble, articcle, snippet, document, doubts about documenatation, fundamental concepts, anything is possible. So dont store the surface in content unless it is same as the topic.
+    Cause surface can be anything like a random doubt, quant proble, articcle, snippet, document, doubts about documenatation, interative back and forth discussion on a topic, fundamental concepts, anything is possible. So dont store the surface in content unless it is same as the topic.
   - **impression** — Spy's opinion of how the user relates to this (grasp, confusion, interest, stance, etc.) — evolves as the graph grows and as the user learns or relearns
   - **confidence** — 0–1 how solid the user's grasp seems on this Memory
 
