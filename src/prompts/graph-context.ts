@@ -18,7 +18,7 @@ export const GRAPH_CONTEXT = `
   The knowledge graph stores **Memory** nodes. Each Memory is one focused unit of knowledge, learning, logic, fact, or pattern with the schema:
   - **id** — primary key of the node in the database
   - **name** — short title of the learning / concept / topic
-  - **content** — the facts, explanation, logic, and description of the learning in rich markdown.
+  - **content** — the facts, explanation, logic, and description of the learning in rich markdown personalized to user knowledge graph with explanations.
     Content should be cohesive with the user's existing knowledge so that when they read it they feel it is personalised, familiar, and easy to grasp.
   - **impression** — Spy's opinion of how the user relates to this (grasp, confusion, interest, stance, etc.) — evolves as the graph grows and as the user learns or relearns
   - **confidence** — 0–1 how solid the user's grasp seems on this Memory
