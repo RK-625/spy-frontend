@@ -4,7 +4,7 @@
  *
  * Prefer: `import { SigmaCanvasHost } from "@/components/graph"`.
  * Inside graph/* use relative imports (never this barrel — avoids cycles).
- * Do not re-export SigmaCanvas or Editor here — that pulls WebGL / CodeMirror
+ * Do not re-export SigmaCanvas or Editor here — that pulls WebGL / Milkdown
  * into the RSC graph route.
  *
  * `/graph` is Sigma. Sigma + graphology FA2 own layout + camera + draw.

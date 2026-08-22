@@ -1,5 +1,15 @@
 "use client";
 
+import { DotMatrixIcon } from "@/components/dotmatrix";
+import {
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
@@ -73,40 +83,74 @@ function fileExtensionLabel(part: FileUIPart): string {
   return "FILE";
 }
 
-export type MessageFileProps = Omit<HTMLAttributes<HTMLDivElement>, "part"> & {
+export type MessageFileProps = {
   part: FileUIPart;
+  className?: string;
 };
 
-export const MessageFile = ({
-  part,
-  className,
-  ...props
-}: MessageFileProps) => {
+const messageFileChrome =
+  "size-14 shrink-0 overflow-hidden rounded-[var(--radius)] border border-border bg-muted select-none";
+
+export const MessageFile = ({ part, className }: MessageFileProps) => {
   const showImage =
     part.mediaType.startsWith("image/") && Boolean(part.url);
+  const imageAlt = part.filename || "Image";
+
+  if (showImage) {
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className={cn(messageFileChrome, "cursor-pointer", className)}
+            title={part.filename}
+          >
+            <img
+              alt={imageAlt}
+              className="size-full object-cover"
+              src={part.url}
+            />
+          </button>
+        </DialogTrigger>
+        <DialogContent
+          className="max-w-[min(92vw,56rem)] gap-3 border-[var(--border-medium)] bg-[var(--surface-elevated)]/95 p-4 backdrop-blur-md sm:max-w-[min(92vw,56rem)]"
+          showCloseButton={false}
+        >
+          <DialogHeader className="flex-row items-center justify-between gap-3 space-y-0">
+            <DialogTitle className="min-w-0 truncate font-[family-name:var(--font-terminal)] tracking-widest text-primary">
+              {imageAlt}
+            </DialogTitle>
+            <DialogClose asChild>
+              <Button
+                variant="ghost"
+                className="shrink-0 bg-secondary"
+                size="icon-sm"
+              >
+                <DotMatrixIcon name="x" size={16} />
+                <span className="sr-only">Close</span>
+              </Button>
+            </DialogClose>
+          </DialogHeader>
+          <img
+            alt={imageAlt}
+            className="mx-auto max-h-[min(80vh,40rem)] w-auto max-w-full rounded-[var(--radius)] object-contain"
+            src={part.url}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <div
-      className={cn(
-        "size-14 shrink-0 overflow-hidden rounded-[var(--radius)] border border-border bg-muted select-none",
-        className
-      )}
+      className={cn(messageFileChrome, className)}
       title={part.filename}
-      {...props}
     >
-      {showImage ? (
-        <img
-          alt={part.filename || "Image"}
-          className="size-full object-cover"
-          src={part.url}
-        />
-      ) : (
-        <div className="flex size-full items-center justify-center">
-          <span className="max-w-full truncate px-1 text-center font-[family-name:var(--font-terminal)] text-[0.55rem] leading-none tracking-wide text-muted-foreground uppercase">
-            {fileExtensionLabel(part)}
-          </span>
-        </div>
-      )}
+      <div className="flex size-full items-center justify-center">
+        <span className="max-w-full truncate px-1 text-center font-[family-name:var(--font-terminal)] text-[0.55rem] leading-none tracking-wide text-muted-foreground uppercase">
+          {fileExtensionLabel(part)}
+        </span>
+      </div>
     </div>
   );
 };
