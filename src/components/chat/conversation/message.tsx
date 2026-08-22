@@ -5,7 +5,7 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
-import type { UIMessage } from "ai";
+import type { FileUIPart, UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes } from "react";
 import { memo } from "react";
 import { Streamdown } from "streamdown";
@@ -44,6 +44,72 @@ export const MessageContent = ({
     {children}
   </div>
 );
+
+export type MessageAttachmentsProps = HTMLAttributes<HTMLDivElement>;
+
+export const MessageAttachments = ({
+  className,
+  ...props
+}: MessageAttachmentsProps) => (
+  <div
+    className={cn(
+      "flex flex-row flex-wrap gap-2",
+      "group-[.is-user]:ml-auto",
+      className
+    )}
+    {...props}
+  />
+);
+
+function fileExtensionLabel(part: FileUIPart): string {
+  const filename = part.filename;
+  if (filename?.includes(".")) {
+    const ext = filename.slice(filename.lastIndexOf(".") + 1).trim();
+    if (ext.length > 0) {
+      return ext.toUpperCase();
+    }
+  }
+
+  return "FILE";
+}
+
+export type MessageFileProps = Omit<HTMLAttributes<HTMLDivElement>, "part"> & {
+  part: FileUIPart;
+};
+
+export const MessageFile = ({
+  part,
+  className,
+  ...props
+}: MessageFileProps) => {
+  const showImage =
+    part.mediaType.startsWith("image/") && Boolean(part.url);
+
+  return (
+    <div
+      className={cn(
+        "size-14 shrink-0 overflow-hidden rounded-[var(--radius)] border border-border bg-muted select-none",
+        className
+      )}
+      title={part.filename}
+      {...props}
+    >
+      {showImage ? (
+        <img
+          alt={part.filename || "Image"}
+          className="size-full object-cover"
+          src={part.url}
+        />
+      ) : (
+        <div className="flex size-full items-center justify-center">
+          <span className="max-w-full truncate px-1 text-center font-[family-name:var(--font-terminal)] text-[0.55rem] leading-none tracking-wide text-muted-foreground uppercase">
+            {fileExtensionLabel(part)}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
