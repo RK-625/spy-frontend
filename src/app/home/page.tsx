@@ -18,6 +18,8 @@ import {
   SourcesTrigger,
   PromptInputWorkspace,
   ChatSidebar,
+  MCPAppCard,
+  hasMcpAppView,
 } from "@/components/chat";
 import type {
   DynamicToolUIPart,
@@ -235,13 +237,21 @@ const ChatWorkspace = () => {
                     );
                   })()}
 
-                  {/* 3. Text parts last */}
+                  {/* 3. Text parts last (+ MCP App views) */}
                   {message.parts.map((part, index) => {
                     if (part.type === "text") {
                       return (
                         <MessageContent key={index}>
                           <MessageResponse>{part.text}</MessageResponse>
                         </MessageContent>
+                      );
+                    }
+                    if (isDynamicToolUIPart(part) && hasMcpAppView(part)) {
+                      return (
+                        <MCPAppCard
+                          key={part.toolCallId ?? `mcp-app-${index}`}
+                          part={part}
+                        />
                       );
                     }
                     return null;
