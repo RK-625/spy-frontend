@@ -177,6 +177,8 @@ export function ChatSidebar() {
     newChat();
   }, [newChat]);
 
+  const handleOpenGraph = useCallback(() => {}, []);
+
   const handleOpenRecent = useCallback(
     (id: string) => {
       void switchChat(id).catch((err: unknown) => {
@@ -281,6 +283,12 @@ export function ChatSidebar() {
                 showLabel={isSidebarFull}
               />
             }
+          />
+          <SidebarItem
+            icon={(props) => <DotMatrixIcon name="graph" {...props} />}
+            label="Graph"
+            onClick={handleOpenGraph}
+            showLabel={isSidebarFull}
           />
         </div>
 
