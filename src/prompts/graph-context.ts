@@ -19,7 +19,8 @@ export const GRAPH_CONTEXT = `
   - **id** — primary key of the node in the database
   - **name** — short title of the learning / concept / topic
   - **content** — the facts, explanation, logic, and description of the learning in rich markdown personalized to user knowledge graph with explanations.
-    Content should be cohesive with the user's existing knowledge so that when they read it they feel it is personalised, familiar, and easy to grasp.
+    Content should be cohesive with the user's existing knowledge so that when they read it they feel it is personalised, familiar, and easy to grasp.Dont store references of the 'surface' unless surface is same as the topic.
+    Cause surface can be anything like a random doubt, quant proble, articcle, snippet, document, doubts about documenatation, fundamental concepts, anything is possible. So dont store the surface in content unless it is same as the topic.
   - **impression** — Spy's opinion of how the user relates to this (grasp, confusion, interest, stance, etc.) — evolves as the graph grows and as the user learns or relearns
   - **confidence** — 0–1 how solid the user's grasp seems on this Memory
 
@@ -51,17 +52,17 @@ export const GRAPH_CONTEXT = `
   ### Strict style for retrieval probes and search probes (agent-stateful, third-person about the user)
   Voice: third-person about the user — the agent pondering what the user knows, has seen, or has learnt.
   Prefer this style/pattern of probes:
-  - Has the user studied …?
-  - Does the user know about …?
-  - Has the user seen …?
-  - Has the user learned …?
-  - Is the user familiar with …?
-  - Does the user understand …?
-  - Has the user encountered …?
-  - Does the user have notes on …?
-  - Has the user worked with …?
-  - Does the user know how … works?
-  - Is … part of the user's knowledge?
+  General Examples: Third person style phrasing whether the user has seen, studied, or learnt a concept, principle, or fact.
+  - Has the user studied Dijkstra's algorithm?
+  - Does the user know about dynamic programming?
+  - Has the user seen Graph Theory?
+  - Has the user learned Kadane Theorem?
+  - Is the user familiar with Depth first search?
+  - Does the user understand Bernoulli's principle?
+  - Has the user encountered React framework?
+  - Has the user worked with TypeScript?
+  - Does the user know how Java Virtual Machine works?
+  - Is Docker part of the user's knowledge?
 
   ### Synonyms and related concepts (critical)
   Do **not** only restate the Memory title keyword.
@@ -89,6 +90,7 @@ export const GRAPH_CONTEXT = `
   ### Search probes
   First classify the turn (surface → topic → one parent), then pass 1–${MEMORY_SEARCH_MAX_QUESTIONS} probes covering that family — not only the title they typed.
   Search probes are a different job (surface + topic + parent) in the same voice as retrieval probes.
+  Craft Search probes in same style when craft them during upsertMemory, so chances of retrival are maximized. Search probes are not stored on the Memory row, but are used to find the nearest MemoryQuestion nodes in the graph.
   searchMemories finds nodes by matching search probes to stored MemoryQuestions (Q↔Q); links are the explicit edges between Memories.
 
 ## What belongs in the knowledge graph

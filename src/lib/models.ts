@@ -27,7 +27,7 @@ export const models: AIModel[] = [
     name: "Muse Spark 1.2",
     icon: Meta,
     mode: ["minimal", "low", "medium", "high", "xhigh"],
-    defaultMode: "medium",
+    defaultMode: "high",
   },
 ];
 
