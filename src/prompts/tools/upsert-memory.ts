@@ -1,5 +1,5 @@
 /**
- * Narrative for upsertMemory (weave write path).
+ * Narrative for upsertMemory (graph write path).
  * Tool description + agent bullet + field describes.
  * Retrieval questions are agent-authored; the tool only embeds them.
  */
@@ -28,7 +28,7 @@ Create, name/content, and questions writes are all-or-nothing: embed first when 
 Do not pass question ids or embeddings. Does not invent layout or rank.`;
 
 /** Short how-to bullet for the agent system prompt. */
-export const UPSERT_MEMORY_AGENT_BULLET = `Tool for creating or refining Memories — for weaving what the user has learned into the graph,
+export const UPSERT_MEMORY_AGENT_BULLET = `Tool for creating or refining Memories — for storing what the user has learned into the graph,
 leading to durable, searchable knowledge.
 Omit id to create; pass id to patch only changed fields. Name/content writes need a full questions set.
 Create/name-content/questions writes are all-or-nothing (failure → { error }, graph unchanged).`;
@@ -42,12 +42,12 @@ export const upsertMemoryNameFieldDescription = `Short topic label — the conce
 Required on create; optional on patch (omit to leave the stored name).`;
 
 /** Zod `.describe(...)` for the `content` field on upsertMemory input schema. */
-export const upsertMemoryContentFieldDescription = `The description on the pattern, method, or takeaway the user has learnt — not a raw dump.
+export const upsertMemoryContentFieldDescription = `The description of the pattern, method, or takeaway the user has learned — not a raw dump.
 Required on create; optional on patch (omit to leave stored content).
 Markdown is allowed (graph source view is markdown).`;
 
 /** Zod `.describe(...)` for the `impression` field on upsertMemory input schema. */
-export const upsertMemoryImpressionFieldDescription = `Spy's read of how the user relates to this memory — grasp, interest, confusion, or stance.
+export const upsertMemoryImpressionFieldDescription = `Spy's read of how the user relates to this Memory — grasp, interest, confusion, or stance.
 Required on create. On patch, omit to leave stored; pass "" to clear.`;
 
 /** Zod `.describe(...)` for the `confidence` field on upsertMemory input schema. */

@@ -1,5 +1,5 @@
 /**
- * Barrel for product-tool prompt modules (weave + web + ask + excalidraw).
+ * Barrel for product-tool prompt modules (graph + web + ask + excalidraw).
  */
 
 export {
