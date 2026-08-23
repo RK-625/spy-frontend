@@ -15,7 +15,7 @@ import {
 } from "@/types/graph-schema";
 import type { GraphTopology } from "@/types/graph-topology";
 import {
-  MEMORY_SEARCH_MIN_COSINE,
+  MEMORY_SEARCH_MAX_DISTANCE,
   MEMORY_SEARCH_TOP_K,
 } from "@/lib/policy-tokens";
 import { z } from "zod";
@@ -155,8 +155,9 @@ type AnnProbeRow = {
 
 /**
  * Product vector search: each probe embedding is its own ANN lookup over
- * MemoryQuestion.questionEmbedding (FOR_MEMORY → Memory). Per-probe cosine
- * floor (MEMORY_SEARCH_MIN_COSINE); no cross-probe fusion.
+ * MemoryQuestion.questionEmbedding (FOR_MEMORY → Memory). Per-probe
+ * cosine-distance ceiling (MEMORY_SEARCH_MAX_DISTANCE; Falkor yields distance,
+ * 0 = identical); no cross-probe fusion.
  * Returns MemorySearchHit[][] aligned with embeddings (results[i] = probe i).
  */
 export async function vectorSearchByQuestions(
@@ -187,9 +188,10 @@ export async function vectorSearchByQuestions(
 
       const bestByMemoryId = new Map<string, MemorySearchHit>();
       for (const row of result.data ?? []) {
-        if (row.score < MEMORY_SEARCH_MIN_COSINE) continue;
+        if (row.score > MEMORY_SEARCH_MAX_DISTANCE) continue;
         const prior = bestByMemoryId.get(row.id);
-        if (prior == null || row.score > prior.score) {
+        // Best hit per Memory = smallest distance (closest to the probe).
+        if (prior == null || row.score < prior.score) {
           bestByMemoryId.set(row.id, {
             id: row.id,
             name: row.name,
@@ -199,7 +201,8 @@ export async function vectorSearchByQuestions(
       }
 
       const probeHits = Array.from(bestByMemoryId.values())
-        .sort((a, b) => b.score - a.score)
+        // Ascending: smallest distance = most similar first.
+        .sort((a, b) => a.score - b.score)
         .slice(0, topK);
       results.push(probeHits);
     }

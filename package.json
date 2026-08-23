@@ -16,7 +16,8 @@
     "verify:icon-inventory": "node scripts/verify-icon-inventory.mjs",
     "verify:pending-ask": "node scripts/verify-pending-ask.mjs",
     "verify:parent-of-hierarchy": "npx tsx scripts/verify-parent-of-hierarchy.mjs",
-    "probe:search-memories": "npx tsx scripts/probe-search-memories.mjs"
+    "probe:search-memories": "npx tsx scripts/probe-search-memories.mjs",
+    "list:memory-questions": "npx tsx scripts/list-memory-questions.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.40",
@@ -90,6 +91,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4.3.2",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   },
   "allowScripts": {

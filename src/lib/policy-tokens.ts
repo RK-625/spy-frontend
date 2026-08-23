@@ -16,5 +16,9 @@ export const MEMORY_SEARCH_MAX_QUESTIONS = 5;
 /** Fixed result count for Memory vector search (tool + falkor). */
 export const MEMORY_SEARCH_TOP_K = 10;
 
-/** Min ANN cosine for a probe hit to survive (per-probe floor; not fused). */
-export const MEMORY_SEARCH_MIN_COSINE = 0.65;
+/**
+ * Max ANN cosine DISTANCE for a probe hit to survive (per-probe ceiling; not fused).
+ * FalkorDB `db.idx.vector.queryNodes` (cosine) yields DISTANCE: 0 = identical
+ * text, larger = farther apart. 0.35 keeps hits with similarity >= 0.65.
+ */
+export const MEMORY_SEARCH_MAX_DISTANCE = 0.35;

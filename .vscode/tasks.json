@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "next:dev",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "next",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Ready in|Local:"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false
+      }
+    },
+    {
+      "label": "stop:next:dev",
+      "type": "shell",
+      "command": "pids=$(lsof -nP -iTCP:3000 -sTCP:LISTEN -t 2>/dev/null); [ -z \"$pids\" ] || kill $pids; true",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "echo": false,
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "close": true
+      }
+    }
+  ]
+}
