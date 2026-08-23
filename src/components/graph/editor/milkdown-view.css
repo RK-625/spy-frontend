@@ -140,12 +140,14 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   padding: 0.65rem 0.75rem;
+  color: var(--prosemirror-highlight, inherit);
 }
 
 .milkdown-pane pre code {
   background: transparent;
   border: none;
   padding: 0;
+  color: inherit;
 }
 
 .milkdown-pane table {
