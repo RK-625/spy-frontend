@@ -18,4 +18,4 @@ export const MEMORY_SEARCH_TOP_K = 10;
  * FalkorDB `db.idx.vector.queryNodes` (cosine) yields DISTANCE: 0 = identical
  * text, larger = farther apart. 0.35 keeps hits with similarity >= 0.65.
  */
-export const MEMORY_SEARCH_MAX_DISTANCE = 0.35;
+export const MEMORY_SEARCH_MAX_DISTANCE = 0.25;

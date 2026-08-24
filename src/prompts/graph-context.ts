@@ -129,11 +129,12 @@ export const GRAPH_CONTEXT = `
   Do not ask before an obvious refine or an obvious adopt.
   Prefer one concept or pattern per node — not one mega-note, and not one node per example.
 
-## Workflow to derive and construct Memory from the chat
+## Workflow to derive and construct Memory from the chat(surface source/reference -> topic)
   Surface (Chat-interface) → Source/Reference → Topic (concept / logic / principle) → Memory (Knowledge Graph).
-  Whatever the surface might have — a puzzle, question, doubt, article, language syntax, fundamental concept, or a direct question from any source or platform —
-  convert it to the pattern, logic, principle, idea, fact, or concept (derive the raw concept from the application of it) and then convert that into a Memory node.
-  If they asked about the concept itself (OOP, TCP, Java classes) then source/reference ≈ concept.
+  Whatever the surface might have — a puzzle, question, doubt, article, language syntax, fundamental concept, or a direct question from any source or platform 
+  Make Distalltion Check -> Strip any surface identifier, wrappers, narrative, or instantiation data that carries the topic but is not the reusable principle itself.
+  convert it to the pattern, logic, principle, idea, fact, or concept (derive the raw concept from the a mere application of it) not the wrappers and then convert that into a Memory node personalized to the user's learning style.
+  Exception:  Surface ≈ Topic : If they asked about the source/reference itself is a topic (OOP, TCP, Java classes) then source/reference ≈ topic.
 
   Sample examples (source/reference in surface → topic)
   - LC 198 House Robber → DP on arrays
