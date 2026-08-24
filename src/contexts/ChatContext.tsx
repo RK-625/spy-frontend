@@ -9,9 +9,14 @@ import {
   useMemo,
   useRef,
   useState,
+  type MutableRefObject,
   type ReactNode,
 } from "react";
-import { fetchChat, saveChatMessages } from "@/lib/chats-api";
+import {
+  deleteChat as deleteChatRequest,
+  fetchChat,
+  saveChatMessages,
+} from "@/lib/chats-api";
 import type { ChatContextValue } from "@/types/chat";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -34,8 +39,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setChatOrder((n) => n + 1);
   }, []);
 
+  const deletedIdsRef = useRef(new Set<string>());
+
+  // eslint-disable-next-line react-hooks/refs -- createChat stores ref in onFinish callback; not read during render
   const [activeChat, setActiveChat] = useState(() =>
-    createChat(crypto.randomUUID(), [], updateChatOrder),
+    createChat(crypto.randomUUID(), [], updateChatOrder, deletedIdsRef),
   );
   const { messages, status, stop, sendMessage, error } = useChat<UIMessage>({
     chat: activeChat,
@@ -49,23 +57,75 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   /** Mint id, register empty Chat, set active (keeps other open chats). */
   const newChat = useCallback(() => {
-    const chat = createChat(crypto.randomUUID(), [], updateChatOrder);
+    const chat = createChat(
+      crypto.randomUUID(),
+      [],
+      updateChatOrder,
+      deletedIdsRef,
+    );
     chatsRef.current.set(chat.id, chat);
     setActiveChat(chat);
-  }, []);
+  }, [updateChatOrder]);
 
   /**
    * Activate by id: Map hit reuses live Chat; miss hydrates from GET /api/chats.
    */
-  const switchChat = useCallback(async (chatId: string) => {
-    let chat = chatsRef.current.get(chatId);
-    if (!chat) {
-      const row = await fetchChat(chatId);
-      chat = createChat(row.id, row.messages, updateChatOrder);
-      chatsRef.current.set(chat.id, chat);
-    }
-    setActiveChat(chat);
-  }, []);
+  const switchChat = useCallback(
+    async (chatId: string) => {
+      let chat = chatsRef.current.get(chatId);
+      if (!chat) {
+        const row = await fetchChat(chatId);
+        chat = createChat(
+          row.id,
+          row.messages,
+          updateChatOrder,
+          deletedIdsRef,
+        );
+        chatsRef.current.set(chat.id, chat);
+      }
+      setActiveChat(chat);
+    },
+    [updateChatOrder],
+  );
+
+  /**
+   * Remove chat from SQLite and active memory. Tombstones the id so background
+   * streams cannot resurrect the row via onFinish upsert.
+   */
+  const deleteChat = useCallback(
+    async (chatId: string) => {
+      const id = chatId.trim();
+      if (id.length === 0) return;
+
+      deletedIdsRef.current.add(id);
+
+      const registered = chatsRef.current.get(id);
+      if (registered) {
+        try {
+          await registered.stop();
+        } catch {
+          // still delete even if stop throws
+        }
+      }
+      chatsRef.current.delete(id);
+
+      const wasActive = activeChat.id === id;
+
+      try {
+        await deleteChatRequest(id);
+        if (wasActive) {
+          newChat();
+        }
+        updateChatOrder();
+      } catch (err: unknown) {
+        if (wasActive) {
+          newChat();
+        }
+        throw err;
+      }
+    },
+    [activeChat.id, newChat, updateChatOrder],
+  );
 
   const value: ChatContextValue = useMemo(
     () => ({
@@ -77,6 +137,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sendMessage,
       newChat,
       switchChat,
+      deleteChat,
       chatOrder,
     }),
     [
@@ -88,6 +149,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sendMessage,
       newChat,
       switchChat,
+      deleteChat,
       chatOrder,
     ],
   );
@@ -109,6 +171,7 @@ function createChat(
   chatId: string,
   messages: UIMessage[] = [],
   updateChatOrder: () => void,
+  deletedIdsRef: MutableRefObject<Set<string>>,
 ): Chat<UIMessage> {
   return new Chat<UIMessage>({
     id: chatId,
@@ -123,6 +186,10 @@ function createChat(
         body,
       }) => {
         if (trigger === "submit-message") {
+          // Same upsert-resurrection risk as onFinish if submit races delete.
+          if (deletedIdsRef.current.has(id)) {
+            throw new Error("chat deleted");
+          }
           await saveChatMessages(id, outgoing);
           updateChatOrder();
         }
@@ -132,6 +199,8 @@ function createChat(
       },
     }),
     onFinish: ({ messages: finished }) => {
+      // Deleted chats must not upsert: POST /api/chats creates a missing row.
+      if (deletedIdsRef.current.has(chatId)) return;
       void saveChatMessages(chatId, finished)
         .then(() => updateChatOrder())
         .catch((err: unknown) => {
@@ -140,3 +209,4 @@ function createChat(
     },
   });
 }
+

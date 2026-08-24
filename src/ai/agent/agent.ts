@@ -49,7 +49,7 @@ export async function runAgent({
     modelConfig({ model, mode });
   const result = streamText({
     model: resolvedModel,
-    instructions: buildSystemPrompt({ useExcalidraw }),
+    instructions: buildSystemPrompt(),
     messages: modelMessages,
     tools,
     // Non-web: room for upsertMemory + manageLinks (+ ask) without truncating.
@@ -64,16 +64,18 @@ export async function runAgent({
     onToolExecutionEnd(event) {
       const { toolCall, toolExecutionMs, toolOutput } = event;
       const payload = {
-        ms: toolExecutionMs,
+        seconds: toolExecutionMs / 1000,
         input: toolCall.input,
         ...(toolOutput.type === "tool-result"
           ? { output: slimJson(toolOutput.output) }
           : { error: slimJson(toolOutput.error) }),
       };
       if (toolOutput.type === "tool-result") {
-        console.log("[tool]", toolCall.toolName, payload);
+        console.log(`[tool] ${toolCall.toolName}`);
+        console.dir(payload, { depth: null });
       } else {
-        console.error("[tool]", toolCall.toolName, payload);
+        console.error(`[tool] ${toolCall.toolName}`);
+        console.dir(payload, { depth: null });
       }
     },
   });
