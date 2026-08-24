@@ -7,15 +7,8 @@
 import {
   MEMORY_QUESTION_COUNT_MAX,
   MEMORY_QUESTION_COUNT_MIN,
-  MEMORY_QUESTIONS_PER_MEMORY,
 } from "@/lib/policy-tokens";
 import { MEMORY_SEARCH_AGENT_RECALL_STYLE } from "./search-memories";
-
-/** Policy-derived target count for MemoryQuestion field copy. */
-export const MEMORY_QUESTION_COUNT_TARGET = Math.max(
-  MEMORY_QUESTION_COUNT_MIN,
-  MEMORY_QUESTIONS_PER_MEMORY,
-);
 
 /** `tool({ description })` for upsertMemory in the product toolset. */
 export const upsertMemoryToolDescription = `Create or patch a Memory node.
@@ -61,4 +54,4 @@ Required on create. On patch, omit to leave stored; 0 is a valid write.`;
  */
 export const upsertMemoryQuestionsFieldDescription = `${MEMORY_QUESTION_COUNT_MIN}–${MEMORY_QUESTION_COUNT_MAX} ${MEMORY_SEARCH_AGENT_RECALL_STYLE}.
 Write probes that should retrieve *this* Memory. Expand synonyms and related concepts; do not invent claims the Memory does not support; do not clone the title or one stem.
-Prefer ~${MEMORY_QUESTION_COUNT_TARGET}. Required on create and when patching name or content (full set replace). Omit on impression/confidence-only. Questions-only patch is allowed.`;
+Required on create and when patching name or content (full set replace). Omit on impression/confidence-only. Questions-only patch is allowed.`;

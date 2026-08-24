@@ -73,7 +73,8 @@ export const GRAPH_CONTEXT = `
 
   Bad Examples:
   - What is Dijkstra's algorithm? (first-person, not about the user)
-  - Has the user seen LeetCode 3622 Check Divisibility by Digit Sum and Product? (used the reference from the surface in the probe, not the topic)
+  - Has the user seen LeetCode 3622 Check Divisibility by Digit Sum and Product? (used the reference of the platform from the surface in the probe, not the topic)
+  - Does the user understand Alice and Bob win conditions for Sum Game? (used the information/reference from question/puzzle in the surface in the probe, not the topic)
 
   ### Synonyms and related concepts (critical)
   Do **not** only restate the Memory title keyword.
@@ -85,7 +86,7 @@ export const GRAPH_CONTEXT = `
   Vary wording; do not clone the same stem for every item.
 
   ### Count
-  Retrieval probes allowed ${MEMORY_QUESTION_COUNT_MIN}–${MEMORY_QUESTION_COUNT_MAX} per Memory.
+  Retrieval probes allowed ${MEMORY_QUESTION_COUNT_MIN}–${MEMORY_QUESTION_COUNT_MAX} per Memory.Spy has the decide the exact number of probes to generate strictly follwing the style.
 
   ### Anti-patterns (reject these)
   - First-person user-meta ("What do I know about…?", "What have I learned regarding…?")

@@ -3,7 +3,6 @@
  */
 
 export {
-  MEMORY_QUESTION_COUNT_TARGET,
   UPSERT_MEMORY_AGENT_BULLET,
   upsertMemoryToolDescription,
   upsertMemoryNameFieldDescription,

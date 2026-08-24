@@ -3,12 +3,9 @@
  * Parallel to `icon-tokens.ts` — keep this file generic for future tokens.
  */
 
-/** Target count of MemoryQuestion nodes written per Memory (within 5–8). */
-export const MEMORY_QUESTIONS_PER_MEMORY = 6;
-
-/** Inclusive bounds for questions generated per Memory (product path uses PER_MEMORY). */
-export const MEMORY_QUESTION_COUNT_MIN = 5;
-export const MEMORY_QUESTION_COUNT_MAX = 8;
+/** Inclusive bounds for MemoryQuestion nodes written per Memory. */
+export const MEMORY_QUESTION_COUNT_MIN = 1;
+export const MEMORY_QUESTION_COUNT_MAX = 5;
 
 /** Max natural-language questions accepted by searchMemories tool. */
 export const MEMORY_SEARCH_MAX_QUESTIONS = 5;
