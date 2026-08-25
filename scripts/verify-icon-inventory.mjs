@@ -27,12 +27,13 @@ function assert(cond, msg) {
 const globals = read("src/app/globals.css");
 const iconTokens = read("src/lib/icon-tokens.ts");
 const home = read("src/app/home/page.tsx");
-// Domain SoT paths (barrel consumers; icon paths under shell/prompt domains).
-const sidebar = read("src/components/chat/shell/chat-sidebar.tsx");
+// Domain SoT paths (barrel consumers; icon paths under sidebar/overlays/prompt).
+const sidebar = read("src/components/chat/sidebar/header/header.tsx");
+const sidebarItem = read("src/components/chat/sidebar/chrome/item.tsx");
 const attachments = read(
   "src/components/chat/prompt/attachments/attachment-chip.tsx",
 );
-const palette = read("src/components/chat/shell/command-palette.tsx");
+const palette = read("src/components/chat/overlays/command-palette.tsx");
 const conversation = read("src/components/chat/conversation/conversation.tsx");
 const promptSubmit = read("src/components/chat/prompt/footer/submit.tsx");
 const speechInput = read("src/components/chat/prompt/footer/speech-input.tsx");
@@ -115,23 +116,23 @@ assert(
   "sidebar collapse is size-8 box + panel glyph 20"
 );
 
-// SidebarItem: control-toolbar 32 box + glyph 20 (size-8 on icon span, not outer button)
+// ChatSidebarItem: control-toolbar 32 box + glyph 20 (size-8 on icon span, not outer button)
 assert(
-  sidebar.includes("flex size-8 shrink-0 items-center justify-center") &&
-    (sidebar.includes("<Icon size={ICON_GLYPH.toolbar} />") ||
-      sidebar.includes("<Icon size={20} />")),
-  "SidebarItem icon wrapper size-8 + glyph toolbar 20"
+  sidebarItem.includes("flex size-8 shrink-0 items-center justify-center") &&
+    (sidebarItem.includes("<Icon size={ICON_GLYPH.toolbar} />") ||
+      sidebarItem.includes("<Icon size={20} />")),
+  "ChatSidebarItem icon wrapper size-8 + glyph toolbar 20"
 );
 assert(
-  !/function SidebarItem[\s\S]{0,500}className=\{cn\(\s*"[^"]*size-8/.test(
-    sidebar
+  !/function ChatSidebarItem[\s\S]{0,500}className=\{cn\(\s*"[^"]*size-8/.test(
+    sidebarItem
   ),
-  "SidebarItem outer button is not a size-8 square (w-full row)"
+  "ChatSidebarItem outer button is not a size-8 square (w-full row)"
 );
 assert(
-  !/function SidebarItem[\s\S]{0,500}\bgap-2\b/.test(sidebar) &&
-    !/function SidebarItem[\s\S]{0,500}\bpx-3\b/.test(sidebar),
-  "SidebarItem button has no gap-2 / px-3 (shell owns horizontal padding)"
+  !/function ChatSidebarItem[\s\S]{0,500}\bgap-2\b/.test(sidebarItem) &&
+    !/function ChatSidebarItem[\s\S]{0,500}\bpx-3\b/.test(sidebarItem),
+  "ChatSidebarItem button has no gap-2 / px-3 (actions/footer own horizontal padding)"
 );
 
 // ── Attachment remove badge 18/14 ───────────────────────────────────

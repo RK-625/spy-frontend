@@ -210,8 +210,8 @@
   /* Session status dots (settings / HUD) — lavender system, no ad-hoc red/emerald */
   --status-dot-streaming: var(--lavender);
   --status-dot-ready: var(--lavender-muted);
-  /* Lighter than --destructive so size-1.5 dots stay glanceable on dark cards */
-  --status-dot-error: #c45c5c;
+  /* Same red as --destructive so size-1.5 dots stay glanceable on dark cards */
+  --status-dot-error: var(--destructive);
 
   /* ── shadcn/ui tokens ── */
   --background: #060610;
@@ -228,7 +228,7 @@
   --muted-foreground: #C8ACFB;
   --accent: #1e1540;
   --accent-foreground: #e8dff8;
-  --destructive: #7f1d1d;
+  --destructive: #c45c5c; /* glanceable on dark */
   --destructive-foreground: #e8e4df;
   --border: rgba(208, 184, 245, 0.15);
   --input: rgba(208, 184, 245, 0.15);
@@ -299,7 +299,7 @@
   --muted-foreground: #C8ACFB;
   --accent: #1e1540;
   --accent-foreground: #e8dff8;
-  --destructive: #7f1d1d;
+  --destructive: #c45c5c; /* glanceable on dark */
   --destructive-foreground: #e8e4df;
   --border: rgba(208, 184, 245, 0.15);
   --input: rgba(208, 184, 245, 0.15);
