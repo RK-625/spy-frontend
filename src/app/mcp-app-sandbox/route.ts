@@ -69,6 +69,52 @@ const SANDBOX_PROXY_HTML = `<!DOCTYPE html>
     return meta + html;
   }
 
+  // Host-derived CSP lists app-declared domains only under connect/img/font-src,
+  // but MCP Apps (e.g. Excalidraw) bundle via <script type="importmap"> module
+  // imports from those same domains. Promote declared http(s) origins into
+  // script-src/style-src too, or the app's module graph dies and the frame
+  // renders blank.
+  function promoteDeclaredOrigins(csp) {
+    if (typeof csp !== "string" || csp.length === 0) {
+      return csp;
+    }
+    var directives = csp
+      .split(";")
+      .map(function (d) { return d.trim(); })
+      .filter(function (d) { return d.length > 0; });
+    // NOTE: doubled backslashes — this script lives inside a TS template
+    // literal, so a single "\s" would be emitted as "s" and the regex would
+    // silently match the wrong thing (blank-frame bug).
+    var origins = [];
+    directives.forEach(function (d) {
+      var parts = d.split(/\\s+/);
+      var name = parts[0];
+      if (
+        name === "connect-src" ||
+        name === "img-src" ||
+        name === "font-src"
+      ) {
+        parts.slice(1).forEach(function (v) {
+          if (/^https?:\\/\\/\\S+$/i.test(v) && origins.indexOf(v) === -1) {
+            origins.push(v);
+          }
+        });
+      }
+    });
+    if (origins.length === 0) {
+      return csp;
+    }
+    return directives
+      .map(function (d) {
+        var name = d.split(/\\s+/)[0];
+        if (name === "script-src" || name === "style-src") {
+          return d + " " + origins.join(" ");
+        }
+        return d;
+      })
+      .join("; ");
+  }
+
   window.addEventListener("message", function (event) {
     var data = event.data;
     if (!data || data.jsonrpc !== "2.0") {
@@ -88,7 +134,10 @@ const SANDBOX_PROXY_HTML = `<!DOCTYPE html>
           inner.setAttribute("allow", params.allow);
         }
         if (typeof params.html === "string") {
-          inner.srcdoc = injectCspMeta(params.html, params.csp);
+          inner.srcdoc = injectCspMeta(
+            params.html,
+            promoteDeclaredOrigins(params.csp),
+          );
         }
         return;
       }

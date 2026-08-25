@@ -19,7 +19,7 @@ let appVisibleToolsPromise: Promise<string[]> | null = null;
 export async function loadMcpAppResource(
   app: MCPAppMetadata,
 ): Promise<MCPAppResource> {
-  const response = await fetch("/api/mcp-apps/read-resource", {
+  const response = await fetch("/api/mcp-apps", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ uri: app.resourceUri }),
@@ -34,7 +34,7 @@ export async function loadMcpAppResource(
 
 export function fetchAppVisibleToolNames(): Promise<string[]> {
   if (!appVisibleToolsPromise) {
-    appVisibleToolsPromise = fetch("/api/mcp-apps/app-tools")
+    appVisibleToolsPromise = fetch("/api/mcp-apps")
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(
@@ -55,7 +55,7 @@ export function fetchAppVisibleToolNames(): Promise<string[]> {
 async function callMcpAppVisibleTool(
   params: McpAppToolCallParams,
 ): Promise<unknown> {
-  const response = await fetch("/api/mcp-apps/call-tool", {
+  const response = await fetch("/api/mcp-apps", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),

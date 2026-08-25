@@ -25,6 +25,10 @@ const SEARCH_QUESTIONS = [
   "Has the user studied inheritance in Java?",
   "Has the user studied interfaces in Java?",
   "Has the user studied polymorphism in Java?",
+  "Has the user studied load balancing?",
+  "Does the user know about distributing traffic across servers?",
+  "Has the user learned about system design scaling concepts?",
+  "Is the user familiar with high availability in distributed systems?"
 ];
 
 /** Load KEY=VALUE env file; never overwrite keys already on process.env. */

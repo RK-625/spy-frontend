@@ -2,7 +2,7 @@
 
 /**
  * Host chrome for MCP App tool views.
- * Renders Card chrome + experimental_MCPAppRenderer (no AppBridge).
+ * Renders Card chrome + experimental_MCPAppRenderer.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -20,12 +20,11 @@ import {
 } from "./mcp-app-host";
 
 const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
-const IFRAME_MAX_HEIGHT = "min(80dvh, 56rem)";
-const IFRAME_MAX_WIDTH = "100%";
-const mcpAppSandbox = {
+
+const mcpAppSandbox: MCPAppSandboxConfig = {
   url: "/mcp-app-sandbox",
   allowedPermissions: ["clipboardWrite"],
-} satisfies MCPAppSandboxConfig;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -50,8 +49,7 @@ const loadingFallback = (
 
 export function MCPAppCard({ part }: { part: DynamicToolUIPart }) {
   const [allowedTools, setAllowedTools] = useState<string[] | null>(null);
-  const [iframeHeightPx, setIframeHeightPx] = useState(0);
-  const [iframeWidthPx, setIframeWidthPx] = useState(0);
+  const [iframeHeightPx, setIframeHeightPx] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,46 +72,36 @@ export function MCPAppCard({ part }: { part: DynamicToolUIPart }) {
       allowedTools == null
         ? undefined
         : {
-          ...createMcpAppBridgeHandlers(allowedTools),
-          onSizeChange: ({
-            width,
-            height,
-          }: {
-            width?: number;
-            height?: number;
-          }) => {
-            if (typeof height === "number" && height > 0) {
-              setIframeHeightPx(height);
-            }
-            if (typeof width === "number" && width > 0) {
-              setIframeWidthPx(width);
-            }
+            ...createMcpAppBridgeHandlers(allowedTools),
+            onSizeChange: ({ height }: { height?: number }) => {
+              if (typeof height === "number" && height > 0) {
+                setIframeHeightPx(height);
+              }
+            },
           },
-        },
     [allowedTools],
   );
 
-  const sandbox = useMemo(
+  const sandbox = useMemo<MCPAppSandboxConfig>(
     () => ({
       ...mcpAppSandbox,
       style: {
         display: "block",
         border: 0,
-        width: iframeWidthPx,
-        height: iframeHeightPx,
-        maxWidth: IFRAME_MAX_WIDTH,
-        maxHeight: IFRAME_MAX_HEIGHT,
+        width: "100%",
+        height: iframeHeightPx ?? 0,
+        transition: "height 0.25s ease",
       },
     }),
-    [iframeHeightPx, iframeWidthPx],
+    [iframeHeightPx],
   );
 
   return (
     <Card
       size="sm"
-      className="my-3 w-full overflow-hidden rounded-[var(--radius)] bg-[var(--card)] ring-1 ring-[var(--border)]"
+      className="my-3 w-full overflow-hidden rounded-[var(--radius)] bg-[var(--card)] ring-1 ring-[var(--border)] [&]:gap-0 [&]:py-0"
     >
-      <CardHeader className="flex flex-row items-center gap-2 border-b border-[var(--border)] py-2">
+      <CardHeader className="flex flex-row items-center gap-2 border-b border-[var(--border)] py-2 [--card-spacing:--spacing(2)]">
         <Excalidraw className="size-4 shrink-0" aria-hidden />
         <CardTitle className="text-sm font-medium text-[var(--lavender)]">
           {part.toolName}
