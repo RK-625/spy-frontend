@@ -1,9 +1,8 @@
 /**
- * Barrel for product-tool prompt modules (weave + web + ask + excalidraw).
+ * Barrel for product-tool prompt modules (graph + web + ask + excalidraw).
  */
 
 export {
-  MEMORY_QUESTION_COUNT_TARGET,
   UPSERT_MEMORY_AGENT_BULLET,
   upsertMemoryToolDescription,
   upsertMemoryNameFieldDescription,

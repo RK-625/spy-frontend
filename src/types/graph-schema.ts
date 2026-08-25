@@ -49,8 +49,9 @@ export type MemoryQuestion = z.infer<typeof MemoryQuestion>;
 export type MemoryNode = Memory;
 
 /**
- * Slim vector-search hit for one probe: id + name + best ANN cosine.
- * Score is that probe’s cosine, not RRF, and not a full Memory body.
+ * Slim vector-search hit for one probe: id + name + best ANN score.
+ * Score is that probe’s cosine DISTANCE (0 = identical, larger = farther),
+ * not RRF, and not a full Memory body.
  */
 export type MemorySearchHit = {
   id: string;

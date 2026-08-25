@@ -7,10 +7,12 @@
  * Domain SoT:
  *   - `./prompt/*`       — PromptInputProvider + PromptInput* UI
  *   - `./conversation/*` — message stream, CoT, sources, shimmer
- *   - `./shell/*`        — sidebar, settings dialog, command palette
+ *   - `./sidebar/*`      — conversation navigation
+ *   - `./overlays/*`     — command palette, settings dialog
  *   - `./mcp-app/*`      — MCP App host (MCPAppCard + MCPAppRenderer)
  */
-export * from "./shell";
+export * from "./sidebar";
+export * from "./overlays";
 export * from "./prompt";
 export * from "./conversation";
 export * from "./mcp-app";

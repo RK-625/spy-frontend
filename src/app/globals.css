@@ -210,8 +210,8 @@
   /* Session status dots (settings / HUD) — lavender system, no ad-hoc red/emerald */
   --status-dot-streaming: var(--lavender);
   --status-dot-ready: var(--lavender-muted);
-  /* Lighter than --destructive so size-1.5 dots stay glanceable on dark cards */
-  --status-dot-error: #c45c5c;
+  /* Same red as --destructive so size-1.5 dots stay glanceable on dark cards */
+  --status-dot-error: var(--destructive);
 
   /* ── shadcn/ui tokens ── */
   --background: #060610;
@@ -228,7 +228,7 @@
   --muted-foreground: #C8ACFB;
   --accent: #1e1540;
   --accent-foreground: #e8dff8;
-  --destructive: #7f1d1d;
+  --destructive: #c45c5c; /* glanceable on dark */
   --destructive-foreground: #e8e4df;
   --border: rgba(208, 184, 245, 0.15);
   --input: rgba(208, 184, 245, 0.15);
@@ -299,7 +299,7 @@
   --muted-foreground: #C8ACFB;
   --accent: #1e1540;
   --accent-foreground: #e8dff8;
-  --destructive: #7f1d1d;
+  --destructive: #c45c5c; /* glanceable on dark */
   --destructive-foreground: #e8e4df;
   --border: rgba(208, 184, 245, 0.15);
   --input: rgba(208, 184, 245, 0.15);
@@ -396,8 +396,8 @@
 /* ── Input Elevation ── */
 .chat-input-wrap {
   border-radius: var(--prompt-input-radius);
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-input);
+  border: 1px solid var(--accent-border);
+  background: var(--surface-input-opaque);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transition: border-color 0.35s ease, box-shadow 0.35s ease;
@@ -540,6 +540,10 @@
   line-height: 1.6;
 }
 
+[data-streamdown="code-block-body"] code span {
+  color: var(--shiki-dark, var(--sdm-c, inherit));
+}
+
 [data-streamdown$="actions"] {
   position: absolute;
   top: 0.4rem;
@@ -623,7 +627,6 @@
   font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   font-size: 0.78rem;
   line-height: 1.6;
-  color: #ded4f0;
   background: none;
   border: none;
   padding: 0;
@@ -771,7 +774,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 48px;
+  height: 140px;
   background: linear-gradient(to bottom, transparent, rgba(21, 12, 40, 0.9));
   pointer-events: none;
   z-index: 5;

@@ -1,16 +1,5 @@
 "use client";
 
-import { markdown } from "@codemirror/lang-markdown";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { search, searchKeymap } from "@codemirror/search";
-import {
-  Compartment,
-  EditorState,
-  type Extension,
-} from "@codemirror/state";
-import { drawSelection, EditorView, keymap } from "@codemirror/view";
-import { useEffect, useRef } from "react";
-
 import {
   Button,
   Dialog as EditorDialog,
@@ -22,7 +11,7 @@ import {
 import { DotMatrixIcon } from "@/components/dotmatrix";
 import type { MemoryNode } from "@/types/graph-schema";
 
-import { editorTheme } from "./theme";
+import { MilkdownView } from "./milkdown-view";
 
 export type EditorProps = {
   node: MemoryNode;
@@ -37,121 +26,6 @@ function formatConfidence(value: number | undefined): string | null {
   return `${pct}%`;
 }
 
-function readOnlyExtensions(readOnly: boolean): Extension {
-  return [EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)];
-}
-
-function createEditorExtensions({
-  documentTextRef,
-  onDocumentTextChangeRef,
-  readOnly,
-  readOnlyCompartment,
-}: {
-  documentTextRef: { current: string };
-  onDocumentTextChangeRef: {
-    current: EditorProps["onDocumentTextChange"];
-  };
-  readOnly: boolean;
-  readOnlyCompartment: Compartment;
-}): Extension[] {
-  return [
-    markdown(),
-    history(),
-    drawSelection(),
-    EditorView.lineWrapping,
-    search(),
-    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
-    editorTheme,
-    readOnlyCompartment.of(readOnlyExtensions(readOnly)),
-    EditorView.updateListener.of((update) => {
-      if (!update.docChanged) return;
-      const next = update.state.doc.toString();
-      if (next === documentTextRef.current) return;
-      onDocumentTextChangeRef.current?.(next);
-    }),
-  ];
-}
-
-function SourceView({
-  documentText,
-  readOnly,
-  onDocumentTextChange,
-}: {
-  documentText: string;
-  readOnly: boolean;
-  onDocumentTextChange?: (next: string) => void;
-}) {
-  const hostElementRef = useRef<HTMLDivElement>(null);
-  const editorViewRef = useRef<EditorView | null>(null);
-  const readOnlyCompartmentRef = useRef(new Compartment());
-  const documentTextRef = useRef(documentText);
-  const onDocumentTextChangeRef = useRef(onDocumentTextChange);
-
-  useEffect(() => {
-    documentTextRef.current = documentText;
-  }, [documentText]);
-
-  useEffect(() => {
-    onDocumentTextChangeRef.current = onDocumentTextChange;
-  }, [onDocumentTextChange]);
-
-  useEffect(() => {
-    const host = hostElementRef.current;
-    if (!host) return;
-
-    const view = new EditorView({
-      parent: host,
-      state: EditorState.create({
-        doc: documentTextRef.current,
-        extensions: createEditorExtensions({
-          documentTextRef,
-          onDocumentTextChangeRef,
-          readOnly,
-          readOnlyCompartment: readOnlyCompartmentRef.current,
-        }),
-      }),
-    });
-    editorViewRef.current = view;
-
-    return () => {
-      view.destroy();
-      editorViewRef.current = null;
-    };
-    // Host + destroy only. Doc swaps dispatch below; node switches remount via key.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const view = editorViewRef.current;
-    if (!view) return;
-    if (view.state.doc.toString() === documentText) return;
-    view.dispatch({
-      changes: {
-        from: 0,
-        to: view.state.doc.length,
-        insert: documentText,
-      },
-    });
-  }, [documentText]);
-
-  useEffect(() => {
-    const view = editorViewRef.current;
-    if (!view) return;
-    view.dispatch({
-      effects: readOnlyCompartmentRef.current.reconfigure(
-        readOnlyExtensions(readOnly),
-      ),
-    });
-  }, [readOnly]);
-
-  return (
-    <div
-      className="min-h-0 flex-1 [&_.cm-editor]:h-full [&_.cm-editor]:outline-none [&_.cm-editor:focus]:outline-none [&_.cm-editor:focus-visible]:outline-none [&_.cm-scroller]:h-full"
-      ref={hostElementRef}
-    />
-  );
-}
-
 /**
  * Memory inspect overlay — dark utility register, lavender accents.
  * Mount only when a node is selected; close clears that selection.
@@ -159,7 +33,7 @@ function SourceView({
 export function Editor({
   node,
   onClose,
-  readOnly = true,
+  readOnly = false,
   onDocumentTextChange,
 }: EditorProps) {
   const title = node.name?.trim() || node.id || "Node";
@@ -201,7 +75,7 @@ export function Editor({
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 text-sm">
           <div className="flex min-h-0 flex-1 flex-col rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-3">
-            <SourceView
+            <MilkdownView
               documentText={content}
               key={node.id}
               onDocumentTextChange={onDocumentTextChange}

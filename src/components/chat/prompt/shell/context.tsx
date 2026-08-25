@@ -109,7 +109,7 @@ export const usePromptInputContext = (): PromptInputContextValue => {
 
 /** Default model / mode / web / excalidraw prefs when the provider mounts. */
 export const DEFAULT_PROMPT_PREFS = {
-  model: models[0]?.id ?? "deepseek-v4-flash",
+  model: models[0]?.id ?? "deepseek-v4-flash-vision-exp",
   mode: models[0]?.defaultMode ?? "high",
   useWebSearch: true,
   useExcalidraw: false,

@@ -55,7 +55,7 @@ export const ConversationScrollButton = ({
           animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
           exit={{ opacity: 0, y: 8, scale: 0.95, x: "-50%" }}
           transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
-          className="absolute bottom-4 left-[50%] z-30"
+          className="absolute bottom-32 left-[50%] z-30"
         >
           <Button
             className={cn(

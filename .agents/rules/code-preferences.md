@@ -1,3 +1,10 @@
+---
+trigger: always_on # Options: always_on, model_decision, glob, manual
+description: "Codebase rules and Perferences of the user"
+glob: "*.*"
+---
+
+
 # Preferences
 
 ## Code & Codebase Structure

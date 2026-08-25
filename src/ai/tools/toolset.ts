@@ -156,9 +156,21 @@ export function createToolSet(): Record<string, Tool> {
             : null;
 
         // --- Create: omit id; rows already embedded; one GRAPH.QUERY ---
-        if (!("id" in input)) {
+        if (input.id == null) {
           const { name, content, impression, confidence } = input;
           const id = nanoid();
+          if (name === undefined) {
+            return { error: "name required to create a Memory" };
+          }
+          if (content === undefined) {
+            return { error: "content required to create a Memory" };
+          }
+          if (impression === undefined) {
+            return { error: "impression required to create a Memory" };
+          }
+          if (confidence === undefined) {
+            return { error: "confidence required to create a Memory" };
+          }
           // Create schema requires questions; rows is non-null here.
           if (rows == null) {
             return { error: "questions required to create a Memory" };
@@ -193,6 +205,7 @@ export function createToolSet(): Record<string, Tool> {
         }
 
         // --- Patch: rows already embedded when questions present; one GRAPH.QUERY ---
+        const memoryId = input.id;
         const props: Record<string, string | number> = {};
         if (input.name !== undefined) props.name = input.name;
         if (input.content !== undefined) props.content = input.content;
@@ -201,10 +214,10 @@ export function createToolSet(): Record<string, Tool> {
         const params: Record<
           string,
           string | number | number[] | Record<string, string | number>
-        > = { id: input.id, props };
+        > = { id: memoryId, props };
         let query: string;
         if (rows != null) {
-          const questionWrite = memoryQuestionCreateCypher(rows, input.id);
+          const questionWrite = memoryQuestionCreateCypher(rows, memoryId);
           Object.assign(params, questionWrite.params);
           // SET + replace probes in the same query so failure rolls back both.
           query = `

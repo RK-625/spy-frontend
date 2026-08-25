@@ -1,5 +1,5 @@
 /**
- * Narrative for upsertMemory (weave write path).
+ * Narrative for upsertMemory (graph write path).
  * Tool description + agent bullet + field describes.
  * Retrieval questions are agent-authored; the tool only embeds them.
  */
@@ -7,15 +7,8 @@
 import {
   MEMORY_QUESTION_COUNT_MAX,
   MEMORY_QUESTION_COUNT_MIN,
-  MEMORY_QUESTIONS_PER_MEMORY,
 } from "@/lib/policy-tokens";
 import { MEMORY_SEARCH_AGENT_RECALL_STYLE } from "./search-memories";
-
-/** Policy-derived target count for MemoryQuestion field copy. */
-export const MEMORY_QUESTION_COUNT_TARGET = Math.max(
-  MEMORY_QUESTION_COUNT_MIN,
-  MEMORY_QUESTIONS_PER_MEMORY,
-);
 
 /** `tool({ description })` for upsertMemory in the product toolset. */
 export const upsertMemoryToolDescription = `Create or patch a Memory node.
@@ -28,7 +21,7 @@ Create, name/content, and questions writes are all-or-nothing: embed first when 
 Do not pass question ids or embeddings. Does not invent layout or rank.`;
 
 /** Short how-to bullet for the agent system prompt. */
-export const UPSERT_MEMORY_AGENT_BULLET = `Tool for creating or refining Memories — for weaving what the user has learned into the graph,
+export const UPSERT_MEMORY_AGENT_BULLET = `Tool for creating or refining Memories — for storing what the user has learned into the graph,
 leading to durable, searchable knowledge.
 Omit id to create; pass id to patch only changed fields. Name/content writes need a full questions set.
 Create/name-content/questions writes are all-or-nothing (failure → { error }, graph unchanged).`;
@@ -38,16 +31,16 @@ export const upsertMemoryIdFieldDescription = `Omit to create (system generates 
 Send only the fields you change.`;
 
 /** Zod `.describe(...)` for the `name` field on upsertMemory input schema. */
-export const upsertMemoryNameFieldDescription = `Short topic label — the concept, not the vessel (e.g. 'DP on arrays', not 'LeetCode 198 House Robber').
+export const upsertMemoryNameFieldDescription = `Short topic label — the concept, of the topic not the source identifier unless it is the topic itself (e.g. 'DP on arrays', not 'LeetCode 198 House Robber').
 Required on create; optional on patch (omit to leave the stored name).`;
 
 /** Zod `.describe(...)` for the `content` field on upsertMemory input schema. */
-export const upsertMemoryContentFieldDescription = `The description on the pattern, method, or takeaway the user has learnt — not a raw dump.
+export const upsertMemoryContentFieldDescription = `The description of the pattern, method, or takeaway the user has learned — not a raw dump.
 Required on create; optional on patch (omit to leave stored content).
 Markdown is allowed (graph source view is markdown).`;
 
 /** Zod `.describe(...)` for the `impression` field on upsertMemory input schema. */
-export const upsertMemoryImpressionFieldDescription = `Spy's read of how the user relates to this memory — grasp, interest, confusion, or stance.
+export const upsertMemoryImpressionFieldDescription = `Spy's read of how the user relates to this Memory — grasp, interest, confusion, or stance.
 Required on create. On patch, omit to leave stored; pass "" to clear.`;
 
 /** Zod `.describe(...)` for the `confidence` field on upsertMemory input schema. */
@@ -61,4 +54,4 @@ Required on create. On patch, omit to leave stored; 0 is a valid write.`;
  */
 export const upsertMemoryQuestionsFieldDescription = `${MEMORY_QUESTION_COUNT_MIN}–${MEMORY_QUESTION_COUNT_MAX} ${MEMORY_SEARCH_AGENT_RECALL_STYLE}.
 Write probes that should retrieve *this* Memory. Expand synonyms and related concepts; do not invent claims the Memory does not support; do not clone the title or one stem.
-Prefer ~${MEMORY_QUESTION_COUNT_TARGET}. Required on create and when patching name or content (full set replace). Omit on impression/confidence-only. Questions-only patch is allowed.`;
+Required on create and when patching name or content (full set replace). Omit on impression/confidence-only. Questions-only patch is allowed.`;

@@ -38,6 +38,11 @@ export interface ChatContextValue {
    * Map miss → GET /api/chats?id= hydrate, register, then activate.
    */
   switchChat: (chatId: string) => Promise<void>;
+  /**
+   * Remove a conversation from SQLite and the in-memory Chat map.
+   * Recents refetch via chatOrder. If it was active, mint a new empty chat.
+   */
+  deleteChat: (chatId: string) => Promise<void>;
   /** Catalog revision after persist; Recents refetch. */
   chatOrder: number;
 }

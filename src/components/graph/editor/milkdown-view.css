@@ -1,0 +1,168 @@
+/* Inspect pane — ProseMirror base + tokenized semantic markdown. */
+
+.milkdown-pane {
+  color: var(--color-text-primary);
+}
+
+.milkdown-pane .milkdown,
+.milkdown-pane .ProseMirror {
+  min-height: 10rem;
+}
+
+.milkdown-pane .ProseMirror {
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  outline: none;
+  line-height: 1.625;
+}
+
+.milkdown-pane .ProseMirror:focus,
+.milkdown-pane .ProseMirror:focus-visible {
+  outline: none;
+}
+
+.milkdown-pane .ProseMirror pre {
+  white-space: pre-wrap;
+}
+
+.milkdown-pane .ProseMirror li {
+  position: relative;
+}
+
+.milkdown-pane[data-readonly="true"] .ProseMirror {
+  caret-color: transparent;
+  cursor: default;
+}
+
+.milkdown-pane:not([data-readonly="true"]) .ProseMirror {
+  caret-color: var(--color-accent);
+}
+
+.milkdown-pane h1,
+.milkdown-pane h2,
+.milkdown-pane h3,
+.milkdown-pane h4,
+.milkdown-pane h5,
+.milkdown-pane h6 {
+  color: var(--color-accent);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0.6em 0 0.3em;
+}
+
+.milkdown-pane h1 {
+  font-size: 1.1rem;
+}
+
+.milkdown-pane h2 {
+  font-size: 0.95rem;
+}
+
+.milkdown-pane h3,
+.milkdown-pane h4,
+.milkdown-pane h5,
+.milkdown-pane h6 {
+  font-size: 0.85rem;
+}
+
+.milkdown-pane p {
+  margin: 0.35em 0;
+}
+
+.milkdown-pane strong {
+  font-weight: 600;
+}
+
+.milkdown-pane em {
+  font-style: italic;
+}
+
+.milkdown-pane del,
+.milkdown-pane s {
+  text-decoration: line-through;
+}
+
+.milkdown-pane a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.milkdown-pane ul,
+.milkdown-pane ol {
+  margin: 0.4em 0;
+  padding-left: 1.3rem;
+}
+
+.milkdown-pane ul {
+  list-style: disc;
+}
+
+.milkdown-pane ol {
+  list-style: decimal;
+}
+
+.milkdown-pane li {
+  margin: 0.15em 0;
+}
+
+.milkdown-pane li::marker {
+  color: var(--list-marker);
+}
+
+.milkdown-pane blockquote {
+  margin: 0.5em 0;
+  border-left: 2px solid var(--border-subtle);
+  padding: 0.3em 0 0.3em 1em;
+  color: var(--color-text-secondary);
+}
+
+.milkdown-pane hr {
+  margin: 0.8em 0;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.milkdown-pane code {
+  font-family: var(--font-code);
+  background: var(--code-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 0.1em 0.35em;
+}
+
+.milkdown-pane pre {
+  margin: 0.5em 0;
+  overflow-x: auto;
+  background: var(--code-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 0.65rem 0.75rem;
+  color: var(--prosemirror-highlight, inherit);
+}
+
+.milkdown-pane pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+}
+
+.milkdown-pane table {
+  width: 100%;
+  margin: 0.5em 0;
+  border-collapse: collapse;
+}
+
+.milkdown-pane th,
+.milkdown-pane td {
+  border: 1px solid var(--border-subtle);
+  padding: 0.35em 0.5em;
+}
+
+.milkdown-pane th {
+  color: var(--color-accent);
+  font-weight: 600;
+}

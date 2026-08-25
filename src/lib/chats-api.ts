@@ -59,3 +59,13 @@ export async function listChats(
     nextCursor: data.nextCursor ?? null,
   };
 }
+
+/** DELETE /api/chats?id= — idempotent; 204 even if the row was already gone. */
+export async function deleteChat(chatId: string): Promise<void> {
+  const res = await fetch(`/api/chats?id=${encodeURIComponent(chatId)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`DELETE /api/chats failed: ${res.status}`);
+  }
+}

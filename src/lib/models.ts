@@ -5,6 +5,15 @@ export const models: AIModel[] = [
   {
     chef: "DeepSeek",
     chefSlug: "deepseek",
+    id: "deepseek-v4-flash-vision-exp",
+    name: "DeepSeek V4 Flash Vision",
+    icon: Deepseek,
+    mode: ["high", "max"],
+    defaultMode: "high",
+  },
+  {
+    chef: "DeepSeek",
+    chefSlug: "deepseek",
     id: "deepseek-v4-pro",
     name: "DeepSeek V4 Pro",
     icon: Deepseek,
@@ -23,11 +32,11 @@ export const models: AIModel[] = [
   {
     chef: "Meta",
     chefSlug: "meta",
-    id: "muse-spark-1.2",
-    name: "Muse Spark 1.2",
+    id: "muse-spark-1.2-contributor",
+    name: "Muse Spark 1.2 Contributor",
     icon: Meta,
     mode: ["minimal", "low", "medium", "high", "xhigh"],
-    defaultMode: "medium",
+    defaultMode: "high",
   },
 ];
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { UIMessage } from "ai";
 import {
   CorruptChatError,
+  deleteChatRecord,
   getChatWithMessages,
   listChats,
   upsertChatMessages,
@@ -227,6 +228,34 @@ export async function POST(req: Request) {
       );
     }
     console.error("POST /api/chats:", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * DELETE /api/chats?id=
+ * - `id` missing or whitespace → 400
+ * - any other id → deleteChatRecord(id) then 204 with empty body (idempotent)
+ */
+export async function DELETE(req: Request) {
+  try {
+    const id = new URL(req.url).searchParams.get("id")?.trim() ?? "";
+    if (id.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "id is required" },
+        { status: 400 },
+      );
+    }
+    deleteChatRecord(id);
+    return new NextResponse(null, { status: 204 });
+  } catch (error: unknown) {
+    console.error("DELETE /api/chats:", error);
     return NextResponse.json(
       {
         ok: false,

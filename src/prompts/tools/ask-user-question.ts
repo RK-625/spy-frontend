@@ -5,7 +5,7 @@
 
 /** `tool({ description })` for askUserQuestion in the product toolset. */
 export const askUserQuestionToolDescription = `Ask a multiple-choice question (2–5 options) to resolve ambiguity or force a decision.
-Set allowCustomInput true only when a write-in is reasonable.
+Set allowCustomInput to true only when a write-in is reasonable.
 Do not use for open-ended chat.`;
 
 /** Short how-to bullet for the agent system prompt. */

@@ -1,5 +1,5 @@
 /**
- * Narrative for manageLinks (weave edge structure path).
+ * Narrative for manageLinks (graph edge structure path).
  * Tool description + agent bullet + field describes.
  */
 

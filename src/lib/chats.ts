@@ -368,3 +368,14 @@ export function upsertChatMessages(input: {
   }
   return meta;
 }
+
+/**
+ * Delete the chats row. Idempotent: missing id is not an error.
+ * Does not parse messages_json (corrupt rows can still be removed).
+ * Returns whether a row was actually removed.
+ */
+export function deleteChatRecord(chatId: string): boolean {
+  const db = getChatsDb();
+  const result = db.prepare(`DELETE FROM chats WHERE id = ?`).run(chatId);
+  return result.changes > 0;
+}
