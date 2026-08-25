@@ -37,7 +37,6 @@ export function ChatSidebarRecentsRow({
             ),
       )}
     >
-      {/* Title inset while gutter visible: pr-7 = right-1 + size-6. */}
       <button
         type="button"
         onClick={() => onOpenChat(chat.id)}
@@ -45,18 +44,17 @@ export function ChatSidebarRecentsRow({
         title={chat.title}
         className={cn(
           "w-full min-w-0 rounded-[var(--radius)] px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-          "group-hover:pr-7 group-has-[[data-slot=dropdown-menu-trigger]:focus-visible]:pr-7",
+          "group-hover:pr-7 group-focus-within:pr-7",
           gutterMenuOpen && "pr-7",
         )}
       >
-        {/* Fade finishes at the gutter’s left edge; pr-7 reserves right-1 + size-6. */}
         <span
           className={cn(
             "block min-w-0 overflow-hidden whitespace-nowrap",
             !gutterMenuOpen &&
-              "truncate group-hover:text-clip group-has-[[data-slot=dropdown-menu-trigger]:focus-visible]:text-clip",
+              "truncate group-hover:text-clip group-focus-within:text-clip",
             "group-hover:[mask-image:linear-gradient(to_right,#000_0%,#000_calc(100%-16px),transparent_100%)]",
-            "group-has-[[data-slot=dropdown-menu-trigger]:focus-visible]:[mask-image:linear-gradient(to_right,#000_0%,#000_calc(100%-16px),transparent_100%)]",
+            "group-focus-within:[mask-image:linear-gradient(to_right,#000_0%,#000_calc(100%-16px),transparent_100%)]",
             gutterMenuOpen &&
               "[mask-image:linear-gradient(to_right,#000_0%,#000_calc(100%-16px),transparent_100%)]",
           )}
@@ -71,13 +69,14 @@ export function ChatSidebarRecentsRow({
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
           className={cn(
-            "absolute top-1/2 right-1 z-10 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[var(--radius)] text-text-secondary outline-none transition-[opacity,scale,background-color] duration-150 ease-out",
+            "absolute top-1/2 right-1 z-10 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[var(--radius)] bg-[var(--surface-hover)] text-text-secondary outline-none transition-[opacity,scale,background-color] duration-150 ease-out",
             "opacity-0 scale-95 pointer-events-none",
             "group-hover:pointer-events-auto group-hover:scale-100 group-hover:opacity-100",
+            "group-focus-within:pointer-events-auto group-focus-within:scale-100 group-focus-within:opacity-100",
             "focus-visible:pointer-events-auto focus-visible:scale-100 focus-visible:opacity-100",
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-            "hover:bg-[var(--surface-focus)] focus-visible:bg-[var(--surface-focus)]",
-            "data-[state=open]:pointer-events-auto data-[state=open]:scale-100 data-[state=open]:bg-[var(--surface-focus)] data-[state=open]:opacity-100",
+            "hover:bg-[var(--surface-focus)] focus-visible:bg-[var(--surface-focus)] data-[state=open]:bg-[var(--surface-focus)]",
+            "data-[state=open]:pointer-events-auto data-[state=open]:scale-100 data-[state=open]:opacity-100",
           )}
         >
           <span className="flex flex-col items-center gap-[3px]" aria-hidden>
@@ -86,14 +85,13 @@ export function ChatSidebarRecentsRow({
             <span className="size-[3px] rounded-full bg-current" />
           </span>
         </DropdownMenuTrigger>
-        {/* w-auto min-w-0: Content inherits trigger width + primitive min-w-32. */}
         <DropdownMenuContent
           side="right"
           align="center"
           sideOffset={4}
           // Do not restore trigger :focus after pointer dismiss (leftover gutter).
           onCloseAutoFocus={(event) => event.preventDefault()}
-          className="w-auto min-w-0 overflow-hidden rounded-[var(--radius)]"
+          className="w-auto min-w-32 overflow-hidden rounded-[var(--radius)]"
         >
           <DropdownMenuItem
             variant="destructive"

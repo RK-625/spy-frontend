@@ -89,8 +89,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * Remove chat from SQLite and active memory. Tombstones the id so background
-   * streams cannot resurrect the row via onFinish upsert.
+   * Remove chat from SQLite and active memory. Tombstone + Map drop for the
+   * in-flight DELETE so racing onFinish / prepareSend cannot upsert; rollback
+   * both if DELETE fails so session state is a no-op.
    */
   const deleteChat = useCallback(
     async (chatId: string) => {
@@ -118,8 +119,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
         updateChatOrder();
       } catch (err: unknown) {
-        if (wasActive) {
-          newChat();
+        deletedIdsRef.current.delete(id);
+        if (registered) {
+          chatsRef.current.set(id, registered);
         }
         throw err;
       }
