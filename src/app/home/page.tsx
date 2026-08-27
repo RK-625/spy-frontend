@@ -118,7 +118,7 @@ const ChatWorkspace = () => {
                   from={message.role === "user" ? "user" : "assistant"}
                   key={message.id}
                 >
-                  <div className="flex w-full flex-col group-[.is-user]:items-end">
+                  <div className="flex w-full flex-col gap-2 group-[.is-user]:items-end">
                     {/* 1. Chain of Thought — groups ALL reasoning steps + tool calls into one timeline */}
                     {(() => {
                       const thoughtParts = message.parts.filter(
@@ -137,7 +137,7 @@ const ChatWorkspace = () => {
                               status === "streaming") &&
                             messageIndex === messages.length - 1
                           }
-                          className="!bg-transparent !border-transparent !backdrop-blur-none shadow-none !mb-0"
+                          className="!bg-transparent !border-transparent !backdrop-blur-none shadow-none"
                           style={
                             {
                               "--color-muted-foreground": "var(--lavender-muted)",
@@ -264,37 +264,39 @@ const ChatWorkspace = () => {
                       </MessageAttachments>
                     )}
 
-                    {/* 3. Text parts last (+ MCP App views) */}
-                    {message.parts.map((part, index) => {
-                      if (part.type === "file") {
+                    {/* 3. Text parts last (+ MCP App views); rail stays flush to bubble */}
+                    <div className="group/bubble flex w-fit max-w-full flex-col group-[.is-user]:ml-auto">
+                      {message.parts.map((part, index) => {
+                        if (part.type === "file") {
+                          return null;
+                        }
+                        if (part.type === "text") {
+                          return (
+                            <MessageContent key={index}>
+                              <MessageResponse>{part.text}</MessageResponse>
+                            </MessageContent>
+                          );
+                        }
+                        if (isDynamicToolUIPart(part) && hasMcpAppView(part)) {
+                          return (
+                            <MCPAppCard
+                              key={part.toolCallId ?? `mcp-app-${index}`}
+                              part={part}
+                            />
+                          );
+                        }
                         return null;
-                      }
-                      if (part.type === "text") {
-                        return (
-                          <MessageContent key={index}>
-                            <MessageResponse>{part.text}</MessageResponse>
-                          </MessageContent>
-                        );
-                      }
-                      if (isDynamicToolUIPart(part) && hasMcpAppView(part)) {
-                        return (
-                          <MCPAppCard
-                            key={part.toolCallId ?? `mcp-app-${index}`}
-                            part={part}
-                          />
-                        );
-                      }
-                      return null;
-                    })}
+                      })}
 
-                    {showRail && (
-                      <ChatActionRail
-                        reveal={message.role === "user" ? "hover" : "always"}
-                      >
-                        <ChatActionButton icon="pencil" label="Edit" />
-                        <ChatActionButton icon="copy" label="Copy" />
-                      </ChatActionRail>
-                    )}
+                      {showRail && (
+                        <ChatActionRail
+                          reveal={message.role === "user" ? "hover" : "always"}
+                        >
+                          <ChatActionButton icon="pencil" label="Edit" />
+                          <ChatActionButton icon="copy" label="Copy" />
+                        </ChatActionRail>
+                      )}
+                    </div>
                   </div>
                 </Message>
               );

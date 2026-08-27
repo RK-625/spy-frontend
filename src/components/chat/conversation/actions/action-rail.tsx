@@ -21,12 +21,12 @@ export const ChatActionRail = ({
   ...props
 }: ChatActionRailProps) => (
   <div
-    role="toolbar"
+    role="group"
     aria-label="Message actions"
     className={cn(
       "flex h-6 w-fit items-center gap-0.5 bg-transparent",
       reveal === "hover" &&
-        "opacity-0 pointer-events-none transition-opacity duration-150 ease-out group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100",
+        "opacity-0 pointer-events-none transition-opacity duration-150 ease-out [@media(pointer:fine)]:group-hover/bubble:pointer-events-auto [@media(pointer:fine)]:group-hover/bubble:opacity-100",
       className,
     )}
     {...props}
@@ -60,6 +60,7 @@ export const ChatActionButton = ({
         type={type}
         variant="ghost"
         {...props}
+        tabIndex={-1}
       >
         <DotMatrixIcon
           className="cursor-default"
