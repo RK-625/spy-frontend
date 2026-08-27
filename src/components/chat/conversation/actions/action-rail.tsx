@@ -26,7 +26,7 @@ export const ChatActionRail = ({
     className={cn(
       "flex h-6 w-fit items-center gap-0.5 bg-transparent",
       reveal === "hover" &&
-        "opacity-0 pointer-events-none transition-opacity duration-150 ease-out [@media(pointer:fine)]:group-hover/bubble:pointer-events-auto [@media(pointer:fine)]:group-hover/bubble:opacity-100",
+        "transition-opacity duration-150 ease-out [@media(pointer:fine)]:pointer-events-none [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover/bubble:pointer-events-auto [@media(pointer:fine)]:group-hover/bubble:opacity-100",
       className,
     )}
     {...props}

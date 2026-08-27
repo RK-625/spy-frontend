@@ -253,40 +253,42 @@ const ChatWorkspace = () => {
                       );
                     })()}
 
-                    {fileParts.length > 0 && (
-                      <MessageAttachments>
-                        {fileParts.map((part, i) => (
-                          <MessageFile
-                            key={part.filename ?? part.url ?? i}
-                            part={part}
-                          />
-                        ))}
-                      </MessageAttachments>
-                    )}
-
-                    {/* 3. Text parts last (+ MCP App views); rail stays flush to bubble */}
+                    {/* 3. Files + text (+ MCP App views); rail stays flush to bubble content */}
                     <div className="group/bubble flex w-fit max-w-full flex-col group-[.is-user]:ml-auto">
-                      {message.parts.map((part, index) => {
-                        if (part.type === "file") {
+                      <div className="flex w-fit max-w-full flex-col gap-2 group-[.is-user]:ml-auto">
+                        {fileParts.length > 0 && (
+                          <MessageAttachments>
+                            {fileParts.map((part, i) => (
+                              <MessageFile
+                                key={part.filename ?? part.url ?? i}
+                                part={part}
+                              />
+                            ))}
+                          </MessageAttachments>
+                        )}
+
+                        {message.parts.map((part, index) => {
+                          if (part.type === "file") {
+                            return null;
+                          }
+                          if (part.type === "text") {
+                            return (
+                              <MessageContent key={index}>
+                                <MessageResponse>{part.text}</MessageResponse>
+                              </MessageContent>
+                            );
+                          }
+                          if (isDynamicToolUIPart(part) && hasMcpAppView(part)) {
+                            return (
+                              <MCPAppCard
+                                key={part.toolCallId ?? `mcp-app-${index}`}
+                                part={part}
+                              />
+                            );
+                          }
                           return null;
-                        }
-                        if (part.type === "text") {
-                          return (
-                            <MessageContent key={index}>
-                              <MessageResponse>{part.text}</MessageResponse>
-                            </MessageContent>
-                          );
-                        }
-                        if (isDynamicToolUIPart(part) && hasMcpAppView(part)) {
-                          return (
-                            <MCPAppCard
-                              key={part.toolCallId ?? `mcp-app-${index}`}
-                              part={part}
-                            />
-                          );
-                        }
-                        return null;
-                      })}
+                        })}
+                      </div>
 
                       {showRail && (
                         <ChatActionRail
