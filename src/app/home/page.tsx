@@ -254,8 +254,8 @@ const ChatWorkspace = () => {
                     })()}
 
                     {/* 3. Files + text (+ MCP App views); rail stays flush to bubble content */}
-                    <div className="group/bubble flex w-fit max-w-full flex-col group-[.is-user]:ml-auto">
-                      <div className="flex w-fit max-w-full flex-col gap-2 group-[.is-user]:ml-auto">
+                    <div className="group/bubble flex w-fit max-w-full flex-col group-[.is-user]:ml-auto group-[.is-user]:items-end">
+                      <div className="flex w-fit max-w-full flex-col gap-2 group-[.is-user]:ml-auto group-[.is-user]:items-end">
                         {fileParts.length > 0 && (
                           <MessageAttachments>
                             {fileParts.map((part, i) => (
