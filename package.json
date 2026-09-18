@@ -16,6 +16,7 @@
     "verify:icon-inventory": "node scripts/verify-icon-inventory.mjs",
     "verify:pending-ask": "node scripts/verify-pending-ask.mjs",
     "verify:parent-of-hierarchy": "npx tsx scripts/verify-parent-of-hierarchy.mjs",
+    "verify:notes-forest": "npx tsx scripts/verify-notes-forest.mjs",
     "probe:search-memories": "npx tsx scripts/probe-search-memories.mjs",
     "list:memory-questions": "npx tsx scripts/list-memory-questions.mjs",
     "verify:chat-delete": "npx tsx scripts/verify-chat-delete.mjs"

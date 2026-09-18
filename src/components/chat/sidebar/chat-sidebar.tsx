@@ -4,17 +4,21 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { CommandPalette, SettingsDialog } from "../overlays";
 import { useChatContext } from "@/contexts/ChatContext";
-import { Plus, Search, Settings, Waypoints } from "lucide-react";
+import { Book, Plus, Search, Settings, Waypoints } from "lucide-react";
 import { ChatSidebarActions } from "./actions/actions";
 import { ChatSidebarBody, ChatSidebarBodySpacer } from "./body/body";
 import { ChatSidebarItem } from "./chrome/item";
 import { ChatSidebarFooter } from "./footer/footer";
 import { ChatSidebarHeader } from "./header/header";
+import { ChatSidebarNotes } from "./notes/notes";
 import { ChatSidebarRecents } from "./recents/recents";
 
 type SidebarDisplayMode = "icon" | "full";
+type SidebarPanel = "chats" | "notes";
 const SIDEBAR_MODE_STORAGE_KEY = "spy-sidebar-mode";
+const SIDEBAR_PANEL_STORAGE_KEY = "spy-sidebar-panel";
 const DEFAULT_SIDEBAR_MODE: SidebarDisplayMode = "icon";
+const DEFAULT_SIDEBAR_PANEL: SidebarPanel = "chats";
 
 const SIDEBAR_ICON_WIDTH = 56;
 const SIDEBAR_FULL_WIDTH = 240;
@@ -48,20 +52,28 @@ export function ChatSidebar() {
   const [sidebarMode, setSidebarMode] =
     useState<SidebarDisplayMode>(DEFAULT_SIDEBAR_MODE);
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
+  const [sidebarPanel, setSidebarPanel] =
+    useState<SidebarPanel>(DEFAULT_SIDEBAR_PANEL);
+  const [sidebarPanelHydrated, setSidebarPanelHydrated] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
   useEffect(() => {
     // ponytail: defer state updates to avoid synchronous state transitions during mount
     setTimeout(() => {
       try {
-        const saved = localStorage.getItem(SIDEBAR_MODE_STORAGE_KEY);
-        if (saved === "full" || saved === "icon") {
-          setSidebarMode(saved);
+        const savedMode = localStorage.getItem(SIDEBAR_MODE_STORAGE_KEY);
+        if (savedMode === "full" || savedMode === "icon") {
+          setSidebarMode(savedMode);
+        }
+        const savedPanel = localStorage.getItem(SIDEBAR_PANEL_STORAGE_KEY);
+        if (savedPanel === "chats" || savedPanel === "notes") {
+          setSidebarPanel(savedPanel);
         }
       } catch {
         // localStorage unavailable, keep default
       }
       setSidebarModeHydrated(true);
+      setSidebarPanelHydrated(true);
     }, 0);
   }, []);
 
@@ -73,6 +85,15 @@ export function ChatSidebar() {
       // localStorage unavailable, ignore
     }
   }, [sidebarMode, sidebarModeHydrated]);
+
+  useEffect(() => {
+    if (!sidebarPanelHydrated) return;
+    try {
+      localStorage.setItem(SIDEBAR_PANEL_STORAGE_KEY, sidebarPanel);
+    } catch {
+      // localStorage unavailable, ignore
+    }
+  }, [sidebarPanel, sidebarPanelHydrated]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -105,9 +126,15 @@ export function ChatSidebar() {
 
   const handleNewChat = useCallback(() => {
     newChat();
+    setSidebarPanel("chats");
   }, [newChat]);
 
   const handleOpenGraph = useCallback(() => {}, []);
+
+  const handleRevealNotes = useCallback(() => {
+    setSidebarPanel("notes");
+    setSidebarMode("full");
+  }, []);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsDialogOpen(true);
@@ -153,9 +180,20 @@ export function ChatSidebar() {
               onClick={handleOpenGraph}
               showLabel={isSidebarFull}
             />
+            <ChatSidebarItem
+              icon={(props) => <Book {...props} strokeWidth={1.5} />}
+              label="Notes"
+              onClick={handleRevealNotes}
+              active={sidebarPanel === "notes"}
+              showLabel={isSidebarFull}
+            />
           </ChatSidebarActions>
           {isSidebarFull ? (
-            <ChatSidebarRecents isSidebarFull={isSidebarFull} />
+            sidebarPanel === "notes" ? (
+              <ChatSidebarNotes />
+            ) : (
+              <ChatSidebarRecents />
+            )
           ) : (
             <ChatSidebarBodySpacer />
           )}
