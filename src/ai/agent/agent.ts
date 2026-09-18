@@ -10,6 +10,10 @@ import { modelConfig } from "../models/modelstore";
 import { buildChatInstructions } from "@/prompts/chat-instructions";
 import { runChatAgent } from "./chat/agent";
 import { runGraphAgent } from "./graph/agent";
+import {
+  enqueueGraphJob,
+  FALLBACK_GRAPH_CHAT_ID,
+} from "./graph/job-queue";
 
 function isAbortRejection(error: unknown): boolean {
   return (
@@ -41,6 +45,7 @@ export async function runAgent({
   useExcalidraw,
   mode,
   abortSignal,
+  chatId,
 }: {
   messages: UIMessage[];
   model: string;
@@ -48,6 +53,7 @@ export async function runAgent({
   useExcalidraw?: boolean;
   mode?: string;
   abortSignal?: AbortSignal;
+  chatId?: string;
 }): Promise<{
   streamResult: ReturnType<typeof runChatAgent>;
   runBackgroundTasks: () => Promise<void>;
@@ -140,17 +146,28 @@ export async function runAgent({
       return;
     }
 
-    if (responseMessages !== undefined && responseMessages.length > 0) {
+    if (responseMessages === undefined || responseMessages.length === 0) {
+      return;
+    }
+
+    const graphMessages = [...modelMessages, ...responseMessages];
+    const graphChatId =
+      chatId !== undefined && chatId.trim().length > 0
+        ? chatId.trim()
+        : FALLBACK_GRAPH_CHAT_ID;
+
+    // Stream wait stays per-request; only Falkor writes serialize per chat.
+    await enqueueGraphJob(graphChatId, async () => {
       try {
         await runGraphAgent({
           model: resolvedModel,
           providerOptions: resolvedProviderOptions,
-          messages: [...modelMessages, ...responseMessages],
+          messages: graphMessages,
         });
       } catch (error: unknown) {
         console.error("[graph-agent] failed:", error);
       }
-    }
+    });
   };
 
   return {
