@@ -8,8 +8,14 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const payload = (await req.json()) as Parameters<typeof runAgent>[0];
-    const { streamResult, runBackgroundTasks } = await runAgent(payload);
+    const payload = (await req.json()) as Omit<
+      Parameters<typeof runAgent>[0],
+      "abortSignal"
+    >;
+    const { streamResult, runBackgroundTasks } = await runAgent({
+      ...payload,
+      abortSignal: req.signal,
+    });
 
     after(async () => {
       await runBackgroundTasks();
