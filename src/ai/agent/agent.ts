@@ -1,15 +1,15 @@
 import {
-  streamText,
   convertToModelMessages,
   type UIMessage,
   isStepCount,
   type ToolSet,
 } from "ai";
-import { createToolSet } from "../tools/toolset";
+import { createChatToolSet } from "../tools/agent-toolsets";
 import { connectExcalidrawMcp } from "../tools/excalidraw-mcp";
 import { modelConfig } from "../models/modelstore";
-import { slimJson } from "../slim-json";
-import { buildSystemPrompt } from "@/prompts/system-prompt";
+import { buildChatInstructions } from "@/prompts/chat-instructions";
+import { runChatAgent } from "./chat/agent";
+import { runGraphAgent } from "./graph/agent";
 
 export async function runAgent({
   messages,
@@ -31,8 +31,8 @@ export async function runAgent({
     ignoreIncompleteToolCalls: true,
   });
   // Product tools are model-agnostic; chat model stays on modelConfig only.
-  const toolSet = createToolSet();
-  // webSearch and Excalidraw MCP are optional; memory weave + ask stay on.
+  const toolSet = createChatToolSet();
+  // webSearch and Excalidraw MCP are optional; retrieval + ask stay on.
   const { webSearch, ...toolsWithoutSearch } = toolSet;
   const baseTools = useWebSearch ? toolSet : toolsWithoutSearch;
 
@@ -47,37 +47,30 @@ export async function runAgent({
 
   const { model: resolvedModel, providerOptions: resolvedProviderOptions } =
     modelConfig({ model, mode });
-  const result = streamText({
+  // Web or Excalidraw MCP tool loops need a higher step budget.
+  return runChatAgent({
     model: resolvedModel,
-    instructions: buildSystemPrompt(),
+    instructions: buildChatInstructions(),
     messages: modelMessages,
     tools,
-    // Non-web: room for upsertMemory + manageLinks (+ ask) without truncating.
-    // Web or Excalidraw MCP tool loops need a higher step budget.
     stopWhen: isStepCount(useWebSearch || useExcalidraw ? 25 : 8),
     providerOptions: resolvedProviderOptions,
-    onEnd: async () => {
-      if (closeExcalidraw) {
-        await closeExcalidraw();
-      }
-    },
-    onToolExecutionEnd(event) {
-      const { toolCall, toolExecutionMs, toolOutput } = event;
-      const payload = {
-        seconds: toolExecutionMs / 1000,
-        input: toolCall.input,
-        ...(toolOutput.type === "tool-result"
-          ? { output: slimJson(toolOutput.output) }
-          : { error: slimJson(toolOutput.error) }),
-      };
-      if (toolOutput.type === "tool-result") {
-        console.log(`[tool] ${toolCall.toolName}`);
-        console.dir(payload, { depth: null });
-      } else {
-        console.error(`[tool] ${toolCall.toolName}`);
-        console.dir(payload, { depth: null });
+    onEnd: async (event) => {
+      try {
+        if (event.responseMessages.length > 0) {
+          await runGraphAgent({
+            model: resolvedModel,
+            providerOptions: resolvedProviderOptions,
+            messages: [...modelMessages, ...event.responseMessages],
+          });
+        }
+      } catch (error) {
+        console.error("[graph-agent] failed:", error);
+      } finally {
+        if (closeExcalidraw) {
+          await closeExcalidraw();
+        }
       }
     },
   });
-  return result;
 }

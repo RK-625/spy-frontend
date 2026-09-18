@@ -1,6 +1,6 @@
 /**
  * Narrative for getMemories (PARENT_OF cone + center RELATES_TO inspect path).
- * Tool description + agent bullet + field describes.
+ * Tool description + chat/graph bullets + field describes.
  */
 
 /** `tool({ description })` for getMemories in the product toolset. */
@@ -8,10 +8,12 @@ export const getMemoriesToolDescription = `Inspect a Memory by id and its topolo
 Always pass linkTypes: ["PARENT_OF"], ["RELATES_TO"], or both. hops applies only to PARENT_OF.
 Does not write nodes or invent layout.`;
 
-/** Short how-to bullet for the agent system prompt. */
-export const GET_MEMORIES_AGENT_BULLET = `Tool for inspecting a Memory and its topology — for understanding parent, children, and associations
-before refine, attach, or reparent,
-leading to aligned structure writes.
+/** Short how-to bullet for the chat-agent system prompt. */
+export const GET_MEMORIES_CHAT_BULLET = `Inspect a Memory and its parent/children/associations to ground teaching.
+Does not write nodes or invent ids.`;
+
+/** Short how-to bullet for the graph-agent system prompt. */
+export const GET_MEMORIES_GRAPH_BULLET = `Inspect topology before refine, attach, or reparent.
 Does not write nodes or invent ids.`;
 
 /** Zod `.describe(...)` for the `id` field on getMemories input schema. */

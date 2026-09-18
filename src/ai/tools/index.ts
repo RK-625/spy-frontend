@@ -4,8 +4,8 @@
  * Do not import from client.
  */
 export * from "./toolset";
-// chatAgent / graphAgent registries — not yet wired.
 export { createChatToolSet, createGraphToolSet } from "./agent-toolsets";
+
 export {
   EXCALIDRAW_MCP_URL,
   connectExcalidrawMcp,
