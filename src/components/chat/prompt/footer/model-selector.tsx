@@ -42,7 +42,9 @@ export const ModelSelectorContent = ({
 }: ModelSelectorContentProps) => (
   <PopoverContent
     className={cn(
-      "w-[170px] p-0 outline-hidden! border border-[var(--border-subtle)] bg-popover/80 backdrop-blur-[16px] shadow-2xl rounded-[var(--radius)]",
+      "w-[220px] p-0 outline-hidden! border border-[var(--border-subtle)] bg-popover/80 backdrop-blur-[16px] shadow-2xl rounded-[var(--radius)]",
+      "[&_[data-slot=command-input]]:text-sm [&_[data-slot=command-empty]]:text-sm",
+      "[&_[data-slot=command-input-wrapper]_svg]:!size-4",
       className,
     )}
     sideOffset={12}
@@ -60,7 +62,7 @@ export const ModelSelectorInput = ({
   className,
   ...props
 }: ModelSelectorInputProps) => (
-  <CommandInput className={cn("h-auto", className)} {...props} />
+  <CommandInput className={cn("h-auto text-sm", className)} {...props} />
 );
 
 export type ModelSelectorListProps = ComponentProps<typeof CommandList>;
@@ -77,14 +79,32 @@ export const ModelSelectorEmpty = (props: ModelSelectorEmptyProps) => (
 
 export type ModelSelectorGroupProps = ComponentProps<typeof CommandGroup>;
 
-export const ModelSelectorGroup = (props: ModelSelectorGroupProps) => (
-  <CommandGroup {...props} />
+export const ModelSelectorGroup = ({
+  className,
+  ...props
+}: ModelSelectorGroupProps) => (
+  <CommandGroup
+    className={cn(
+      "**:[[cmdk-group-heading]]:!text-xs",
+      className,
+    )}
+    {...props}
+  />
 );
 
 export type ModelSelectorItemProps = ComponentProps<typeof CommandItem>;
 
-export const ModelSelectorItem = (props: ModelSelectorItemProps) => (
-  <CommandItem {...props} />
+export const ModelSelectorItem = ({
+  className,
+  ...props
+}: ModelSelectorItemProps) => (
+  <CommandItem
+    className={cn(
+      "text-sm [&_svg:not([class*='size-'])]:size-4",
+      className,
+    )}
+    {...props}
+  />
 );
 
 export type ModelSelectorLogoProps = {
@@ -97,7 +117,7 @@ export const ModelSelectorLogo = ({
   className,
   ...props
 }: ModelSelectorLogoProps) => {
-  const commonClasses = cn("size-2.5", className);
+  const commonClasses = cn("size-4", className);
 
   return <Icon className={commonClasses} {...props} />;
 };

@@ -8,7 +8,7 @@ import {
   DialogHeader as EditorHeader,
   DialogTitle as EditorTitle,
 } from "@/components/ui";
-import { DotMatrixIcon } from "@/components/dotmatrix";
+import { X } from "lucide-react";
 import type { MemoryNode } from "@/types/graph-schema";
 
 import { MilkdownView } from "./milkdown-view";
@@ -67,7 +67,7 @@ export function Editor({
               className="bg-secondary"
               size="icon-sm"
             >
-              <DotMatrixIcon name="x" size={16} />
+              <X size={16} strokeWidth={1.5} />
               <span className="sr-only">Close</span>
             </Button>
           </EditorClose>

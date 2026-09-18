@@ -1,6 +1,5 @@
 "use client";
 
-import { DotMatrixIcon, type DotMatrixIconName } from "@/components/dotmatrix";
 import {
   Button,
   Tooltip,
@@ -9,6 +8,7 @@ import {
 } from "@/components/ui";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { cn } from "@/lib/utils";
+import type { LucideIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes } from "react";
 
 export type ChatActionRailProps = HTMLAttributes<HTMLDivElement> & {
@@ -38,12 +38,12 @@ export type ChatActionButtonProps = Omit<
   "children" | "size" | "variant"
 > & {
   label: string;
-  icon: DotMatrixIconName;
+  icon: LucideIcon;
 };
 
 export const ChatActionButton = ({
   label,
-  icon,
+  icon: Icon,
   className,
   type = "button",
   ...props
@@ -62,10 +62,10 @@ export const ChatActionButton = ({
         {...props}
         tabIndex={-1}
       >
-        <DotMatrixIcon
-          className="cursor-default"
-          name={icon}
+        <Icon
           size={ICON_GLYPH.badge}
+          strokeWidth={1.5}
+          className="cursor-default"
         />
       </Button>
     </TooltipTrigger>

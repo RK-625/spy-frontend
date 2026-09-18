@@ -5,7 +5,7 @@ import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Button } from "../actions/button"
-import { DotMatrixIcon } from "@/components/dotmatrix"
+import { X } from "lucide-react"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -75,7 +75,7 @@ function SheetContent({
               className="absolute top-4 right-4 bg-secondary"
               size="icon-sm"
             >
-              <DotMatrixIcon name="x" size={16} />
+              <X size={16} strokeWidth={1.5} />
               <span className="sr-only">Close</span>
             </Button>
           </SheetPrimitive.Close>

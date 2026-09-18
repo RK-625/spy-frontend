@@ -1,8 +1,7 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-
-import { DotMatrixIcon } from "@/components/dotmatrix";
+import { Monitor, Moon, Search, Sun, X } from "lucide-react";
 
 import { motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
@@ -163,7 +162,7 @@ function CommandPaletteTrigger({
       type="button"
       {...props}
     >
-      <DotMatrixIcon name="search" size={16} className="shrink-0 mr-2" />
+      <Search size={16} strokeWidth={1.5} className="shrink-0 mr-2" />
       <span className="flex-1 truncate">{label}</span>
       {showShortcut ? (
         <SearchShortcutBadge
@@ -280,7 +279,7 @@ function CommandPalette({
             {
               label: "Light Mode",
               icon: (props: { className?: string }) => (
-                <DotMatrixIcon name="sun" size={16} className={props.className} />
+                <Sun size={16} strokeWidth={1.5} className={props.className} />
               ),
               action: () => setTheme("light"),
               keywords: ["light", "bright", "white", "day"],
@@ -288,7 +287,7 @@ function CommandPalette({
             {
               label: "Dark Mode",
               icon: (props: { className?: string }) => (
-                <DotMatrixIcon name="moon" size={16} className={props.className} />
+                <Moon size={16} strokeWidth={1.5} className={props.className} />
               ),
               action: () => setTheme("dark"),
               keywords: ["dark", "night", "black"],
@@ -296,7 +295,7 @@ function CommandPalette({
             {
               label: "System Theme",
               icon: (props: { className?: string }) => (
-                <DotMatrixIcon name="monitor" size={16} className={props.className} />
+                <Monitor size={16} strokeWidth={1.5} className={props.className} />
               ),
               action: () => setTheme("system"),
               keywords: ["system", "auto", "os", "default"],
@@ -444,7 +443,7 @@ function CommandPalette({
         {item.icon ? (
           <item.icon className="relative z-10 mt-0.5 size-4 shrink-0" />
         ) : (
-          <DotMatrixIcon name="search" size={16} className="relative z-10 mt-0.5 shrink-0 opacity-45 mr-2" />
+          <Search size={16} strokeWidth={1.5} className="relative z-10 mt-0.5 shrink-0 opacity-45 mr-2" />
         )}
         <div className="relative z-10 min-w-0">
           <div className="truncate font-medium text-sm">{item.label}</div>
@@ -505,9 +504,9 @@ function CommandPalette({
             </DialogPrimitive.Description>
 
             <div className="flex shrink-0 items-center gap-3 border-border/70 border-b px-4 py-3">
-              <DotMatrixIcon
-                name="search"
+              <Search
                 size={16}
+                strokeWidth={1.5}
                 className="shrink-0 text-muted-foreground"
               />
               <input
@@ -535,7 +534,7 @@ function CommandPalette({
                   className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   type="button"
                 >
-                  <DotMatrixIcon name="x" size={ICON_GLYPH.toolbar} />
+                  <X size={ICON_GLYPH.toolbar} strokeWidth={1.5} />
                 </button>
               </DialogPrimitive.Close>
             </div>

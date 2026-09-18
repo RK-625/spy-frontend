@@ -6,7 +6,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { DotMatrixIcon } from "@/components/dotmatrix";
+import { Book, ChevronDown } from "lucide-react";
 import type { ComponentProps } from "react";
 
 export type SourcesProps = ComponentProps<"div">;
@@ -34,9 +34,9 @@ export const SourcesTrigger = ({
   >
     {children ?? (
       <>
-        <DotMatrixIcon name="book" size={16} />
+        <Book size={16} strokeWidth={1.5} />
         <p className="font-medium">Used {count} sources</p>
-        <DotMatrixIcon name="chevronDown" size={16} />
+        <ChevronDown size={16} strokeWidth={1.5} />
       </>
     )}
   </CollapsibleTrigger>
@@ -70,7 +70,7 @@ export const Source = ({ href, title, children, ...props }: SourceProps) => (
   >
     {children ?? (
       <>
-        <DotMatrixIcon name="book" size={16} />
+        <Book size={16} strokeWidth={1.5} />
         <span className="block font-medium">{title}</span>
       </>
     )}

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { CommandPalette, SettingsDialog } from "../overlays";
 import { useChatContext } from "@/contexts/ChatContext";
-import { DotMatrixIcon } from "@/components/dotmatrix";
+import { Plus, Search, Settings, Waypoints } from "lucide-react";
 import { ChatSidebarActions } from "./actions/actions";
 import { ChatSidebarBody, ChatSidebarBodySpacer } from "./body/body";
 import { ChatSidebarItem } from "./chrome/item";
@@ -127,7 +127,7 @@ export function ChatSidebar() {
         <ChatSidebarBody>
           <ChatSidebarActions isSidebarFull={isSidebarFull}>
             <ChatSidebarItem
-              icon={(props) => <DotMatrixIcon name="plus" {...props} />}
+              icon={(props) => <Plus {...props} strokeWidth={1.5} />}
               label="New chat"
               onClick={handleNewChat}
               showLabel={isSidebarFull}
@@ -139,7 +139,7 @@ export function ChatSidebar() {
               shortcutKey="k"
               trigger={
                 <ChatSidebarItem
-                  icon={(props) => <DotMatrixIcon name="search" {...props} />}
+                  icon={(props) => <Search {...props} strokeWidth={1.5} />}
                   label="Search…"
                   onClick={() => {}}
                   shortcut="⌘K"
@@ -148,7 +148,7 @@ export function ChatSidebar() {
               }
             />
             <ChatSidebarItem
-              icon={(props) => <DotMatrixIcon name="graph" {...props} />}
+              icon={(props) => <Waypoints {...props} strokeWidth={1.5} />}
               label="Graph"
               onClick={handleOpenGraph}
               showLabel={isSidebarFull}
@@ -162,7 +162,7 @@ export function ChatSidebar() {
         </ChatSidebarBody>
         <ChatSidebarFooter isSidebarFull={isSidebarFull}>
           <ChatSidebarItem
-            icon={(props) => <DotMatrixIcon name="settings" {...props} />}
+            icon={(props) => <Settings {...props} strokeWidth={1.5} />}
             label="Settings"
             onClick={handleOpenSettings}
             active={settingsDialogOpen}

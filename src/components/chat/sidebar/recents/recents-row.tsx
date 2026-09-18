@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { EllipsisVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -79,11 +80,7 @@ export function ChatSidebarRecentsRow({
             "data-[state=open]:pointer-events-auto data-[state=open]:scale-100 data-[state=open]:opacity-100",
           )}
         >
-          <span className="flex flex-col items-center gap-[3px]" aria-hidden>
-            <span className="size-[3px] rounded-full bg-current" />
-            <span className="size-[3px] rounded-full bg-current" />
-            <span className="size-[3px] rounded-full bg-current" />
-          </span>
+          <EllipsisVertical strokeWidth={1.5} />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           side="right"

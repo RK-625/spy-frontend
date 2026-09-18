@@ -5,7 +5,7 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Button } from "../actions/button"
-import { DotMatrixIcon } from "@/components/dotmatrix"
+import { X } from "lucide-react"
 
 function Dialog({
   ...props
@@ -74,7 +74,7 @@ function DialogContent({
               className="absolute top-4 right-4 bg-secondary"
               size="icon-sm"
             >
-              <DotMatrixIcon name="x" size={16} />
+              <X size={16} strokeWidth={1.5} />
               <span className="sr-only">Close</span>
             </Button>
           </DialogPrimitive.Close>

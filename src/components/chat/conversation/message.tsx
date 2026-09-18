@@ -1,6 +1,5 @@
 "use client";
 
-import { DotMatrixIcon } from "@/components/dotmatrix";
 import {
   Button,
   Dialog,
@@ -11,6 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
@@ -126,7 +126,7 @@ export const MessageFile = ({ part, className }: MessageFileProps) => {
                 className="shrink-0 bg-secondary"
                 size="icon-sm"
               >
-                <DotMatrixIcon name="x" size={16} />
+                <X size={16} strokeWidth={1.5} />
                 <span className="sr-only">Close</span>
               </Button>
             </DialogClose>

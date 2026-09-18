@@ -37,6 +37,7 @@ const palette = read("src/components/chat/overlays/command-palette.tsx");
 const conversation = read("src/components/chat/conversation/conversation.tsx");
 const promptSubmit = read("src/components/chat/prompt/footer/submit.tsx");
 const speechInput = read("src/components/chat/prompt/footer/speech-input.tsx");
+const promptInput = read("src/components/chat/prompt/shell/prompt-input.tsx");
 
 // ── CSS + TS tokens (Plan B 3-role system) ──────────────────────────
 assert(
@@ -57,36 +58,39 @@ assert(
 
 // ── Home footer tools: 32 box + toolbar glyph 20 ────────────────────
 assert(
-  home.includes("[&_button]:!size-8"),
-  "home footer tools force !size-8 (32px box)"
+  /size="icon-sm"/.test(promptInput) &&
+    !promptInput.includes("[&_button]:!size-8"),
+  "prompt icon tools use icon-sm (32px); no blanket [&_button]:!size-8 (that clips model/mode chips)"
 );
 assert(
-  /DotMatrixIcon name="plus" size=\{ICON_GLYPH\.toolbar\}/.test(home) ||
-    /DotMatrixIcon name="plus" size=\{20\}/.test(home),
-  "home attach tool glyph size=20 (toolbar)"
+  /<Plus[^>]*size=\{ICON_GLYPH\.inline\}/.test(promptInput) ||
+    /<Plus[^>]*size=\{16\}/.test(promptInput),
+  "home attach tool glyph size=16 (inline, matches 11px chips)"
 );
 assert(
-  /DotMatrixIcon name="globe" size=\{ICON_GLYPH\.toolbar\}/.test(home) ||
-    /DotMatrixIcon name="globe" size=\{20\}/.test(home),
-  "home web tool glyph size=20 (toolbar)"
+  /<Globe[^>]*size=\{ICON_GLYPH\.inline\}/.test(promptInput) ||
+    /<Globe[^>]*size=\{16\}/.test(promptInput),
+  "home web tool glyph size=16 (inline, matches 11px chips)"
 );
 assert(
-  /DotMatrixIcon name="settings" size=\{ICON_GLYPH\.toolbar\}/.test(home) ||
-    /DotMatrixIcon name="settings" size=\{20\}/.test(home),
+  /<Settings[^>]*size=\{ICON_GLYPH\.toolbar\}/.test(promptInput) ||
+    /<Settings[^>]*size=\{20\}/.test(promptInput),
   "home model-fallback settings glyph size=20 (toolbar)"
 );
 assert(
-  home.includes("!size-8") && home.includes("PromptInputSubmit"),
+  (home.includes("!size-8") && home.includes("PromptInputSubmit")) ||
+    (promptInput.includes("!size-8") && promptInput.includes("PromptInputSubmit")),
   "home submit path uses size-8 control"
 );
 // Model check: badge-scale 14, not 10
 assert(
-  !/DotMatrixIcon name="check" size=\{10\}/.test(home),
+  !/<Check[^>]*size=\{10\}/.test(home) &&
+    !/<Check[^>]*size=\{10\}/.test(promptInput),
   "home has no model check size={10}"
 );
 assert(
-  /DotMatrixIcon name="check" size=\{ICON_GLYPH\.badge\}/.test(home) ||
-    /DotMatrixIcon name="check" size=\{14\}/.test(home),
+  /<Check[^>]*size=\{ICON_GLYPH\.badge\}/.test(promptInput) ||
+    /<Check[^>]*size=\{14\}/.test(promptInput),
   "home model/mode check uses size=14 (badge)"
 );
 
@@ -99,9 +103,9 @@ assert(
 
 // ── Speech mic in toolbar-ish control → 20 ──────────────────────────
 assert(
-  /DotMatrixIcon name="mic" size=\{ICON_GLYPH\.toolbar\}/.test(speechInput) ||
-    /DotMatrixIcon name="mic" size=\{20\}/.test(speechInput),
-  "speech-input mic glyph size=20 (toolbar)"
+  /<Mic[^>]*size=\{ICON_GLYPH\.inline\}/.test(speechInput) ||
+    /<Mic[^>]*size=\{16\}/.test(speechInput),
+  "speech-input mic glyph size=16 (inline, matches 11px chips)"
 );
 
 // ── Sidebar collapse: size-8 (not size-10) + glyph 20 ───────────────
@@ -111,8 +115,8 @@ assert(
 );
 assert(
   /flex size-8 items-center justify-center/.test(sidebar) &&
-    (/panelLeft(Close|Open)" size=\{ICON_GLYPH\.toolbar\}/.test(sidebar) ||
-      /panelLeft(Close|Open)" size=\{20\}/.test(sidebar)),
+    (/<PanelLeft(Close|Open)[^>]*size=\{ICON_GLYPH\.toolbar\}/.test(sidebar) ||
+      /<PanelLeft(Close|Open)[^>]*size=\{20\}/.test(sidebar)),
   "sidebar collapse is size-8 box + panel glyph 20"
 );
 
@@ -138,21 +142,21 @@ assert(
 // ── Attachment remove badge 18/14 ───────────────────────────────────
 assert(
   attachments.includes("size-[18px]") &&
-    (/DotMatrixIcon name="x" size=\{ICON_GLYPH\.badge\}/.test(attachments) ||
-      /DotMatrixIcon name="x" size=\{14\}/.test(attachments)),
+    (/<X[^>]*size=\{ICON_GLYPH\.badge\}/.test(attachments) ||
+      /<X[^>]*size=\{14\}/.test(attachments)),
   "attachment remove badge 18px box + x glyph 14"
 );
 
 // ── Command palette close 32/20; row icons stay 16 ──────────────────
 assert(
   palette.includes("size-8") &&
-    (/DotMatrixIcon name="x" size=\{ICON_GLYPH\.toolbar\}/.test(palette) ||
-      /DotMatrixIcon name="x" size=\{20\}/.test(palette)),
+    (/<X[^>]*size=\{ICON_GLYPH\.toolbar\}/.test(palette) ||
+      /<X[^>]*size=\{20\}/.test(palette)),
   "command palette close size-8 + x size 20"
 );
 assert(
-  /DotMatrixIcon name="search" size=\{16\}/.test(palette) ||
-    /DotMatrixIcon name="search" size=\{ICON_GLYPH\.inline\}/.test(palette),
+  /<Search[^>]*size=\{16\}/.test(palette) ||
+    /<Search[^>]*size=\{ICON_GLYPH\.inline\}/.test(palette),
   "command palette search stays glyph-inline 16"
 );
 
