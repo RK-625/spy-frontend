@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createUIMessageStreamResponse, toUIMessageStream } from "ai";
 import { runAgent } from "@/ai/agent";
 
@@ -7,12 +8,17 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const payload = await req.json();
-    const streamResult = await runAgent(payload);
+    const payload = (await req.json()) as Parameters<typeof runAgent>[0];
+    const { streamResult, runBackgroundTasks } = await runAgent(payload);
+
+    after(async () => {
+      await runBackgroundTasks();
+    });
+
     return createUIMessageStreamResponse({
       stream: toUIMessageStream({ stream: streamResult.stream }),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("API ROUTE ERROR DETECTED:", error);
     throw error;
   }

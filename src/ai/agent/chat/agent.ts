@@ -13,7 +13,6 @@ export function runChatAgent({
   instructions,
   tools,
   stopWhen,
-  onEnd,
 }: {
   model: StreamTextOptions["model"];
   providerOptions: StreamTextOptions["providerOptions"];
@@ -21,7 +20,6 @@ export function runChatAgent({
   instructions: StreamTextOptions["instructions"];
   tools: StreamTextOptions["tools"];
   stopWhen: StreamTextOptions["stopWhen"];
-  onEnd: StreamTextOptions["onEnd"];
 }) {
   return streamText({
     model,
@@ -30,7 +28,6 @@ export function runChatAgent({
     tools,
     stopWhen,
     providerOptions,
-    onEnd,
     onToolExecutionEnd(event) {
       const { toolCall, toolExecutionMs, toolOutput } = event;
       const payload = {

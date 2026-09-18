@@ -23,7 +23,10 @@ export async function runAgent({
   useWebSearch: boolean;
   useExcalidraw?: boolean;
   mode?: string;
-}) {
+}): Promise<{
+  streamResult: ReturnType<typeof runChatAgent>;
+  runBackgroundTasks: () => Promise<void>;
+}> {
   // Client-side tools (e.g. askUserQuestion) may be input-available with no
   // tool result; the user answers as a normal chat message. Drop incomplete
   // tool calls so they do not poison model history.
@@ -37,7 +40,7 @@ export async function runAgent({
   const baseTools = useWebSearch ? toolSet : toolsWithoutSearch;
 
   const { tools: mcpTools, close: closeExcalidraw } = useExcalidraw
-    ? await connectExcalidrawMcp().catch((error) => {
+    ? await connectExcalidrawMcp().catch((error: unknown) => {
       console.error("[excalidraw-mcp] connect failed:", error);
       return { tools: {}, close: () => Promise.resolve() };
     })
@@ -48,29 +51,46 @@ export async function runAgent({
   const { model: resolvedModel, providerOptions: resolvedProviderOptions } =
     modelConfig({ model, mode });
   // Web or Excalidraw MCP tool loops need a higher step budget.
-  return runChatAgent({
+  const streamResult = runChatAgent({
     model: resolvedModel,
     instructions: buildChatInstructions(),
     messages: modelMessages,
     tools,
     stopWhen: isStepCount(useWebSearch || useExcalidraw ? 25 : 8),
     providerOptions: resolvedProviderOptions,
-    onEnd: async (event) => {
-      try {
-        if (event.responseMessages.length > 0) {
-          await runGraphAgent({
-            model: resolvedModel,
-            providerOptions: resolvedProviderOptions,
-            messages: [...modelMessages, ...event.responseMessages],
-          });
-        }
-      } catch (error) {
-        console.error("[graph-agent] failed:", error);
-      } finally {
-        if (closeExcalidraw) {
-          await closeExcalidraw();
-        }
-      }
-    },
   });
+
+  const runBackgroundTasks = async (): Promise<void> => {
+    let responseMessages:
+      | Awaited<(typeof streamResult)["responseMessages"]>
+      | undefined;
+    try {
+      responseMessages = await streamResult.responseMessages;
+    } catch (error: unknown) {
+      console.error("[chat-agent] response messages failed:", error);
+    } finally {
+      if (closeExcalidraw) {
+        await closeExcalidraw().catch((error: unknown) => {
+          console.error("[excalidraw-mcp] close failed:", error);
+        });
+      }
+    }
+
+    if (responseMessages !== undefined && responseMessages.length > 0) {
+      try {
+        await runGraphAgent({
+          model: resolvedModel,
+          providerOptions: resolvedProviderOptions,
+          messages: [...modelMessages, ...responseMessages],
+        });
+      } catch (error: unknown) {
+        console.error("[graph-agent] failed:", error);
+      }
+    }
+  };
+
+  return {
+    streamResult,
+    runBackgroundTasks,
+  };
 }
