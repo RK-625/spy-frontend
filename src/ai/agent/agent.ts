@@ -64,8 +64,14 @@ export async function runAgent({
     let responseMessages:
       | Awaited<(typeof streamResult)["responseMessages"]>
       | undefined;
+    let finalStep:
+      | Awaited<(typeof streamResult)["finalStep"]>
+      | undefined;
     try {
-      responseMessages = await streamResult.responseMessages;
+      [responseMessages, finalStep] = await Promise.all([
+        streamResult.responseMessages,
+        streamResult.finalStep,
+      ]);
     } catch (error: unknown) {
       console.error("[chat-agent] response messages failed:", error);
     } finally {
@@ -74,6 +80,16 @@ export async function runAgent({
           console.error("[excalidraw-mcp] close failed:", error);
         });
       }
+    }
+
+    // Check if the final step of this response stopped to ask the user a question.
+    // Client-side tools wait for the user's answer; do not trigger the graph maintainer.
+    const isWaitingOnUser = finalStep?.toolCalls.some(
+      (call) => call.toolName === "askUserQuestion",
+    );
+
+    if (isWaitingOnUser) {
+      return;
     }
 
     if (responseMessages !== undefined && responseMessages.length > 0) {
