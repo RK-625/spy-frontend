@@ -2,6 +2,8 @@
 
 import type { CSSProperties } from "react";
 import {
+  ChatActionButton,
+  ChatActionRail,
   Conversation,
   ConversationContent,
   ConversationScrollButton,
@@ -105,6 +107,10 @@ const ChatWorkspace = () => {
             messages.map((message, messageIndex) => {
               const fileParts = message.parts.filter(
                 (part): part is FileUIPart => part.type === "file",
+              );
+              const showRail = !(
+                messageIndex === messages.length - 1 &&
+                (status === "submitted" || status === "streaming")
               );
 
               return (
@@ -247,39 +253,52 @@ const ChatWorkspace = () => {
                       );
                     })()}
 
-                    {fileParts.length > 0 && (
-                      <MessageAttachments>
-                        {fileParts.map((part, i) => (
-                          <MessageFile
-                            key={part.filename ?? part.url ?? i}
-                            part={part}
-                          />
-                        ))}
-                      </MessageAttachments>
-                    )}
+                    {/* 3. Files + text (+ MCP App views); rail stays flush to bubble content */}
+                    <div className="group/bubble flex w-fit max-w-full flex-col group-[.is-user]:ml-auto group-[.is-user]:items-end">
+                      <div className="flex w-fit max-w-full flex-col gap-2 group-[.is-user]:ml-auto group-[.is-user]:items-end">
+                        {fileParts.length > 0 && (
+                          <MessageAttachments>
+                            {fileParts.map((part, i) => (
+                              <MessageFile
+                                key={part.filename ?? part.url ?? i}
+                                part={part}
+                              />
+                            ))}
+                          </MessageAttachments>
+                        )}
 
-                    {/* 3. Text parts last (+ MCP App views) */}
-                    {message.parts.map((part, index) => {
-                      if (part.type === "file") {
-                        return null;
-                      }
-                      if (part.type === "text") {
-                        return (
-                          <MessageContent key={index}>
-                            <MessageResponse>{part.text}</MessageResponse>
-                          </MessageContent>
-                        );
-                      }
-                      if (isDynamicToolUIPart(part) && hasMcpAppView(part)) {
-                        return (
-                          <MCPAppCard
-                            key={part.toolCallId ?? `mcp-app-${index}`}
-                            part={part}
-                          />
-                        );
-                      }
-                      return null;
-                    })}
+                        {message.parts.map((part, index) => {
+                          if (part.type === "file") {
+                            return null;
+                          }
+                          if (part.type === "text") {
+                            return (
+                              <MessageContent key={index}>
+                                <MessageResponse>{part.text}</MessageResponse>
+                              </MessageContent>
+                            );
+                          }
+                          if (isDynamicToolUIPart(part) && hasMcpAppView(part)) {
+                            return (
+                              <MCPAppCard
+                                key={part.toolCallId ?? `mcp-app-${index}`}
+                                part={part}
+                              />
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
+
+                      {showRail && (
+                        <ChatActionRail
+                          reveal={message.role === "user" ? "hover" : "always"}
+                        >
+                          <ChatActionButton icon="pencil" label="Edit" />
+                          <ChatActionButton icon="copy" label="Copy" />
+                        </ChatActionRail>
+                      )}
+                    </div>
                   </div>
                 </Message>
               );

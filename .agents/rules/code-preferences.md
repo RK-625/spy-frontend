@@ -4,7 +4,7 @@ description: "Codebase rules and Perferences of the user"
 glob: "*.*"
 ---
 
-
+<!-- START:Code Preferences -->
 # Preferences
 
 ## Code & Codebase Structure
@@ -30,6 +30,8 @@ glob: "*.*"
       - **Over-Engineering**: Creating deeply nested generic types or complex utility types for simple objects used in only one or two files.
       - **Recommended**: Invest in strong, well-named interfaces and types when they meaningfully improve readability, prevent bugs, or are shared across modules.
 
-## UI Components
-  - When it comes to CSS/UI styles/design patterns or components like fonts(color,size etx), color palette, hower effects, timings(delays, durations etc), contrast, spacing, sizing, transitions, animations, motion, placement, box styling, shadows, icons, loader components, effects like(fade, slide, ease etc), gradients, etc the list goes on and on. Don't invent new styles on the fly for each new component or ui element. Follow the existing design, styles and CSS and reuse them. If the change or addition of ui element or component requires truly a CSS/UI styles/design patterns for a better look and feel, and needs to different and distinct from the existing ones, then you can create a new one(CSS/UI styles/design patterns) instead of reusing the existing one.Incase of the conflict or dilemma between reusing or creating a new one ask for user's preference using the native ask Question tool.
-  - I prefer the CSS/UI styles/design patterns to be tokenized as design tokens and stored in a centralized location(which needs to be organised and maintained) which help us make the CSS/UI styles/design patterns consistent and reusable across the codebase.
+## UI Component Preferences
+  - When it comes to CSS/UI styles/design patterns or components like fonts (color,size etx), color palette, hower effects, timings(delays, durations, etc), contrast, spacing, sizing, transitions, animations, motion, placement, box styling, shadows, icons, loader components, effects like(fade, slide, ease etc), gradients, etc the list goes on and on. Don't invent new styles on the fly for each new component or ui element. Follow the existing design, styles and CSS and reuse them. If the change or addition of ui element or component requires truly a CSS/UI styles/design patterns for a better look and feel, and needs to be different and distinct from the existing ones, then you can create a new one(CSS/UI styles/design patterns) instead of reusing the existing one.Incase of the conflict or dilemma between reusing or creating a new one ask for user's preference using the native ask Question tool.
+  - I prefer the CSS/UI styles/design patterns to be tokenized as design tokens and stored in a centralized location (which needs to be organised and maintained), which helps us make the CSS/UI styles/design patterns consistent and reusable across the codebase.
+  - Make sure to add micro-interactions, ui-effects and transition animations(symmetrical) to be present by default in all the necessary UI components. Leverage from libraries like framer motion, GSAP or react-spring etc.
+<!-- START:Code Preferences -->

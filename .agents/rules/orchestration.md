@@ -1,3 +1,8 @@
+---
+trigger: always_on # Options: always_on, model_decision, glob, manual
+description: "Orchestration"
+glob: "*.*"
+---
 <!-- START:Orchestrator -->
 # Orchestrator Role: Act like a Qween Bee
 
