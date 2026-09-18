@@ -1,6 +1,7 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import { Monitor, Moon, Search, Sun, X } from "lucide-react";
 
 import { motion } from "motion/react";
@@ -78,10 +79,13 @@ export interface CommandPaletteProps {
   placeholder?: string;
   shortcutKey?: string;
   contentDelay?: number;
+  /** Custom trigger. Pass `null` to bind ⌘K with no visible trigger. */
   trigger?: React.ReactNode;
   triggerProps?: CommandPaletteTriggerProps;
   className?: string;
   emptyMessage?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -185,13 +189,19 @@ function CommandPalette({
   triggerProps,
   className,
   emptyMessage = "No results found.",
+  open,
+  onOpenChange,
 }: CommandPaletteProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { setTheme } = useTheme();
   const paletteId = React.useId().replace(/:/g, "");
 
-  const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = useControllableState({
+    defaultProp: false,
+    onChange: onOpenChange,
+    prop: open,
+  });
   const [showContent, setShowContent] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const debouncedQuery = useDebouncedValue(searchQuery, 120);
@@ -200,6 +210,7 @@ function CommandPalette({
 
   const inputRef = React.useRef<HTMLInputElement>(null);
   const itemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
+  const previousPathnameRef = React.useRef(pathname);
 
   React.useEffect(() => {
     // ponytail: defer state update to avoid synchronous state transition during mount
@@ -234,12 +245,15 @@ function CommandPalette({
     if (!pathname) {
       return;
     }
-
-    // ponytail: defer state update to avoid synchronous state transition during effect execution
-    setTimeout(() => {
+    if (previousPathnameRef.current === pathname) {
+      return;
+    }
+    previousPathnameRef.current = pathname;
+    const closeId = window.setTimeout(() => {
       setPaletteOpen(false);
     }, 0);
-  }, [pathname]);
+    return () => window.clearTimeout(closeId);
+  }, [pathname, setPaletteOpen]);
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -261,16 +275,16 @@ function CommandPalette({
     return () => {
       document.removeEventListener("keydown", handleKeyDown, { capture: true });
     };
-  }, [shortcutKey]);
+  }, [setPaletteOpen, shortcutKey]);
 
   const closeThenRun = React.useCallback((fn: () => void) => {
     setPaletteOpen(false);
     fn();
-  }, []);
+  }, [setPaletteOpen]);
 
   const handleOpenPalette = React.useCallback(() => {
     setPaletteOpen(true);
-  }, []);
+  }, [setPaletteOpen]);
 
   const themeItems = React.useMemo<CommandPaletteItemDef[]>(
     () =>
@@ -459,7 +473,13 @@ function CommandPalette({
 
   return (
     <>
-      {trigger ? (
+      {trigger === undefined ? (
+        <CommandPaletteTrigger
+          shortcut={shortcutKey.toUpperCase()}
+          {...triggerProps}
+          onClick={handleOpenPalette}
+        />
+      ) : trigger ? (
         React.isValidElement<{ onClick?: () => void }>(trigger) ? (
           React.cloneElement(trigger, {
             onClick: handleOpenPalette,
@@ -473,15 +493,12 @@ function CommandPalette({
             {trigger}
           </button>
         )
-      ) : (
-        <CommandPaletteTrigger
-          shortcut={shortcutKey.toUpperCase()}
-          {...triggerProps}
-          onClick={handleOpenPalette}
-        />
-      )}
+      ) : null}
 
-      <DialogPrimitive.Root onOpenChange={setPaletteOpen} open={paletteOpen}>
+      <DialogPrimitive.Root
+        onOpenChange={setPaletteOpen}
+        open={paletteOpen ?? false}
+      >
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-[220] bg-background/55 backdrop-blur-sm" />
           <DialogPrimitive.Content
