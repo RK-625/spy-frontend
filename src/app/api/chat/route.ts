@@ -1,7 +1,6 @@
-import { after } from "next/server";
+import { after, NextResponse } from "next/server";
 import { createUIMessageStreamResponse, toUIMessageStream } from "ai";
 import { runAgent } from "@/ai/agent";
-import { FALLBACK_GRAPH_CHAT_ID } from "@/ai/agent/graph/job-queue";
 
 /** Agent tools touch FalkorDB native driver — must not run on Edge. */
 export const runtime = "nodejs";
@@ -12,12 +11,19 @@ export async function POST(req: Request) {
     const payload = (await req.json()) as Omit<
       Parameters<typeof runAgent>[0],
       "abortSignal" | "chatId"
-    > & { id?: unknown };
-    const rawId = payload.id;
-    const chatId =
-      typeof rawId === "string" && rawId.trim().length > 0
-        ? rawId.trim()
-        : FALLBACK_GRAPH_CHAT_ID;
+    > & { chatId?: unknown };
+
+    if (
+      typeof payload.chatId !== "string" ||
+      payload.chatId.trim().length === 0
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "chatId is required" },
+        { status: 400 },
+      );
+    }
+
+    const chatId = payload.chatId;
     const { streamResult, runBackgroundTasks } = await runAgent({
       ...payload,
       chatId,

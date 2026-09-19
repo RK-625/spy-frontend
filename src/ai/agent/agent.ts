@@ -10,10 +10,7 @@ import { modelConfig } from "../models/modelstore";
 import { buildChatInstructions } from "@/prompts/chat-instructions";
 import { runChatAgent } from "./chat/agent";
 import { runGraphAgent } from "./graph/agent";
-import {
-  enqueueGraphJob,
-  FALLBACK_GRAPH_CHAT_ID,
-} from "./graph/job-queue";
+import { enqueueGraphJob } from "./graph/job-queue";
 
 function isAbortRejection(error: unknown): boolean {
   return (
@@ -51,9 +48,9 @@ export async function runAgent({
   model: string;
   useWebSearch: boolean;
   useExcalidraw?: boolean;
-  mode?: string;
-  abortSignal?: AbortSignal;
-  chatId?: string;
+  mode: string;
+  abortSignal: AbortSignal;
+  chatId: string;
 }): Promise<{
   streamResult: ReturnType<typeof runChatAgent>;
   runBackgroundTasks: () => Promise<void>;
@@ -151,13 +148,8 @@ export async function runAgent({
     }
 
     const graphMessages = [...modelMessages, ...responseMessages];
-    const graphChatId =
-      chatId !== undefined && chatId.trim().length > 0
-        ? chatId.trim()
-        : FALLBACK_GRAPH_CHAT_ID;
-
     // Stream wait stays per-request; only Falkor writes serialize per chat.
-    await enqueueGraphJob(graphChatId, async () => {
+    await enqueueGraphJob(chatId, async () => {
       try {
         await runGraphAgent({
           model: resolvedModel,

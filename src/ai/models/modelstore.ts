@@ -27,7 +27,7 @@ export const modelConfig = ({
   mode,
 }: {
   model: string;
-  mode?: string;
+  mode: string;
 }): { model: LanguageModel; providerOptions?: SharedV4ProviderOptions } => {
   const found = models.find((m: AIModel) => m.id === model);
   if (!found) {
