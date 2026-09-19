@@ -22,6 +22,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -172,7 +173,7 @@ export function persistDraft(
   draft: PromptDraftState,
   initialDraft: PromptDraftState
 ): void {
-  // Diff check: if nothing was changed during this session, skip write completely!
+  // Skip no-op writes so an untouched restored draft does not clobber another tab.
   const isDirty =
     draft.text !== initialDraft.text ||
     draft.model !== initialDraft.model ||
@@ -210,24 +211,20 @@ export const PromptInputProvider = ({
   children,
   chatId,
 }: PropsWithChildren<{ chatId: string }>) => {
-  /* eslint-disable react-hooks/refs -- synchronous initial draft read and ref sync */
   const initialDraftRef = useRef<PromptDraftState | null>(null);
-  if (!initialDraftRef.current) {
-    initialDraftRef.current = loadPromptDraft(chatId);
-  }
-  const initial = initialDraftRef.current;
-  const [textInput, setTextInput] = useState(initial.text);
-  const [model, setModel] = useState(initial.model);
-  const [mode, setMode] = useState(initial.mode);
-  const [useWebSearch, setUseWebSearch] = useState(initial.useWebSearch);
-  const [useExcalidraw, setUseExcalidraw] = useState(initial.useExcalidraw);
+  const [textInput, setTextInput] = useState("");
+  const [model, setModel] = useState(DEFAULT_PROMPT_PREFS.model);
+  const [mode, setMode] = useState(DEFAULT_PROMPT_PREFS.mode);
+  const [useWebSearch, setUseWebSearch] = useState<boolean>(
+    DEFAULT_PROMPT_PREFS.useWebSearch
+  );
+  const [useExcalidraw, setUseExcalidraw] = useState<boolean>(
+    DEFAULT_PROMPT_PREFS.useExcalidraw
+  );
 
-  const draftRef = useRef({
-    text: textInput,
-    model,
-    mode,
-    useWebSearch,
-    useExcalidraw,
+  const draftRef = useRef<PromptDraftState>({
+    text: "",
+    ...DEFAULT_PROMPT_PREFS,
   });
   draftRef.current = {
     text: textInput,
@@ -236,7 +233,6 @@ export const PromptInputProvider = ({
     useWebSearch,
     useExcalidraw,
   };
-  /* eslint-enable react-hooks/refs */
 
   const handleClearDraft = useCallback(() => {
     draftRef.current.text = "";
@@ -261,17 +257,34 @@ export const PromptInputProvider = ({
     setUseExcalidraw((prev) => !prev);
   }, []);
 
+  useLayoutEffect(() => {
+    const draft = loadPromptDraft(chatId);
+    initialDraftRef.current = draft;
+    draftRef.current = draft;
+    setTextInput(draft.text);
+    setModel(draft.model);
+    setMode(draft.mode);
+    setUseWebSearch(draft.useWebSearch);
+    setUseExcalidraw(draft.useExcalidraw);
+  }, [chatId]);
+
   useEffect(() => {
+    const persistCurrentDraft = () => {
+      const initialDraft = initialDraftRef.current;
+      if (!initialDraft) {
+        return;
+      }
+      persistDraft(chatId, draftRef.current, initialDraft);
+    };
     const handleBeforeUnload = () => {
-      persistDraft(chatId, draftRef.current, initial);
+      persistCurrentDraft();
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      persistDraft(chatId, draftRef.current, initial);
+      persistCurrentDraft();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial draft captured at mount
   }, [chatId]);
 
   // ----- attachments state
