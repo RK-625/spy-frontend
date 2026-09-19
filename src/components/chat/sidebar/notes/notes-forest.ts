@@ -15,8 +15,8 @@ function compareNoteNames(
   left: MemoryNode,
   right: MemoryNode ,
 ): number {
-  const leftName = left.name;
-  const rightName = right.name;
+  const leftName = left.name || left.id || "";
+  const rightName = right.name || right.id || "";
   return leftName.localeCompare(rightName);
 }
 
