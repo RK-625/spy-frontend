@@ -4,7 +4,10 @@
  * Do not import from client.
  */
 export * from "./toolset";
+export { createChatToolSet, createGraphToolSet } from "./agent-toolsets";
+
 export {
   EXCALIDRAW_MCP_URL,
   connectExcalidrawMcp,
 } from "./excalidraw-mcp";
+

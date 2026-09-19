@@ -15,13 +15,15 @@ export {
 
 export {
   MEMORY_SEARCH_AGENT_RECALL_STYLE,
-  SEARCH_MEMORIES_AGENT_BULLET,
+  SEARCH_MEMORIES_CHAT_BULLET,
+  SEARCH_MEMORIES_GRAPH_BULLET,
   searchMemoriesQuestionsFieldDescription,
   searchMemoriesToolDescription,
 } from "./search-memories";
 
 export {
-  GET_MEMORIES_AGENT_BULLET,
+  GET_MEMORIES_CHAT_BULLET,
+  GET_MEMORIES_GRAPH_BULLET,
   getMemoriesToolDescription,
   getMemoriesIdFieldDescription,
   getMemoriesHopsFieldDescription,

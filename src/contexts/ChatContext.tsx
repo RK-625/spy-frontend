@@ -196,7 +196,7 @@ function createChat(
           updateChatOrder();
         }
         return {
-          body: { ...body, id, messages: outgoing, trigger, messageId },
+          body: { ...body, id, chatId: id, messages: outgoing, trigger, messageId },
         };
       },
     }),
