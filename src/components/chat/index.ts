@@ -16,3 +16,4 @@ export * from "./overlays";
 export * from "./prompt";
 export * from "./conversation";
 export * from "./mcp-app";
+export * from "./workspace";

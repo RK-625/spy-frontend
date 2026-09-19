@@ -3,6 +3,7 @@ import {
   FileUIPart,
   UIMessage,
 } from "ai";
+import type { MemoryNode } from "@/types/graph-schema";
 
 export interface PromptInputMessage {
   text: string;
@@ -39,10 +40,13 @@ export interface ChatContextValue {
    */
   switchChat: (chatId: string) => Promise<void>;
   /**
-   * Remove a conversation from SQLite and the in-memory Chat map.
-   * Recents refetch via chatOrder. If it was active, mint a new empty chat.
+   * Remove a conversation from SQLite and active memory.
    */
   deleteChat: (chatId: string) => Promise<void>;
   /** Catalog revision after persist; Recents refetch. */
   chatOrder: number;
+  /** Currently opened note in the main chat column (null = chat workspace visible). */
+  selectedNote: MemoryNode | null;
+  /** Select or close the open note. */
+  setSelectedNote: (note: MemoryNode | null) => void;
 }

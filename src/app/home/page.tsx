@@ -24,6 +24,7 @@ import {
   ChatSidebar,
   MCPAppCard,
   hasMcpAppView,
+  NoteWorkspace,
 } from "@/components/chat";
 import type {
   DynamicToolUIPart,
@@ -317,6 +318,25 @@ const ChatWorkspace = () => {
   );
 };
 
+const MainChatArea = () => {
+  const { selectedNote, setSelectedNote } = useChatContext();
+
+  return (
+    <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
+      {selectedNote ? (
+        <NoteWorkspace
+          node={selectedNote}
+          onClose={() => setSelectedNote(null)}
+        />
+      ) : (
+        <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
+          <ChatWorkspace />
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function HomePage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-surface-chat workspace-root">
@@ -328,11 +348,7 @@ export default function HomePage() {
           <ChatProvider>
             <ChatSidebar />
             {/* Main chat area */}
-            <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
-              <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
-                <ChatWorkspace />
-              </div>
-            </div>
+            <MainChatArea />
           </ChatProvider>
           <AppToaster />
         </TooltipProvider>

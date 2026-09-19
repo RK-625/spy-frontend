@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useChatContext } from "@/contexts/ChatContext";
 import type { GraphApiResponse } from "@/types/graph-topology";
+import type { MemoryNode } from "@/types/graph-schema";
 import { ChatSidebarNotesRow } from "./notes-row";
 import {
   buildNotesForest,
@@ -43,11 +44,15 @@ function ChatSidebarNotesBranch({
   node,
   depth,
   expandedNoteIds,
+  selectedNoteId,
+  onSelectNote,
   onFolderExpandedChange,
 }: {
   node: NotesForestNode;
   depth: number;
   expandedNoteIds: ReadonlySet<string>;
+  selectedNoteId: string | null;
+  onSelectNote: (note: MemoryNode) => void;
   onFolderExpandedChange: (noteId: string, expanded: boolean) => void;
 }) {
   const hasChildren = node.children.length > 0;
@@ -60,8 +65,8 @@ function ChatSidebarNotesBranch({
         depth={depth}
         hasChildren={hasChildren}
         folderExpanded={folderExpanded}
-        noteSelected={false}
-        onOpenNote={() => {}}
+        noteSelected={node.note.id === selectedNoteId}
+        onOpenNote={() => onSelectNote(node.note)}
         onFolderExpandedChange={(expanded) =>
           onFolderExpandedChange(node.note.id, expanded)
         }
@@ -73,6 +78,8 @@ function ChatSidebarNotesBranch({
               node={child}
               depth={depth + 1}
               expandedNoteIds={expandedNoteIds}
+              selectedNoteId={selectedNoteId}
+              onSelectNote={onSelectNote}
               onFolderExpandedChange={onFolderExpandedChange}
             />
           ))
@@ -82,7 +89,7 @@ function ChatSidebarNotesBranch({
 }
 
 export function ChatSidebarNotes() {
-  const { status, chatOrder } = useChatContext();
+  const { status, chatOrder, selectedNote, setSelectedNote } = useChatContext();
   const streamReady = status === "ready";
   const [forest, setForest] = useState<NotesForestNode[]>([]);
   const [notesLoadState, setNotesLoadState] = useState<
@@ -187,6 +194,8 @@ export function ChatSidebarNotes() {
             node={node}
             depth={0}
             expandedNoteIds={expandedNoteIds}
+            selectedNoteId={selectedNote?.id ?? null}
+            onSelectNote={setSelectedNote}
             onFolderExpandedChange={handleFolderExpandedChange}
           />
         ))}

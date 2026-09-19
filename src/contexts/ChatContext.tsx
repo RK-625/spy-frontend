@@ -18,6 +18,7 @@ import {
   saveChatMessages,
 } from "@/lib/chats-api";
 import type { ChatContextValue } from "@/types/chat";
+import type { MemoryNode } from "@/types/graph-schema";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
@@ -35,6 +36,7 @@ const ChatContext = createContext<ChatContextValue | null>(null);
  */
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chatOrder, setChatOrder] = useState(0);
+  const [selectedNote, setSelectedNote] = useState<MemoryNode | null>(null);
   const updateChatOrder = useCallback(() => {
     setChatOrder((n) => n + 1);
   }, []);
@@ -57,6 +59,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   /** Mint id, register empty Chat, set active (keeps other open chats). */
   const newChat = useCallback(() => {
+    setSelectedNote(null);
     const chat = createChat(
       crypto.randomUUID(),
       [],
@@ -72,6 +75,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
    */
   const switchChat = useCallback(
     async (chatId: string) => {
+      setSelectedNote(null);
       let chat = chatsRef.current.get(chatId);
       if (!chat) {
         const row = await fetchChat(chatId);
@@ -141,6 +145,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchChat,
       deleteChat,
       chatOrder,
+      selectedNote,
+      setSelectedNote,
     }),
     [
       activeChat.id,
@@ -153,6 +159,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchChat,
       deleteChat,
       chatOrder,
+      selectedNote,
     ],
   );
 
