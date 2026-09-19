@@ -109,7 +109,7 @@ async function embedQuestionRows(texts: string[]): Promise<MemoryQuestion[]> {
  * Build the product tool registry.
  * Retrieval probes are agent-authored on upsertMemory; this toolset only embeds.
  */
-export function createToolSet(): Record<string, Tool> {
+export function createToolSet() {
   const webSearch: Tool = tool({
     description: webSearchToolDescription,
     inputSchema: webSearchInputSchema,

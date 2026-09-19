@@ -49,7 +49,7 @@ Required on create. On patch, omit to leave stored; 0 is a valid write.`;
 
 /**
  * Zod `.describe(...)` for the `questions` field on upsertMemory input schema.
- * Compressed probe-style home; store-vs-search probe jobs live in GRAPH_CONTEXT.
+ * Compressed probe-style home; style lives in GRAPH_ONTOLOGY; retrieval job + counts live in GRAPH_MAINTENANCE.
  * AI SDK sends this as JSON Schema description on the input field.
  */
 export const upsertMemoryQuestionsFieldDescription = `${MEMORY_QUESTION_COUNT_MIN}–${MEMORY_QUESTION_COUNT_MAX} ${MEMORY_SEARCH_AGENT_RECALL_STYLE}.
