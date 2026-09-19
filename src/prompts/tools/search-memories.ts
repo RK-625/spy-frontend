@@ -1,6 +1,6 @@
 /**
  * Narrative for searchMemories (Q↔Q graph search path).
- * Tool description + agent bullet + field describes + shared recall-style snippet.
+ * Tool description + chat/graph bullets + field describes + shared recall-style snippet.
  */
 
 import {
@@ -23,10 +23,12 @@ results[i] is that probe's survivors ({id, name, score}). score is cosine distan
 Empty inner list = that probe missed; all empty = no stored match (retry with a different probe set if needed).
 Does not write nodes or invent layout.`;
 
-/** Short how-to bullet for the agent system prompt. */
-export const SEARCH_MEMORIES_AGENT_BULLET = `Tool for semantic recall over the graph — for understanding what the user already knows,
-getting context for a better response, or finding related Memories before create, refine, or attach,
-leading to reuse over duplicate graph nodes.
+/** Short how-to bullet for the chat-agent system prompt. */
+export const SEARCH_MEMORIES_CHAT_BULLET = `Semantic recall to understand what the user already knows and ground the teaching response.
+Does not write nodes or invent ids.`;
+
+/** Short how-to bullet for the graph-agent system prompt. */
+export const SEARCH_MEMORIES_GRAPH_BULLET = `Semantic recall to find related Memories before create, refine, or attach; reuse over duplicates.
 Does not write nodes or invent ids.`;
 
 /** Zod `.describe(...)` for the `questions` field on searchMemories input schema. */
