@@ -1,8 +1,8 @@
 "use client";
 
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
-import { DotMatrixIcon } from "@/components/dotmatrix";
 
 export function ChatSidebarHeader({
   isSidebarFull,
@@ -28,9 +28,9 @@ export function ChatSidebarHeader({
         aria-label={isSidebarFull ? "Collapse to icons" : "Expand sidebar"}
       >
         {isSidebarFull ? (
-          <DotMatrixIcon name="panelLeftClose" size={ICON_GLYPH.toolbar} />
+          <PanelLeftClose size={ICON_GLYPH.toolbar} strokeWidth={1.5} />
         ) : (
-          <DotMatrixIcon name="panelLeftOpen" size={ICON_GLYPH.toolbar} />
+          <PanelLeftOpen size={ICON_GLYPH.toolbar} strokeWidth={1.5} />
         )}
       </button>
     </div>

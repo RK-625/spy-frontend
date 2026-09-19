@@ -4,7 +4,7 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { DotMatrixIcon } from "@/components/dotmatrix"
+import { Check, ChevronDown } from "lucide-react"
 
 function Select({
   ...props
@@ -51,9 +51,9 @@ function SelectTrigger({
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <DotMatrixIcon
-          name="chevronDown"
+        <ChevronDown
           size={16}
+          strokeWidth={1.5}
           className="pointer-events-none text-muted-foreground"
         />
       </SelectPrimitive.Icon>
@@ -123,7 +123,7 @@ function SelectItem({
     >
       <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <DotMatrixIcon name="check" size={16} className="pointer-events-none" />
+          <Check size={16} strokeWidth={1.5} className="pointer-events-none" />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
@@ -157,7 +157,7 @@ function SelectScrollUpButton({
       )}
       {...props}
     >
-      <DotMatrixIcon name="chevronDown" size={16} className="rotate-180" />
+      <ChevronDown size={16} strokeWidth={1.5} className="rotate-180" />
     </SelectPrimitive.ScrollUpButton>
   )
 }
@@ -175,7 +175,7 @@ function SelectScrollDownButton({
       )}
       {...props}
     >
-      <DotMatrixIcon name="chevronDown" size={16} />
+      <ChevronDown size={16} strokeWidth={1.5} />
     </SelectPrimitive.ScrollDownButton>
   )
 }

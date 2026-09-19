@@ -38,7 +38,7 @@ export const PromptInputButton = ({
 
   const button = (
     <InputGroupButton
-      className={cn(className)}
+      className={cn("rounded-[var(--radius)]", className)}
       size={resolvedSize}
       type="button"
       variant={variant}

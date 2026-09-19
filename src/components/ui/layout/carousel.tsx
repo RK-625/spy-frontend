@@ -7,7 +7,7 @@ import useEmblaCarousel, {
 
 import { cn } from "@/lib/utils"
 import { Button } from "../actions/button"
-import { DotMatrixIcon } from "@/components/dotmatrix"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 type CarouselApi = UseEmblaCarouselType[1]
 type UseCarouselParameters = Parameters<typeof useEmblaCarousel>
@@ -201,7 +201,7 @@ function CarouselPrevious({
       onClick={scrollPrev}
       {...props}
     >
-      <DotMatrixIcon name="chevronLeft" size={16} />
+      <ChevronLeft size={16} strokeWidth={1.5} />
       <span className="sr-only">Previous slide</span>
     </Button>
   )
@@ -231,7 +231,7 @@ function CarouselNext({
       onClick={scrollNext}
       {...props}
     >
-      <DotMatrixIcon name="chevronRight" size={16} />
+      <ChevronRight size={16} strokeWidth={1.5} />
       <span className="sr-only">Next slide</span>
     </Button>
   )

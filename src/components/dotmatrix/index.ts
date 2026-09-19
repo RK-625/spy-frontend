@@ -6,13 +6,6 @@
  * this package — never through this barrel).
  */
 
-// Icons
-export {
-  DotMatrixIcon,
-  type DotMatrixIconName,
-  type DotMatrixIconProps,
-} from "./icons";
-
 // Loaders
 export {
   DotmHex9,

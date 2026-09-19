@@ -4,7 +4,7 @@ import * as React from "react"
 import { Accordion as AccordionPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { DotMatrixIcon } from "@/components/dotmatrix"
+import { ChevronDown } from "lucide-react"
 
 function Accordion({
   className,
@@ -51,15 +51,15 @@ function AccordionTrigger({
         {...props}
       >
         {children}
-        <DotMatrixIcon
-          name="chevronDown"
+        <ChevronDown
           size={16}
+          strokeWidth={1.5}
           data-slot="accordion-trigger-icon"
           className="pointer-events-none shrink-0 cursor-default group-aria-expanded/accordion-trigger:hidden"
         />
-        <DotMatrixIcon
-          name="chevronDown"
+        <ChevronDown
           size={16}
+          strokeWidth={1.5}
           data-slot="accordion-trigger-icon"
           className="pointer-events-none hidden shrink-0 rotate-180 cursor-default group-aria-expanded/accordion-trigger:inline-flex"
         />

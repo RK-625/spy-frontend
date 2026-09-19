@@ -51,7 +51,7 @@ import {
   ModelSelectorTrigger,
 } from "../footer/model-selector";
 import { PromptInputAttachments } from "../attachments/attachment-strip";
-import { DotMatrixIcon } from "@/components/dotmatrix";
+import { Check, Globe, Plus, Settings } from "lucide-react";
 import { Excalidraw } from "@/components/logos";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import {
@@ -286,9 +286,9 @@ const ModelItem = ({
       <ModelSelectorLogo icon={modelEntry.icon} />
       <ModelSelectorName>{modelEntry.name}</ModelSelectorName>
       {isSelected ? (
-        <DotMatrixIcon name="check" size={ICON_GLYPH.badge} className="ml-auto" />
+        <Check size={ICON_GLYPH.badge} strokeWidth={1.5} className="ml-auto" />
       ) : (
-        <div className="ml-auto size-2.5" />
+        <div className="ml-auto size-4" />
       )}
     </ModelSelectorItem>
   );
@@ -515,7 +515,7 @@ function PromptInputWorkspaceContent() {
                 }}
                 className="text-text-primary hover:bg-[var(--surface-hover)]"
               >
-                <DotMatrixIcon name="plus" size={ICON_GLYPH.toolbar} />
+                <Plus size={ICON_GLYPH.inline} strokeWidth={1.5} />
               </PromptInputButton>
               <SpeechInput
                 className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)]"
@@ -544,7 +544,7 @@ function PromptInputWorkspaceContent() {
                     : "text-text-primary hover:bg-[var(--surface-hover)]",
                 )}
               >
-                <DotMatrixIcon name="globe" size={ICON_GLYPH.toolbar} />
+                <Globe size={ICON_GLYPH.inline} strokeWidth={1.5} />
               </PromptInputButton>
               <PromptInputButton
                 onClick={toggleExcalidraw}
@@ -566,7 +566,7 @@ function PromptInputWorkspaceContent() {
                     : "text-text-primary hover:bg-[var(--surface-hover)]",
                 )}
               >
-                <Excalidraw className="size-5 shrink-0" />
+                <Excalidraw className="size-4 shrink-0" />
               </PromptInputButton>
               <ModelSelector
                 onOpenChange={setModelSelectorOpen}
@@ -575,17 +575,18 @@ function PromptInputWorkspaceContent() {
                 <ModelSelectorTrigger asChild>
                   <PromptInputButton
                     data-model-trigger
-                    className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center gap-1.5"
+                    size="sm"
+                    className="shrink-0 px-1.5 text-text-primary hover:bg-[var(--surface-hover)] flex items-center gap-1"
                     variant="ghost"
                     aria-label={`Select model, currently ${selectedModelData?.name ?? "none"}`}
                   >
                     {selectedModelData ? (
-                      <selectedModelData.icon className="size-3 shrink-0" />
+                      <selectedModelData.icon className="size-4 shrink-0" />
                     ) : (
-                      <DotMatrixIcon name="settings" size={ICON_GLYPH.toolbar} />
+                      <Settings size={ICON_GLYPH.toolbar} strokeWidth={1.5} />
                     )}
                     {selectedModelData ? (
-                      <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide">
+                      <span className="text-sm font-[family-name:var(--font-body)] font-medium tracking-wide">
                         {selectedModelData.name}
                       </span>
                     ) : null}
@@ -621,11 +622,12 @@ function PromptInputWorkspaceContent() {
                     <ModelSelectorTrigger asChild>
                       <PromptInputButton
                         data-model-trigger
-                        className="shrink-0 text-text-primary hover:bg-[var(--surface-hover)] flex items-center justify-center px-2"
+                        size="sm"
+                        className="shrink-0 px-1.5 text-text-primary hover:bg-[var(--surface-hover)] flex items-center justify-center"
                         variant="ghost"
                         aria-label="Select mode"
                       >
-                        <span className="text-[11px] font-[family-name:var(--font-body)] font-medium tracking-wide capitalize">
+                        <span className="text-sm font-[family-name:var(--font-body)] font-medium tracking-wide capitalize">
                           {mode}
                         </span>
                       </PromptInputButton>
@@ -643,9 +645,9 @@ function PromptInputWorkspaceContent() {
                           >
                             <span className="capitalize">{m}</span>
                             {mode === m && (
-                              <DotMatrixIcon
-                                name="check"
+                              <Check
                                 size={ICON_GLYPH.badge}
+                                strokeWidth={1.5}
                                 className="ml-auto opacity-50"
                               />
                             )}

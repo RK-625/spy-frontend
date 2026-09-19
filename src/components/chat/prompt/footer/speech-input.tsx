@@ -8,7 +8,8 @@
  */
 
 import { InputGroupButton } from "@/components/ui";
-import { DotMatrixIcon, DotmSquare18 } from "@/components/dotmatrix";
+import { DotmSquare18 } from "@/components/dotmatrix";
+import { Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { AnimatePresence, motion } from "motion/react";
@@ -243,7 +244,7 @@ export const SpeechInput = ({
     <div className="relative inline-flex items-center justify-center">
       <InputGroupButton
         className={cn(
-          "relative z-10 transition-all duration-300",
+          "relative z-10 rounded-[var(--radius)] transition-all duration-300",
           className,
         )}
         disabled={isDisabled}
@@ -280,7 +281,7 @@ export const SpeechInput = ({
               transition={{ duration: 0.15, ease: "easeOut" }}
               className="flex items-center justify-center"
             >
-              <DotMatrixIcon name="mic" size={ICON_GLYPH.toolbar} />
+              <Mic size={ICON_GLYPH.inline} strokeWidth={1.5} />
             </motion.div>
           )}
         </AnimatePresence>

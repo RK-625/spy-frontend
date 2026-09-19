@@ -1,8 +1,8 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-
-import { DotMatrixIcon } from "@/components/dotmatrix";
+import { useControllableState } from "@radix-ui/react-use-controllable-state";
+import { Monitor, Moon, Search, Sun, X } from "lucide-react";
 
 import { motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
@@ -79,10 +79,13 @@ export interface CommandPaletteProps {
   placeholder?: string;
   shortcutKey?: string;
   contentDelay?: number;
+  /** Custom trigger. Pass `null` to bind ⌘K with no visible trigger. */
   trigger?: React.ReactNode;
   triggerProps?: CommandPaletteTriggerProps;
   className?: string;
   emptyMessage?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -163,7 +166,7 @@ function CommandPaletteTrigger({
       type="button"
       {...props}
     >
-      <DotMatrixIcon name="search" size={16} className="shrink-0 mr-2" />
+      <Search size={16} strokeWidth={1.5} className="shrink-0 mr-2" />
       <span className="flex-1 truncate">{label}</span>
       {showShortcut ? (
         <SearchShortcutBadge
@@ -186,13 +189,19 @@ function CommandPalette({
   triggerProps,
   className,
   emptyMessage = "No results found.",
+  open,
+  onOpenChange,
 }: CommandPaletteProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { setTheme } = useTheme();
   const paletteId = React.useId().replace(/:/g, "");
 
-  const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = useControllableState({
+    defaultProp: false,
+    onChange: onOpenChange,
+    prop: open,
+  });
   const [showContent, setShowContent] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const debouncedQuery = useDebouncedValue(searchQuery, 120);
@@ -201,6 +210,7 @@ function CommandPalette({
 
   const inputRef = React.useRef<HTMLInputElement>(null);
   const itemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
+  const previousPathnameRef = React.useRef(pathname);
 
   React.useEffect(() => {
     // ponytail: defer state update to avoid synchronous state transition during mount
@@ -235,12 +245,15 @@ function CommandPalette({
     if (!pathname) {
       return;
     }
-
-    // ponytail: defer state update to avoid synchronous state transition during effect execution
-    setTimeout(() => {
+    if (previousPathnameRef.current === pathname) {
+      return;
+    }
+    previousPathnameRef.current = pathname;
+    const closeId = window.setTimeout(() => {
       setPaletteOpen(false);
     }, 0);
-  }, [pathname]);
+    return () => window.clearTimeout(closeId);
+  }, [pathname, setPaletteOpen]);
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -262,16 +275,16 @@ function CommandPalette({
     return () => {
       document.removeEventListener("keydown", handleKeyDown, { capture: true });
     };
-  }, [shortcutKey]);
+  }, [setPaletteOpen, shortcutKey]);
 
   const closeThenRun = React.useCallback((fn: () => void) => {
     setPaletteOpen(false);
     fn();
-  }, []);
+  }, [setPaletteOpen]);
 
   const handleOpenPalette = React.useCallback(() => {
     setPaletteOpen(true);
-  }, []);
+  }, [setPaletteOpen]);
 
   const themeItems = React.useMemo<CommandPaletteItemDef[]>(
     () =>
@@ -280,7 +293,7 @@ function CommandPalette({
             {
               label: "Light Mode",
               icon: (props: { className?: string }) => (
-                <DotMatrixIcon name="sun" size={16} className={props.className} />
+                <Sun size={16} strokeWidth={1.5} className={props.className} />
               ),
               action: () => setTheme("light"),
               keywords: ["light", "bright", "white", "day"],
@@ -288,7 +301,7 @@ function CommandPalette({
             {
               label: "Dark Mode",
               icon: (props: { className?: string }) => (
-                <DotMatrixIcon name="moon" size={16} className={props.className} />
+                <Moon size={16} strokeWidth={1.5} className={props.className} />
               ),
               action: () => setTheme("dark"),
               keywords: ["dark", "night", "black"],
@@ -296,7 +309,7 @@ function CommandPalette({
             {
               label: "System Theme",
               icon: (props: { className?: string }) => (
-                <DotMatrixIcon name="monitor" size={16} className={props.className} />
+                <Monitor size={16} strokeWidth={1.5} className={props.className} />
               ),
               action: () => setTheme("system"),
               keywords: ["system", "auto", "os", "default"],
@@ -444,7 +457,7 @@ function CommandPalette({
         {item.icon ? (
           <item.icon className="relative z-10 mt-0.5 size-4 shrink-0" />
         ) : (
-          <DotMatrixIcon name="search" size={16} className="relative z-10 mt-0.5 shrink-0 opacity-45 mr-2" />
+          <Search size={16} strokeWidth={1.5} className="relative z-10 mt-0.5 shrink-0 opacity-45 mr-2" />
         )}
         <div className="relative z-10 min-w-0">
           <div className="truncate font-medium text-sm">{item.label}</div>
@@ -460,7 +473,13 @@ function CommandPalette({
 
   return (
     <>
-      {trigger ? (
+      {trigger === undefined ? (
+        <CommandPaletteTrigger
+          shortcut={shortcutKey.toUpperCase()}
+          {...triggerProps}
+          onClick={handleOpenPalette}
+        />
+      ) : trigger ? (
         React.isValidElement<{ onClick?: () => void }>(trigger) ? (
           React.cloneElement(trigger, {
             onClick: handleOpenPalette,
@@ -474,15 +493,12 @@ function CommandPalette({
             {trigger}
           </button>
         )
-      ) : (
-        <CommandPaletteTrigger
-          shortcut={shortcutKey.toUpperCase()}
-          {...triggerProps}
-          onClick={handleOpenPalette}
-        />
-      )}
+      ) : null}
 
-      <DialogPrimitive.Root onOpenChange={setPaletteOpen} open={paletteOpen}>
+      <DialogPrimitive.Root
+        onOpenChange={setPaletteOpen}
+        open={paletteOpen ?? false}
+      >
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-[220] bg-background/55 backdrop-blur-sm" />
           <DialogPrimitive.Content
@@ -505,9 +521,9 @@ function CommandPalette({
             </DialogPrimitive.Description>
 
             <div className="flex shrink-0 items-center gap-3 border-border/70 border-b px-4 py-3">
-              <DotMatrixIcon
-                name="search"
+              <Search
                 size={16}
+                strokeWidth={1.5}
                 className="shrink-0 text-muted-foreground"
               />
               <input
@@ -535,7 +551,7 @@ function CommandPalette({
                   className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   type="button"
                 >
-                  <DotMatrixIcon name="x" size={ICON_GLYPH.toolbar} />
+                  <X size={ICON_GLYPH.toolbar} strokeWidth={1.5} />
                 </button>
               </DialogPrimitive.Close>
             </div>
