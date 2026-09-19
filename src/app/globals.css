@@ -742,7 +742,8 @@
   margin-left: auto;
 }
 
-.chat-input-wrap [data-slot="button"] {
+.chat-input-wrap [data-slot="button"],
+.chat-input-wrap [data-prompt-footer] button {
   border-radius: var(--radius);
   height: 2rem;
   min-height: 2rem;

@@ -37,6 +37,7 @@ import type {
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { AppToaster, TooltipProvider } from "@/components/ui";
 import { Excalidraw } from "@/components/logos";
+import { Check, Copy, Globe, Lightbulb, Pencil } from "lucide-react";
 
 
 function isReasoning(
@@ -158,7 +159,7 @@ const ChatWorkspace = () => {
                               return (
                                 <ChainOfThoughtStep
                                   key={`reasoning-${index}`}
-                                  icon="bulb"
+                                  icon={Lightbulb}
                                   label={preview}
                                   status="complete"
                                 />
@@ -180,7 +181,7 @@ const ChatWorkspace = () => {
                               return (
                                 <ChainOfThoughtStep
                                   key={`search-${index}`}
-                                  icon="globe"
+                                  icon={Globe}
                                   label={input.query}
                                   status="complete"
                                 >
@@ -221,7 +222,7 @@ const ChatWorkspace = () => {
                           {/* Done indicator — shown when message is complete (has text) */}
                           {message.parts.some((p) => p.type === "text") && (
                             <ChainOfThoughtStep
-                              icon="check"
+                              icon={Check}
                               label={"Done"}
                               status="complete"
                               isLast={true}
@@ -294,8 +295,8 @@ const ChatWorkspace = () => {
                         <ChatActionRail
                           reveal={message.role === "user" ? "hover" : "always"}
                         >
-                          <ChatActionButton icon="pencil" label="Edit" />
-                          <ChatActionButton icon="copy" label="Copy" />
+                          <ChatActionButton icon={Pencil} label="Edit" />
+                          <ChatActionButton icon={Copy} label="Copy" />
                         </ChatActionRail>
                       )}
                     </div>

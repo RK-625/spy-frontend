@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, toast, type ToasterProps } from "sonner";
-import { DotMatrixIcon } from "@/components/dotmatrix";
+import { Check, Lightbulb, X } from "lucide-react";
 import { Spinner } from "./spinner";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 
@@ -16,28 +16,28 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       icons={{
         success: (
-          <DotMatrixIcon
-            name="check"
+          <Check
             size={ICON_GLYPH.inline}
+            strokeWidth={1.5}
             className="size-4"
           />
         ),
         info: (
-          <DotMatrixIcon
-            name="bulb"
+          <Lightbulb
             size={ICON_GLYPH.inline}
+            strokeWidth={1.5}
             className="size-4"
           />
         ),
         warning: (
-          <DotMatrixIcon
-            name="bulb"
+          <Lightbulb
             size={ICON_GLYPH.inline}
+            strokeWidth={1.5}
             className="size-4"
           />
         ),
         error: (
-          <DotMatrixIcon name="x" size={ICON_GLYPH.inline} className="size-4" />
+          <X size={ICON_GLYPH.inline} strokeWidth={1.5} className="size-4" />
         ),
         loading: <Spinner className="size-4" />,
       }}

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
 import {
   createContext,
+  isValidElement,
   memo,
   useContext,
   useEffect,
@@ -13,9 +14,12 @@ import {
   useState,
 } from "react";
 import {
-  DotMatrixIcon,
-  type DotMatrixIconName,
-} from "@/components/dotmatrix";
+  ChevronDown,
+  CornerDownLeft,
+  Globe,
+  Lightbulb,
+  type LucideIcon,
+} from "lucide-react";
 import { Shimmer } from "./shimmer";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -1653,7 +1657,7 @@ const ChainOfThoughtHeader = memo(
         )}
       >
         {/* Pixel brain icon */}
-        <DotMatrixIcon name="bulb" size={14} className="shrink-0 opacity-70" />
+        <Lightbulb size={14} strokeWidth={1.5} className="shrink-0 opacity-70" />
         <Shimmer
           as="div"
           active={isStreaming}
@@ -1667,9 +1671,9 @@ const ChainOfThoughtHeader = memo(
           </span>
         )}
 
-        <DotMatrixIcon
-          name="chevronDown"
+        <ChevronDown
           size={12}
+          strokeWidth={1.5}
           className={cn(
             "shrink-0 transition-transform duration-200 opacity-50",
             isOpen ? "rotate-180" : "rotate-0",
@@ -1714,7 +1718,7 @@ export const ChainOfThoughtContent = memo(
 export type ChainOfThoughtStepStatus = "active" | "complete" | "pending";
 
 export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
-  icon?: DotMatrixIconName | ReactNode;
+  icon?: LucideIcon | ReactNode;
   label: ReactNode;
   description?: ReactNode;
   status?: ChainOfThoughtStepStatus;
@@ -1736,7 +1740,7 @@ const stepLabelColors: Record<ChainOfThoughtStepStatus, string> = {
 export const ChainOfThoughtStep = memo(
   ({
     className,
-    icon = "cornerDownLeft",
+    icon = CornerDownLeft,
     label,
     description,
     status = "complete",
@@ -1761,10 +1765,13 @@ export const ChainOfThoughtStep = memo(
             stepIconColors[status],
           )}
         >
-          {typeof icon === "string" ? (
-            <DotMatrixIcon name={icon as DotMatrixIconName} size={10} />
-          ) : (
+          {isValidElement(icon) ? (
             icon
+          ) : (
+            (() => {
+              const Icon = icon as LucideIcon;
+              return <Icon size={10} strokeWidth={1.5} />;
+            })()
           )}
         </div>
         {/* Vertical connector — always draw unless isLast */}
@@ -1846,7 +1853,7 @@ export const ChainOfThoughtSearchResult = memo(
           // eslint-disable-next-line @next/next/no-img-element
           <img src={favicon} alt="" className="size-3 rounded-full" />
         ) : (
-          <DotMatrixIcon name="globe" size={9} className="opacity-60" />
+          <Globe size={9} strokeWidth={1.5} className="opacity-60" />
         )}
         <span>{children ?? domain}</span>
       </a>

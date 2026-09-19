@@ -12,22 +12,17 @@ function ChatSidebarRecentsRule() {
   return <div className="h-px flex-1 bg-[var(--accent-border)]" />;
 }
 
-export function ChatSidebarRecents({
-  isSidebarFull,
-}: {
-  isSidebarFull: boolean;
-}) {
+export function ChatSidebarRecents() {
   const { chatId, status, switchChat, deleteChat, chatOrder } =
     useChatContext();
   const [recents, setRecents] = useState<ChatMeta[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingRecents, setLoadingRecents] = useState(false);
 
-  // Refresh when expanded, chat switch, active stream settle, or any chat persist
-  // (background finish / new row).
+  // Refresh when mounted (sidebar already full), chat switch, active stream
+  // settle, or any chat persist (background finish / new row).
   const streamReady = status === "ready";
   useEffect(() => {
-    if (!isSidebarFull) return;
     let cancelled = false;
     void listChats()
       .then(({ chats, nextCursor: cursor }) => {
@@ -42,7 +37,7 @@ export function ChatSidebarRecents({
     return () => {
       cancelled = true;
     };
-  }, [isSidebarFull, chatId, streamReady, chatOrder]);
+  }, [chatId, streamReady, chatOrder]);
 
   const handleOpenRecent = useCallback(
     (id: string) => {

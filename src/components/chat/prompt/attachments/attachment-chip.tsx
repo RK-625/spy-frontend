@@ -1,9 +1,10 @@
 "use client";
 
-import { DotMatrixIcon, type DotMatrixIconName } from "@/components/dotmatrix";
 import { cn } from "@/lib/utils";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import type { FileUIPart, SourceDocumentUIPart } from "ai";
+import { Book, Globe, Image, Mic, Video, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { HTMLAttributes } from "react";
 import { useCallback } from "react";
 
@@ -23,16 +24,13 @@ export type AttachmentMediaCategory =
   | "source"
   | "unknown";
 
-const mediaCategoryIcons: Record<
-  AttachmentMediaCategory,
-  { name: DotMatrixIconName }
-> = {
-  audio: { name: "mic" },
-  document: { name: "book" },
-  image: { name: "square" },
-  source: { name: "globe" },
-  unknown: { name: "book" },
-  video: { name: "arrowUp" },
+const mediaCategoryIcons: Record<AttachmentMediaCategory, LucideIcon> = {
+  audio: Mic,
+  document: Book,
+  image: Image,
+  source: Globe,
+  unknown: Book,
+  video: Video,
 };
 
 // ============================================================================
@@ -94,7 +92,7 @@ export const AttachmentChip = ({
 }: AttachmentChipProps) => {
   const mediaCategory = getMediaCategory(data);
   const label = getAttachmentLabel(data);
-  const entry = mediaCategoryIcons[mediaCategory];
+  const Icon = mediaCategoryIcons[mediaCategory];
 
   const handleRemove = useCallback(() => {
     onRemove?.();
@@ -123,10 +121,10 @@ export const AttachmentChip = ({
           />
         ) : (
           <div className="flex size-full items-center justify-center">
-            <DotMatrixIcon
-              name={entry.name}
-              size={ICON_GLYPH.toolbar}
-              className="text-muted-foreground"
+            <Icon
+              size={ICON_GLYPH.inline}
+              strokeWidth={1.5}
+              className="shrink-0 text-text-muted"
             />
           </div>
         )}
@@ -155,7 +153,7 @@ export const AttachmentChip = ({
           }}
           type="button"
         >
-          <DotMatrixIcon name="x" size={ICON_GLYPH.badge} className="text-current" />
+          <X size={ICON_GLYPH.badge} strokeWidth={1.5} className="text-current" />
           <span className="sr-only">Remove</span>
         </button>
       )}

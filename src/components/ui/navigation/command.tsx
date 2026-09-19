@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
-import { DotMatrixIcon } from "@/components/dotmatrix"
+import { Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import {
@@ -71,7 +71,7 @@ function CommandInput({
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
     <div data-slot="command-input-wrapper" className="flex items-center border-b border-[var(--border-default)] px-2 py-1.5">
-      <DotMatrixIcon name="search" size={12} className="mr-1.5 shrink-0 text-muted-foreground opacity-70" />
+      <Search size={12} strokeWidth={1.5} className="mr-1.5 shrink-0 text-muted-foreground opacity-70" />
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(
