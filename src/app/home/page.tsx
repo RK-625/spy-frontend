@@ -21,6 +21,7 @@ import {
   SourcesContent,
   SourcesTrigger,
   PromptInputWorkspace,
+  PromptInputProvider,
   ChatSidebar,
   MCPAppCard,
   hasMcpAppView,
@@ -319,7 +320,7 @@ const ChatWorkspace = () => {
 };
 
 const MainChatArea = () => {
-  const { selectedNote, setSelectedNote } = useChatContext();
+  const { selectedNote, setSelectedNote, chatId } = useChatContext();
   const handleCloseNote = useCallback(
     () => setSelectedNote(null),
     [setSelectedNote],
@@ -327,16 +328,15 @@ const MainChatArea = () => {
 
   return (
     <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
-      {selectedNote ? (
-        <NoteWorkspace
-          node={selectedNote}
-          onClose={handleCloseNote}
-        />
-      ) : (
-        <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
-          <ChatWorkspace />
-        </div>
-      )}
+      <PromptInputProvider key={chatId} chatId={chatId}>
+        {selectedNote ? (
+          <NoteWorkspace node={selectedNote} onClose={handleCloseNote} />
+        ) : (
+          <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
+            <ChatWorkspace />
+          </div>
+        )}
+      </PromptInputProvider>
     </div>
   );
 };

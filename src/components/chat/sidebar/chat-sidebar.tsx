@@ -103,7 +103,7 @@ export function ChatSidebar() {
     }
   }, [sidebarPanel, sidebarPanelHydrated]);
 
-  const { newChat } = useChatContext();
+  const { newChat, setSelectedNote } = useChatContext();
 
   const isNotesPanel = sidebarPanel === "notes";
   const isSidebarFull = sidebarMode === "full" || isNotesPanel;
@@ -132,7 +132,8 @@ export function ChatSidebar() {
   const handleDismissNotes = useCallback(() => {
     setSidebarPanel("chats");
     setSidebarMode("icon");
-  }, []);
+    setSelectedNote(null);
+  }, [setSelectedNote]);
 
   const handleToggleSidebarMode = useCallback(() => {
     if (sidebarPanel === "notes") {

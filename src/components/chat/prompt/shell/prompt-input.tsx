@@ -2,8 +2,8 @@
 
 /**
  * Prompt shell: PromptInput form primitive + PromptInputWorkspace product export.
- * PromptInput requires outer PromptInputProvider. Draft state lives in ./context.
- * PromptInputWorkspace mounts the provider internally for /home.
+ * PromptInput and PromptInputWorkspace require outer PromptInputProvider.
+ * Draft state lives in ./context.
  */
 
 import { InputGroup, toast } from "@/components/ui";
@@ -26,11 +26,7 @@ import type {
   SubmitEventHandler,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  clearDraft,
-  PromptInputProvider,
-  usePromptInputContext,
-} from "./context";
+import { clearDraft, usePromptInputContext } from "./context";
 import { PromptInputHeader } from "../header/header";
 import { PromptInputBody } from "../body/body";
 import { PromptInputTextarea } from "../body/textarea";
@@ -296,14 +292,9 @@ const ModelItem = ({
   );
 };
 
-/** Product prompt block for /home — provider + form + footer in one shell export. */
+/** Product prompt block for /home — form + footer; requires outer PromptInputProvider. */
 export function PromptInputWorkspace() {
-  const { chatId } = useChatContext();
-  return (
-    <PromptInputProvider key={chatId} chatId={chatId}>
-      <PromptInputWorkspaceContent />
-    </PromptInputProvider>
-  );
+  return <PromptInputWorkspaceContent />;
 }
 
 /** Reads stream state from ChatProvider; owns pending-ask derivation for the shell. */
