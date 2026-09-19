@@ -23,14 +23,18 @@ import type { MemoryNode } from "@/types/graph-schema";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
-function syncChatUrl(chatId: string | null) {
+function syncChatUrl(chatId: string | null, replace = false) {
   if (typeof window === "undefined") return;
   const target = chatId
     ? `${window.location.pathname}?c=${encodeURIComponent(chatId)}`
     : window.location.pathname;
   const current = `${window.location.pathname}${window.location.search}`;
   if (current !== target) {
-    window.history.replaceState(null, "", target);
+    if (replace) {
+      window.history.replaceState(null, "", target);
+    } else {
+      window.history.pushState(null, "", target);
+    }
   }
 }
 
@@ -126,7 +130,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (messages.length > 0) {
-      syncChatUrl(activeChat.id);
+      syncChatUrl(activeChat.id, true);
     }
   }, [messages.length, activeChat.id]);
 
