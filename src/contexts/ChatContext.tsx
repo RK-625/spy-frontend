@@ -6,6 +6,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -21,6 +22,17 @@ import type { ChatContextValue } from "@/types/chat";
 import type { MemoryNode } from "@/types/graph-schema";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
+
+function syncChatUrl(chatId: string | null) {
+  if (typeof window === "undefined") return;
+  const target = chatId
+    ? `${window.location.pathname}?c=${encodeURIComponent(chatId)}`
+    : window.location.pathname;
+  const current = `${window.location.pathname}${window.location.search}`;
+  if (current !== target) {
+    window.history.replaceState(null, "", target);
+  }
+}
 
 /**
  * Stream chat provider with multi-chat AI SDK Chat registry.
@@ -68,6 +80,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     );
     chatsRef.current.set(chat.id, chat);
     setActiveChat(chat);
+    syncChatUrl(null);
   }, [updateChatOrder]);
 
   /**
@@ -75,6 +88,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
    */
   const switchChat = useCallback(
     async (chatId: string) => {
+      if (activeChat.id === chatId) return;
       setSelectedNote(null);
       let chat = chatsRef.current.get(chatId);
       if (!chat) {
@@ -88,9 +102,46 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         chatsRef.current.set(chat.id, chat);
       }
       setActiveChat(chat);
+      syncChatUrl(chatId);
     },
-    [updateChatOrder],
+    [activeChat.id, updateChatOrder],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    const paramChatId = new URLSearchParams(window.location.search).get("c");
+    if (paramChatId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate conversation from URL query on mount
+      switchChat(paramChatId).catch((err: unknown) => {
+        if (!cancelled) {
+          console.error("Failed to hydrate chat from URL:", err);
+          syncChatUrl(null);
+        }
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [switchChat]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      syncChatUrl(activeChat.id);
+    }
+  }, [messages.length, activeChat.id]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const param = new URLSearchParams(window.location.search).get("c");
+      if (param) {
+        void switchChat(param);
+      } else {
+        newChat();
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [switchChat, newChat]);
 
   /**
    * Remove chat from SQLite and active memory. Tombstone + Map drop for the
