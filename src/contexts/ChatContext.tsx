@@ -16,9 +16,10 @@ import {
 import {
   deleteChat as deleteChatRequest,
   fetchChat,
+  isChatNotFoundError,
   saveChatMessages,
 } from "@/lib/chats-api";
-import type { ChatContextValue } from "@/types/chat";
+import type { ChatContextValue, SwitchChatHistory } from "@/types/chat";
 import type { MemoryNode } from "@/types/graph-schema";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -35,6 +36,25 @@ function syncChatUrl(chatId: string | null, replace = false) {
     } else {
       window.history.pushState(null, "", target);
     }
+  }
+}
+
+function isAbortError(err: unknown): boolean {
+  return err instanceof Error && err.name === "AbortError";
+}
+
+/** After a failed switch, put `?c=` back on the chat that is still active. */
+function restoreActiveChatUrl(
+  activeChatId: string,
+  chats: Map<string, Chat<UIMessage>>,
+) {
+  const param = new URLSearchParams(window.location.search).get("c");
+  const instance = chats.get(activeChatId);
+  const hasMessages = (instance?.messages.length ?? 0) > 0;
+  if (param === activeChatId || hasMessages) {
+    syncChatUrl(activeChatId, true);
+  } else {
+    syncChatUrl(null, true);
   }
 }
 
@@ -73,60 +93,119 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     new Map<string, Chat<UIMessage>>([[activeChat.id, activeChat]]),
   );
 
+  const activeChatIdRef = useRef(activeChat.id);
+  activeChatIdRef.current = activeChat.id;
+
+  const switchGenerationRef = useRef(0);
+  const switchAbortRef = useRef<AbortController | null>(null);
+
+  /** Empty conversation at /home. New-chat button pushes; missing-chat 404 replaces. */
+  const landOnEmptyHome = useCallback(
+    (replace: boolean) => {
+      setSelectedNote(null);
+      const chat = createChat(
+        crypto.randomUUID(),
+        [],
+        updateChatOrder,
+        deletedIdsRef,
+      );
+      chatsRef.current.set(chat.id, chat);
+      setActiveChat(chat);
+      syncChatUrl(null, replace);
+    },
+    [updateChatOrder],
+  );
+
   /** Mint id, register empty Chat, set active (keeps other open chats). */
   const newChat = useCallback(() => {
-    setSelectedNote(null);
-    const chat = createChat(
-      crypto.randomUUID(),
-      [],
-      updateChatOrder,
-      deletedIdsRef,
-    );
-    chatsRef.current.set(chat.id, chat);
-    setActiveChat(chat);
-    syncChatUrl(null);
-  }, [updateChatOrder]);
+    landOnEmptyHome(false);
+  }, [landOnEmptyHome]);
 
   /**
    * Activate by id: Map hit reuses live Chat; miss hydrates from GET /api/chats.
+   * Stale/aborted fetches must not touch React state or the URL.
    */
   const switchChat = useCallback(
-    async (chatId: string) => {
-      if (activeChat.id === chatId) return;
-      setSelectedNote(null);
-      let chat = chatsRef.current.get(chatId);
-      if (!chat) {
-        const row = await fetchChat(chatId);
-        chat = createChat(
-          row.id,
-          row.messages,
-          updateChatOrder,
-          deletedIdsRef,
-        );
-        chatsRef.current.set(chat.id, chat);
+    async (chatId: string, options?: { history?: SwitchChatHistory }) => {
+      switchAbortRef.current?.abort();
+      switchAbortRef.current = null;
+      switchGenerationRef.current += 1;
+
+      if (activeChatIdRef.current === chatId) return;
+
+      const controller = new AbortController();
+      switchAbortRef.current = controller;
+      const gen = switchGenerationRef.current;
+      const history = options?.history ?? "push";
+
+      try {
+        let chat = chatsRef.current.get(chatId);
+        if (!chat) {
+          const row = await fetchChat(chatId, { signal: controller.signal });
+          if (
+            controller.signal.aborted ||
+            gen !== switchGenerationRef.current
+          ) {
+            return;
+          }
+          chat = createChat(
+            row.id,
+            row.messages,
+            updateChatOrder,
+            deletedIdsRef,
+          );
+          chatsRef.current.set(chat.id, chat);
+        }
+
+        if (controller.signal.aborted || gen !== switchGenerationRef.current) {
+          return;
+        }
+
+        setSelectedNote(null);
+        setActiveChat(chat);
+        if (history === "push") {
+          syncChatUrl(chatId);
+        } else if (history === "replace") {
+          syncChatUrl(chatId, true);
+        }
+      } catch (err: unknown) {
+        if (isAbortError(err) || gen !== switchGenerationRef.current) {
+          return;
+        }
+        if (isChatNotFoundError(err)) {
+          if (history === "replace") {
+            setSelectedNote(null);
+            syncChatUrl(null, true);
+            return;
+          }
+          landOnEmptyHome(true);
+          return;
+        }
+        restoreActiveChatUrl(activeChatIdRef.current, chatsRef.current);
+        throw err;
       }
-      setActiveChat(chat);
-      syncChatUrl(chatId);
     },
-    [activeChat.id, updateChatOrder],
+    [landOnEmptyHome, updateChatOrder],
   );
 
   useEffect(() => {
-    let cancelled = false;
     const paramChatId = new URLSearchParams(window.location.search).get("c");
     if (paramChatId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate conversation from URL query on mount
-      switchChat(paramChatId).catch((err: unknown) => {
-        if (!cancelled) {
+      void switchChat(paramChatId, { history: "replace" }).catch(
+        (err: unknown) => {
           console.error("Failed to hydrate chat from URL:", err);
-          syncChatUrl(null);
-        }
-      });
+        },
+      );
     }
     return () => {
-      cancelled = true;
+      switchAbortRef.current?.abort();
+      switchAbortRef.current = null;
+      switchGenerationRef.current += 1;
     };
-  }, [switchChat]);
+    // Mount-only: read `c` once. Do not re-hydrate when switchChat identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once on mount
+  }, []);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -138,7 +217,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const handlePopState = () => {
       const param = new URLSearchParams(window.location.search).get("c");
       if (param) {
-        void switchChat(param);
+        void switchChat(param).catch((err: unknown) => {
+          console.error("switchChat (popstate):", err);
+        });
       } else {
         newChat();
       }
@@ -169,7 +250,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
       chatsRef.current.delete(id);
 
-      const wasActive = activeChat.id === id;
+      const wasActive = activeChatIdRef.current === id;
 
       try {
         await deleteChatRequest(id);
@@ -185,7 +266,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         throw err;
       }
     },
-    [activeChat.id, newChat, updateChatOrder],
+    [newChat, updateChatOrder],
   );
 
   const value: ChatContextValue = useMemo(
