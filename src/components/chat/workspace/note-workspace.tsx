@@ -17,7 +17,7 @@ function formatConfidence(value: number | undefined): string | null {
 }
 
 /**
- * Full-bleed Note Workspace in the chat column (Pencil Frame 06).
+ * Full-bleed Note Workspace in the chat column.
  * Renders note markdown in read-only MilkdownView with header controls and impression footer.
  */
 export function NoteWorkspace({ node, onClose }: NoteWorkspaceProps) {
@@ -29,6 +29,7 @@ export function NoteWorkspace({ node, onClose }: NoteWorkspaceProps) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       if (event.key === "Escape") {
         onClose();
       }
@@ -45,7 +46,6 @@ export function NoteWorkspace({ node, onClose }: NoteWorkspaceProps) {
       aria-label={`Note: ${title}`}
       className="flex h-full w-full flex-col overflow-hidden bg-surface-chat px-12 py-8 animate-in fade-in duration-200"
     >
-      {/* Header */}
       <header className="flex shrink-0 items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <h1 className="truncate font-sans text-[1.75rem] font-semibold tracking-wide text-text-primary uppercase">
@@ -67,8 +67,7 @@ export function NoteWorkspace({ node, onClose }: NoteWorkspaceProps) {
         </button>
       </header>
 
-      {/* Body: Milkdown WYSIWYG Editor in read-only mode */}
-      <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/30 p-4">
+      <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/30 p-4">
         <MilkdownView
           key={node.id}
           documentText={documentText}
@@ -76,13 +75,12 @@ export function NoteWorkspace({ node, onClose }: NoteWorkspaceProps) {
         />
       </div>
 
-      {/* Impression Footer */}
       {impression ? (
         <div className="mt-4 shrink-0 rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/30 p-3">
           <div className="text-[0.7rem] font-medium tracking-wider text-text-secondary uppercase">
             IMPRESSION
           </div>
-          <p className="mt-1 text-sm leading-relaxed text-text-primary">
+          <p className="mt-1 max-h-28 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-text-primary">
             {impression}
           </p>
         </div>

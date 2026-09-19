@@ -75,6 +75,7 @@ export interface PromptInputContextValue {
   textInput: TextInputValue;
   attachments: AttachmentsValue;
   prefs: PromptInputPrefsValue;
+  clearDraft: () => void;
   /** INTERNAL: PromptInput registers hidden file input ref */
   __registerFileInput: (ref: RefObject<HTMLInputElement | null>) => void;
   /**
@@ -107,6 +108,28 @@ export const usePromptInputContext = (): PromptInputContextValue => {
 // Provider
 // ============================================================================
 
+/** Storage key helper for prompt draft persistence */
+export const getDraftKey = (chatId: string) => `spy:draft:${chatId}`;
+
+/** Clear draft storage key helper */
+export const clearDraft = (chatId: string) => {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.removeItem(getDraftKey(chatId));
+    } catch {
+      // ignore storage errors
+    }
+  }
+};
+
+export interface PromptDraftState {
+  text: string;
+  model: string;
+  mode: string;
+  useWebSearch: boolean;
+  useExcalidraw: boolean;
+}
+
 /** Default model / mode / web / excalidraw prefs when the provider mounts. */
 export const DEFAULT_PROMPT_PREFS = {
   model: models[0]?.id ?? "deepseek-flash",
@@ -118,30 +141,138 @@ export const DEFAULT_PROMPT_PREFS = {
   "model" | "mode" | "useWebSearch" | "useExcalidraw"
 >;
 
+export function loadPromptDraft(chatId: string): PromptDraftState {
+  if (typeof window === "undefined") {
+    return { text: "", ...DEFAULT_PROMPT_PREFS };
+  }
+  try {
+    const raw = localStorage.getItem(getDraftKey(chatId));
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<PromptDraftState>;
+      if (typeof parsed?.text === "string") {
+        return {
+          text: parsed.text,
+          model: parsed.model ?? DEFAULT_PROMPT_PREFS.model,
+          mode: parsed.mode ?? DEFAULT_PROMPT_PREFS.mode,
+          useWebSearch:
+            parsed.useWebSearch ?? DEFAULT_PROMPT_PREFS.useWebSearch,
+          useExcalidraw:
+            parsed.useExcalidraw ?? DEFAULT_PROMPT_PREFS.useExcalidraw,
+        };
+      }
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return { text: "", ...DEFAULT_PROMPT_PREFS };
+}
+
+export function persistDraft(
+  id: string,
+  draft: PromptDraftState,
+  initialDraft: PromptDraftState
+): void {
+  // Diff check: if nothing was changed during this session, skip write completely!
+  const isDirty =
+    draft.text !== initialDraft.text ||
+    draft.model !== initialDraft.model ||
+    draft.mode !== initialDraft.mode ||
+    draft.useWebSearch !== initialDraft.useWebSearch ||
+    draft.useExcalidraw !== initialDraft.useExcalidraw;
+
+  if (!isDirty) {
+    return;
+  }
+
+  try {
+    const isModified =
+      draft.text.trim() !== "" ||
+      draft.model !== DEFAULT_PROMPT_PREFS.model ||
+      draft.mode !== DEFAULT_PROMPT_PREFS.mode ||
+      draft.useWebSearch !== DEFAULT_PROMPT_PREFS.useWebSearch ||
+      draft.useExcalidraw !== DEFAULT_PROMPT_PREFS.useExcalidraw;
+
+    if (isModified) {
+      localStorage.setItem(getDraftKey(id), JSON.stringify(draft));
+    } else {
+      localStorage.removeItem(getDraftKey(id));
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
 /**
  * Owns prompt draft state (text + attachments + prefs). Required wrapper for
  * PromptInput and consumers of usePromptInputContext.
  */
-export const PromptInputProvider = ({ children }: PropsWithChildren) => {
-  // ----- textInput state
-  const [textInput, setTextInput] = useState("");
-  const clearInput = useCallback(() => setTextInput(""), []);
+export const PromptInputProvider = ({
+  children,
+  chatId,
+}: PropsWithChildren<{ chatId: string }>) => {
+  /* eslint-disable react-hooks/refs -- synchronous initial draft read and ref sync */
+  const initialDraftRef = useRef<PromptDraftState | null>(null);
+  if (!initialDraftRef.current) {
+    initialDraftRef.current = loadPromptDraft(chatId);
+  }
+  const initial = initialDraftRef.current;
+  const [textInput, setTextInput] = useState(initial.text);
+  const [model, setModel] = useState(initial.model);
+  const [mode, setMode] = useState(initial.mode);
+  const [useWebSearch, setUseWebSearch] = useState(initial.useWebSearch);
+  const [useExcalidraw, setUseExcalidraw] = useState(initial.useExcalidraw);
 
-  // ----- prefs (model / mode / web / excalidraw) — no selector open flags
-  const [model, setModel] = useState(DEFAULT_PROMPT_PREFS.model);
-  const [mode, setMode] = useState<string>(DEFAULT_PROMPT_PREFS.mode);
-  const [useWebSearch, setUseWebSearch] = useState<boolean>(
-    DEFAULT_PROMPT_PREFS.useWebSearch,
-  );
+  const draftRef = useRef({
+    text: textInput,
+    model,
+    mode,
+    useWebSearch,
+    useExcalidraw,
+  });
+  draftRef.current = {
+    text: textInput,
+    model,
+    mode,
+    useWebSearch,
+    useExcalidraw,
+  };
+  /* eslint-enable react-hooks/refs */
+
+  const handleClearDraft = useCallback(() => {
+    draftRef.current.text = "";
+    clearDraft(chatId);
+  }, [chatId]);
+
+  const clearInput = useCallback(() => {
+    draftRef.current.text = "";
+    setTextInput("");
+    handleClearDraft();
+  }, [handleClearDraft]);
+
+  const handleSetTextInput = useCallback((v: string) => {
+    setTextInput(v);
+  }, []);
+
   const toggleWebSearch = useCallback(() => {
     setUseWebSearch((prev) => !prev);
   }, []);
-  const [useExcalidraw, setUseExcalidraw] = useState<boolean>(
-    DEFAULT_PROMPT_PREFS.useExcalidraw,
-  );
+
   const toggleExcalidraw = useCallback(() => {
     setUseExcalidraw((prev) => !prev);
   }, []);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      persistDraft(chatId, draftRef.current, initial);
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      persistDraft(chatId, draftRef.current, initial);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial draft captured at mount
+  }, [chatId]);
 
   // ----- attachments state
   const [attachmentFiles, setAttachmentFiles] = useState<
@@ -263,20 +394,23 @@ export const PromptInputProvider = ({ children }: PropsWithChildren) => {
       __registerAttachmentValidator,
       __registerFileInput,
       attachments,
+      clearDraft: handleClearDraft,
       prefs,
       textInput: {
         clear: clearInput,
-        setValue: setTextInput,
+        setValue: handleSetTextInput,
         value: textInput,
       },
     }),
     [
-      textInput,
-      clearInput,
-      attachments,
-      prefs,
-      __registerFileInput,
       __registerAttachmentValidator,
+      __registerFileInput,
+      attachments,
+      handleClearDraft,
+      prefs,
+      clearInput,
+      handleSetTextInput,
+      textInput,
     ]
   );
 

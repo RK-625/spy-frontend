@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useCallback, type CSSProperties } from "react";
 import {
   ChatActionButton,
   ChatActionRail,
@@ -320,13 +320,17 @@ const ChatWorkspace = () => {
 
 const MainChatArea = () => {
   const { selectedNote, setSelectedNote } = useChatContext();
+  const handleCloseNote = useCallback(
+    () => setSelectedNote(null),
+    [setSelectedNote],
+  );
 
   return (
     <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
       {selectedNote ? (
         <NoteWorkspace
           node={selectedNote}
-          onClose={() => setSelectedNote(null)}
+          onClose={handleCloseNote}
         />
       ) : (
         <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">

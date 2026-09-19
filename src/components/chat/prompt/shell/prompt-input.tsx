@@ -27,6 +27,7 @@ import type {
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  clearDraft,
   PromptInputProvider,
   usePromptInputContext,
 } from "./context";
@@ -206,7 +207,8 @@ export const PromptInput = ({
       try {
         // Convert blob URLs to data URLs asynchronously
         const convertedFiles: FileUIPart[] = files.length > 0 ? await Promise.all(
-          files.map(async ({ id: _id, ...item }) => {
+          files.map(async ({ id: _, ...item }) => {
+            void _;
             if (item.url?.startsWith("blob:")) {
               const dataUrl = await convertBlobUrlToDataUrl(item.url);
               // If conversion failed, keep the original blob URL
@@ -296,8 +298,9 @@ const ModelItem = ({
 
 /** Product prompt block for /home — provider + form + footer in one shell export. */
 export function PromptInputWorkspace() {
+  const { chatId } = useChatContext();
   return (
-    <PromptInputProvider>
+    <PromptInputProvider key={chatId} chatId={chatId}>
       <PromptInputWorkspaceContent />
     </PromptInputProvider>
   );
@@ -305,7 +308,7 @@ export function PromptInputWorkspace() {
 
 /** Reads stream state from ChatProvider; owns pending-ask derivation for the shell. */
 function PromptInputWorkspaceContent() {
-  const { sendMessage, status, stop, messages } = useChatContext();
+  const { sendMessage, status, stop, messages, chatId } = useChatContext();
   const pendingAsk = useMemo(
     () => getPendingAskUserQuestion(messages),
     [messages],
@@ -313,6 +316,7 @@ function PromptInputWorkspaceContent() {
   const {
     attachments,
     textInput,
+    clearDraft: clearPromptDraft,
     prefs: {
       model,
       setModel,
@@ -340,6 +344,8 @@ function PromptInputWorkspaceContent() {
         useExcalidraw: boolean;
       },
     ): void => {
+      clearDraft(chatId);
+      clearPromptDraft();
       void sendMessage(
         {
           text: message.text?.trim() || "",
@@ -361,7 +367,7 @@ function PromptInputWorkspaceContent() {
         toast.error("Failed to send message");
       });
     },
-    [sendMessage],
+    [chatId, clearPromptDraft, sendMessage],
   );
 
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
