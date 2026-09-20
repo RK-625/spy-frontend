@@ -108,6 +108,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   /** Empty conversation at /home. New-chat button pushes; missing-chat 404 replaces. */
   const landOnEmptyHome = useCallback(
     (replace: boolean) => {
+      switchAbortRef.current?.abort();
+      switchAbortRef.current = null;
+      switchGenerationRef.current += 1;
       setSelectedNote(null);
       const chat = createChat(
         crypto.randomUUID(),
@@ -154,6 +157,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           ) {
             return;
           }
+          if (deletedIdsRef.current.has(row.id)) {
+            return;
+          }
           chat = createChat(
             row.id,
             row.messages,
@@ -166,6 +172,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (controller.signal.aborted || gen !== switchGenerationRef.current) {
           return;
         }
+
+        if (deletedIdsRef.current.has(chatId)) return;
 
         setSelectedNote(null);
         setActiveChat(chat);
@@ -192,7 +200,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     },
     [landOnEmptyHome, updateChatOrder],
   );
-// when u load the chat for the first time here
+
   useEffect(() => {
     const paramChatId = new URLSearchParams(window.location.search).get("c");
     if (paramChatId) {
@@ -213,13 +221,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     // Mount-only: read `c` once. Do not re-hydrate when switchChat identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once on mount
   }, []);
-// when the chat here is activated here btw though here
+
   useEffect(() => {
     if (messages.length > 0) {
       syncChatUrl(activeChat.id, false, true);
     }
   }, [messages.length, activeChat.id]);
-  // add the listener here for popstate reverse
+
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       const queryParam = new URLSearchParams(window.location.search).get("c")?.trim();
@@ -232,12 +240,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           console.error("switchChat (popstate):", err);
         });
       } else {
-        newChat();
+        landOnEmptyHome(true);
       }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [switchChat, newChat]);
+  }, [switchChat, landOnEmptyHome]);
 
   /**
    * Remove chat from SQLite and active memory. Tombstone + Map drop for the
@@ -250,6 +258,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (id.length === 0) return;
 
       deletedIdsRef.current.add(id);
+      switchAbortRef.current?.abort();
+      switchAbortRef.current = null;
+      switchGenerationRef.current += 1;
 
       const registered = chatsRef.current.get(id);
       if (registered) {
@@ -266,7 +277,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       try {
         await deleteChatRequest(id);
         if (wasActive) {
-          newChat();
+          landOnEmptyHome(true);
         }
         updateChatOrder();
       } catch (err: unknown) {
@@ -277,7 +288,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         throw err;
       }
     },
-    [newChat, updateChatOrder],
+    [landOnEmptyHome, updateChatOrder],
   );
 
   const value: ChatContextValue = useMemo(
