@@ -117,19 +117,6 @@ export const usePromptInputContext = (): PromptInputContextValue => {
 // Provider
 // ============================================================================
 
-/** Clear draft storage helper */
-export const clearDraft = (chatId: string): void => {
-  void deletePromptDraft(chatId);
-};
-
-export interface PromptDraftState {
-  text: string;
-  model: string;
-  mode: string;
-  useWebSearch: boolean;
-  useExcalidraw: boolean;
-}
-
 /** Default model / mode / web / excalidraw prefs when the provider mounts. */
 export const DEFAULT_PROMPT_PREFS = {
   model: models[0]?.id ?? "deepseek-flash",
@@ -243,9 +230,9 @@ export const PromptInputProvider = ({
   }, [chatId]);
 
   const clearInput = useCallback(() => {
+    hasInteractedRef.current = true;
     setTextInput("");
-    handleClearDraft();
-  }, [handleClearDraft]);
+  }, []);
 
   const handleSetTextInput = useCallback((v: string) => {
     hasInteractedRef.current = true;

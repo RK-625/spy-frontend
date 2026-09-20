@@ -1,22 +1,10 @@
-import { getClientDb } from "./client-db";
+import {
+  getClientDb,
+  type PromptDraftRecord,
+  type StoredDraftAttachment,
+} from "./client-db";
 
-export interface StoredDraftAttachment {
-  id: string;
-  filename: string;
-  mediaType: string;
-  blob: Blob;
-}
-
-export interface PromptDraftRecord {
-  chatId: string;
-  text: string;
-  model: string;
-  mode: string;
-  useWebSearch: boolean;
-  useExcalidraw: boolean;
-  attachments: StoredDraftAttachment[];
-  updatedAt: number;
-}
+export type { PromptDraftRecord, StoredDraftAttachment };
 
 /**
  * Retrieve a stored prompt draft for a specific chat ID.

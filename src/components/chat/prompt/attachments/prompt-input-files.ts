@@ -203,28 +203,39 @@ export function filesToFileUIParts(
 
 export function revokeFileUrls(files: { url?: string }[]): void {
   for (const f of files) {
-    if (f.url) {
+    if (f.url && f.url.startsWith("blob:")) {
       URL.revokeObjectURL(f.url);
     }
   }
 }
 
+export async function convertBlobToDataUrl(
+  blob: Blob
+): Promise<string | null> {
+  // FileReader uses callback-based API, wrapping in Promise is necessary
+  // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
+    reader.onloadend = () =>
+      resolve(typeof reader.result === "string" ? reader.result : null);
+    // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}
+
 export async function convertBlobUrlToDataUrl(
-  url: string
+  url: string,
+  blob?: Blob
 ): Promise<string | null> {
   try {
+    if (blob) {
+      return await convertBlobToDataUrl(blob);
+    }
     const response = await fetch(url);
-    const blob = await response.blob();
-    // FileReader uses callback-based API, wrapping in Promise is necessary
-    // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onloadend = () => resolve(reader.result as string);
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
+    const fetchedBlob = await response.blob();
+    return await convertBlobToDataUrl(fetchedBlob);
   } catch {
     return null;
   }

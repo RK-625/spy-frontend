@@ -1,5 +1,22 @@
 import Dexie, { type Table } from "dexie";
-import type { PromptDraftRecord } from "./prompt-draft-store";
+
+export interface StoredDraftAttachment {
+  id: string;
+  filename: string;
+  mediaType: string;
+  blob: Blob;
+}
+
+export interface PromptDraftRecord {
+  chatId: string;
+  text: string;
+  model: string;
+  mode: string;
+  useWebSearch: boolean;
+  useExcalidraw: boolean;
+  attachments: StoredDraftAttachment[];
+  updatedAt: number;
+}
 
 export class SpyClientDatabase extends Dexie {
   drafts!: Table<PromptDraftRecord, string>;
@@ -23,5 +40,3 @@ export function getClientDb(): SpyClientDatabase | null {
   }
   return clientDbInstance;
 }
-
-export const clientDb = typeof window !== "undefined" ? getClientDb() : null;

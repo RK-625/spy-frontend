@@ -26,7 +26,7 @@ import type {
   SubmitEventHandler,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { clearDraft, usePromptInputContext } from "./context";
+import { usePromptInputContext } from "./context";
 import { PromptInputHeader } from "../header/header";
 import { PromptInputBody } from "../body/body";
 import { PromptInputTextarea } from "../body/textarea";
@@ -201,21 +201,30 @@ export const PromptInput = ({
       const files = attachments.files;
 
       try {
-        // Convert blob URLs to data URLs asynchronously
-        const convertedFiles: FileUIPart[] = files.length > 0 ? await Promise.all(
-          files.map(async ({ id: _, ...item }) => {
-            void _;
-            if (item.url?.startsWith("blob:")) {
-              const dataUrl = await convertBlobUrlToDataUrl(item.url);
-              // If conversion failed, keep the original blob URL
-              return {
-                ...item,
-                url: dataUrl ?? item.url,
-              };
-            }
-            return item;
-          })
-        ) : [];
+        // Convert blob URLs to data URLs asynchronously and shape into pure FileUIParts
+        const convertedFiles: FileUIPart[] =
+          files.length > 0
+            ? await Promise.all(
+                files.map(async (item) => {
+                  let finalUrl = item.url;
+                  if (item.url?.startsWith("blob:")) {
+                    const dataUrl = await convertBlobUrlToDataUrl(
+                      item.url,
+                      item.blob
+                    );
+                    if (dataUrl) {
+                      finalUrl = dataUrl;
+                    }
+                  }
+                  return {
+                    filename: item.filename,
+                    mediaType: item.mediaType,
+                    type: "file" as const,
+                    url: finalUrl,
+                  };
+                })
+              )
+            : [];
 
         // Clear-on-accept: sync onSubmit only. Throw to refuse (keep draft);
         // return to accept (clear). Do not await stream work here.
@@ -299,7 +308,7 @@ export function PromptInputWorkspace() {
 
 /** Reads stream state from ChatProvider; owns pending-ask derivation for the shell. */
 function PromptInputWorkspaceContent() {
-  const { sendMessage, status, stop, messages, chatId } = useChatContext();
+  const { sendMessage, status, stop, messages } = useChatContext();
   const pendingAsk = useMemo(
     () => getPendingAskUserQuestion(messages),
     [messages],
@@ -335,7 +344,6 @@ function PromptInputWorkspaceContent() {
         useExcalidraw: boolean;
       },
     ): void => {
-      clearDraft(chatId);
       clearPromptDraft();
       void sendMessage(
         {
@@ -358,7 +366,7 @@ function PromptInputWorkspaceContent() {
         toast.error("Failed to send message");
       });
     },
-    [chatId, clearPromptDraft, sendMessage],
+    [clearPromptDraft, sendMessage],
   );
 
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
