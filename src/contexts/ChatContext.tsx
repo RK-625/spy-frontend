@@ -19,7 +19,7 @@ import {
   isChatNotFoundError,
   saveChatMessages,
 } from "@/lib/chats-api";
-import type { ChatContextValue, SwitchChatHistory } from "@/types/chat";
+import type { ChatContextValue } from "@/types/chat";
 import type { MemoryNode } from "@/types/graph-schema";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -126,7 +126,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
    * Stale/aborted fetches must not touch React state or the URL.
    */
   const switchChat = useCallback(
-    async (chatId: string, options?: { history?: SwitchChatHistory }) => {
+    async (chatId: string, replace = false) => {
       switchAbortRef.current?.abort();
       switchAbortRef.current = null;
       switchGenerationRef.current += 1;
@@ -136,7 +136,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       switchAbortRef.current = controller;
       const gen = switchGenerationRef.current;
-      const history = options?.history ?? "push";
 
       try {
         let chat = chatsRef.current.get(chatId);
@@ -163,17 +162,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         setSelectedNote(null);
         setActiveChat(chat);
-        if (history === "push") {
-          syncChatUrl(chatId);
-        } else if (history === "replace") {
-          syncChatUrl(chatId, true);
-        }
+        syncChatUrl(chatId, replace);
       } catch (err: unknown) {
         if (isAbortError(err) || gen !== switchGenerationRef.current) {
           return;
         }
         if (isChatNotFoundError(err)) {
-          if (history === "replace") {
+          if (replace) {
             setSelectedNote(null);
             syncChatUrl(null, true);
             return;
@@ -187,12 +182,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     },
     [landOnEmptyHome, updateChatOrder],
   );
-
+// when u load the chat for the first time here
   useEffect(() => {
     const paramChatId = new URLSearchParams(window.location.search).get("c");
     if (paramChatId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate conversation from URL query on mount
-      void switchChat(paramChatId, { history: "replace" }).catch(
+      void switchChat(paramChatId, true).catch(
         (err: unknown) => {
           console.error("Failed to hydrate chat from URL:", err);
         },
@@ -206,13 +201,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     // Mount-only: read `c` once. Do not re-hydrate when switchChat identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once on mount
   }, []);
-
+// when the chat here is activated here btw though here
   useEffect(() => {
     if (messages.length > 0) {
       syncChatUrl(activeChat.id, true);
     }
   }, [messages.length, activeChat.id]);
-
+  // add the listener here for popstate reverse
   useEffect(() => {
     const handlePopState = () => {
       const param = new URLSearchParams(window.location.search).get("c");

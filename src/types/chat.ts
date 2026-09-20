@@ -12,9 +12,6 @@ export interface PromptInputMessage {
 
 type UseChatApi = ReturnType<typeof import("@ai-sdk/react").useChat>;
 
-/** How switchChat writes `?c=` — default push so Recents stays one-arg. */
-export type SwitchChatHistory = "push" | "replace" | "none";
-
 /**
  * Stream-only chat context — prefs live on PromptInputProvider.
  * Ask answers are normal user messages (agent ignores incomplete tool calls);
@@ -40,12 +37,9 @@ export interface ChatContextValue {
   /**
    * Activate chat by id. Map hit → reuse Chat instance.
    * Map miss → GET /api/chats?id= hydrate, register, then activate.
-   * Default history is push (`?c=`). Recents can keep calling with one argument.
+   * When replace is true, updates URL via replaceState instead of pushState.
    */
-  switchChat: (
-    chatId: string,
-    options?: { history?: SwitchChatHistory },
-  ) => Promise<void>;
+  switchChat: (chatId: string, replace?: boolean) => Promise<void>;
   /**
    * Remove a conversation from SQLite and active memory.
    */
