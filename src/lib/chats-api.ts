@@ -20,9 +20,28 @@ export async function saveChatMessages(
   }
 }
 
+/** Non-OK GET /api/chats?id= — 404 missing, 422 corrupt, 500 other. Abort is not this. */
+export class ChatFetchError extends Error {
+  readonly status: number;
+  constructor(status: number, detail: string) {
+    super(`GET /api/chats failed: ${status}${detail}`);
+    this.name = "ChatFetchError";
+    this.status = status;
+  }
+}
+
+export function isChatNotFoundError(err: unknown): boolean {
+  return err instanceof ChatFetchError && err.status === 404;
+}
+
 /** GET /api/chats?id= — meta + messages for cold open. */
-export async function fetchChat(chatId: string): Promise<ChatWithMessages> {
-  const res = await fetch(`/api/chats?id=${encodeURIComponent(chatId)}`);
+export async function fetchChat(
+  chatId: string,
+  options?: { signal?: AbortSignal },
+): Promise<ChatWithMessages> {
+  const res = await fetch(`/api/chats?id=${encodeURIComponent(chatId)}`, {
+    signal: options?.signal,
+  });
   if (!res.ok) {
     // 422 CORRUPT_MESSAGES: do not treat as empty chat (would clobber on save).
     let detail = "";
@@ -33,7 +52,7 @@ export async function fetchChat(chatId: string): Promise<ChatWithMessages> {
     } catch {
       // ignore body parse
     }
-    throw new Error(`GET /api/chats failed: ${res.status}${detail}`);
+    throw new ChatFetchError(res.status, detail);
   }
   const data = (await res.json()) as { chat: ChatWithMessages };
   return data.chat;

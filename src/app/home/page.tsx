@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useCallback, type CSSProperties } from "react";
 import {
   ChatActionButton,
   ChatActionRail,
@@ -21,9 +21,11 @@ import {
   SourcesContent,
   SourcesTrigger,
   PromptInputWorkspace,
+  PromptInputProvider,
   ChatSidebar,
   MCPAppCard,
   hasMcpAppView,
+  NoteWorkspace,
 } from "@/components/chat";
 import type {
   DynamicToolUIPart,
@@ -317,6 +319,28 @@ const ChatWorkspace = () => {
   );
 };
 
+const MainChatArea = () => {
+  const { selectedNote, setSelectedNote, chatId } = useChatContext();
+  const handleCloseNote = useCallback(
+    () => setSelectedNote(null),
+    [setSelectedNote],
+  );
+
+  return (
+    <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
+      <PromptInputProvider key={chatId} chatId={chatId}>
+        {selectedNote ? (
+          <NoteWorkspace node={selectedNote} onClose={handleCloseNote} />
+        ) : (
+          <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
+            <ChatWorkspace />
+          </div>
+        )}
+      </PromptInputProvider>
+    </div>
+  );
+};
+
 export default function HomePage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-surface-chat workspace-root">
@@ -328,11 +352,7 @@ export default function HomePage() {
           <ChatProvider>
             <ChatSidebar />
             {/* Main chat area */}
-            <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
-              <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
-                <ChatWorkspace />
-              </div>
-            </div>
+            <MainChatArea />
           </ChatProvider>
           <AppToaster />
         </TooltipProvider>

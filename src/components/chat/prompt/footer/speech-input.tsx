@@ -129,6 +129,7 @@ export const SpeechInput = ({
 
   // Browser-only capability detection — must run after mount to match SSR HTML.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate browser speech capability
     setMode(hasSpeechRecognition() ? "speech-recognition" : "none");
   }, []);
 

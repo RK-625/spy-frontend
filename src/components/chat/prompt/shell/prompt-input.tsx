@@ -2,8 +2,8 @@
 
 /**
  * Prompt shell: PromptInput form primitive + PromptInputWorkspace product export.
- * PromptInput requires outer PromptInputProvider. Draft state lives in ./context.
- * PromptInputWorkspace mounts the provider internally for /home.
+ * PromptInput and PromptInputWorkspace require outer PromptInputProvider.
+ * Draft state lives in ./context.
  */
 
 import { InputGroup, toast } from "@/components/ui";
@@ -26,10 +26,7 @@ import type {
   SubmitEventHandler,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  PromptInputProvider,
-  usePromptInputContext,
-} from "./context";
+import { clearDraft, usePromptInputContext } from "./context";
 import { PromptInputHeader } from "../header/header";
 import { PromptInputBody } from "../body/body";
 import { PromptInputTextarea } from "../body/textarea";
@@ -206,7 +203,8 @@ export const PromptInput = ({
       try {
         // Convert blob URLs to data URLs asynchronously
         const convertedFiles: FileUIPart[] = files.length > 0 ? await Promise.all(
-          files.map(async ({ id: _id, ...item }) => {
+          files.map(async ({ id: _, ...item }) => {
+            void _;
             if (item.url?.startsWith("blob:")) {
               const dataUrl = await convertBlobUrlToDataUrl(item.url);
               // If conversion failed, keep the original blob URL
@@ -294,18 +292,14 @@ const ModelItem = ({
   );
 };
 
-/** Product prompt block for /home — provider + form + footer in one shell export. */
+/** Product prompt block for /home — form + footer; requires outer PromptInputProvider. */
 export function PromptInputWorkspace() {
-  return (
-    <PromptInputProvider>
-      <PromptInputWorkspaceContent />
-    </PromptInputProvider>
-  );
+  return <PromptInputWorkspaceContent />;
 }
 
 /** Reads stream state from ChatProvider; owns pending-ask derivation for the shell. */
 function PromptInputWorkspaceContent() {
-  const { sendMessage, status, stop, messages } = useChatContext();
+  const { sendMessage, status, stop, messages, chatId } = useChatContext();
   const pendingAsk = useMemo(
     () => getPendingAskUserQuestion(messages),
     [messages],
@@ -313,6 +307,7 @@ function PromptInputWorkspaceContent() {
   const {
     attachments,
     textInput,
+    clearDraft: clearPromptDraft,
     prefs: {
       model,
       setModel,
@@ -340,6 +335,8 @@ function PromptInputWorkspaceContent() {
         useExcalidraw: boolean;
       },
     ): void => {
+      clearDraft(chatId);
+      clearPromptDraft();
       void sendMessage(
         {
           text: message.text?.trim() || "",
@@ -361,7 +358,7 @@ function PromptInputWorkspaceContent() {
         toast.error("Failed to send message");
       });
     },
-    [sendMessage],
+    [chatId, clearPromptDraft, sendMessage],
   );
 
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
@@ -495,8 +492,9 @@ function PromptInputWorkspaceContent() {
             onOptionSelect={(option) => {
               try {
                 handleSubmit({ text: option.label, files: [] });
+                textInput.clear();
               } catch {
-                // Not ready / refused — MCQ path has no form draft to preserve.
+                // Not ready / refused — keep the current draft.
               }
             }}
           >
