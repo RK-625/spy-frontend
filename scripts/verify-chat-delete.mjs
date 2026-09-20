@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// Isolate before importing @/lib/chats (process singleton). Never use product .data/chats.db.
+// Isolate before importing @/lib/chats/sqlite (process singleton). Never use product .data/chats.db.
 let tempDbPath = process.env.CHATS_DB_PATH;
 const isDefaultOrUnset =
   !tempDbPath ||
@@ -57,7 +57,7 @@ try {
     getChatsDb,
     listChats,
   } = await import(
-    pathToFileURL(path.join(root, "src/lib/chats.ts")).href
+    pathToFileURL(path.join(root, "src/lib/chats/sqlite.ts")).href
   );
 
   // Case 1: createChatRecord then deleteChatRecord(id) -> true; getChat(id) -> null
@@ -139,15 +139,15 @@ try {
     "Case 5: Chat 5 absent from list after delete",
   );
 
-  // Case 6: Negative static assertion: ensure SQL in src/lib/chats.ts has WHERE clause and no DELETE without WHERE
+  // Case 6: Negative static assertion: ensure SQL in src/lib/chats/sqlite.ts has WHERE clause and no DELETE without WHERE
   const chatsSource = readFileSync(
-    path.join(root, "src/lib/chats.ts"),
+    path.join(root, "src/lib/chats/sqlite.ts"),
     "utf8",
   );
   const deleteStatements = chatsSource.match(/DELETE\s+FROM\s+chats[^\n;]*/gi) ?? [];
   assert(
     deleteStatements.length > 0,
-    "Case 6: Found DELETE statement in src/lib/chats.ts",
+    "Case 6: Found DELETE statement in src/lib/chats/sqlite.ts",
   );
   for (const stmt of deleteStatements) {
     assert(

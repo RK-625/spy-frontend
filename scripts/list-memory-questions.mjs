@@ -128,7 +128,7 @@ async function openEmbeddedGraph() {
     "No fdb-*.sock under FALKOR_PATH; using product getDb() (starts/opens embedded FalkorDBLite).",
   );
   const { getDb } = await import(
-    pathToFileURL(path.join(root, "src/lib/falkor.ts")).href
+    pathToFileURL(path.join(root, "src/lib/graph/falkor.ts")).href
   );
   const graph = await getDb();
   return { graph, close: null };

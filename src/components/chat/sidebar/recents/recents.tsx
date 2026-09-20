@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useChatContext } from "@/contexts/ChatContext";
-import { listChats } from "@/lib/chats-api";
+import { listChats } from "@/lib/chats/api";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui";
 import type { ChatMeta } from "@/types/chat-schema";

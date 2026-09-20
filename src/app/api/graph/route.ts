@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { listGraphTopology } from "@/lib/falkor";
+import { listGraphTopology } from "@/lib/graph/falkor";
 import type { GraphApiResponse } from "@/types/graph-topology";
 
 /**
