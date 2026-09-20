@@ -492,8 +492,9 @@ function PromptInputWorkspaceContent() {
             onOptionSelect={(option) => {
               try {
                 handleSubmit({ text: option.label, files: [] });
+                textInput.clear();
               } catch {
-                // Not ready / refused — MCQ path has no form draft to preserve.
+                // Not ready / refused — keep the current draft.
               }
             }}
           >

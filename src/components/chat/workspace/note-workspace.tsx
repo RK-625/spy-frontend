@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { MilkdownView } from "@/components/graph/editor/milkdown-view";
+import { Button } from "@/components/ui";
 import type { MemoryNode } from "@/types/graph-schema";
 
 export interface NoteWorkspaceProps {
@@ -57,14 +58,15 @@ export function NoteWorkspace({ node, onClose }: NoteWorkspaceProps) {
             </span>
           ) : null}
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={onClose}
           aria-label="Close note"
-          className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-text-secondary transition-colors hover:bg-[var(--surface-hover)] hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X size={16} strokeWidth={1.5} />
-        </button>
+        </Button>
       </header>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/30 p-4">
