@@ -277,7 +277,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       try {
         await deleteChatRequest(id);
-        void discardDraftForDeletedChat(id);
+        await discardDraftForDeletedChat(id);
         if (wasActive) {
           landOnEmptyHome(true);
         }
