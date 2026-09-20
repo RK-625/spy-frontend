@@ -101,9 +101,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const activeChatIdRef = useRef(activeChat.id);
-  useEffect(() => {
-    activeChatIdRef.current = activeChat.id;
-  }, [activeChat.id]);
 
   const switchGenerationRef = useRef(0);
   const switchAbortRef = useRef<AbortController | null>(null);
@@ -120,6 +117,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       );
       chatsRef.current.set(chat.id, chat);
       setActiveChat(chat);
+      activeChatIdRef.current = chat.id;
       syncChatUrl(chat.id, true, replace);
     },
     [updateChatOrder],
@@ -171,6 +169,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         setSelectedNote(null);
         setActiveChat(chat);
+        activeChatIdRef.current = chat.id;
         if (writeUrl) {
           syncChatUrl(chatId, false, replace);
         }
