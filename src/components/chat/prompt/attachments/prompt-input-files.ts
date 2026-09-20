@@ -54,6 +54,7 @@
  */
 import type { FileUIPart } from "ai";
 import { nanoid } from "nanoid";
+import type { StoredDraftAttachment } from "@/lib/storage/prompt-draft-store";
 
 export type AttachmentError = {
   code: "max_files" | "max_file_size" | "accept";
@@ -160,10 +161,38 @@ export function filterIncomingFiles(
   return capped;
 }
 
+export type PromptAttachmentItem = FileUIPart & { id: string; blob?: Blob };
+
+export function attachmentToDraft(
+  item: PromptAttachmentItem
+): StoredDraftAttachment | null {
+  if (!item.blob) return null;
+  return {
+    blob: item.blob,
+    filename: item.filename ?? "file",
+    id: item.id,
+    mediaType: item.mediaType ?? "application/octet-stream",
+  };
+}
+
+export function draftToAttachment(
+  stored: StoredDraftAttachment
+): PromptAttachmentItem {
+  return {
+    blob: stored.blob,
+    filename: stored.filename,
+    id: stored.id,
+    mediaType: stored.mediaType,
+    type: "file" as const,
+    url: URL.createObjectURL(stored.blob),
+  };
+}
+
 export function filesToFileUIParts(
   files: File[]
-): (FileUIPart & { id: string })[] {
+): PromptAttachmentItem[] {
   return files.map((file) => ({
+    blob: file,
     filename: file.name,
     id: nanoid(),
     mediaType: file.type,
