@@ -7,7 +7,7 @@ import {
   listChats,
   upsertChatMessages,
   type ChatListCursor,
-} from "@/lib/chats";
+} from "@/lib/chats/sqlite";
 import type { ChatMeta } from "@/types/chat-schema";
 
 /** better-sqlite3 — Node.js only. */

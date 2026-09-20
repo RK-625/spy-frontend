@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { generateEmbedding } from "@/ai/models";
-import { getDb, isVectorIndexesReady } from "@/lib/falkor";
+import { getDb, isVectorIndexesReady } from "@/lib/graph/falkor";
 
 /**
  * GET /api/test-db — dev/ops connectivity probe (not a product surface).

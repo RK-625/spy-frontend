@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MEMORY_SEARCH_MAX_QUESTIONS } from "@/lib/policy-tokens";
+import { MEMORY_SEARCH_MAX_QUESTIONS } from "@/lib/graph/policy";
 import { searchMemoriesQuestionsFieldDescription } from "@/prompts/tools/search-memories";
 
 /**

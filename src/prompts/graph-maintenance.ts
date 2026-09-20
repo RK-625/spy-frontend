@@ -5,7 +5,7 @@
 import {
   MEMORY_QUESTION_COUNT_MAX,
   MEMORY_QUESTION_COUNT_MIN,
-} from "@/lib/policy-tokens";
+} from "@/lib/graph/policy";
 
 export const GRAPH_MAINTENANCE = `## Content authoring
   Write **content** so it is cohesive with the user's existing knowledge — personalized, familiar, easy to grasp.

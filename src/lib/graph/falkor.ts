@@ -17,7 +17,7 @@ import type { GraphTopology } from "@/types/graph-topology";
 import {
   MEMORY_SEARCH_MAX_DISTANCE,
   MEMORY_SEARCH_TOP_K,
-} from "@/lib/policy-tokens";
+} from "@/lib/graph/policy";
 import { z } from "zod";
 
 /** Re-export wire SoT from client-safe `@/types/graph-topology` (do not redefine). */

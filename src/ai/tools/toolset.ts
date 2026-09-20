@@ -12,8 +12,8 @@ import {
   getDb,
   vectorSearchByQuestions as falkorVectorSearchByQuestions,
   getMemoryCone as falkorGetMemoryCone,
-} from "@/lib/falkor";
-import { MEMORY_SEARCH_TOP_K } from "@/lib/policy-tokens";
+} from "@/lib/graph/falkor";
+import { MEMORY_SEARCH_TOP_K } from "@/lib/graph/policy";
 import type {
   Links,
   ManageLinksBatchResult,

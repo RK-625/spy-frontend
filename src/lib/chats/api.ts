@@ -1,6 +1,6 @@
 /**
  * Browser client for `/api/chats` (fetch only).
- * Server SQLite lives in `@/lib/chats` — do not import that from client.
+ * Server SQLite lives in `@/lib/chats/sqlite` — do not import that from client.
  */
 import type { UIMessage } from "ai";
 import type { ChatMeta, ChatWithMessages } from "@/types/chat-schema";

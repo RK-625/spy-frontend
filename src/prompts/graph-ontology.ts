@@ -3,7 +3,7 @@
  * Descriptive: shape, distillation, Q↔Q matching, probe style. Not write rules.
  */
 
-import { MEMORY_SEARCH_MAX_QUESTIONS } from "@/lib/policy-tokens";
+import { MEMORY_SEARCH_MAX_QUESTIONS } from "@/lib/graph/policy";
 
 export const GRAPH_ONTOLOGY = `## What a knowledge graph is
   The knowledge graph is a graph of nodes (Memories) and edges (Links).

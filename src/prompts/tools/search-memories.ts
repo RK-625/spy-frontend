@@ -6,7 +6,7 @@
 import {
   MEMORY_SEARCH_MAX_DISTANCE,
   MEMORY_SEARCH_MAX_QUESTIONS,
-} from "@/lib/policy-tokens";
+} from "@/lib/graph/policy";
 
 /**
  * Short agent-stateful recall style guidance reused by search field copy and upsert questions.

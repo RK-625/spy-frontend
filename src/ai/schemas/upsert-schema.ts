@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   MEMORY_QUESTION_COUNT_MAX,
   MEMORY_QUESTION_COUNT_MIN,
-} from "@/lib/policy-tokens";
+} from "@/lib/graph/policy";
 import {
   upsertMemoryNameFieldDescription,
   upsertMemoryContentFieldDescription,

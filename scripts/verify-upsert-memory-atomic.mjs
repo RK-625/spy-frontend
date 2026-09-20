@@ -23,7 +23,7 @@ const { createToolSet } = await import(
   pathToFileURL(path.join(root, "src/ai/tools/toolset.ts")).href
 );
 const { getDb } = await import(
-  pathToFileURL(path.join(root, "src/lib/falkor.ts")).href
+  pathToFileURL(path.join(root, "src/lib/graph/falkor.ts")).href
 );
 
 let failed = 0;

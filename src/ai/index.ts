@@ -8,7 +8,7 @@
  * - `@/ai/schemas/*-schema` — Zod SoT (client-safe when deep-imported)
  *
  * Agent and tools are intentionally omitted: either re-export pulls
- * createToolSet → @/lib/falkor (native). Server routes import
+ * createToolSet → @/lib/graph/falkor (native). Server routes import
  * `runAgent` from `@/ai/agent`. Client code uses deep schema paths only
  * (e.g. `@/ai/schemas/ask-schema`).
  */
