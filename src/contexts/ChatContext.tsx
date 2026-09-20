@@ -21,21 +21,31 @@ import {
 } from "@/lib/chats-api";
 import type { ChatContextValue } from "@/types/chat";
 import type { MemoryNode } from "@/types/graph-schema";
-
 const ChatContext = createContext<ChatContextValue | null>(null);
 
-function syncChatUrl(chatId: string | null, replace = false) {
+function readHistoryChatId(state: unknown): string | null {
+  if (state && typeof state === "object" && "chatId" in state) {
+    const id = (state as { chatId: unknown }).chatId;
+    if (typeof id === "string" && id.trim().length > 0) return id.trim();
+  }
+  return null;
+}
+
+function syncChatUrl(chatId: string, isNew: boolean, replace = false) {
   if (typeof window === "undefined") return;
-  const target = chatId
-    ? `${window.location.pathname}?c=${encodeURIComponent(chatId)}`
-    : window.location.pathname;
+  const target = isNew
+    ? window.location.pathname
+    : `${window.location.pathname}?c=${encodeURIComponent(chatId)}`;
   const current = `${window.location.pathname}${window.location.search}`;
-  if (current !== target) {
-    if (replace) {
-      window.history.replaceState(null, "", target);
-    } else {
-      window.history.pushState(null, "", target);
-    }
+  const currentStateId = readHistoryChatId(window.history.state);
+
+  if (current === target && currentStateId === chatId) return;
+
+  const state = { chatId };
+  if (replace) {
+    window.history.replaceState(state, "", target);
+  } else {
+    window.history.pushState(state, "", target);
   }
 }
 
@@ -51,11 +61,8 @@ function restoreActiveChatUrl(
   const param = new URLSearchParams(window.location.search).get("c");
   const instance = chats.get(activeChatId);
   const hasMessages = (instance?.messages.length ?? 0) > 0;
-  if (param === activeChatId || hasMessages) {
-    syncChatUrl(activeChatId, true);
-  } else {
-    syncChatUrl(null, true);
-  }
+  const isNew = !param && !hasMessages;
+  syncChatUrl(activeChatId, isNew, true);
 }
 
 /**
@@ -94,7 +101,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const activeChatIdRef = useRef(activeChat.id);
-  activeChatIdRef.current = activeChat.id;
+  useEffect(() => {
+    activeChatIdRef.current = activeChat.id;
+  }, [activeChat.id]);
 
   const switchGenerationRef = useRef(0);
   const switchAbortRef = useRef<AbortController | null>(null);
@@ -111,7 +120,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       );
       chatsRef.current.set(chat.id, chat);
       setActiveChat(chat);
-      syncChatUrl(null, replace);
+      syncChatUrl(chat.id, true, replace);
     },
     [updateChatOrder],
   );
@@ -126,7 +135,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
    * Stale/aborted fetches must not touch React state or the URL.
    */
   const switchChat = useCallback(
-    async (chatId: string, replace = false) => {
+    async (chatId: string, replace = false, writeUrl = true) => {
       switchAbortRef.current?.abort();
       switchAbortRef.current = null;
       switchGenerationRef.current += 1;
@@ -162,7 +171,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         setSelectedNote(null);
         setActiveChat(chat);
-        syncChatUrl(chatId, replace);
+        if (writeUrl) {
+          syncChatUrl(chatId, false, replace);
+        }
       } catch (err: unknown) {
         if (isAbortError(err) || gen !== switchGenerationRef.current) {
           return;
@@ -170,7 +181,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (isChatNotFoundError(err)) {
           if (replace) {
             setSelectedNote(null);
-            syncChatUrl(null, true);
+            syncChatUrl(activeChatIdRef.current, true, true);
             return;
           }
           landOnEmptyHome(true);
@@ -192,6 +203,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           console.error("Failed to hydrate chat from URL:", err);
         },
       );
+    } else {
+      syncChatUrl(activeChatIdRef.current, true, true);
     }
     return () => {
       switchAbortRef.current?.abort();
@@ -204,15 +217,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 // when the chat here is activated here btw though here
   useEffect(() => {
     if (messages.length > 0) {
-      syncChatUrl(activeChat.id, true);
+      syncChatUrl(activeChat.id, false, true);
     }
   }, [messages.length, activeChat.id]);
   // add the listener here for popstate reverse
   useEffect(() => {
-    const handlePopState = () => {
-      const param = new URLSearchParams(window.location.search).get("c");
-      if (param) {
-        void switchChat(param).catch((err: unknown) => {
+    const handlePopState = (event: PopStateEvent) => {
+      const queryParam = new URLSearchParams(window.location.search).get("c")?.trim();
+      const chatId = (queryParam && queryParam.length > 0)
+        ? queryParam
+        : readHistoryChatId(event.state);
+
+      if (chatId) {
+        void switchChat(chatId, false, false).catch((err: unknown) => {
           console.error("switchChat (popstate):", err);
         });
       } else {
