@@ -19,6 +19,7 @@ import {
   isChatNotFoundError,
   saveChatMessages,
 } from "@/lib/chats-api";
+import { discardDraftForDeletedChat } from "@/lib/storage/prompt-draft-store";
 import type { ChatContextValue } from "@/types/chat";
 import type { MemoryNode } from "@/types/graph-schema";
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -276,6 +277,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       try {
         await deleteChatRequest(id);
+        await discardDraftForDeletedChat(id);
         if (wasActive) {
           landOnEmptyHome(true);
         }

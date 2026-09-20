@@ -54,6 +54,7 @@
  */
 import type { FileUIPart } from "ai";
 import { nanoid } from "nanoid";
+import type { StoredDraftAttachment } from "@/lib/storage/prompt-draft-store";
 
 export type AttachmentError = {
   code: "max_files" | "max_file_size" | "accept";
@@ -160,10 +161,38 @@ export function filterIncomingFiles(
   return capped;
 }
 
+export type PromptAttachmentItem = FileUIPart & { id: string; blob?: Blob };
+
+export function attachmentToDraft(
+  item: PromptAttachmentItem
+): StoredDraftAttachment | null {
+  if (!item.blob) return null;
+  return {
+    blob: item.blob,
+    filename: item.filename ?? "file",
+    id: item.id,
+    mediaType: item.mediaType ?? "application/octet-stream",
+  };
+}
+
+export function draftToAttachment(
+  stored: StoredDraftAttachment
+): PromptAttachmentItem {
+  return {
+    blob: stored.blob,
+    filename: stored.filename,
+    id: stored.id,
+    mediaType: stored.mediaType,
+    type: "file" as const,
+    url: URL.createObjectURL(stored.blob),
+  };
+}
+
 export function filesToFileUIParts(
   files: File[]
-): (FileUIPart & { id: string })[] {
+): PromptAttachmentItem[] {
   return files.map((file) => ({
+    blob: file,
     filename: file.name,
     id: nanoid(),
     mediaType: file.type,
@@ -174,28 +203,39 @@ export function filesToFileUIParts(
 
 export function revokeFileUrls(files: { url?: string }[]): void {
   for (const f of files) {
-    if (f.url) {
+    if (f.url && f.url.startsWith("blob:")) {
       URL.revokeObjectURL(f.url);
     }
   }
 }
 
+export async function convertBlobToDataUrl(
+  blob: Blob
+): Promise<string | null> {
+  // FileReader uses callback-based API, wrapping in Promise is necessary
+  // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
+    reader.onloadend = () =>
+      resolve(typeof reader.result === "string" ? reader.result : null);
+    // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}
+
 export async function convertBlobUrlToDataUrl(
-  url: string
+  url: string,
+  blob?: Blob
 ): Promise<string | null> {
   try {
+    if (blob) {
+      return await convertBlobToDataUrl(blob);
+    }
     const response = await fetch(url);
-    const blob = await response.blob();
-    // FileReader uses callback-based API, wrapping in Promise is necessary
-    // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onloadend = () => resolve(reader.result as string);
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
+    const fetchedBlob = await response.blob();
+    return await convertBlobToDataUrl(fetchedBlob);
   } catch {
     return null;
   }
