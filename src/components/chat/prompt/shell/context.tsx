@@ -230,7 +230,6 @@ export const PromptInputProvider = ({
   }, [chatId]);
 
   const clearInput = useCallback(() => {
-    hasInteractedRef.current = true;
     setTextInput("");
   }, []);
 
@@ -377,7 +376,6 @@ export const PromptInputProvider = ({
       revokeFileUrls(prev);
       return [];
     });
-    hasInteractedRef.current = true;
   }, []);
 
   const openFileDialog = useCallback(() => {

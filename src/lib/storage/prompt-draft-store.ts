@@ -6,6 +6,9 @@ import {
 
 export type { PromptDraftRecord, StoredDraftAttachment };
 
+// Deleted chat UUIDs are never reused; block later puts from resurrecting the row.
+const suppressedDeletedChatIds = new Set<string>();
+
 /**
  * Retrieve a stored prompt draft for a specific chat ID.
  * Returns null if running in SSR, if IndexedDB is unavailable, or if no draft exists.
@@ -37,12 +40,20 @@ export async function savePromptDraft(record: PromptDraftRecord): Promise<void> 
     return;
   }
 
+  if (suppressedDeletedChatIds.has(record.chatId)) {
+    return;
+  }
+
   try {
     const db = getClientDb();
     if (!db) {
       return;
     }
     await db.drafts.put(record);
+    // Compensating delete: an in-flight put started before suppress must not stick.
+    if (suppressedDeletedChatIds.has(record.chatId)) {
+      await db.drafts.delete(record.chatId);
+    }
   } catch (error: unknown) {
     console.error(`[prompt-draft-store] Failed to save draft for chatId: ${record.chatId}`, error);
   }
@@ -65,5 +76,29 @@ export async function deletePromptDraft(chatId: string): Promise<void> {
     await db.drafts.delete(chatId);
   } catch (error: unknown) {
     console.error(`[prompt-draft-store] Failed to delete draft for chatId: ${chatId}`, error);
+  }
+}
+
+/**
+ * Permanently drop a draft for a deleted chat and suppress later saves for that id.
+ */
+export async function discardDraftForDeletedChat(chatId: string): Promise<void> {
+  suppressedDeletedChatIds.add(chatId);
+
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const db = getClientDb();
+    if (!db) {
+      return;
+    }
+    await db.drafts.delete(chatId);
+  } catch (error: unknown) {
+    console.error(
+      `[prompt-draft-store] Failed to discard draft for deleted chatId: ${chatId}`,
+      error,
+    );
   }
 }
