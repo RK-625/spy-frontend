@@ -14,7 +14,9 @@ Open [http://localhost:3000](http://localhost:3000).
 | Route | What |
 |-------|------|
 | `/` | Landing (story, CTA; mascot host not mounted) |
-| `/home` | Chat UI (conversation, sidebar, prompt shell) |
+| `/chat` | Chat UI (conversation, sidebar, prompt shell). |
+| `/notes` | Notes master (blank detail). `/notes/[id]` is read-only Milkdown. |
+| `/graph` | Knowledge graph (same sidebar shell) |
 
 Configure provider/API keys as needed in `.env.local` (never commit secrets).
 
@@ -36,12 +38,11 @@ src/
     landing/     # Marketing/hero surfaces
     dotmatrix/   # Pixel icons + loaders (use DotMatrixIcon from here)
     brand/logos/ # Provider marks
-  deprecated/    # Archived experiments — not production routes
   ai/            # Agent streaming, tools, embeddings
   contexts/      # ChatContext, etc.
 ```
 
-**Prompt input** SoT: `src/components/chat/prompt/prompt-input.tsx`. Live **pending-ask** is a non-morph option list in the prompt body (`pendingAsk` / `onOptionSelect`). The old **morphing** ask-user-question widget is under `src/deprecated/ask-user-question-widget/`; do not rewire morph into `/home` without an explicit redesign task.
+**Prompt input** SoT: `src/components/chat/prompt/shell/prompt-input.tsx`. Live **pending-ask** is a non-morph option list in the prompt body (`pendingAsk` / `onOptionSelect`). Do not rewire a morphing ask widget into `/chat` without an explicit redesign task.
 
 ## Scripts
 

@@ -12,5 +12,9 @@ export const metadata: Metadata = {
  * No URL query flags; live topology only.
  */
 export default function GraphPage() {
-  return <SigmaCanvasHost />;
+  return (
+    <div className="relative h-full min-h-0 w-full overflow-hidden">
+      <SigmaCanvasHost />
+    </div>
+  );
 }

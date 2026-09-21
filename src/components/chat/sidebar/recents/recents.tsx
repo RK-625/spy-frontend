@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button, Separator, toast } from "@/components/ui";
 import { useChatContext } from "@/contexts/ChatContext";
 import { listChats } from "@/lib/chats/api";
 import { cn } from "@/lib/utils";
-import { toast } from "@/components/ui";
 import type { ChatMeta } from "@/types/chat-schema";
 import { ChatSidebarRecentsRow } from "./recents-row";
 
 function ChatSidebarRecentsRule() {
-  return <div className="h-px flex-1 bg-[var(--accent-border)]" />;
+  return (
+    <Separator className="h-px w-auto flex-1 bg-[var(--accent-border)]" />
+  );
 }
 
 export function ChatSidebarRecents() {
@@ -106,19 +108,20 @@ export function ChatSidebarRecents() {
             />
           ))}
           {nextCursor ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={handleLoadMore}
               disabled={loadingRecents}
               className={cn(
-                "mt-1 w-full rounded-[var(--radius)] px-2 py-1.5 text-left text-[0.8125rem] outline-none transition-colors",
+                "mt-1 h-auto w-full justify-start rounded-[var(--radius)] px-2 py-1.5 text-left text-[0.8125rem] font-normal",
                 "text-text-secondary hover:bg-[var(--surface-hover)] hover:text-text-primary",
-                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                "disabled:pointer-events-none disabled:opacity-50",
+                "focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring",
+                "active:translate-y-0 active:not-aria-[haspopup]:translate-y-0",
               )}
             >
               {loadingRecents ? "Loading…" : "Load more"}
-            </button>
+            </Button>
           ) : null}
         </div>
       )}

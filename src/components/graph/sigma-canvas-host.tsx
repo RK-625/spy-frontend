@@ -13,7 +13,7 @@ const SigmaCanvas = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <div className="h-dvh w-dvw bg-background" />,
+    loading: () => <div className="h-full w-full bg-background" />,
   },
 );
 

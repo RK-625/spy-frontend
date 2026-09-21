@@ -71,6 +71,9 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  --duration-fast: 150ms;
+  --ease-chrome: cubic-bezier(0, 0, 0.2, 1);
 }
 
 /* Base layer: body styles, utility overrides */

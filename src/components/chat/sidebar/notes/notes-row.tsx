@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { motion } from "motion/react";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ export function ChatSidebarNotesRow({
   noteSelected,
   onOpenNote,
   onFolderExpandedChange,
+  chromeTransition,
 }: {
   title: string;
   depth: number;
@@ -22,6 +24,7 @@ export function ChatSidebarNotesRow({
   noteSelected: boolean;
   onOpenNote: () => void;
   onFolderExpandedChange: (expanded: boolean) => void;
+  chromeTransition: { duration: number; ease?: "easeOut" };
 }) {
   return (
     <div
@@ -56,11 +59,14 @@ export function ChatSidebarNotesRow({
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             )}
           >
-            {folderExpanded ? (
-              <ChevronDown size={ICON_GLYPH.badge} strokeWidth={1.5} />
-            ) : (
+            <motion.span
+              className="inline-flex origin-center"
+              initial={false}
+              animate={{ rotate: folderExpanded ? 90 : 0 }}
+              transition={chromeTransition}
+            >
               <ChevronRight size={ICON_GLYPH.badge} strokeWidth={1.5} />
-            )}
+            </motion.span>
           </button>
         ) : (
           <span className="size-6 shrink-0" aria-hidden />

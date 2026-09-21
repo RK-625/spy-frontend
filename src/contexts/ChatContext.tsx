@@ -2,6 +2,7 @@
 
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { Chat, useChat } from "@ai-sdk/react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -21,8 +22,10 @@ import {
 } from "@/lib/chats/api";
 import { discardDraftForDeletedChat } from "@/lib/storage/prompt-draft-store";
 import type { ChatContextValue } from "@/types/chat";
-import type { MemoryNode } from "@/types/graph-schema";
+
 const ChatContext = createContext<ChatContextValue | null>(null);
+
+const CHAT_PATH = "/chat";
 
 function readHistoryChatId(state: unknown): string | null {
   if (state && typeof state === "object" && "chatId" in state) {
@@ -32,17 +35,26 @@ function readHistoryChatId(state: unknown): string | null {
   return null;
 }
 
+function buildChatUrl(chatId: string, isNew: boolean): string {
+  return isNew ? CHAT_PATH : `${CHAT_PATH}?c=${encodeURIComponent(chatId)}`;
+}
+
 function syncChatUrl(chatId: string, isNew: boolean, replace = false) {
   if (typeof window === "undefined") return;
-  const target = isNew
-    ? window.location.pathname
-    : `${window.location.pathname}?c=${encodeURIComponent(chatId)}`;
+  // replaceState on a non-/chat path desyncs the App Router.
+  if (window.location.pathname !== CHAT_PATH) return;
+
+  const target = buildChatUrl(chatId, isNew);
   const current = `${window.location.pathname}${window.location.search}`;
   const currentStateId = readHistoryChatId(window.history.state);
 
   if (current === target && currentStateId === chatId) return;
 
-  const state = { chatId };
+  const prev = window.history.state;
+  const state = {
+    ...(prev && typeof prev === "object" ? prev : {}),
+    chatId,
+  };
   if (replace) {
     window.history.replaceState(state, "", target);
   } else {
@@ -79,8 +91,10 @@ function restoreActiveChatUrl(
  * - switchChat Map miss → fetchChat → createChat → register → activate.
  */
 export function ChatProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+
   const [chatOrder, setChatOrder] = useState(0);
-  const [selectedNote, setSelectedNote] = useState<MemoryNode | null>(null);
   const updateChatOrder = useCallback(() => {
     setChatOrder((n) => n + 1);
   }, []);
@@ -106,13 +120,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const switchGenerationRef = useRef(0);
   const switchAbortRef = useRef<AbortController | null>(null);
 
-  /** Empty conversation at /home. New-chat button pushes; missing-chat 404 replaces. */
-  const landOnEmptyHome = useCallback(
+  /** Empty conversation at /chat. New-chat button pushes; missing-chat 404 replaces. */
+  const landOnEmptyChat = useCallback(
     (replace: boolean) => {
       switchAbortRef.current?.abort();
       switchAbortRef.current = null;
       switchGenerationRef.current += 1;
-      setSelectedNote(null);
       const chat = createChat(
         crypto.randomUUID(),
         [],
@@ -129,8 +142,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   /** Mint id, register empty Chat, set active (keeps other open chats). */
   const newChat = useCallback(() => {
-    landOnEmptyHome(false);
-  }, [landOnEmptyHome]);
+    landOnEmptyChat(false);
+    if (window.location.pathname !== CHAT_PATH) {
+      router.push(CHAT_PATH);
+    }
+  }, [landOnEmptyChat, router]);
 
   /**
    * Activate by id: Map hit reuses live Chat; miss hydrates from GET /api/chats.
@@ -138,11 +154,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
    */
   const switchChat = useCallback(
     async (chatId: string, replace = false, writeUrl = true) => {
+      if (activeChatIdRef.current === chatId) {
+        if (writeUrl && window.location.pathname !== CHAT_PATH) {
+          router.push(buildChatUrl(chatId, false));
+        }
+        return;
+      }
+
       switchAbortRef.current?.abort();
       switchAbortRef.current = null;
       switchGenerationRef.current += 1;
-
-      if (activeChatIdRef.current === chatId) return;
 
       const controller = new AbortController();
       switchAbortRef.current = controller;
@@ -176,11 +197,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         if (deletedIdsRef.current.has(chatId)) return;
 
-        setSelectedNote(null);
         setActiveChat(chat);
         activeChatIdRef.current = chat.id;
         if (writeUrl) {
-          syncChatUrl(chatId, false, replace);
+          if (window.location.pathname !== CHAT_PATH) {
+            router.push(buildChatUrl(chatId, false));
+          } else {
+            syncChatUrl(chatId, false, replace);
+          }
         }
       } catch (err: unknown) {
         if (isAbortError(err) || gen !== switchGenerationRef.current) {
@@ -188,39 +212,44 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
         if (isChatNotFoundError(err)) {
           if (replace) {
-            setSelectedNote(null);
             syncChatUrl(activeChatIdRef.current, true, true);
             return;
           }
-          landOnEmptyHome(true);
+          landOnEmptyChat(true);
           return;
         }
         restoreActiveChatUrl(activeChatIdRef.current, chatsRef.current);
         throw err;
       }
     },
-    [landOnEmptyHome, updateChatOrder],
+    [landOnEmptyChat, router, updateChatOrder],
   );
 
   useEffect(() => {
-    const paramChatId = new URLSearchParams(window.location.search).get("c");
+    if (pathname !== CHAT_PATH) return;
+
+    const paramChatId = new URLSearchParams(window.location.search)
+      .get("c")
+      ?.trim();
     if (paramChatId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate conversation from URL query on mount
-      void switchChat(paramChatId, true).catch(
-        (err: unknown) => {
-          console.error("Failed to hydrate chat from URL:", err);
-        },
-      );
-    } else {
-      syncChatUrl(activeChatIdRef.current, true, true);
+      if (paramChatId === activeChatIdRef.current) return;
+      void switchChat(paramChatId, true).catch((err: unknown) => {
+        console.error("Failed to hydrate chat from URL:", err);
+      });
+      return;
     }
+
+    const instance = chatsRef.current.get(activeChatIdRef.current);
+    const hasMessages = (instance?.messages.length ?? 0) > 0;
+    syncChatUrl(activeChatIdRef.current, !hasMessages, true);
+  }, [pathname, switchChat]);
+
+  useEffect(() => {
     return () => {
       switchAbortRef.current?.abort();
       switchAbortRef.current = null;
       switchGenerationRef.current += 1;
     };
-    // Mount-only: read `c` once. Do not re-hydrate when switchChat identity changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once on mount
   }, []);
 
   useEffect(() => {
@@ -231,6 +260,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
+      if (window.location.pathname !== CHAT_PATH) return;
+
       const queryParam = new URLSearchParams(window.location.search).get("c")?.trim();
       const chatId = (queryParam && queryParam.length > 0)
         ? queryParam
@@ -241,12 +272,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           console.error("switchChat (popstate):", err);
         });
       } else {
-        landOnEmptyHome(true);
+        landOnEmptyChat(true);
       }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [switchChat, landOnEmptyHome]);
+  }, [switchChat, landOnEmptyChat]);
 
   /**
    * Remove chat from SQLite and active memory. Tombstone + Map drop for the
@@ -279,7 +310,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         await deleteChatRequest(id);
         await discardDraftForDeletedChat(id);
         if (wasActive) {
-          landOnEmptyHome(true);
+          landOnEmptyChat(true);
         }
         updateChatOrder();
       } catch (err: unknown) {
@@ -290,7 +321,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         throw err;
       }
     },
-    [landOnEmptyHome, updateChatOrder],
+    [landOnEmptyChat, updateChatOrder],
   );
 
   const value: ChatContextValue = useMemo(
@@ -305,8 +336,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchChat,
       deleteChat,
       chatOrder,
-      selectedNote,
-      setSelectedNote,
     }),
     [
       activeChat.id,
@@ -319,7 +348,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchChat,
       deleteChat,
       chatOrder,
-      selectedNote,
     ],
   );
 
@@ -378,4 +406,3 @@ function createChat(
     },
   });
 }
-

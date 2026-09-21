@@ -272,7 +272,7 @@ export const PromptInput = ({
 };
 
 // ============================================================================
-// PromptInputWorkspace — product export for /home
+// PromptInputWorkspace — product export for /chat
 // ============================================================================
 
 const ModelItem = ({
@@ -301,7 +301,7 @@ const ModelItem = ({
   );
 };
 
-/** Product prompt block for /home — form + footer; requires outer PromptInputProvider. */
+/** Product prompt block for /chat — form + footer; requires outer PromptInputProvider. */
 export function PromptInputWorkspace() {
   return <PromptInputWorkspaceContent />;
 }

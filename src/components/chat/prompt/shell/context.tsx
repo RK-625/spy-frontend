@@ -31,6 +31,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -128,6 +129,53 @@ export const DEFAULT_PROMPT_PREFS = {
   "model" | "mode" | "useWebSearch" | "useExcalidraw"
 >;
 
+function persistPromptDraft(
+  id: string,
+  current: {
+    attachmentFiles: PromptAttachmentItem[];
+    mode: string;
+    model: string;
+    textInput: string;
+    useExcalidraw: boolean;
+    useWebSearch: boolean;
+  },
+  hydrated: boolean,
+  interacted: boolean,
+) {
+  if (!id || !hydrated || !interacted) return;
+
+  const attachmentsToStore = current.attachmentFiles
+    .map(attachmentToDraft)
+    .filter((a): a is StoredDraftAttachment => a !== null);
+
+  const isDefaultSettings =
+    current.model === DEFAULT_PROMPT_PREFS.model &&
+    current.mode === DEFAULT_PROMPT_PREFS.mode &&
+    current.useWebSearch === DEFAULT_PROMPT_PREFS.useWebSearch &&
+    current.useExcalidraw === DEFAULT_PROMPT_PREFS.useExcalidraw;
+
+  const isEmptyDraft =
+    current.textInput.trim() === "" &&
+    attachmentsToStore.length === 0 &&
+    isDefaultSettings;
+
+  if (isEmptyDraft) {
+    void deletePromptDraft(id);
+  } else {
+    const record: PromptDraftRecord = {
+      attachments: attachmentsToStore,
+      chatId: id,
+      mode: current.mode,
+      model: current.model,
+      text: current.textInput,
+      updatedAt: Date.now(),
+      useExcalidraw: current.useExcalidraw,
+      useWebSearch: current.useWebSearch,
+    };
+    void savePromptDraft(record);
+  }
+}
+
 /**
  * Owns prompt draft state (text + attachments + prefs). Required wrapper for
  * PromptInput and consumers of usePromptInputContext.
@@ -149,6 +197,7 @@ export const PromptInputProvider = ({
 
   const isHydratedRef = useRef<boolean>(false);
   const hasInteractedRef = useRef<boolean>(false);
+  const chatIdRef = useRef(chatId);
 
   const registeredInputRef = useRef<RefObject<HTMLInputElement | null> | null>(null);
   const validatorRef = useRef<AttachmentAddValidator | null>(null);
@@ -182,42 +231,32 @@ export const PromptInputProvider = ({
   ]);
 
   const flushSave = useCallback(() => {
-    if (!chatId || !isHydratedRef.current || !hasInteractedRef.current) {
-      return;
-    }
-
-    const current = draftRef.current;
-    const attachmentsToStore = current.attachmentFiles
-      .map(attachmentToDraft)
-      .filter((a): a is StoredDraftAttachment => a !== null);
-
-    const isDefaultSettings =
-      current.model === DEFAULT_PROMPT_PREFS.model &&
-      current.mode === DEFAULT_PROMPT_PREFS.mode &&
-      current.useWebSearch === DEFAULT_PROMPT_PREFS.useWebSearch &&
-      current.useExcalidraw === DEFAULT_PROMPT_PREFS.useExcalidraw;
-
-    const isEmptyDraft =
-      current.textInput.trim() === "" &&
-      attachmentsToStore.length === 0 &&
-      isDefaultSettings;
-
-    if (isEmptyDraft) {
-      void deletePromptDraft(chatId);
-    } else {
-      const record: PromptDraftRecord = {
-        attachments: attachmentsToStore,
-        chatId,
-        mode: current.mode,
-        model: current.model,
-        text: current.textInput,
-        updatedAt: Date.now(),
-        useExcalidraw: current.useExcalidraw,
-        useWebSearch: current.useWebSearch,
-      };
-      void savePromptDraft(record);
-    }
+    persistPromptDraft(
+      chatId,
+      draftRef.current,
+      isHydratedRef.current,
+      hasInteractedRef.current,
+    );
   }, [chatId]);
+
+  const applyComposerDraft = useCallback(
+    (draft: PromptDraftRecord | null | undefined) => {
+      setTextInput(draft?.text ?? "");
+      setModel(draft?.model || DEFAULT_PROMPT_PREFS.model);
+      setMode(draft?.mode || DEFAULT_PROMPT_PREFS.mode);
+      setUseWebSearch(
+        draft?.useWebSearch ?? DEFAULT_PROMPT_PREFS.useWebSearch,
+      );
+      setUseExcalidraw(
+        draft?.useExcalidraw ?? DEFAULT_PROMPT_PREFS.useExcalidraw,
+      );
+      setAttachmentFiles((prev) => {
+        revokeFileUrls(prev);
+        return (draft?.attachments || []).map(draftToAttachment);
+      });
+    },
+    [],
+  );
 
   const handleClearDraft = useCallback(() => {
     hasInteractedRef.current = false;
@@ -268,7 +307,31 @@ export const PromptInputProvider = ({
     setUseExcalidraw((prev) => !prev);
   }, []);
 
-  // Hydration on mount
+  useLayoutEffect(() => {
+    const previousId = chatIdRef.current;
+    if (previousId !== chatId) {
+      persistPromptDraft(
+        previousId,
+        {
+          attachmentFiles,
+          mode,
+          model,
+          textInput,
+          useExcalidraw,
+          useWebSearch,
+        },
+        isHydratedRef.current,
+        hasInteractedRef.current,
+      );
+      hasInteractedRef.current = false;
+      isHydratedRef.current = false;
+      applyComposerDraft(null);
+    }
+    chatIdRef.current = chatId;
+    // Snapshot is this render's composer; only run when the active chat changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chatId transition
+  }, [chatId, applyComposerDraft]);
+
   useEffect(() => {
     let isActive = true;
 
@@ -277,30 +340,25 @@ export const PromptInputProvider = ({
         if (!isActive) {
           return;
         }
-        if (!hasInteractedRef.current && draft) {
-          setTextInput(draft.text ?? "");
-          setModel(draft.model || DEFAULT_PROMPT_PREFS.model);
-          setMode(draft.mode || DEFAULT_PROMPT_PREFS.mode);
-          setUseWebSearch(
-            draft.useWebSearch ?? DEFAULT_PROMPT_PREFS.useWebSearch
-          );
-          setUseExcalidraw(
-            draft.useExcalidraw ?? DEFAULT_PROMPT_PREFS.useExcalidraw
-          );
-          setAttachmentFiles((draft.attachments || []).map(draftToAttachment));
+        if (!hasInteractedRef.current) {
+          applyComposerDraft(draft);
         }
         isHydratedRef.current = true;
       })
       .catch(() => {
-        if (isActive) {
-          isHydratedRef.current = true;
+        if (!isActive) {
+          return;
         }
+        if (!hasInteractedRef.current) {
+          applyComposerDraft(null);
+        }
+        isHydratedRef.current = true;
       });
 
     return () => {
       isActive = false;
     };
-  }, [chatId]);
+  }, [chatId, applyComposerDraft]);
 
   // Debounced auto-save (400ms)
   useEffect(() => {
@@ -323,19 +381,29 @@ export const PromptInputProvider = ({
     flushSave,
   ]);
 
-  // Flush on unmount or beforeunload + cleanup blob URLs on unmount
+  // Persist + revoke blob URLs only when the provider unmounts (not on chatId / flushSave identity change).
   useEffect(() => {
     const handleBeforeUnload = () => {
-      flushSave();
+      persistPromptDraft(
+        chatIdRef.current,
+        draftRef.current,
+        isHydratedRef.current,
+        hasInteractedRef.current,
+      );
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      flushSave();
+      persistPromptDraft(
+        chatIdRef.current,
+        draftRef.current,
+        isHydratedRef.current,
+        hasInteractedRef.current,
+      );
       revokeFileUrls(draftRef.current.attachmentFiles);
     };
-  }, [flushSave]);
+  }, []);
 
   const add = useCallback(
     (files: File[] | FileList) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 import {
   ChatActionButton,
   ChatActionRail,
@@ -21,11 +21,8 @@ import {
   SourcesContent,
   SourcesTrigger,
   PromptInputWorkspace,
-  PromptInputProvider,
-  ChatSidebar,
   MCPAppCard,
   hasMcpAppView,
-  NoteWorkspace,
 } from "@/components/chat";
 import type {
   DynamicToolUIPart,
@@ -36,8 +33,7 @@ import type {
   UIMessage,
 } from "ai";
 
-import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
-import { AppToaster, TooltipProvider } from "@/components/ui";
+import { useChatContext } from "@/contexts/ChatContext";
 import { Excalidraw } from "@/components/logos";
 import { Check, Copy, Globe, Lightbulb, Pencil } from "lucide-react";
 
@@ -319,43 +315,11 @@ const ChatWorkspace = () => {
   );
 };
 
-const MainChatArea = () => {
-  const { selectedNote, setSelectedNote, chatId } = useChatContext();
-  const handleCloseNote = useCallback(
-    () => setSelectedNote(null),
-    [setSelectedNote],
-  );
-
+export default function ChatPage() {
   return (
-    <div className="flex h-full flex-1 flex-col items-center overflow-hidden">
-      <PromptInputProvider key={chatId} chatId={chatId}>
-        {selectedNote ? (
-          <NoteWorkspace node={selectedNote} onClose={handleCloseNote} />
-        ) : (
-          <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
-            <ChatWorkspace />
-          </div>
-        )}
-      </PromptInputProvider>
-    </div>
-  );
-};
-
-export default function HomePage() {
-  return (
-    <div className="relative min-h-screen overflow-hidden bg-surface-chat workspace-root">
-      <div className="fixed inset-0 z-50 bg-surface-chat pointer-events-none animate-[dissolve-out_2.5s_linear_0.8s_forwards]" />
-
-      <div className="relative z-10 flex h-screen w-full">
-        {/* Chat product shell: tooltips + stream + toaster (chat-only; root layout stays bare) */}
-        <TooltipProvider delayDuration={300}>
-          <ChatProvider>
-            <ChatSidebar />
-            {/* Main chat area */}
-            <MainChatArea />
-          </ChatProvider>
-          <AppToaster />
-        </TooltipProvider>
+    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col items-center overflow-hidden">
+      <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
+        <ChatWorkspace />
       </div>
     </div>
   );

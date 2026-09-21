@@ -8,8 +8,10 @@ import {
   DialogHeader as EditorHeader,
   DialogTitle as EditorTitle,
 } from "@/components/ui";
-import { X } from "lucide-react";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
 import type { MemoryNode } from "@/types/graph-schema";
+import { Book, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { MilkdownView } from "./milkdown-view";
 
@@ -36,6 +38,7 @@ export function Editor({
   readOnly = false,
   onDocumentTextChange,
 }: EditorProps) {
+  const router = useRouter();
   const title = node.name?.trim() || node.id || "Node";
   const content =
     node.content?.trim() || `No content woven for “${title}” yet.`;
@@ -61,13 +64,25 @@ export function Editor({
               {confidenceLabel}
             </span>
           ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label="Open note"
+            onClick={() =>
+              router.push(`/notes/${encodeURIComponent(node.id)}`)
+            }
+          >
+            <Book size={ICON_GLYPH.inline} strokeWidth={1.5} />
+            Open note
+          </Button>
           <EditorClose asChild>
             <Button
               variant="ghost"
               className="bg-secondary"
               size="icon-sm"
             >
-              <X size={16} strokeWidth={1.5} />
+              <X size={ICON_GLYPH.inline} strokeWidth={1.5} />
               <span className="sr-only">Close</span>
             </Button>
           </EditorClose>

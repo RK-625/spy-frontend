@@ -58,6 +58,7 @@ const required = [
   "src/components/chat/sidebar/chat-sidebar.tsx",
   "src/components/chat/sidebar/chrome/item.tsx",
   "src/components/chat/sidebar/chrome/rail.tsx",
+  "src/components/chat/sidebar/chrome/route-switcher-strip.tsx",
   "src/components/chat/sidebar/header/header.tsx",
   "src/components/chat/sidebar/body/body.tsx",
   "src/components/chat/sidebar/actions/actions.tsx",
@@ -99,6 +100,13 @@ const required = [
   // graph host
   "src/components/graph/sigma-canvas.tsx",
   "src/components/graph/editor/editor.tsx",
+
+  // Workspace shell (route group is not in the URL)
+  "src/app/(workspace)/layout.tsx",
+  "src/app/(workspace)/chat/page.tsx",
+  "src/app/(workspace)/notes/page.tsx",
+  "src/app/(workspace)/notes/[id]/page.tsx",
+  "src/app/(workspace)/graph/page.tsx",
 ];
 
 const forbidden = [
@@ -144,6 +152,11 @@ const forbidden = [
   "src/components/ui/dialog.tsx",
   "src/components/ui/tooltip.tsx",
   "src/components/ui/command.tsx",
+  // graph / notes live under the workspace group, not as top-level app routes
+  "src/app/graph/page.tsx",
+  "src/app/notes/page.tsx",
+  "src/app/notes/[id]/page.tsx",
+  "src/app/(workspace)/notes/[id]/loading.tsx",
 ];
 
 const failures = [];
@@ -192,6 +205,201 @@ for (const f of walk(uiDir)) {
 }
 
 // Dual-path root shims forbidden (chat + dotmatrix); no thin-re-export walk.
+
+const chatContext = fs.readFileSync(
+  path.join(root, "src/contexts/ChatContext.tsx"),
+  "utf8",
+);
+if (
+  /target = isNew[\s\S]{0,80}window\.location\.pathname/.test(chatContext) ||
+  /\$\{window\.location\.pathname\}\?c=/.test(chatContext)
+) {
+  failures.push(
+    "ChatContext must not write history using window.location.pathname",
+  );
+}
+if (
+  !chatContext.includes('const CHAT_PATH = "/chat"') ||
+  !chatContext.includes("function buildChatUrl") ||
+  !chatContext.includes("const target = buildChatUrl")
+) {
+  failures.push("ChatContext must build chat URLs from CHAT_PATH /chat");
+}
+if (
+  !chatContext.includes("router.push(CHAT_PATH)") ||
+  !chatContext.includes("router.push(buildChatUrl")
+) {
+  failures.push(
+    "newChat/switchChat must router.push /chat when switching off-route",
+  );
+}
+if (
+  chatContext.includes("selectedNote") ||
+  chatContext.includes("setSelectedNote")
+) {
+  failures.push("ChatContext must not hold selectedNote");
+}
+const chatTypes = fs.readFileSync(
+  path.join(root, "src/types/chat.ts"),
+  "utf8",
+);
+if (
+  chatTypes.includes("selectedNote") ||
+  chatTypes.includes("setSelectedNote")
+) {
+  failures.push("src/types/chat.ts must not declare selectedNote");
+}
+const chatPage = fs.readFileSync(
+  path.join(root, "src/app/(workspace)/chat/page.tsx"),
+  "utf8",
+);
+if (
+  chatPage.includes("NoteWorkspace") ||
+  chatPage.includes("selectedNote") ||
+  chatPage.includes("setSelectedNote")
+) {
+  failures.push(
+    "chat page must be conversation-only (no NoteWorkspace overlay)",
+  );
+}
+const sidebar = fs.readFileSync(
+  path.join(root, "src/components/chat/sidebar/chat-sidebar.tsx"),
+  "utf8",
+);
+if (sidebar.includes("spy-sidebar-panel")) {
+  failures.push(
+    "sidebar notes surface must follow the URL, not spy-sidebar-panel",
+  );
+}
+if (!sidebar.includes("RouteSwitcherStrip")) {
+  failures.push("sidebar must render RouteSwitcherStrip");
+}
+if (!sidebar.includes('router.push("/chat")')) {
+  failures.push("Chat tab must router.push /chat");
+}
+if (!sidebar.includes('router.push("/notes")')) {
+  failures.push("Notes item must router.push /notes");
+}
+if (!sidebar.includes('router.push("/graph")')) {
+  failures.push("Graph tab must router.push /graph");
+}
+const handleOpenChatFn = sidebar.match(
+  /const handleOpenChat = useCallback\(\(\) => \{([\s\S]*?)\}, \[/,
+);
+if (!handleOpenChatFn) {
+  failures.push("sidebar must define handleOpenChat");
+} else if (handleOpenChatFn[1].includes("newChat(")) {
+  failures.push("Chat tab handler must not call newChat()");
+} else if (!handleOpenChatFn[1].includes('router.push("/chat")')) {
+  failures.push("Chat tab handler must router.push /chat");
+}
+if (
+  sidebar.includes("handleDismissNotes") ||
+  /setSelectedNote\(null\)/.test(sidebar)
+) {
+  failures.push("Cmd+B must be width-only; must not dismiss notes to /chat");
+}
+if (/!isNotesRoute\s*\?\s*\([\s\S]{0,800}ChatSidebarFooter/.test(sidebar)) {
+  failures.push("Settings footer must not be gated on !isNotesRoute");
+}
+const notesTree = fs.readFileSync(
+  path.join(root, "src/components/chat/sidebar/notes/notes.tsx"),
+  "utf8",
+);
+if (
+  notesTree.includes("setSelectedNote") ||
+  notesTree.includes("selectedNote,")
+) {
+  failures.push("notes tree must select via the URL, not setSelectedNote");
+}
+if (!notesTree.includes("`/notes/${encodeURIComponent(noteId)}`")) {
+  failures.push("notes tree must router.push /notes/[id]");
+}
+const noteByIdPage = fs.readFileSync(
+  path.join(root, "src/app/(workspace)/notes/[id]/page.tsx"),
+  "utf8",
+);
+const noteWorkspace = fs.readFileSync(
+  path.join(root, "src/components/chat/workspace/note-workspace.tsx"),
+  "utf8",
+);
+if (!noteByIdPage.includes("getMemory(")) {
+  failures.push("notes [id] page must snapshot via getMemory");
+}
+if (!noteByIdPage.includes("<Suspense")) {
+  failures.push("notes [id] page must Suspense the getMemory body");
+}
+if (!noteByIdPage.includes("Note not found.")) {
+  failures.push("notes [id] page missing copy must be Note not found.");
+}
+if (!noteByIdPage.includes("Couldn&apos;t load notes")) {
+  failures.push("notes [id] page error copy must match the notes tree");
+}
+if (!noteByIdPage.includes("DotmHex9")) {
+  failures.push("notes [id] page loading fallback must use DotmHex9");
+}
+if (noteByIdPage.includes('"use client"')) {
+  failures.push("notes [id] page must stay a Server Component");
+}
+if (noteByIdPage.includes('fetch("/api/graph")')) {
+  failures.push("notes [id] page must not fetch GET /api/graph");
+}
+if (
+  noteByIdPage.includes("notFound(") ||
+  /router\.(push|replace)\(\s*["'`]\/chat/.test(noteByIdPage)
+) {
+  failures.push("notes [id] must not leave the notes shell for missing/error");
+}
+if (!noteWorkspace.includes('router.push("/notes")')) {
+  failures.push("NoteWorkspace must close via router.push /notes");
+}
+if (!noteWorkspace.includes('aria-label="Close note"')) {
+  failures.push("NoteWorkspace must offer Close note");
+}
+if (!noteWorkspace.includes('event.key === "Escape"')) {
+  failures.push("NoteWorkspace must dismiss on Escape");
+}
+if (!noteWorkspace.includes("{children}")) {
+  failures.push("NoteWorkspace must take children as the note body");
+}
+if (!noteWorkspace.includes("readOnly={true}")) {
+  failures.push("NoteWorkspace Milkdown must stay readOnly");
+}
+const graphEditor = fs.readFileSync(
+  path.join(root, "src/components/graph/editor/editor.tsx"),
+  "utf8",
+);
+if (
+  !graphEditor.includes("`/notes/${encodeURIComponent(node.id)}`") &&
+  !(
+    graphEditor.includes("encodeURIComponent(node.id)") &&
+    graphEditor.includes("/notes/")
+  )
+) {
+  failures.push(
+    "graph editor Open note must router.push /notes/[id] from node.id",
+  );
+}
+if (!graphEditor.includes("Open note")) {
+  failures.push("graph editor must offer Open note");
+}
+if (
+  /[`'"]\/notes\/\$\{(?:encodeURIComponent\()?node\.name/.test(graphEditor)
+) {
+  failures.push("graph editor must not navigate with node.name");
+}
+const workspaceLayout = fs.readFileSync(
+  path.join(root, "src/app/(workspace)/layout.tsx"),
+  "utf8",
+);
+if (/PromptInputProvider\s+key=\{chatId\}/.test(workspaceLayout)) {
+  failures.push(
+    "PromptInputProvider key={chatId} must not wrap ChatSidebar / graph children",
+  );
+}
+if (fs.existsSync(path.join(root, "src/app/home"))) {
+  failures.push("src/app/home was removed; / is the landing page and /chat is the workspace");
+}
 
 if (failures.length) {
   console.error(JSON.stringify({ ok: false, failures }, null, 2));

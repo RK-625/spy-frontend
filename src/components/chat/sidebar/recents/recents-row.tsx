@@ -44,7 +44,7 @@ export function ChatSidebarRecentsRow({
         aria-current={isActiveChat ? "true" : undefined}
         title={chat.title}
         className={cn(
-          "w-full min-w-0 rounded-[var(--radius)] px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          "w-full min-w-0 rounded-[var(--radius)] px-2 py-1.5 text-left outline-none transition-[padding] duration-fast ease-chrome focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           "group-hover:pr-7 group-focus-within:pr-7",
           gutterMenuOpen && "pr-7",
         )}
