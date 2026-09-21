@@ -44,7 +44,7 @@ export function NoteWorkspace({ children }: NoteWorkspaceProps) {
     <div
       role="region"
       aria-label="Note"
-      className="relative flex h-full w-full flex-col overflow-hidden bg-surface-chat px-12 py-8 animate-in fade-in duration-200"
+      className="relative flex h-full w-full flex-col overflow-hidden bg-surface-chat px-12 py-8"
     >
       <Button
         type="button"

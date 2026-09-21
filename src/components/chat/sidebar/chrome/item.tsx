@@ -2,8 +2,10 @@
 
 import type { ComponentType } from "react";
 import { motion } from "motion/react";
-import { cn } from "@/lib/utils";
+import { usePrefersReducedMotion } from "@/components/dotmatrix";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
+import { MOTION } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 interface ChatSidebarItemProps {
   icon: ComponentType<{ size?: number; className?: string }>;
@@ -25,13 +27,14 @@ export function ChatSidebarItem({
   variant = "default",
 }: ChatSidebarItemProps) {
   const isPrimaryVariant = variant === "primary";
+  const reducedMotion = usePrefersReducedMotion();
 
   return (
     <button
       onClick={onClick}
       aria-label={label}
       className={cn(
-        "group relative flex w-full items-center rounded-[var(--radius)] transition-all duration-200 outline-none",
+        "group relative flex w-full items-center overflow-hidden rounded-[var(--radius)] transition-[background-color,color] duration-fast ease-chrome outline-none",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         !isPrimaryVariant &&
           !active &&
@@ -48,13 +51,9 @@ export function ChatSidebarItem({
       </span>
       <motion.span
         initial={false}
-        animate={{
-          opacity: showLabel ? 1 : 0,
-          width: showLabel ? "auto" : 0,
-          marginLeft: showLabel ? 8 : 0,
-        }}
-        transition={{ duration: 0.15, ease: "easeOut" }}
-        className="flex flex-1 items-center overflow-hidden whitespace-nowrap"
+        animate={{ opacity: showLabel ? 1 : 0 }}
+        transition={reducedMotion ? { duration: 0 } : MOTION.chrome}
+        className="ml-2 flex flex-1 items-center overflow-hidden whitespace-nowrap"
       >
         <span className="text-[0.8125rem]">{label}</span>
         {shortcut && (

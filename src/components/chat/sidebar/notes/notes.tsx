@@ -8,8 +8,11 @@ import {
   type ReactNode,
 } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
+import { usePrefersReducedMotion } from "@/components/dotmatrix";
 import { Separator } from "@/components/ui";
 import { useChatContext } from "@/contexts/ChatContext";
+import { CHROME_FADE, MOTION } from "@/lib/motion";
 import type { GraphApiResponse } from "@/types/graph-topology";
 import { ChatSidebarNotesRow } from "./notes-row";
 import {
@@ -50,6 +53,7 @@ function ChatSidebarNotesBranch({
   selectedNoteId,
   onSelectNote,
   onFolderExpandedChange,
+  chromeTransition,
 }: {
   node: NotesForestNode;
   depth: number;
@@ -57,6 +61,7 @@ function ChatSidebarNotesBranch({
   selectedNoteId: string | null;
   onSelectNote: (noteId: string) => void;
   onFolderExpandedChange: (noteId: string, expanded: boolean) => void;
+  chromeTransition: { duration: number; ease?: "easeOut" };
 }) {
   const hasChildren = node.children.length > 0;
   const folderExpanded = expandedNoteIds.has(node.note.id);
@@ -73,20 +78,33 @@ function ChatSidebarNotesBranch({
         onFolderExpandedChange={(expanded) =>
           onFolderExpandedChange(node.note.id, expanded)
         }
+        chromeTransition={chromeTransition}
       />
-      {hasChildren && folderExpanded
-        ? node.children.map((child) => (
-            <ChatSidebarNotesBranch
-              key={child.note.id}
-              node={child}
-              depth={depth + 1}
-              expandedNoteIds={expandedNoteIds}
-              selectedNoteId={selectedNoteId}
-              onSelectNote={onSelectNote}
-              onFolderExpandedChange={onFolderExpandedChange}
-            />
-          ))
-        : null}
+      <AnimatePresence initial={false}>
+        {hasChildren && folderExpanded ? (
+          <motion.div
+            key={`${node.note.id}-children`}
+            className="overflow-hidden"
+            initial={{ ...CHROME_FADE.initial, height: 0 }}
+            animate={{ ...CHROME_FADE.animate, height: "auto" }}
+            exit={{ ...CHROME_FADE.exit, height: 0 }}
+            transition={chromeTransition}
+          >
+            {node.children.map((child) => (
+              <ChatSidebarNotesBranch
+                key={child.note.id}
+                node={child}
+                depth={depth + 1}
+                expandedNoteIds={expandedNoteIds}
+                selectedNoteId={selectedNoteId}
+                onSelectNote={onSelectNote}
+                onFolderExpandedChange={onFolderExpandedChange}
+                chromeTransition={chromeTransition}
+              />
+            ))}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -110,6 +128,8 @@ export function ChatSidebarNotes() {
     () => new Set(),
   );
   const expandedHydratedRef = useRef(false);
+  const reducedMotion = usePrefersReducedMotion();
+  const chromeTransition = reducedMotion ? { duration: 0 } : MOTION.chrome;
 
   useEffect(() => {
     let cancelled = false;
@@ -215,6 +235,7 @@ export function ChatSidebarNotes() {
             selectedNoteId={selectedNoteId}
             onSelectNote={handleSelectNote}
             onFolderExpandedChange={handleFolderExpandedChange}
+            chromeTransition={chromeTransition}
           />
         ))}
       </div>

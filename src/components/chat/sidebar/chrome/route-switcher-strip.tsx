@@ -11,6 +11,7 @@ function isNotesPathname(pathname: string): boolean {
 
 const ROUTE_SWITCHER_SLOT_CLASS = cn(
   "h-7 flex-1 rounded-[6px] p-0",
+  "transition-[background-color,color] duration-fast ease-chrome",
   "hover:bg-[var(--surface-hover)]",
   "focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring",
   "active:translate-y-0 active:not-aria-[haspopup]:translate-y-0",
