@@ -14,7 +14,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | Route | What |
 |-------|------|
 | `/` | Landing (story, CTA; mascot host not mounted) |
-| `/home` | Chat UI (conversation, sidebar, prompt shell) |
+| `/chat` | Chat UI (conversation, sidebar, prompt shell). `/home` redirects here. |
+| `/graph` | Knowledge graph (same sidebar shell) |
 
 Configure provider/API keys as needed in `.env.local` (never commit secrets).
 
@@ -41,7 +42,7 @@ src/
   contexts/      # ChatContext, etc.
 ```
 
-**Prompt input** SoT: `src/components/chat/prompt/prompt-input.tsx`. Live **pending-ask** is a non-morph option list in the prompt body (`pendingAsk` / `onOptionSelect`). The old **morphing** ask-user-question widget is under `src/deprecated/ask-user-question-widget/`; do not rewire morph into `/home` without an explicit redesign task.
+**Prompt input** SoT: `src/components/chat/prompt/prompt-input.tsx`. Live **pending-ask** is a non-morph option list in the prompt body (`pendingAsk` / `onOptionSelect`). The old **morphing** ask-user-question widget is under `src/deprecated/ask-user-question-widget/`; do not rewire morph into `/chat` without an explicit redesign task.
 
 ## Scripts
 

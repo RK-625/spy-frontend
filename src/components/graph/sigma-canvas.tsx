@@ -146,7 +146,7 @@ export function SigmaCanvas() {
   }, [topology]);
 
   return (
-    <div className="relative h-dvh w-dvw overflow-hidden bg-background text-text-primary">
+    <div className="relative h-full w-full overflow-hidden bg-background text-text-primary">
       <div
         ref={hostRef}
         className="absolute inset-0"

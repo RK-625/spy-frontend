@@ -99,6 +99,11 @@ const required = [
   // graph host
   "src/components/graph/sigma-canvas.tsx",
   "src/components/graph/editor/editor.tsx",
+
+  // Sprint 1 workspace shell (route group is not in the URL)
+  "src/app/(workspace)/layout.tsx",
+  "src/app/(workspace)/chat/page.tsx",
+  "src/app/(workspace)/graph/page.tsx",
 ];
 
 const forbidden = [
@@ -144,6 +149,11 @@ const forbidden = [
   "src/components/ui/dialog.tsx",
   "src/components/ui/tooltip.tsx",
   "src/components/ui/command.tsx",
+  // graph lives under the workspace group; notes routes are not shipped
+  "src/app/graph/page.tsx",
+  "src/app/notes/page.tsx",
+  "src/app/(workspace)/notes/page.tsx",
+  "src/app/(workspace)/notes/[id]/page.tsx",
 ];
 
 const failures = [];
@@ -192,6 +202,47 @@ for (const f of walk(uiDir)) {
 }
 
 // Dual-path root shims forbidden (chat + dotmatrix); no thin-re-export walk.
+
+const chatContext = fs.readFileSync(
+  path.join(root, "src/contexts/ChatContext.tsx"),
+  "utf8",
+);
+if (
+  /target = isNew[\s\S]{0,80}window\.location\.pathname/.test(chatContext) ||
+  /\$\{window\.location\.pathname\}\?c=/.test(chatContext)
+) {
+  failures.push(
+    "ChatContext must not write history using window.location.pathname",
+  );
+}
+if (
+  !chatContext.includes('const CHAT_PATH = "/chat"') ||
+  !chatContext.includes("function buildChatUrl") ||
+  !chatContext.includes("const target = buildChatUrl")
+) {
+  failures.push("ChatContext must build chat URLs from CHAT_PATH /chat");
+}
+if (
+  !chatContext.includes("router.push(CHAT_PATH)") ||
+  !chatContext.includes("router.push(buildChatUrl")
+) {
+  failures.push(
+    "newChat/switchChat must router.push /chat when switching off-route",
+  );
+}
+const workspaceLayout = fs.readFileSync(
+  path.join(root, "src/app/(workspace)/layout.tsx"),
+  "utf8",
+);
+if (/PromptInputProvider\s+key=\{chatId\}/.test(workspaceLayout)) {
+  failures.push(
+    "PromptInputProvider key={chatId} must not wrap ChatSidebar / graph children",
+  );
+}
+const homePage = fs.readFileSync(path.join(root, "src/app/home/page.tsx"), "utf8");
+if (!homePage.includes("redirect(") || !homePage.includes("/chat")) {
+  failures.push("src/app/home/page.tsx must redirect to /chat");
+}
 
 if (failures.length) {
   console.error(JSON.stringify({ ok: false, failures }, null, 2));

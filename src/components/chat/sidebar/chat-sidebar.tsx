@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { CommandPalette, SettingsDialog } from "../overlays";
 import { useChatContext } from "@/contexts/ChatContext";
@@ -104,6 +105,8 @@ export function ChatSidebar() {
   }, [sidebarPanel, sidebarPanelHydrated]);
 
   const { newChat, setSelectedNote } = useChatContext();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const isNotesPanel = sidebarPanel === "notes";
   const isSidebarFull = sidebarMode === "full" || isNotesPanel;
@@ -114,7 +117,9 @@ export function ChatSidebar() {
     setSidebarPanel("chats");
   }, [newChat]);
 
-  const handleOpenGraph = useCallback(() => {}, []);
+  const handleOpenGraph = useCallback(() => {
+    router.push("/graph");
+  }, [router]);
 
   const handleRevealNotes = useCallback(() => {
     setSidebarPanel("notes");
@@ -204,6 +209,7 @@ export function ChatSidebar() {
                     icon={(props) => <Waypoints {...props} strokeWidth={1.5} />}
                     label="Graph"
                     onClick={handleOpenGraph}
+                    active={pathname === "/graph"}
                     showLabel={isSidebarFull}
                   />
                   <ChatSidebarItem

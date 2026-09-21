@@ -27,6 +27,8 @@ function assert(cond, msg) {
 const globals = read("src/app/globals.css");
 const iconTokens = read("src/lib/icon-tokens.ts");
 const home = read("src/app/home/page.tsx");
+const chatPage = read("src/app/(workspace)/chat/page.tsx");
+const chatUi = `${home}\n${chatPage}`;
 // Domain SoT paths (barrel consumers; icon paths under sidebar/overlays/prompt).
 const sidebar = read("src/components/chat/sidebar/header/header.tsx");
 const sidebarItem = read("src/components/chat/sidebar/chrome/item.tsx");
@@ -78,13 +80,13 @@ assert(
   "home model-fallback settings glyph size=20 (toolbar)"
 );
 assert(
-  (home.includes("!size-8") && home.includes("PromptInputSubmit")) ||
+  (chatUi.includes("!size-8") && chatUi.includes("PromptInputSubmit")) ||
     (promptInput.includes("!size-8") && promptInput.includes("PromptInputSubmit")),
   "home submit path uses size-8 control"
 );
 // Model check: badge-scale 14, not 10
 assert(
-  !/<Check[^>]*size=\{10\}/.test(home) &&
+  !/<Check[^>]*size=\{10\}/.test(chatUi) &&
     !/<Check[^>]*size=\{10\}/.test(promptInput),
   "home has no model check size={10}"
 );

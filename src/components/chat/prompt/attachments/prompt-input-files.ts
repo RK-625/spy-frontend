@@ -3,7 +3,7 @@
  * No JSX, no React state — only utilities that can be unit-tested in isolation.
  *
  * The string `PROMPT_INPUT_ACCEPT` below is the single source of truth for the
- * product allowlist used by the chat prompt at /home (and any future docs surface).
+ * product allowlist used by the chat prompt at /chat (and any future docs surface).
  * PromptInput defaults accept / max / multiple to these constants; optional props
  * override. Validation runs on add (filterIncomingFiles), so the <input accept>
  * attribute stays consistent with what we actually accept in code.
