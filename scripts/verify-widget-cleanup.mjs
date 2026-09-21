@@ -36,8 +36,8 @@ const DELETED = [
   "src/components/chat/chat-sidebar.tsx",
   "src/components/chat/settings-dialog.tsx",
   "src/components/chat/command-palette.tsx",
-  // Morph widget + lab archives fully removed (user decision: no production imports).
-  // `src/deprecated` itself is allowed for non-morph archives (e.g. home-chat-header).
+  // Morph widget, lab archives, and the unused home header are gone.
+  "src/deprecated",
   "src/deprecated/ask-user-question-widget",
   "src/deprecated/ui-prototypes",
   "src/app/ui-prototypes",
@@ -77,5 +77,5 @@ if (failed) {
 }
 
 console.log(
-  "OK: widget-mode cleanup verification passed (morph archives absent; src/deprecated allowed)",
+  "OK: widget-mode cleanup verification passed (morph archives and src/deprecated absent)",
 );

@@ -9,8 +9,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import * as React from "react";
 
-import { cn } from "@/lib/utils";
+import { usePrefersReducedMotion } from "@/components/dotmatrix";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
+import { MOTION } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 const QUERY_SPLIT_REGEX = /\s+/;
 
@@ -78,7 +80,6 @@ export interface CommandPaletteProps {
   showThemeGroup?: boolean;
   placeholder?: string;
   shortcutKey?: string;
-  contentDelay?: number;
   /** Custom trigger. Pass `null` to bind ⌘K with no visible trigger. */
   trigger?: React.ReactNode;
   triggerProps?: CommandPaletteTriggerProps;
@@ -184,7 +185,6 @@ function CommandPalette({
   showThemeGroup = false,
   placeholder = "Search conversations, actions…",
   shortcutKey = "k",
-  contentDelay = 150,
   trigger,
   triggerProps,
   className,
@@ -202,7 +202,6 @@ function CommandPalette({
     onChange: onOpenChange,
     prop: open,
   });
-  const [showContent, setShowContent] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const debouncedQuery = useDebouncedValue(searchQuery, 120);
   const [activeIndex, setActiveIndex] = React.useState(0);
@@ -211,6 +210,7 @@ function CommandPalette({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const itemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const previousPathnameRef = React.useRef(pathname);
+  const reducedMotion = usePrefersReducedMotion();
 
   React.useEffect(() => {
     // ponytail: defer state update to avoid synchronous state transition during mount
@@ -220,26 +220,14 @@ function CommandPalette({
   }, []);
 
   React.useEffect(() => {
-    if (paletteOpen) {
-      const contentId = window.setTimeout(
-        () => setShowContent(true),
-        contentDelay
-      );
-      const focusId = window.setTimeout(() => inputRef.current?.focus(), 10);
-
-      return () => {
-        window.clearTimeout(contentId);
-        window.clearTimeout(focusId);
-      };
-    }
-
-    // ponytail: defer state updates to avoid synchronous state transition during effect execution
-    setTimeout(() => {
-      setShowContent(false);
+    if (!paletteOpen) return;
+    const focusId = window.setTimeout(() => {
       setSearchQuery("");
       setActiveIndex(0);
+      inputRef.current?.focus();
     }, 0);
-  }, [contentDelay, paletteOpen]);
+    return () => window.clearTimeout(focusId);
+  }, [paletteOpen]);
 
   React.useEffect(() => {
     if (!pathname) {
@@ -451,7 +439,7 @@ function CommandPalette({
             aria-hidden
             className={commandItemHighlightClassName}
             layoutId={`${paletteId}-active-item`}
-            transition={{ type: "spring", stiffness: 600, damping: 38 }}
+            transition={reducedMotion ? { duration: 0 } : MOTION.spring}
           />
         ) : null}
         {item.icon ? (
@@ -500,12 +488,12 @@ function CommandPalette({
         open={paletteOpen ?? false}
       >
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-[220] bg-background/55 backdrop-blur-sm" />
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[220] bg-background/55 backdrop-blur-sm duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
           <DialogPrimitive.Content
             className={cn(
               // Desktop-first placement (product is desktop-only v1).
               // Avoid undefined --nav-stack-height-* tokens that invalidate calc().
-              "fixed inset-x-4 top-[12vh] z-[221] flex max-h-[min(560px,calc(100dvh-4rem))] flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-background shadow-[0_28px_90px_rgba(10,10,10,0.12)] outline-none sm:inset-x-6 sm:left-1/2 sm:w-[min(680px,calc(100vw-2rem))] sm:-translate-x-1/2",
+              "fixed inset-x-4 top-[12vh] z-[221] flex max-h-[min(560px,calc(100dvh-4rem))] flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-background shadow-[0_28px_90px_rgba(10,10,10,0.12)] outline-none duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 sm:inset-x-6 sm:left-1/2 sm:w-[min(680px,calc(100vw-2rem))] sm:-translate-x-1/2",
               className
             )}
             onOpenAutoFocus={(event) => {
@@ -556,14 +544,7 @@ function CommandPalette({
               </DialogPrimitive.Close>
             </div>
 
-            <div
-              className={cn(
-                "min-h-0 overflow-hidden transition-[max-height,opacity] duration-300 ease-out",
-                showContent
-                  ? "max-h-[min(420px,calc(100dvh-8rem))] opacity-100"
-                  : "max-h-0 opacity-0"
-              )}
-            >
+            <div className="min-h-0 max-h-[min(420px,calc(100dvh-8rem))] overflow-hidden">
               <div
                 className="h-full max-h-[inherit] overflow-y-auto overscroll-contain p-2 [-webkit-overflow-scrolling:touch]"
                 onKeyDown={handleListKeyDown}
