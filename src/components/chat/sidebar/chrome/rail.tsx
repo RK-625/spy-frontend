@@ -1,3 +1,4 @@
+import { Separator } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 export function ChatSidebarRail({
@@ -17,4 +18,8 @@ export function ChatSidebarRail({
       )}
     />
   );
+}
+
+export function SwitcherDivider() {
+  return <Separator className="bg-[var(--accent-border)]" />;
 }

@@ -5,10 +5,19 @@ import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { CommandPalette, SettingsDialog } from "../overlays";
 import { useChatContext } from "@/contexts/ChatContext";
-import { Book, Plus, Search, Settings, Waypoints } from "lucide-react";
+import {
+  Book,
+  MessageSquare,
+  Plus,
+  Search,
+  Settings,
+  Waypoints,
+} from "lucide-react";
 import { ChatSidebarActions } from "./actions/actions";
 import { ChatSidebarBody, ChatSidebarBodySpacer } from "./body/body";
 import { ChatSidebarItem } from "./chrome/item";
+import { SwitcherDivider } from "./chrome/rail";
+import { RouteSwitcherStrip } from "./chrome/route-switcher-strip";
 import { ChatSidebarFooter } from "./footer/footer";
 import { ChatSidebarHeader } from "./header/header";
 import { ChatSidebarNotes } from "./notes/notes";
@@ -92,7 +101,9 @@ export function ChatSidebar() {
   const router = useRouter();
   const pathname = usePathname();
 
+  const isChatRoute = pathname === "/chat";
   const isNotesRoute = isNotesPathname(pathname);
+  const isGraphRoute = pathname === "/graph";
   const isSidebarFull = sidebarMode === "full";
   const sidebarWidth = isSidebarFull ? SIDEBAR_FULL_WIDTH : SIDEBAR_ICON_WIDTH;
 
@@ -100,14 +111,20 @@ export function ChatSidebar() {
     newChat();
   }, [newChat]);
 
-  const handleOpenGraph = useCallback(() => {
-    router.push("/graph");
+  // Chat tab reuses the live Chat instance; Plus is the only mint.
+  const handleOpenChat = useCallback(() => {
+    router.push("/chat");
   }, [router]);
 
-  const handleRevealNotes = useCallback(() => {
-    setSidebarMode("full");
+  const handleOpenNotes = useCallback(() => {
+    if (isNotesPathname(pathname)) return;
     router.push("/notes");
-  }, [router]);
+  }, [pathname, router]);
+
+  const handleOpenGraph = useCallback(() => {
+    if (pathname === "/graph") return;
+    router.push("/graph");
+  }, [pathname, router]);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsDialogOpen(true);
@@ -151,83 +168,105 @@ export function ChatSidebar() {
         <ChatSidebarHeader
           isSidebarFull={isSidebarFull}
           onToggleSidebarMode={handleToggleSidebarMode}
+          onOpenCommandPalette={handleOpenCommandPalette}
         />
         <ChatSidebarBody>
-          <AnimatePresence initial={false}>
-            {!isNotesRoute ? (
-              <motion.div
-                key="sidebar-chats-actions"
-                initial={SIDEBAR_CHROME_MOTION.initial}
-                animate={SIDEBAR_CHROME_MOTION.animate}
-                exit={SIDEBAR_CHROME_MOTION.exit}
-                transition={SIDEBAR_CHROME_TRANSITION}
-                className="overflow-hidden"
-              >
-                <ChatSidebarActions isSidebarFull={isSidebarFull}>
+          {isSidebarFull ? (
+            <div className="flex flex-col gap-1.5 px-3 py-3">
+              <RouteSwitcherStrip
+                pathname={pathname}
+                onOpenChat={handleOpenChat}
+                onOpenNotes={handleOpenNotes}
+                onOpenGraph={handleOpenGraph}
+              />
+            </div>
+          ) : (
+            <ChatSidebarActions isSidebarFull={isSidebarFull}>
+              <ChatSidebarItem
+                icon={(props) => (
+                  <MessageSquare {...props} strokeWidth={1.5} />
+                )}
+                label="Chat"
+                onClick={handleOpenChat}
+                active={isChatRoute}
+                showLabel={false}
+              />
+              <ChatSidebarItem
+                icon={(props) => <Book {...props} strokeWidth={1.5} />}
+                label="Notes"
+                onClick={handleOpenNotes}
+                active={isNotesRoute}
+                showLabel={false}
+              />
+              <ChatSidebarItem
+                icon={(props) => <Waypoints {...props} strokeWidth={1.5} />}
+                label="Graph"
+                onClick={handleOpenGraph}
+                active={isGraphRoute}
+                showLabel={false}
+              />
+              <AnimatePresence initial={false}>
+                {isChatRoute ? (
+                  <motion.div
+                    key="sidebar-chat-extras"
+                    initial={SIDEBAR_CHROME_MOTION.initial}
+                    animate={SIDEBAR_CHROME_MOTION.animate}
+                    exit={SIDEBAR_CHROME_MOTION.exit}
+                    transition={SIDEBAR_CHROME_TRANSITION}
+                    className="flex flex-col gap-1.5 overflow-hidden"
+                  >
+                    <SwitcherDivider />
+                    <ChatSidebarItem
+                      icon={(props) => <Plus {...props} strokeWidth={1.5} />}
+                      label="New chat"
+                      onClick={handleNewChat}
+                      showLabel={false}
+                      variant="primary"
+                    />
+                    <ChatSidebarItem
+                      icon={(props) => <Search {...props} strokeWidth={1.5} />}
+                      label="Search"
+                      onClick={handleOpenCommandPalette}
+                      shortcut="⌘K"
+                      showLabel={false}
+                    />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </ChatSidebarActions>
+          )}
+          {isSidebarFull ? (
+            isChatRoute ? (
+              <>
+                <div className="flex flex-col gap-1.5 px-3 pb-1">
                   <ChatSidebarItem
                     icon={(props) => <Plus {...props} strokeWidth={1.5} />}
                     label="New chat"
                     onClick={handleNewChat}
-                    showLabel={isSidebarFull}
+                    showLabel
                     variant="primary"
                   />
-                  <ChatSidebarItem
-                    icon={(props) => <Search {...props} strokeWidth={1.5} />}
-                    label="Search…"
-                    onClick={handleOpenCommandPalette}
-                    shortcut="⌘K"
-                    showLabel={isSidebarFull}
-                  />
-                  <ChatSidebarItem
-                    icon={(props) => <Waypoints {...props} strokeWidth={1.5} />}
-                    label="Graph"
-                    onClick={handleOpenGraph}
-                    active={pathname === "/graph"}
-                    showLabel={isSidebarFull}
-                  />
-                  <ChatSidebarItem
-                    icon={(props) => <Book {...props} strokeWidth={1.5} />}
-                    label="Notes"
-                    onClick={handleRevealNotes}
-                    active={isNotesRoute}
-                    showLabel={isSidebarFull}
-                  />
-                </ChatSidebarActions>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-          {isSidebarFull ? (
-            isNotesRoute ? (
+                </div>
+                <ChatSidebarRecents />
+              </>
+            ) : isNotesRoute ? (
               <ChatSidebarNotes />
             ) : (
-              <ChatSidebarRecents />
+              <ChatSidebarBodySpacer />
             )
           ) : (
             <ChatSidebarBodySpacer />
           )}
         </ChatSidebarBody>
-        <AnimatePresence initial={false}>
-          {!isNotesRoute ? (
-            <motion.div
-              key="sidebar-chats-footer"
-              initial={SIDEBAR_CHROME_MOTION.initial}
-              animate={SIDEBAR_CHROME_MOTION.animate}
-              exit={SIDEBAR_CHROME_MOTION.exit}
-              transition={SIDEBAR_CHROME_TRANSITION}
-              className="overflow-hidden"
-            >
-              <ChatSidebarFooter isSidebarFull={isSidebarFull}>
-                <ChatSidebarItem
-                  icon={(props) => <Settings {...props} strokeWidth={1.5} />}
-                  label="Settings"
-                  onClick={handleOpenSettings}
-                  active={settingsDialogOpen}
-                  showLabel={isSidebarFull}
-                />
-              </ChatSidebarFooter>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        <ChatSidebarFooter isSidebarFull={isSidebarFull}>
+          <ChatSidebarItem
+            icon={(props) => <Settings {...props} strokeWidth={1.5} />}
+            label="Settings"
+            onClick={handleOpenSettings}
+            active={settingsDialogOpen}
+            showLabel={isSidebarFull}
+          />
+        </ChatSidebarFooter>
       </ChatSidebarFrame>
       <CommandPalette
         onOpenChange={setCommandPaletteOpen}

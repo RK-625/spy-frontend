@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { Separator } from "@/components/ui";
 import { useChatContext } from "@/contexts/ChatContext";
 import type { GraphApiResponse } from "@/types/graph-topology";
 import { ChatSidebarNotesRow } from "./notes-row";
@@ -20,7 +21,9 @@ import {
 const EXPANDED_NOTES_STORAGE_KEY = "spy-notes";
 
 function ChatSidebarNotesRule() {
-  return <div className="h-px flex-1 bg-[var(--accent-border)]" />;
+  return (
+    <Separator className="h-px w-auto flex-1 bg-[var(--accent-border)]" />
+  );
 }
 
 function readStoredExpandedNoteIds(): string[] | null {

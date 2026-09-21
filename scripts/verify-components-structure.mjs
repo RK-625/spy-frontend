@@ -58,6 +58,7 @@ const required = [
   "src/components/chat/sidebar/chat-sidebar.tsx",
   "src/components/chat/sidebar/chrome/item.tsx",
   "src/components/chat/sidebar/chrome/rail.tsx",
+  "src/components/chat/sidebar/chrome/route-switcher-strip.tsx",
   "src/components/chat/sidebar/header/header.tsx",
   "src/components/chat/sidebar/body/body.tsx",
   "src/components/chat/sidebar/actions/actions.tsx",
@@ -270,14 +271,36 @@ if (sidebar.includes("spy-sidebar-panel")) {
     "sidebar notes surface must follow the URL, not spy-sidebar-panel",
   );
 }
+if (!sidebar.includes("RouteSwitcherStrip")) {
+  failures.push("sidebar must render RouteSwitcherStrip");
+}
+if (!sidebar.includes('router.push("/chat")')) {
+  failures.push("Chat tab must router.push /chat");
+}
 if (!sidebar.includes('router.push("/notes")')) {
   failures.push("Notes item must router.push /notes");
+}
+if (!sidebar.includes('router.push("/graph")')) {
+  failures.push("Graph tab must router.push /graph");
+}
+const handleOpenChatFn = sidebar.match(
+  /const handleOpenChat = useCallback\(\(\) => \{([\s\S]*?)\}, \[/,
+);
+if (!handleOpenChatFn) {
+  failures.push("sidebar must define handleOpenChat");
+} else if (handleOpenChatFn[1].includes("newChat(")) {
+  failures.push("Chat tab handler must not call newChat()");
+} else if (!handleOpenChatFn[1].includes('router.push("/chat")')) {
+  failures.push("Chat tab handler must router.push /chat");
 }
 if (
   sidebar.includes("handleDismissNotes") ||
   /setSelectedNote\(null\)/.test(sidebar)
 ) {
   failures.push("Cmd+B must be width-only; must not dismiss notes to /chat");
+}
+if (/!isNotesRoute\s*\?\s*\([\s\S]{0,800}ChatSidebarFooter/.test(sidebar)) {
+  failures.push("Settings footer must not be gated on !isNotesRoute");
 }
 const notesTree = fs.readFileSync(
   path.join(root, "src/components/chat/sidebar/notes/notes.tsx"),
