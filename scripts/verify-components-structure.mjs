@@ -365,6 +365,29 @@ if (!noteWorkspace.includes("{children}")) {
 if (!noteWorkspace.includes("readOnly={true}")) {
   failures.push("NoteWorkspace Milkdown must stay readOnly");
 }
+const graphEditor = fs.readFileSync(
+  path.join(root, "src/components/graph/editor/editor.tsx"),
+  "utf8",
+);
+if (
+  !graphEditor.includes("`/notes/${encodeURIComponent(node.id)}`") &&
+  !(
+    graphEditor.includes("encodeURIComponent(node.id)") &&
+    graphEditor.includes("/notes/")
+  )
+) {
+  failures.push(
+    "graph editor Open note must router.push /notes/[id] from node.id",
+  );
+}
+if (!graphEditor.includes("Open note")) {
+  failures.push("graph editor must offer Open note");
+}
+if (
+  /[`'"]\/notes\/\$\{(?:encodeURIComponent\()?node\.name/.test(graphEditor)
+) {
+  failures.push("graph editor must not navigate with node.name");
+}
 const workspaceLayout = fs.readFileSync(
   path.join(root, "src/app/(workspace)/layout.tsx"),
   "utf8",
