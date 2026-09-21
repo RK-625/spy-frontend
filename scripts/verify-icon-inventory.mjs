@@ -1,5 +1,5 @@
 /**
- * Structural check: production chat/home icon sizes match Plan B densified
+ * Structural check: production chat icon sizes match Plan B densified
  * 3-role token system (control-toolbar / control-badge / glyph-inline).
  * Drives real source files (no hard-coded pass without reading code).
  *
@@ -26,9 +26,8 @@ function assert(cond, msg) {
 
 const globals = read("src/app/globals.css");
 const iconTokens = read("src/lib/icon-tokens.ts");
-const home = read("src/app/home/page.tsx");
 const chatPage = read("src/app/(workspace)/chat/page.tsx");
-const chatUi = `${home}\n${chatPage}`;
+const chatUi = chatPage;
 // Domain SoT paths (barrel consumers; icon paths under sidebar/overlays/prompt).
 const sidebar = read("src/components/chat/sidebar/header/header.tsx");
 const sidebarItem = read("src/components/chat/sidebar/chrome/item.tsx");
@@ -116,10 +115,10 @@ assert(
   "sidebar has NO size-10 (collapse densified to size-8)"
 );
 assert(
-  /flex size-8 items-center justify-center/.test(sidebar) &&
+  /size="icon"/.test(sidebar) &&
     (/<PanelLeft(Close|Open)[^>]*size=\{ICON_GLYPH\.toolbar\}/.test(sidebar) ||
       /<PanelLeft(Close|Open)[^>]*size=\{20\}/.test(sidebar)),
-  "sidebar collapse is size-8 box + panel glyph 20"
+  "sidebar collapse is an icon button + panel glyph 20"
 );
 
 // ChatSidebarItem: control-toolbar 32 box + glyph 20 (size-8 on icon span, not outer button)

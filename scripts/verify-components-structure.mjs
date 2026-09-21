@@ -397,9 +397,8 @@ if (/PromptInputProvider\s+key=\{chatId\}/.test(workspaceLayout)) {
     "PromptInputProvider key={chatId} must not wrap ChatSidebar / graph children",
   );
 }
-const homePage = fs.readFileSync(path.join(root, "src/app/home/page.tsx"), "utf8");
-if (!homePage.includes("redirect(") || !homePage.includes("/chat")) {
-  failures.push("src/app/home/page.tsx must redirect to /chat");
+if (fs.existsSync(path.join(root, "src/app/home"))) {
+  failures.push("src/app/home was removed; / is the landing page and /chat is the workspace");
 }
 
 if (failures.length) {

@@ -14,7 +14,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | Route | What |
 |-------|------|
 | `/` | Landing (story, CTA; mascot host not mounted) |
-| `/chat` | Chat UI (conversation, sidebar, prompt shell). `/home` redirects here. |
+| `/chat` | Chat UI (conversation, sidebar, prompt shell). |
 | `/notes` | Notes master (blank detail). `/notes/[id]` is read-only Milkdown. |
 | `/graph` | Knowledge graph (same sidebar shell) |
 
