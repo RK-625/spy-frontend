@@ -22,6 +22,17 @@ const PARENT_ARROW_PROGRAM = createEdgeArrowProgram({
 const FA2_ITERATIONS = 360;
 const FA2_STEPS_PER_FRAME = 2;
 
+/** Sigma `resize()`/`refresh()` throw when the host has no layout box. */
+function hostHasPositiveBox(host: HTMLElement): boolean {
+  const { width, height } = host.getBoundingClientRect();
+  return (
+    width > 0 &&
+    height > 0 &&
+    host.offsetWidth > 0 &&
+    host.offsetHeight > 0
+  );
+}
+
 type SigmaTopology = {
   memories: MemoryNode[];
   links: Links[];
@@ -84,8 +95,7 @@ export function SigmaCanvas() {
 
     const mount = () => {
       if (cancelled || renderer != null) return;
-      const { width, height } = host.getBoundingClientRect();
-      if (width <= 0 || height <= 0) return;
+      if (!hostHasPositiveBox(host)) return;
 
       const graph = buildLayoutGraph(topology.memories, topology.links);
       const instance = new Sigma(graph, host, {
@@ -118,14 +128,16 @@ export function SigmaCanvas() {
 
       const stepFa2 = () => {
         if (cancelled || remaining <= 0) return;
-        const iterations = Math.min(FA2_STEPS_PER_FRAME, remaining);
-        forceAtlas2.assign(graph, {
-          iterations,
-          getEdgeWeight: "weight",
-          settings: fa2Settings,
-        });
-        instance.refresh();
-        remaining -= iterations;
+        if (hostHasPositiveBox(host)) {
+          const iterations = Math.min(FA2_STEPS_PER_FRAME, remaining);
+          forceAtlas2.assign(graph, {
+            iterations,
+            getEdgeWeight: "weight",
+            settings: fa2Settings,
+          });
+          instance.refresh();
+          remaining -= iterations;
+        }
         if (remaining > 0) {
           fa2Frame = requestAnimationFrame(stepFa2);
         }
@@ -133,8 +145,19 @@ export function SigmaCanvas() {
       fa2Frame = requestAnimationFrame(stepFa2);
     };
 
-    mount();
-    const observer = new ResizeObserver(mount);
+    const syncSigmaToHostBox = () => {
+      if (cancelled) return;
+      if (renderer != null) {
+        if (!hostHasPositiveBox(host)) return;
+        renderer.resize();
+        renderer.refresh();
+        return;
+      }
+      mount();
+    };
+
+    syncSigmaToHostBox();
+    const observer = new ResizeObserver(syncSigmaToHostBox);
     observer.observe(host);
 
     return () => {
