@@ -15,11 +15,12 @@ import { ChatSidebarNotes } from "./notes/notes";
 import { ChatSidebarRecents } from "./recents/recents";
 
 type SidebarDisplayMode = "icon" | "full";
-type SidebarPanel = "chats" | "notes";
 const SIDEBAR_MODE_STORAGE_KEY = "spy-sidebar-mode";
-const SIDEBAR_PANEL_STORAGE_KEY = "spy-sidebar-panel";
 const DEFAULT_SIDEBAR_MODE: SidebarDisplayMode = "icon";
-const DEFAULT_SIDEBAR_PANEL: SidebarPanel = "chats";
+
+function isNotesPathname(pathname: string): boolean {
+  return pathname === "/notes" || pathname.startsWith("/notes/");
+}
 
 const SIDEBAR_ICON_WIDTH = 56;
 const SIDEBAR_FULL_WIDTH = 240;
@@ -60,9 +61,6 @@ export function ChatSidebar() {
   const [sidebarMode, setSidebarMode] =
     useState<SidebarDisplayMode>(DEFAULT_SIDEBAR_MODE);
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
-  const [sidebarPanel, setSidebarPanel] =
-    useState<SidebarPanel>(DEFAULT_SIDEBAR_PANEL);
-  const [sidebarPanelHydrated, setSidebarPanelHydrated] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
@@ -74,15 +72,10 @@ export function ChatSidebar() {
         if (savedMode === "full" || savedMode === "icon") {
           setSidebarMode(savedMode);
         }
-        const savedPanel = localStorage.getItem(SIDEBAR_PANEL_STORAGE_KEY);
-        if (savedPanel === "chats" || savedPanel === "notes") {
-          setSidebarPanel(savedPanel);
-        }
       } catch {
         // localStorage unavailable, keep default
       }
       setSidebarModeHydrated(true);
-      setSidebarPanelHydrated(true);
     }, 0);
   }, []);
 
@@ -95,26 +88,16 @@ export function ChatSidebar() {
     }
   }, [sidebarMode, sidebarModeHydrated]);
 
-  useEffect(() => {
-    if (!sidebarPanelHydrated) return;
-    try {
-      localStorage.setItem(SIDEBAR_PANEL_STORAGE_KEY, sidebarPanel);
-    } catch {
-      // localStorage unavailable, ignore
-    }
-  }, [sidebarPanel, sidebarPanelHydrated]);
-
-  const { newChat, setSelectedNote } = useChatContext();
+  const { newChat } = useChatContext();
   const router = useRouter();
   const pathname = usePathname();
 
-  const isNotesPanel = sidebarPanel === "notes";
-  const isSidebarFull = sidebarMode === "full" || isNotesPanel;
+  const isNotesRoute = isNotesPathname(pathname);
+  const isSidebarFull = sidebarMode === "full";
   const sidebarWidth = isSidebarFull ? SIDEBAR_FULL_WIDTH : SIDEBAR_ICON_WIDTH;
 
   const handleNewChat = useCallback(() => {
     newChat();
-    setSidebarPanel("chats");
   }, [newChat]);
 
   const handleOpenGraph = useCallback(() => {
@@ -122,9 +105,9 @@ export function ChatSidebar() {
   }, [router]);
 
   const handleRevealNotes = useCallback(() => {
-    setSidebarPanel("notes");
     setSidebarMode("full");
-  }, []);
+    router.push("/notes");
+  }, [router]);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsDialogOpen(true);
@@ -134,19 +117,9 @@ export function ChatSidebar() {
     setCommandPaletteOpen(true);
   }, []);
 
-  const handleDismissNotes = useCallback(() => {
-    setSidebarPanel("chats");
-    setSidebarMode("icon");
-    setSelectedNote(null);
-  }, [setSelectedNote]);
-
   const handleToggleSidebarMode = useCallback(() => {
-    if (sidebarPanel === "notes") {
-      handleDismissNotes();
-      return;
-    }
     setSidebarMode((prev) => (prev === "icon" ? "full" : "icon"));
-  }, [handleDismissNotes, sidebarPanel]);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -181,7 +154,7 @@ export function ChatSidebar() {
         />
         <ChatSidebarBody>
           <AnimatePresence initial={false}>
-            {!isNotesPanel ? (
+            {!isNotesRoute ? (
               <motion.div
                 key="sidebar-chats-actions"
                 initial={SIDEBAR_CHROME_MOTION.initial}
@@ -216,6 +189,7 @@ export function ChatSidebar() {
                     icon={(props) => <Book {...props} strokeWidth={1.5} />}
                     label="Notes"
                     onClick={handleRevealNotes}
+                    active={isNotesRoute}
                     showLabel={isSidebarFull}
                   />
                 </ChatSidebarActions>
@@ -223,7 +197,7 @@ export function ChatSidebar() {
             ) : null}
           </AnimatePresence>
           {isSidebarFull ? (
-            isNotesPanel ? (
+            isNotesRoute ? (
               <ChatSidebarNotes />
             ) : (
               <ChatSidebarRecents />
@@ -233,7 +207,7 @@ export function ChatSidebar() {
           )}
         </ChatSidebarBody>
         <AnimatePresence initial={false}>
-          {!isNotesPanel ? (
+          {!isNotesRoute ? (
             <motion.div
               key="sidebar-chats-footer"
               initial={SIDEBAR_CHROME_MOTION.initial}

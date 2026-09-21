@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 import {
   ChatActionButton,
   ChatActionRail,
@@ -23,7 +23,6 @@ import {
   PromptInputWorkspace,
   MCPAppCard,
   hasMcpAppView,
-  NoteWorkspace,
 } from "@/components/chat";
 import type {
   DynamicToolUIPart,
@@ -317,21 +316,11 @@ const ChatWorkspace = () => {
 };
 
 export default function ChatPage() {
-  const { selectedNote, setSelectedNote } = useChatContext();
-  const handleCloseNote = useCallback(
-    () => setSelectedNote(null),
-    [setSelectedNote],
-  );
-
   return (
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col items-center overflow-hidden">
-      {selectedNote ? (
-        <NoteWorkspace node={selectedNote} onClose={handleCloseNote} />
-      ) : (
-        <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
-          <ChatWorkspace />
-        </div>
-      )}
+      <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
+        <ChatWorkspace />
+      </div>
     </div>
   );
 }

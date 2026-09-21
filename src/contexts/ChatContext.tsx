@@ -22,7 +22,7 @@ import {
 } from "@/lib/chats/api";
 import { discardDraftForDeletedChat } from "@/lib/storage/prompt-draft-store";
 import type { ChatContextValue } from "@/types/chat";
-import type { MemoryNode } from "@/types/graph-schema";
+
 const ChatContext = createContext<ChatContextValue | null>(null);
 
 const CHAT_PATH = "/chat";
@@ -95,14 +95,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   const [chatOrder, setChatOrder] = useState(0);
-  const [selectedNote, setSelectedNoteState] = useState<MemoryNode | null>(null);
   const updateChatOrder = useCallback(() => {
     setChatOrder((n) => n + 1);
-  }, []);
-
-  const setSelectedNote = useCallback((note: MemoryNode | null) => {
-    if (note !== null && window.location.pathname !== CHAT_PATH) return;
-    setSelectedNoteState(note);
   }, []);
 
   const deletedIdsRef = useRef(new Set<string>());
@@ -132,7 +126,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchAbortRef.current?.abort();
       switchAbortRef.current = null;
       switchGenerationRef.current += 1;
-      setSelectedNoteState(null);
       const chat = createChat(
         crypto.randomUUID(),
         [],
@@ -204,7 +197,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         if (deletedIdsRef.current.has(chatId)) return;
 
-        setSelectedNoteState(null);
         setActiveChat(chat);
         activeChatIdRef.current = chat.id;
         if (writeUrl) {
@@ -220,7 +212,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
         if (isChatNotFoundError(err)) {
           if (replace) {
-            setSelectedNoteState(null);
             syncChatUrl(activeChatIdRef.current, true, true);
             return;
           }
@@ -345,8 +336,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchChat,
       deleteChat,
       chatOrder,
-      selectedNote,
-      setSelectedNote,
     }),
     [
       activeChat.id,
@@ -359,8 +348,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchChat,
       deleteChat,
       chatOrder,
-      selectedNote,
-      setSelectedNote,
     ],
   );
 

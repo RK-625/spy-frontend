@@ -7,9 +7,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useChatContext } from "@/contexts/ChatContext";
 import type { GraphApiResponse } from "@/types/graph-topology";
-import type { MemoryNode } from "@/types/graph-schema";
 import { ChatSidebarNotesRow } from "./notes-row";
 import {
   buildNotesForest,
@@ -52,7 +52,7 @@ function ChatSidebarNotesBranch({
   depth: number;
   expandedNoteIds: ReadonlySet<string>;
   selectedNoteId: string | null;
-  onSelectNote: (note: MemoryNode) => void;
+  onSelectNote: (noteId: string) => void;
   onFolderExpandedChange: (noteId: string, expanded: boolean) => void;
 }) {
   const hasChildren = node.children.length > 0;
@@ -66,7 +66,7 @@ function ChatSidebarNotesBranch({
         hasChildren={hasChildren}
         folderExpanded={folderExpanded}
         noteSelected={node.note.id === selectedNoteId}
-        onOpenNote={() => onSelectNote(node.note)}
+        onOpenNote={() => onSelectNote(node.note.id)}
         onFolderExpandedChange={(expanded) =>
           onFolderExpandedChange(node.note.id, expanded)
         }
@@ -88,8 +88,16 @@ function ChatSidebarNotesBranch({
   );
 }
 
+function noteIdFromParams(id: string | string[] | undefined): string | null {
+  if (typeof id !== "string" || id.length === 0) return null;
+  return id;
+}
+
 export function ChatSidebarNotes() {
-  const { status, chatOrder, selectedNote, setSelectedNote } = useChatContext();
+  const { status, chatOrder } = useChatContext();
+  const router = useRouter();
+  const params = useParams<{ id?: string | string[] }>();
+  const selectedNoteId = noteIdFromParams(params.id);
   const streamReady = status === "ready";
   const [forest, setForest] = useState<NotesForestNode[]>([]);
   const [notesLoadState, setNotesLoadState] = useState<
@@ -158,6 +166,13 @@ export function ChatSidebarNotes() {
     [],
   );
 
+  const handleSelectNote = useCallback(
+    (noteId: string) => {
+      router.push(`/notes/${encodeURIComponent(noteId)}`);
+    },
+    [router],
+  );
+
   let body: ReactNode;
   if (notesLoadState === "loading") {
     body = (
@@ -194,8 +209,8 @@ export function ChatSidebarNotes() {
             node={node}
             depth={0}
             expandedNoteIds={expandedNoteIds}
-            selectedNoteId={selectedNote?.id ?? null}
-            onSelectNote={setSelectedNote}
+            selectedNoteId={selectedNoteId}
+            onSelectNote={handleSelectNote}
             onFolderExpandedChange={handleFolderExpandedChange}
           />
         ))}

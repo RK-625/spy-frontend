@@ -100,9 +100,11 @@ const required = [
   "src/components/graph/sigma-canvas.tsx",
   "src/components/graph/editor/editor.tsx",
 
-  // Sprint 1 workspace shell (route group is not in the URL)
+  // Workspace shell (route group is not in the URL)
   "src/app/(workspace)/layout.tsx",
   "src/app/(workspace)/chat/page.tsx",
+  "src/app/(workspace)/notes/page.tsx",
+  "src/app/(workspace)/notes/[id]/page.tsx",
   "src/app/(workspace)/graph/page.tsx",
 ];
 
@@ -149,11 +151,11 @@ const forbidden = [
   "src/components/ui/dialog.tsx",
   "src/components/ui/tooltip.tsx",
   "src/components/ui/command.tsx",
-  // graph lives under the workspace group; notes routes are not shipped
+  // graph / notes live under the workspace group, not as top-level app routes
   "src/app/graph/page.tsx",
   "src/app/notes/page.tsx",
-  "src/app/(workspace)/notes/page.tsx",
-  "src/app/(workspace)/notes/[id]/page.tsx",
+  "src/app/notes/[id]/page.tsx",
+  "src/app/(workspace)/notes/[id]/loading.tsx",
 ];
 
 const failures = [];
@@ -229,6 +231,116 @@ if (
   failures.push(
     "newChat/switchChat must router.push /chat when switching off-route",
   );
+}
+if (
+  chatContext.includes("selectedNote") ||
+  chatContext.includes("setSelectedNote")
+) {
+  failures.push("ChatContext must not hold selectedNote");
+}
+const chatTypes = fs.readFileSync(
+  path.join(root, "src/types/chat.ts"),
+  "utf8",
+);
+if (
+  chatTypes.includes("selectedNote") ||
+  chatTypes.includes("setSelectedNote")
+) {
+  failures.push("src/types/chat.ts must not declare selectedNote");
+}
+const chatPage = fs.readFileSync(
+  path.join(root, "src/app/(workspace)/chat/page.tsx"),
+  "utf8",
+);
+if (
+  chatPage.includes("NoteWorkspace") ||
+  chatPage.includes("selectedNote") ||
+  chatPage.includes("setSelectedNote")
+) {
+  failures.push(
+    "chat page must be conversation-only (no NoteWorkspace overlay)",
+  );
+}
+const sidebar = fs.readFileSync(
+  path.join(root, "src/components/chat/sidebar/chat-sidebar.tsx"),
+  "utf8",
+);
+if (sidebar.includes("spy-sidebar-panel")) {
+  failures.push(
+    "sidebar notes surface must follow the URL, not spy-sidebar-panel",
+  );
+}
+if (!sidebar.includes('router.push("/notes")')) {
+  failures.push("Notes item must router.push /notes");
+}
+if (
+  sidebar.includes("handleDismissNotes") ||
+  /setSelectedNote\(null\)/.test(sidebar)
+) {
+  failures.push("Cmd+B must be width-only; must not dismiss notes to /chat");
+}
+const notesTree = fs.readFileSync(
+  path.join(root, "src/components/chat/sidebar/notes/notes.tsx"),
+  "utf8",
+);
+if (
+  notesTree.includes("setSelectedNote") ||
+  notesTree.includes("selectedNote,")
+) {
+  failures.push("notes tree must select via the URL, not setSelectedNote");
+}
+if (!notesTree.includes("`/notes/${encodeURIComponent(noteId)}`")) {
+  failures.push("notes tree must router.push /notes/[id]");
+}
+const noteByIdPage = fs.readFileSync(
+  path.join(root, "src/app/(workspace)/notes/[id]/page.tsx"),
+  "utf8",
+);
+const noteWorkspace = fs.readFileSync(
+  path.join(root, "src/components/chat/workspace/note-workspace.tsx"),
+  "utf8",
+);
+if (!noteByIdPage.includes("getMemory(")) {
+  failures.push("notes [id] page must snapshot via getMemory");
+}
+if (!noteByIdPage.includes("<Suspense")) {
+  failures.push("notes [id] page must Suspense the getMemory body");
+}
+if (!noteByIdPage.includes("Note not found.")) {
+  failures.push("notes [id] page missing copy must be Note not found.");
+}
+if (!noteByIdPage.includes("Couldn&apos;t load notes")) {
+  failures.push("notes [id] page error copy must match the notes tree");
+}
+if (!noteByIdPage.includes("DotmHex9")) {
+  failures.push("notes [id] page loading fallback must use DotmHex9");
+}
+if (noteByIdPage.includes('"use client"')) {
+  failures.push("notes [id] page must stay a Server Component");
+}
+if (noteByIdPage.includes('fetch("/api/graph")')) {
+  failures.push("notes [id] page must not fetch GET /api/graph");
+}
+if (
+  noteByIdPage.includes("notFound(") ||
+  /router\.(push|replace)\(\s*["'`]\/chat/.test(noteByIdPage)
+) {
+  failures.push("notes [id] must not leave the notes shell for missing/error");
+}
+if (!noteWorkspace.includes('router.push("/notes")')) {
+  failures.push("NoteWorkspace must close via router.push /notes");
+}
+if (!noteWorkspace.includes('aria-label="Close note"')) {
+  failures.push("NoteWorkspace must offer Close note");
+}
+if (!noteWorkspace.includes('event.key === "Escape"')) {
+  failures.push("NoteWorkspace must dismiss on Escape");
+}
+if (!noteWorkspace.includes("{children}")) {
+  failures.push("NoteWorkspace must take children as the note body");
+}
+if (!noteWorkspace.includes("readOnly={true}")) {
+  failures.push("NoteWorkspace Milkdown must stay readOnly");
 }
 const workspaceLayout = fs.readFileSync(
   path.join(root, "src/app/(workspace)/layout.tsx"),
