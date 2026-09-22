@@ -11,7 +11,7 @@
  */
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type { UIMessage } from "ai";
+import type { ModelMessage, UIMessage } from "ai";
 import Database from "better-sqlite3";
 import { ChatMeta, type ChatWithMessages } from "@/types/chat-schema";
 
@@ -111,8 +111,8 @@ export function getChatsDb(): Database.Database {
 
 export type ParseMessagesFailReason = "invalid_json" | "not_array";
 
-export type ParseMessagesResult =
-  | { ok: true; messages: UIMessage[] }
+export type ParseMessagesResult<T = UIMessage> =
+  | { ok: true; messages: T[] }
   | { ok: false; reason: ParseMessagesFailReason };
 
 /** Thrown when a chats row exists but messages_json cannot be read safely. */
@@ -141,14 +141,16 @@ function parseMetaRow(row: unknown): ChatMeta | null {
  * Parse messages_json blob. Never fail-soft to [] — empty success would let
  * hydrate + full snapshot overwrite destroy a corrupt-but-recoverable row.
  */
-function parseMessagesJson(messagesJson: string): ParseMessagesResult {
+function parseMessagesJson<T = UIMessage>(
+  messagesJson: string,
+): ParseMessagesResult<T> {
   try {
     const parsed: unknown = JSON.parse(messagesJson);
     if (!Array.isArray(parsed)) {
       console.error("messages_json is not an array");
       return { ok: false, reason: "not_array" };
     }
-    return { ok: true, messages: parsed as UIMessage[] };
+    return { ok: true, messages: parsed as T[] };
   } catch (error: unknown) {
     console.error("Failed to parse messages_json", error);
     return { ok: false, reason: "invalid_json" };
@@ -302,7 +304,9 @@ export function getChatWithMessages(chatId: string): ChatWithMessages | null {
     throw new CorruptChatError(chatId, parsed.reason);
   }
 
-  const graphParsed = parseMessagesJson(row.graph_messages_json);
+  const graphParsed = parseMessagesJson<ModelMessage>(
+    row.graph_messages_json,
+  );
   if (!graphParsed.ok) {
     throw new CorruptChatError(chatId, graphParsed.reason);
   }
@@ -352,7 +356,7 @@ export function replaceChatMessages(
  */
 export function replaceGraphMessages(
   chatId: string,
-  messages: UIMessage[],
+  messages: ModelMessage[],
 ): void {
   const db = getChatsDb();
   const existing = db

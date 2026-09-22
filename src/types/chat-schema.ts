@@ -1,4 +1,4 @@
-import type { UIMessage } from "ai";
+import type { ModelMessage, UIMessage } from "ai";
 import { z } from "zod";
 
 /**
@@ -21,14 +21,13 @@ export type ChatMeta = z.infer<typeof ChatMeta>;
 /**
  * Detail chat: meta + two independent agent histories.
  *
- * messages = ChatAgent / user-facing conversation.
- * graph_messages = GraphAgent / background graph-maintenance conversation.
- *
- * Both histories use the AI SDK UIMessage type.
+ * messages = ChatAgent / user-facing conversation (UIMessage, UI-oriented).
+ * graph_messages = GraphAgent / background graph-maintenance conversation
+ * (ModelMessage — the graph agent speaks model messages natively).
  */
 export type ChatWithMessages = ChatMeta & {
   messages: UIMessage[];
-  graph_messages: UIMessage[];
+  graph_messages: ModelMessage[];
 };
 
 /**

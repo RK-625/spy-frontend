@@ -1,6 +1,6 @@
-import type { UIMessage } from "ai";
+import type { ModelMessage } from "ai";
 
-type GraphUpdateListener = (messages: UIMessage[]) => void;
+type GraphUpdateListener = (messages: ModelMessage[]) => void;
 
 const graphSubscribers = new Map<string, Set<GraphUpdateListener>>();
 
@@ -28,7 +28,7 @@ export function subscribeToGraphUpdates(
 
 export function publishGraphUpdate(
   chatId: string,
-  messages: UIMessage[],
+  messages: ModelMessage[],
 ): void {
   const subscribers = graphSubscribers.get(chatId);
 

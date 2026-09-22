@@ -1,6 +1,6 @@
 "use client";
 
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, type ModelMessage, type UIMessage } from "ai";
 import { Chat, useChat } from "@ai-sdk/react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -105,8 +105,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [activeChat, setActiveChat] = useState(() =>
     createChat(crypto.randomUUID(), [], updateChatOrder, deletedIdsRef),
   );
-  const [graphMessages, setGraphMessages] = useState<UIMessage[]>([]);
-  const graphMessagesRef = useRef(new Map<string, UIMessage[]>());
+  const [graphMessages, setGraphMessages] = useState<ModelMessage[]>([]);
+  const graphMessagesRef = useRef(new Map<string, ModelMessage[]>());
   const { messages, status, stop, sendMessage, error } = useChat<UIMessage>({
     chat: activeChat,
     throttle: 50,
@@ -271,7 +271,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       try {
         const payload = JSON.parse(event.data) as {
           type: string;
-          messages: UIMessage[];
+          messages: ModelMessage[];
         };
 
         if (payload.type !== "graph-history-updated") {

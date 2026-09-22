@@ -1,6 +1,7 @@
 import {
   ChatStatus,
   FileUIPart,
+  ModelMessage,
   UIMessage,
 } from "ai";
 
@@ -24,7 +25,7 @@ export interface ChatContextValue {
   chatId: string;
   status: ChatStatus;
   messages: UIMessage[];
-  graphMessages: UIMessage[];
+  graphMessages: ModelMessage[];
   error: Error | undefined;
   stop: () => void;
   /** Same signature as useChat().sendMessage (text/files convenience form). */

@@ -1,6 +1,6 @@
 import {
-  appendResponseMessages,
   convertToModelMessages,
+  type ModelMessage,
   type UIMessage,
   isStepCount,
   type ToolSet,
@@ -166,22 +166,29 @@ export async function runAgent({
           return;
         }
 
-        const graphMessages = [
+        // Graph history is ModelMessage[]; only the fresh user turn needs
+        // UIMessage -> ModelMessage conversion. Chat response messages are
+        // already ResponseMessage (a ModelMessage subtype).
+        const latestAsModel = await convertToModelMessages(
+          [latestUserMessage],
+          { ignoreIncompleteToolCalls: true },
+        );
+        const graphHistory: ModelMessage[] = [
           ...chat.graph_messages,
-          latestUserMessage,
+          ...latestAsModel,
           ...responseMessages,
         ];
 
         const result = await runGraphAgent({
           model: resolvedModel,
           providerOptions: resolvedProviderOptions,
-          messages: graphMessages,
+          messages: graphHistory,
         });
 
-        const updatedGraphMessages = appendResponseMessages({
-          messages: graphMessages,
-          responseMessages: result.response.messages,
-        });
+        const updatedGraphMessages: ModelMessage[] = [
+          ...graphHistory,
+          ...result.responseMessages,
+        ];
 
         replaceGraphMessages(chatId, updatedGraphMessages);
         publishGraphUpdate(chatId, updatedGraphMessages);
