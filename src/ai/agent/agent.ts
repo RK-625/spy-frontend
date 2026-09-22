@@ -1,4 +1,5 @@
 import {
+  appendResponseMessages,
   convertToModelMessages,
   type UIMessage,
   isStepCount,
@@ -11,6 +12,7 @@ import { buildChatInstructions } from "@/prompts/chat-instructions";
 import { runChatAgent } from "./chat/agent";
 import { runGraphAgent } from "./graph/agent";
 import { enqueueGraphJob } from "./graph/job-queue";
+import { replaceGraphMessages } from "@/lib/chats/sqlite";
 
 function isAbortRejection(error: unknown): boolean {
   return (
@@ -164,11 +166,18 @@ export async function runAgent({
     // Stream wait stays per-request; only Falkor writes serialize per chat.
     await enqueueGraphJob(chatId, async () => {
       try {
-        await runGraphAgent({
+        const result = await runGraphAgent({
           model: resolvedModel,
           providerOptions: resolvedProviderOptions,
           messages: graphMessages,
         });
+
+        const updatedGraphMessages = appendResponseMessages({
+          messages: graphMessages,
+          responseMessages: result.response.messages,
+        });
+
+        replaceGraphMessages(chatId, updatedGraphMessages);
       } catch (error: unknown) {
         console.error("[graph-agent] failed:", error);
       }
