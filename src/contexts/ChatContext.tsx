@@ -1,6 +1,6 @@
 "use client";
 
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, type ModelMessage, type UIMessage } from "ai";
 import { Chat, useChat } from "@ai-sdk/react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -105,6 +105,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [activeChat, setActiveChat] = useState(() =>
     createChat(crypto.randomUUID(), [], updateChatOrder, deletedIdsRef),
   );
+  const [graphMessages, setGraphMessages] = useState<ModelMessage[]>([]);
+  const graphMessagesRef = useRef(new Map<string, ModelMessage[]>());
   const { messages, status, stop, sendMessage, error } = useChat<UIMessage>({
     chat: activeChat,
     throttle: 50,
@@ -133,6 +135,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         deletedIdsRef,
       );
       chatsRef.current.set(chat.id, chat);
+      graphMessagesRef.current.set(chat.id, []);
+      setGraphMessages([]);
       setActiveChat(chat);
       activeChatIdRef.current = chat.id;
       syncChatUrl(chat.id, true, replace);
@@ -188,6 +192,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             updateChatOrder,
             deletedIdsRef,
           );
+          graphMessagesRef.current.set(row.id, row.graph_messages);
           chatsRef.current.set(chat.id, chat);
         }
 
@@ -197,6 +202,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         if (deletedIdsRef.current.has(chatId)) return;
 
+        setGraphMessages(graphMessagesRef.current.get(chat.id) ?? []);
         setActiveChat(chat);
         activeChatIdRef.current = chat.id;
         if (writeUrl) {
@@ -253,6 +259,45 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const eventSource = new EventSource(
+      `/api/chats/${encodeURIComponent(activeChat.id)}/graph-events`,
+    );
+
+    const handleGraphHistoryUpdate = (event: Event) => {
+      if (!(event instanceof MessageEvent)) {
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(event.data) as {
+          type: string;
+          chatId: string;
+          messages: ModelMessage[];
+        };
+
+        if (payload.type !== "graph-history-updated") {
+          return;
+        }
+
+        // A queued event from a previous chat must not overwrite the active
+        // one after a switch: cache per chat, render only when active.
+        graphMessagesRef.current.set(payload.chatId, payload.messages);
+        if (payload.chatId === activeChatIdRef.current) {
+          setGraphMessages(payload.messages);
+        }
+      } catch (error: unknown) {
+        console.error("[graph-events] invalid event:", error);
+      }
+    };
+
+    eventSource.addEventListener("graph-history-updated", handleGraphHistoryUpdate);
+
+    return () => {
+      eventSource.close();
+    };
+  }, [activeChat.id]);
+
+  useEffect(() => {
     if (messages.length > 0) {
       syncChatUrl(activeChat.id, false, true);
     }
@@ -303,6 +348,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
       }
       chatsRef.current.delete(id);
+      const cachedGraphMessages = graphMessagesRef.current.get(id);
+      graphMessagesRef.current.delete(id);
 
       const wasActive = activeChatIdRef.current === id;
 
@@ -318,6 +365,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (registered) {
           chatsRef.current.set(id, registered);
         }
+        if (cachedGraphMessages !== undefined) {
+          graphMessagesRef.current.set(id, cachedGraphMessages);
+          if (wasActive) {
+            setGraphMessages(cachedGraphMessages);
+          }
+        }
         throw err;
       }
     },
@@ -329,6 +382,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       chatId: activeChat.id,
       status,
       messages,
+      graphMessages,
       error,
       stop,
       sendMessage,
@@ -341,6 +395,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       activeChat.id,
       status,
       messages,
+      graphMessages,
       error,
       stop,
       sendMessage,
@@ -391,7 +446,14 @@ function createChat(
           updateChatOrder();
         }
         return {
-          body: { ...body, id, chatId: id, messages: outgoing, trigger, messageId },
+          body: {
+            ...body,
+            id,
+            chatId: id,
+            messages: outgoing,
+            trigger,
+            messageId,
+          },
         };
       },
     }),

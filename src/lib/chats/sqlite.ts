@@ -3,15 +3,15 @@
  * Do not import from client components or Edge runtime.
  * (server-only package not installed; enforce by import graph.)
  *
- * Storage model: ONE table `chats` with `messages_json` holding the full
- * UIMessage[] blob. No separate messages table.
+ * Storage model: ONE table `chats` with separate JSON blobs for the
+ * ChatAgent and GraphAgent message histories.
  *
  * Id policy: client mints the chat id at Chat registry insert; first persist
  * inserts the SQLite row with that same id (no server re-mint / rebind).
  */
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type { UIMessage } from "ai";
+import type { ModelMessage, UIMessage } from "ai";
 import Database from "better-sqlite3";
 import { ChatMeta, type ChatWithMessages } from "@/types/chat-schema";
 
@@ -72,7 +72,8 @@ export function setupChatsDb(db: Database.Database): void {
       title         TEXT NOT NULL,
       created_at    INTEGER NOT NULL,
       updated_at    INTEGER NOT NULL,
-      messages_json TEXT NOT NULL DEFAULT '[]'
+      messages_json       TEXT NOT NULL DEFAULT '[]',
+      graph_messages_json TEXT NOT NULL DEFAULT '[]'
     );
 
     CREATE INDEX IF NOT EXISTS idx_chats_updated_at
@@ -110,8 +111,8 @@ export function getChatsDb(): Database.Database {
 
 export type ParseMessagesFailReason = "invalid_json" | "not_array";
 
-export type ParseMessagesResult =
-  | { ok: true; messages: UIMessage[] }
+export type ParseMessagesResult<T = UIMessage> =
+  | { ok: true; messages: T[] }
   | { ok: false; reason: ParseMessagesFailReason };
 
 /** Thrown when a chats row exists but messages_json cannot be read safely. */
@@ -140,14 +141,16 @@ function parseMetaRow(row: unknown): ChatMeta | null {
  * Parse messages_json blob. Never fail-soft to [] — empty success would let
  * hydrate + full snapshot overwrite destroy a corrupt-but-recoverable row.
  */
-function parseMessagesJson(messagesJson: string): ParseMessagesResult {
+function parseMessagesJson<T = UIMessage>(
+  messagesJson: string,
+): ParseMessagesResult<T> {
   try {
     const parsed: unknown = JSON.parse(messagesJson);
     if (!Array.isArray(parsed)) {
       console.error("messages_json is not an array");
       return { ok: false, reason: "not_array" };
     }
-    return { ok: true, messages: parsed as UIMessage[] };
+    return { ok: true, messages: parsed as T[] };
   } catch (error: unknown) {
     console.error("Failed to parse messages_json", error);
     return { ok: false, reason: "invalid_json" };
@@ -232,6 +235,7 @@ export function createChatRecord(
     created_at: now,
     updated_at: now,
     messages: input.messages,
+    graph_messages: [],
   };
 
   db.prepare(
@@ -270,7 +274,7 @@ export function getChatWithMessages(chatId: string): ChatWithMessages | null {
   const db = getChatsDb();
   const row = db
     .prepare(
-      `SELECT id, title, created_at, updated_at, messages_json
+      `SELECT id, title, created_at, updated_at, messages_json, graph_messages_json
        FROM chats
        WHERE id = ?`,
     )
@@ -281,6 +285,7 @@ export function getChatWithMessages(chatId: string): ChatWithMessages | null {
         created_at: number;
         updated_at: number;
         messages_json: string;
+        graph_messages_json: string;
       }
     | undefined;
 
@@ -299,9 +304,17 @@ export function getChatWithMessages(chatId: string): ChatWithMessages | null {
     throw new CorruptChatError(chatId, parsed.reason);
   }
 
+  const graphParsed = parseMessagesJson<ModelMessage>(
+    row.graph_messages_json,
+  );
+  if (!graphParsed.ok) {
+    throw new CorruptChatError(chatId, graphParsed.reason);
+  }
+
   return {
     ...meta,
     messages: parsed.messages,
+    graph_messages: graphParsed.messages,
   };
 }
 
@@ -335,6 +348,37 @@ export function replaceChatMessages(
      SET messages_json = ?, updated_at = ?
      WHERE id = ?`,
   ).run(JSON.stringify(messages), now, chatId);
+}
+
+/**
+ * Full overwrite of graph_messages_json (GraphAgent history snapshot).
+ * Refuses overwrite if the existing blob is unreadable.
+ * Leaves updated_at alone: background graph writes must not pull an older
+ * chat back to the top of Recents (updated_at drives list order).
+ */
+export function replaceGraphMessages(
+  chatId: string,
+  messages: ModelMessage[],
+): void {
+  const db = getChatsDb();
+  const existing = db
+    .prepare(`SELECT graph_messages_json FROM chats WHERE id = ?`)
+    .get(chatId) as { graph_messages_json: string } | undefined;
+
+  if (!existing) {
+    throw new Error(`replaceGraphMessages: chat not found: ${chatId}`);
+  }
+
+  const parsed = parseMessagesJson<ModelMessage>(existing.graph_messages_json);
+  if (!parsed.ok) {
+    throw new CorruptChatError(chatId, parsed.reason);
+  }
+
+  db.prepare(
+    `UPDATE chats
+     SET graph_messages_json = ?
+     WHERE id = ?`,
+  ).run(JSON.stringify(messages), chatId);
 }
 
 /**

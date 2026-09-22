@@ -1,5 +1,6 @@
 import {
   convertToModelMessages,
+  type ModelMessage,
   type UIMessage,
   isStepCount,
   type ToolSet,
@@ -11,6 +12,8 @@ import { buildChatInstructions } from "@/prompts/chat-instructions";
 import { runChatAgent } from "./chat/agent";
 import { runGraphAgent } from "./graph/agent";
 import { enqueueGraphJob } from "./graph/job-queue";
+import { getChatWithMessages, replaceGraphMessages } from "@/lib/chats/sqlite";
+import { publishGraphUpdate } from "@/lib/chats/graph-events";
 
 function isAbortRejection(error: unknown): boolean {
   return (
@@ -121,41 +124,86 @@ export async function runAgent({
       }
     }
 
-    // Stop / disconnect: do not teach the graph from a cancelled turn.
-    if (
-      wasChatStreamAborted({
-        abortSignal,
-        finishReason: finalStep?.finishReason,
-        rejection: streamRejection,
-      })
-    ) {
-      console.log("[graph-agent] skipped: chat aborted");
+    const latestUserMessage = messages.at(-1);
+
+    if (!latestUserMessage) {
       return;
     }
+
+    // Graph history is ModelMessage[]; only the fresh user turn needs
+    // UIMessage -> ModelMessage conversion. Chat response messages are
+    // already ResponseMessage (a ModelMessage subtype).
+    const latestAsModel = await convertToModelMessages(
+      [latestUserMessage],
+      { ignoreIncompleteToolCalls: true },
+    );
+
+    const chatAborted = wasChatStreamAborted({
+      abortSignal,
+      finishReason: finalStep?.finishReason,
+      rejection: streamRejection,
+    });
 
     // Check if the final step of this response stopped to ask the user a question.
     // Client-side tools wait for the user's answer; do not trigger the graph maintainer.
-    const isWaitingOnUser = finalStep?.toolCalls.some(
-      (call) => call.toolName === "askUserQuestion",
-    );
+    const isWaitingOnUser =
+      finalStep?.toolCalls.some(
+        (call) => call.toolName === "askUserQuestion",
+      ) === true;
 
-    if (isWaitingOnUser) {
-      return;
-    }
-
-    if (responseMessages === undefined || responseMessages.length === 0) {
-      return;
-    }
-
-    const graphMessages = [...modelMessages, ...responseMessages];
     // Stream wait stays per-request; only Falkor writes serialize per chat.
     await enqueueGraphJob(chatId, async () => {
       try {
-        await runGraphAgent({
+        const chat = getChatWithMessages(chatId);
+
+        if (!chat) {
+          console.log("[graph-agent] skipped: chat deleted");
+          return;
+        }
+
+        // The user turn always lands in graph history, even when this turn
+        // is skipped below (abort, askUserQuestion, empty response). Skipped
+        // turns must not leave gaps in later graph runs.
+        const baseHistory: ModelMessage[] = [
+          ...chat.graph_messages,
+          ...latestAsModel,
+        ];
+        replaceGraphMessages(chatId, baseHistory);
+        publishGraphUpdate(chatId, baseHistory);
+
+        // Stop / disconnect: record the user turn, but do not teach the
+        // graph from a cancelled turn.
+        if (chatAborted) {
+          console.log("[graph-agent] skipped: chat aborted");
+          return;
+        }
+
+        if (isWaitingOnUser) {
+          return;
+        }
+
+        if (responseMessages === undefined || responseMessages.length === 0) {
+          return;
+        }
+
+        const graphHistory: ModelMessage[] = [
+          ...baseHistory,
+          ...responseMessages,
+        ];
+
+        const result = await runGraphAgent({
           model: resolvedModel,
           providerOptions: resolvedProviderOptions,
-          messages: graphMessages,
+          messages: graphHistory,
         });
+
+        const updatedGraphMessages: ModelMessage[] = [
+          ...graphHistory,
+          ...result.responseMessages,
+        ];
+
+        replaceGraphMessages(chatId, updatedGraphMessages);
+        publishGraphUpdate(chatId, updatedGraphMessages);
       } catch (error: unknown) {
         console.error("[graph-agent] failed:", error);
       }

@@ -1,4 +1,4 @@
-import type { UIMessage } from "ai";
+import type { ModelMessage, UIMessage } from "ai";
 import { z } from "zod";
 
 /**
@@ -16,19 +16,22 @@ export const ChatMeta = z.object({
     .describe("Unix ms last mutated (bump on each message append)"),
 });
 
-/** Inferred chat catalog row (value `ChatMeta` is the Zod schema). */
 export type ChatMeta = z.infer<typeof ChatMeta>;
 
 /**
- * Detail chat: meta + required messages.
- * Lazy load is Meta vs full (list/getChat → Meta; getChatWithMessages → ChatWithMessages).
+ * Detail chat: meta + two independent agent histories.
+ *
+ * messages = ChatAgent / user-facing conversation (UIMessage, UI-oriented).
+ * graph_messages = GraphAgent / background graph-maintenance conversation
+ * (ModelMessage — the graph agent speaks model messages natively).
  */
 export type ChatWithMessages = ChatMeta & {
   messages: UIMessage[];
+  graph_messages: ModelMessage[];
 };
 
 /**
- * A single chat message is an AI SDK UIMessage (stored inside messages_json).
- * No separate parts_json / ordinal row DTO.
+ * A single chat message is an AI SDK UIMessage.
+ * ChatAgent history stores UIMessage[]; GraphAgent history stores ModelMessage[].
  */
 export type ChatMessage = UIMessage;

@@ -19,7 +19,8 @@
     "verify:notes-forest": "npx tsx scripts/verify-notes-forest.mjs",
     "probe:search-memories": "npx tsx scripts/probe-search-memories.mjs",
     "list:memory-questions": "npx tsx scripts/list-memory-questions.mjs",
-    "verify:chat-delete": "npx tsx scripts/verify-chat-delete.mjs"
+    "verify:chat-delete": "npx tsx scripts/verify-chat-delete.mjs",
+    "verify:graph-history": "npx tsx scripts/verify-graph-history.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.40",
