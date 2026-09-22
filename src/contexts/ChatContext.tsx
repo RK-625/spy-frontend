@@ -103,7 +103,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   // eslint-disable-next-line react-hooks/refs -- createChat stores ref in onFinish callback; not read during render
   const [activeChat, setActiveChat] = useState(() =>
-    createChat(crypto.randomUUID(), [], updateChatOrder, deletedIdsRef),
+    createChat(crypto.randomUUID(), [], [], updateChatOrder, deletedIdsRef),
   );
   const { messages, status, stop, sendMessage, error } = useChat<UIMessage>({
     chat: activeChat,
@@ -128,6 +128,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchGenerationRef.current += 1;
       const chat = createChat(
         crypto.randomUUID(),
+        [],
         [],
         updateChatOrder,
         deletedIdsRef,
@@ -185,6 +186,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           chat = createChat(
             row.id,
             row.messages,
+            row.graph_messages,
             updateChatOrder,
             deletedIdsRef,
           );
@@ -367,6 +369,7 @@ export function useChatContext() {
 function createChat(
   chatId: string,
   messages: UIMessage[] = [],
+  graphMessages: UIMessage[] = [],
   updateChatOrder: () => void,
   deletedIdsRef: MutableRefObject<Set<string>>,
 ): Chat<UIMessage> {
@@ -391,7 +394,15 @@ function createChat(
           updateChatOrder();
         }
         return {
-          body: { ...body, id, chatId: id, messages: outgoing, trigger, messageId },
+          body: {
+            ...body,
+            id,
+            chatId: id,
+            messages: outgoing,
+            graph_messages: graphMessages,
+            trigger,
+            messageId,
+          },
         };
       },
     }),
