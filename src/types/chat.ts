@@ -24,6 +24,7 @@ export interface ChatContextValue {
   chatId: string;
   status: ChatStatus;
   messages: UIMessage[];
+  graphMessages: UIMessage[];
   error: Error | undefined;
   stop: () => void;
   /** Same signature as useChat().sendMessage (text/files convenience form). */

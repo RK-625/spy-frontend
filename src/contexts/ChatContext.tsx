@@ -103,8 +103,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   // eslint-disable-next-line react-hooks/refs -- createChat stores ref in onFinish callback; not read during render
   const [activeChat, setActiveChat] = useState(() =>
-    createChat(crypto.randomUUID(), [], [], updateChatOrder, deletedIdsRef),
+    createChat(crypto.randomUUID(), [], updateChatOrder, deletedIdsRef),
   );
+  const [graphMessages, setGraphMessages] = useState<UIMessage[]>([]);
+  const graphMessagesRef = useRef(new Map<string, UIMessage[]>());
   const { messages, status, stop, sendMessage, error } = useChat<UIMessage>({
     chat: activeChat,
     throttle: 50,
@@ -129,11 +131,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const chat = createChat(
         crypto.randomUUID(),
         [],
-        [],
         updateChatOrder,
         deletedIdsRef,
       );
       chatsRef.current.set(chat.id, chat);
+      graphMessagesRef.current.set(chat.id, []);
+      setGraphMessages([]);
       setActiveChat(chat);
       activeChatIdRef.current = chat.id;
       syncChatUrl(chat.id, true, replace);
@@ -186,10 +189,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           chat = createChat(
             row.id,
             row.messages,
-            row.graph_messages,
             updateChatOrder,
             deletedIdsRef,
           );
+          graphMessagesRef.current.set(row.id, row.graph_messages);
           chatsRef.current.set(chat.id, chat);
         }
 
@@ -199,6 +202,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         if (deletedIdsRef.current.has(chatId)) return;
 
+        setGraphMessages(graphMessagesRef.current.get(chat.id) ?? []);
         setActiveChat(chat);
         activeChatIdRef.current = chat.id;
         if (writeUrl) {
@@ -255,6 +259,40 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const eventSource = new EventSource(
+      `/api/chats/${encodeURIComponent(activeChat.id)}/graph-events`,
+    );
+
+    const handleGraphHistoryUpdate = (event: Event) => {
+      if (!(event instanceof MessageEvent)) {
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(event.data) as {
+          type: string;
+          messages: UIMessage[];
+        };
+
+        if (payload.type !== "graph-history-updated") {
+          return;
+        }
+
+        graphMessagesRef.current.set(activeChat.id, payload.messages);
+        setGraphMessages(payload.messages);
+      } catch (error: unknown) {
+        console.error("[graph-events] invalid event:", error);
+      }
+    };
+
+    eventSource.addEventListener("graph-history-updated", handleGraphHistoryUpdate);
+
+    return () => {
+      eventSource.close();
+    };
+  }, [activeChat.id]);
+
+  useEffect(() => {
     if (messages.length > 0) {
       syncChatUrl(activeChat.id, false, true);
     }
@@ -305,6 +343,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
       }
       chatsRef.current.delete(id);
+      graphMessagesRef.current.delete(id);
 
       const wasActive = activeChatIdRef.current === id;
 
@@ -331,6 +370,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       chatId: activeChat.id,
       status,
       messages,
+      graphMessages,
       error,
       stop,
       sendMessage,
@@ -343,6 +383,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       activeChat.id,
       status,
       messages,
+      graphMessages,
       error,
       stop,
       sendMessage,
@@ -369,7 +410,6 @@ export function useChatContext() {
 function createChat(
   chatId: string,
   messages: UIMessage[] = [],
-  graphMessages: UIMessage[] = [],
   updateChatOrder: () => void,
   deletedIdsRef: MutableRefObject<Set<string>>,
 ): Chat<UIMessage> {
@@ -399,7 +439,6 @@ function createChat(
             id,
             chatId: id,
             messages: outgoing,
-            graph_messages: graphMessages,
             trigger,
             messageId,
           },
