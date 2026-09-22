@@ -16,19 +16,23 @@ export const ChatMeta = z.object({
     .describe("Unix ms last mutated (bump on each message append)"),
 });
 
-/** Inferred chat catalog row (value `ChatMeta` is the Zod schema). */
 export type ChatMeta = z.infer<typeof ChatMeta>;
 
 /**
- * Detail chat: meta + required messages.
- * Lazy load is Meta vs full (list/getChat → Meta; getChatWithMessages → ChatWithMessages).
+ * Detail chat: meta + two independent agent histories.
+ *
+ * messages = ChatAgent / user-facing conversation.
+ * graph_messages = GraphAgent / background graph-maintenance conversation.
+ *
+ * Both histories use the AI SDK UIMessage type.
  */
 export type ChatWithMessages = ChatMeta & {
   messages: UIMessage[];
+  graph_messages: UIMessage[];
 };
 
 /**
- * A single chat message is an AI SDK UIMessage (stored inside messages_json).
- * No separate parts_json / ordinal row DTO.
+ * A single chat message is an AI SDK UIMessage.
+ * Both agent histories store UIMessage[] blobs.
  */
 export type ChatMessage = UIMessage;
