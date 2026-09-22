@@ -353,6 +353,8 @@ export function replaceChatMessages(
 /**
  * Full overwrite of graph_messages_json (GraphAgent history snapshot).
  * Refuses overwrite if the existing blob is unreadable.
+ * Leaves updated_at alone: background graph writes must not pull an older
+ * chat back to the top of Recents (updated_at drives list order).
  */
 export function replaceGraphMessages(
   chatId: string,
@@ -367,17 +369,16 @@ export function replaceGraphMessages(
     throw new Error(`replaceGraphMessages: chat not found: ${chatId}`);
   }
 
-  const parsed = parseMessagesJson(existing.graph_messages_json);
+  const parsed = parseMessagesJson<ModelMessage>(existing.graph_messages_json);
   if (!parsed.ok) {
     throw new CorruptChatError(chatId, parsed.reason);
   }
 
-  const now = Date.now();
   db.prepare(
     `UPDATE chats
-     SET graph_messages_json = ?, updated_at = ?
+     SET graph_messages_json = ?
      WHERE id = ?`,
-  ).run(JSON.stringify(messages), now, chatId);
+  ).run(JSON.stringify(messages), chatId);
 }
 
 /**

@@ -1,3 +1,4 @@
+import type { ModelMessage } from "ai";
 import { getChatWithMessages } from "@/lib/chats/sqlite";
 import { subscribeToGraphUpdates } from "@/lib/chats/graph-events";
 
@@ -8,11 +9,6 @@ export async function GET(
   { params }: { params: Promise<{ chatId: string }> },
 ): Promise<Response> {
   const { chatId } = await params;
-  const chat = getChatWithMessages(chatId);
-
-  if (!chat) {
-    return new Response("Chat not found", { status: 404 });
-  }
 
   const encoder = new TextEncoder();
   let closed = false;
@@ -30,17 +26,37 @@ export async function GET(
         );
       };
 
-      unsubscribe = subscribeToGraphUpdates(chatId, (messages) => {
+      const writeSnapshot = (messages: ModelMessage[]) => {
         write("graph-history-updated", {
           type: "graph-history-updated",
+          chatId,
           messages,
         });
+      };
+
+      // Subscribe before reading: a publish landing between the read and
+      // the snapshot write is buffered and replayed after, never dropped
+      // or overwritten by the older snapshot.
+      let snapshotSent = false;
+      let pending: ModelMessage[] | null = null;
+      unsubscribe = subscribeToGraphUpdates(chatId, (messages) => {
+        if (!snapshotSent) {
+          pending = messages;
+          return;
+        }
+        writeSnapshot(messages);
       });
 
-      write("graph-history-updated", {
-        type: "graph-history-updated",
-        messages: chat.graph_messages,
-      });
+      // No row yet (client mints the id before first persist): stream an
+      // empty snapshot instead of 404ing, or EventSource retries forever
+      // with no subscriber registered for later publishes.
+      const chat = getChatWithMessages(chatId);
+      writeSnapshot(chat?.graph_messages ?? []);
+      snapshotSent = true;
+      if (pending) {
+        writeSnapshot(pending);
+        pending = null;
+      }
 
       heartbeat = setInterval(() => {
         if (!closed) {

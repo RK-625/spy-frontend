@@ -271,6 +271,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       try {
         const payload = JSON.parse(event.data) as {
           type: string;
+          chatId: string;
           messages: ModelMessage[];
         };
 
@@ -278,8 +279,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        graphMessagesRef.current.set(activeChat.id, payload.messages);
-        setGraphMessages(payload.messages);
+        // A queued event from a previous chat must not overwrite the active
+        // one after a switch: cache per chat, render only when active.
+        graphMessagesRef.current.set(payload.chatId, payload.messages);
+        if (payload.chatId === activeChatIdRef.current) {
+          setGraphMessages(payload.messages);
+        }
       } catch (error: unknown) {
         console.error("[graph-events] invalid event:", error);
       }
@@ -343,6 +348,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
       }
       chatsRef.current.delete(id);
+      const cachedGraphMessages = graphMessagesRef.current.get(id);
       graphMessagesRef.current.delete(id);
 
       const wasActive = activeChatIdRef.current === id;
@@ -358,6 +364,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         deletedIdsRef.current.delete(id);
         if (registered) {
           chatsRef.current.set(id, registered);
+        }
+        if (cachedGraphMessages !== undefined) {
+          graphMessagesRef.current.set(id, cachedGraphMessages);
+          if (wasActive) {
+            setGraphMessages(cachedGraphMessages);
+          }
         }
         throw err;
       }

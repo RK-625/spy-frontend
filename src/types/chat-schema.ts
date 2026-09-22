@@ -32,6 +32,6 @@ export type ChatWithMessages = ChatMeta & {
 
 /**
  * A single chat message is an AI SDK UIMessage.
- * Both agent histories store UIMessage[] blobs.
+ * ChatAgent history stores UIMessage[]; GraphAgent history stores ModelMessage[].
  */
 export type ChatMessage = UIMessage;
