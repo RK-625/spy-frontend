@@ -17,6 +17,7 @@ export async function GET(
   const encoder = new TextEncoder();
   let closed = false;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
+  let unsubscribe: (() => void) | undefined;
 
   const stream = new ReadableStream({
     start(controller) {
@@ -29,7 +30,7 @@ export async function GET(
         );
       };
 
-      const unsubscribe = subscribeToGraphUpdates(chatId, (messages) => {
+      unsubscribe = subscribeToGraphUpdates(chatId, (messages) => {
         write("graph-history-updated", {
           type: "graph-history-updated",
           messages,
@@ -51,7 +52,8 @@ export async function GET(
         "abort",
         () => {
           closed = true;
-          unsubscribe();
+          unsubscribe?.();
+          unsubscribe = undefined;
           if (heartbeat) clearInterval(heartbeat);
           try {
             controller.close();
@@ -64,6 +66,8 @@ export async function GET(
     },
     cancel() {
       closed = true;
+      unsubscribe?.();
+      unsubscribe = undefined;
       if (heartbeat) clearInterval(heartbeat);
     },
   });
