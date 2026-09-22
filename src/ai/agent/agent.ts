@@ -37,6 +37,7 @@ function wasChatStreamAborted({
 
 export async function runAgent({
   messages,
+  graph_messages,
   model,
   useWebSearch,
   useExcalidraw,
@@ -45,6 +46,7 @@ export async function runAgent({
   chatId,
 }: {
   messages: UIMessage[];
+  graph_messages: UIMessage[];
   model: string;
   useWebSearch: boolean;
   useExcalidraw?: boolean;
@@ -147,7 +149,18 @@ export async function runAgent({
       return;
     }
 
-    const graphMessages = [...modelMessages, ...responseMessages];
+    const latestUserMessage = messages.at(-1);
+
+    if (!latestUserMessage) {
+      return;
+    }
+
+    const graphMessages = [
+      ...graph_messages,
+      latestUserMessage,
+      ...responseMessages,
+    ];
+
     // Stream wait stays per-request; only Falkor writes serialize per chat.
     await enqueueGraphJob(chatId, async () => {
       try {
