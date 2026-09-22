@@ -63,38 +63,22 @@ function ensureChatsDataDir(): string {
 /**
  * Idempotent schema setup — safe on every process open.
  * CREATE IF NOT EXISTS only; never DROP (persistence must survive restarts).
- *
- * Each chat id owns two independent message histories:
- * - messages_json: ChatAgent / user-facing conversation
- * - graph_messages_json: GraphAgent / background agent conversation
- *
- * Existing databases are upgraded in place by adding the new column.
+ * Schema changes later go through real migrations, not wipe-on-open.
  */
 export function setupChatsDb(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS chats (
-      id                 TEXT PRIMARY KEY,
-      title              TEXT NOT NULL,
-      created_at         INTEGER NOT NULL,
-      updated_at         INTEGER NOT NULL,
-      messages_json      TEXT NOT NULL DEFAULT '[]',
+      id            TEXT PRIMARY KEY,
+      title         TEXT NOT NULL,
+      created_at    INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL,
+      messages_json       TEXT NOT NULL DEFAULT '[]',
       graph_messages_json TEXT NOT NULL DEFAULT '[]'
     );
 
     CREATE INDEX IF NOT EXISTS idx_chats_updated_at
       ON chats (updated_at DESC);
   `);
-
-  const columns = db
-    .prepare("PRAGMA table_info(chats)")
-    .all() as Array<{ name: string }>;
-
-  if (!columns.some((column) => column.name === "graph_messages_json")) {
-    db.exec(`
-      ALTER TABLE chats
-      ADD COLUMN graph_messages_json TEXT NOT NULL DEFAULT '[]'
-    `);
-  }
 }
 
 /**
@@ -175,10 +159,15 @@ function parseMessagesJson(messagesJson: string): ParseMessagesResult {
 // Chat CRUD (one-table)
 // ---------------------------------------------------------------------------
 
+/**
+ * Paginated Recents list: meta only (no messages_json parse).
+ * Newest first (updated_at DESC, id DESC). Cursor: strictly older than (updated_at, id).
+ */
 export function listChats(params: ListChatsParams): ListChatsResult {
   const db = getChatsDb();
   const { limit } = params;
   const cursor = params.cursor ?? null;
+
 
   type MetaRow = {
     id: string;
@@ -197,7 +186,12 @@ export function listChats(params: ListChatsParams): ListChatsResult {
            ORDER BY updated_at DESC, id DESC
            LIMIT ?`,
         )
-        .all(cursor.updated_at, cursor.updated_at, cursor.id, limit) as MetaRow[])
+        .all(
+          cursor.updated_at,
+          cursor.updated_at,
+          cursor.id,
+          limit,
+        ) as MetaRow[])
     : (db
         .prepare(
           `SELECT id, title, created_at, updated_at
@@ -224,6 +218,10 @@ export function listChats(params: ListChatsParams): ListChatsResult {
   return { chats, nextCursor };
 }
 
+/**
+ * Insert a new chats row with the first message(s).
+ * Id is client-provided (same UUID as AI SDK Chat.id).
+ */
 export function createChatRecord(
   input: CreateChatRecordInput,
 ): ChatWithMessages {
@@ -235,6 +233,7 @@ export function createChatRecord(
     created_at: now,
     updated_at: now,
     messages: input.messages,
+    graph_messages: [],
   };
 
   db.prepare(
@@ -251,6 +250,7 @@ export function createChatRecord(
   return chat;
 }
 
+/** Meta only — does not read messages_json. */
 export function getChat(chatId: string): ChatMeta | null {
   const db = getChatsDb();
   const row = db
@@ -264,11 +264,15 @@ export function getChat(chatId: string): ChatMeta | null {
   return parseMetaRow(row);
 }
 
+/**
+ * Meta + parsed messages_json nested on ChatWithMessages.
+ * Missing row → null. Corrupt messages_json → CorruptChatError (never empty []).
+ */
 export function getChatWithMessages(chatId: string): ChatWithMessages | null {
   const db = getChatsDb();
   const row = db
     .prepare(
-      `SELECT id, title, created_at, updated_at, messages_json
+      `SELECT id, title, created_at, updated_at, messages_json, graph_messages_json
        FROM chats
        WHERE id = ?`,
     )
@@ -279,6 +283,7 @@ export function getChatWithMessages(chatId: string): ChatWithMessages | null {
         created_at: number;
         updated_at: number;
         messages_json: string;
+        graph_messages_json: string;
       }
     | undefined;
 
@@ -297,12 +302,24 @@ export function getChatWithMessages(chatId: string): ChatWithMessages | null {
     throw new CorruptChatError(chatId, parsed.reason);
   }
 
+  const graphParsed = parseMessagesJson(row.graph_messages_json);
+  if (!graphParsed.ok) {
+    throw new CorruptChatError(chatId, graphParsed.reason);
+  }
+
   return {
     ...meta,
     messages: parsed.messages,
+    graph_messages: graphParsed.messages,
   };
 }
 
+/**
+ * Full overwrite of messages_json (blob snapshot of client Chat.messages).
+ * Title is unchanged. Bumps updated_at.
+ * Live UI stays on AI SDK Chat; this is durable store only.
+ * Refuses overwrite if the existing blob is unreadable (blocks silent clobber).
+ */
 export function replaceChatMessages(
   chatId: string,
   messages: UIMessage[],
@@ -329,6 +346,11 @@ export function replaceChatMessages(
   ).run(JSON.stringify(messages), now, chatId);
 }
 
+/**
+ * Create-or-replace durable transcript for a client-minted chatId.
+ * - Missing row → insert (title only on create).
+ * - Existing row → replace messages_json + updated_at (title kept).
+ */
 export function upsertChatMessages(input: {
   id: string;
   title: string;
@@ -356,6 +378,11 @@ export function upsertChatMessages(input: {
   return meta;
 }
 
+/**
+ * Delete the chats row. Idempotent: missing id is not an error.
+ * Does not parse messages_json (corrupt rows can still be removed).
+ * Returns whether a row was actually removed.
+ */
 export function deleteChatRecord(chatId: string): boolean {
   const db = getChatsDb();
   const result = db.prepare(`DELETE FROM chats WHERE id = ?`).run(chatId);
