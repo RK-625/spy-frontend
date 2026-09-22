@@ -347,6 +347,36 @@ export function replaceChatMessages(
 }
 
 /**
+ * Full overwrite of graph_messages_json (GraphAgent history snapshot).
+ * Refuses overwrite if the existing blob is unreadable.
+ */
+export function replaceGraphMessages(
+  chatId: string,
+  messages: UIMessage[],
+): void {
+  const db = getChatsDb();
+  const existing = db
+    .prepare(`SELECT graph_messages_json FROM chats WHERE id = ?`)
+    .get(chatId) as { graph_messages_json: string } | undefined;
+
+  if (!existing) {
+    throw new Error(`replaceGraphMessages: chat not found: ${chatId}`);
+  }
+
+  const parsed = parseMessagesJson(existing.graph_messages_json);
+  if (!parsed.ok) {
+    throw new CorruptChatError(chatId, parsed.reason);
+  }
+
+  const now = Date.now();
+  db.prepare(
+    `UPDATE chats
+     SET graph_messages_json = ?, updated_at = ?
+     WHERE id = ?`,
+  ).run(JSON.stringify(messages), now, chatId);
+}
+
+/**
  * Create-or-replace durable transcript for a client-minted chatId.
  * - Missing row → insert (title only on create).
  * - Existing row → replace messages_json + updated_at (title kept).
