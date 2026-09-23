@@ -91,8 +91,6 @@ npm run verify:parent-of-hierarchy
 npm run verify:notes-forest
 npm run verify:chat-delete
 npm run verify:graph-history
-npm run verify:manage-links-atomic
-npm run verify:upsert-memory-atomic
 
 # Diagnostics
 npm run probe:search-memories
@@ -100,6 +98,8 @@ npm run list:memory-questions
 ```
 
 `verify:reorg-scope` was retired (stale rename map from an earlier layout); the script file is a no-op stub.
+
+`scripts/verify-manage-links-atomic.mjs` and `scripts/verify-upsert-memory-atomic.mjs` remain on disk for manual runs (`npx tsx …`) but are not wired into `package.json`.
 
 ## Stack
 
