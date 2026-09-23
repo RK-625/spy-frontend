@@ -11,8 +11,12 @@
  * - SPY_ELECTRON_URL  (full URL override; skips path join)
  */
 const { app, BrowserWindow } = require("electron");
+
+// Dock / menu name (productName in electron-builder is Spy).
+app.setName("Spy");
 const { startNextServer } = require("./next-server");
 const { applyElectronDataEnv } = require("./data-paths");
+const { installApplicationMenu } = require("./menu");
 
 const PORT = Number(process.env.SPY_ELECTRON_PORT ?? 3000);
 const START_PATH = process.env.SPY_ELECTRON_PATH ?? "/chat";
@@ -81,6 +85,8 @@ function createMainWindow() {
 }
 
 async function bootstrap() {
+  installApplicationMenu();
+
   // Always resolve desktop data dirs under userData when running in Electron.
   const dataEnv = applyElectronDataEnv();
 

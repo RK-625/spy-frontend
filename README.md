@@ -105,6 +105,33 @@ npm run list:memory-questions
 
 Next.js 16 (App Router, Turbopack) · React 19 · Node `>=22` · Tailwind CSS v4 · **`motion`** · Vercel AI SDK v7 · FalkorDBLite + better-sqlite3 + Dexie · Sigma + graphology · Milkdown · ShaderGradient on landing.
 
+
+## Desktop (Electron)
+
+Additive macOS shell around the same Next.js app (does not replace `npm run dev`).
+
+```bash
+# Dev: Electron spawns `next dev`, opens /chat, stops Next on quit
+npm run electron:dev
+
+# Production-like: build Next, then Electron spawns `next start`
+npm run build
+npm run electron:start
+
+# Package unsigned Spy.app (local; no notarization)
+npm run electron:pack
+# → dist-electron/mac-arm64/Spy.app
+```
+
+| Script | What |
+|--------|------|
+| `electron` | Window only (expects Next already on port 3000) |
+| `electron:dev` | Start Next dev + Electron → `/chat` |
+| `electron:start` | Start Next production server + Electron |
+| `electron:pack` | `next build` + electron-builder mac `.app` (unsigned) |
+
+Data: under Electron, chats SQLite and Falkor live in `app.getPath('userData')` unless `CHATS_DB_PATH` / `FALKOR_PATH` are already set. For deep worktrees without Electron, keep using `FALKOR_PATH=/tmp/falkor` per AGENTS.md.
+
 ## License
 
 Private / project-specific unless otherwise stated.
