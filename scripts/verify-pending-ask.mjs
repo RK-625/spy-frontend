@@ -63,8 +63,7 @@ assert(
 );
 assert(
   /from\s+["']@\/ai\/schemas\/ask-schema["']/.test(toolsetSrc) ||
-    /from\s+["']\.\.\/schemas\/ask-schema["']/.test(toolsetSrc) ||
-    /from\s+["']\.\/schemas\/ask-schema["']/.test(toolsetSrc),
+    /from\s+["']\.\.\/schemas\/ask-schema["']/.test(toolsetSrc),
   "toolset imports schema from ask-schema SoT",
 );
 assert(
