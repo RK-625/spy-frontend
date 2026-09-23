@@ -1,17 +1,37 @@
 /**
  * Electron main process — thin shell around the Spy Next.js app.
- * Sprint 1: open a BrowserWindow pointed at a running Next server.
  *
- * Dev (Next already running):
- *   npm run dev   # terminal 1
- *   npm run electron   # terminal 2
+ * Modes:
+ * - SPY_NEXT_MODE=dev|start → spawn Next, wait ready, load /chat, kill on quit
+ * - unset → assume Next is already running (Sprint 1 launcher behavior)
  *
- * Later sprints start/stop Next from this process.
+ * Env:
+ * - SPY_ELECTRON_PORT (default 3000)
+ * - SPY_ELECTRON_PATH (default /chat)
+ * - SPY_ELECTRON_URL  (full URL override; skips path join)
  */
 const { app, BrowserWindow } = require("electron");
+const { startNextServer } = require("./next-server");
 
-/** Default Next origin; override with SPY_ELECTRON_URL. */
-const NEXT_ORIGIN = process.env.SPY_ELECTRON_URL ?? "http://localhost:3000";
+const PORT = Number(process.env.SPY_ELECTRON_PORT ?? 3000);
+const START_PATH = process.env.SPY_ELECTRON_PATH ?? "/chat";
+const NEXT_MODE = process.env.SPY_NEXT_MODE; // 'dev' | 'start' | undefined
+
+/** @type {import('./next-server').NextServerHandle | null} */
+let nextServer = null;
+let isShuttingDown = false;
+
+/**
+ * @returns {string}
+ */
+function resolveLoadUrl() {
+  if (process.env.SPY_ELECTRON_URL) {
+    return process.env.SPY_ELECTRON_URL;
+  }
+  const origin = nextServer?.origin ?? `http://localhost:${PORT}`;
+  const pathPart = START_PATH.startsWith("/") ? START_PATH : `/${START_PATH}`;
+  return `${origin}${pathPart}`;
+}
 
 /**
  * @returns {import('electron').BrowserWindow}
@@ -35,9 +55,10 @@ function createMainWindow() {
     mainWindow.show();
   });
 
-  mainWindow.loadURL(NEXT_ORIGIN).catch((error) => {
+  const loadUrl = resolveLoadUrl();
+  mainWindow.loadURL(loadUrl).catch((error) => {
     console.error(
-      `[electron] Failed to load ${NEXT_ORIGIN}. Is Next running?`,
+      `[electron] Failed to load ${loadUrl}. Is Next running?`,
       error,
     );
   });
@@ -45,7 +66,16 @@ function createMainWindow() {
   return mainWindow;
 }
 
-app.whenReady().then(() => {
+async function bootstrap() {
+  if (NEXT_MODE === "dev" || NEXT_MODE === "start") {
+    console.log(`[electron] Starting Next (${NEXT_MODE}) on port ${PORT}…`);
+    nextServer = await startNextServer({
+      mode: NEXT_MODE,
+      port: PORT,
+    });
+    console.log(`[electron] Next ready at ${nextServer.origin}`);
+  }
+
   createMainWindow();
 
   app.on("activate", () => {
@@ -53,10 +83,35 @@ app.whenReady().then(() => {
       createMainWindow();
     }
   });
+}
+
+app.whenReady().then(() => {
+  bootstrap().catch((error) => {
+    console.error("[electron] Bootstrap failed:", error);
+    app.quit();
+  });
 });
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+app.on("before-quit", (event) => {
+  if (isShuttingDown || !nextServer) {
+    return;
+  }
+  isShuttingDown = true;
+  event.preventDefault();
+  const handle = nextServer;
+  nextServer = null;
+  handle
+    .stop()
+    .catch((error) => {
+      console.error("[electron] Failed to stop Next:", error);
+    })
+    .finally(() => {
+      app.quit();
+    });
 });

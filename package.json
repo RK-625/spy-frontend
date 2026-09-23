@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "electron": "electron .",
-    "electron:dev": "electron .",
+    "electron:dev": "SPY_NEXT_MODE=dev electron .",
     "lint": "eslint",
     "verify:widget-cleanup": "node scripts/verify-widget-cleanup.mjs",
     "verify:components-structure": "node scripts/verify-components-structure.mjs",
@@ -21,7 +21,8 @@
     "probe:search-memories": "npx tsx scripts/probe-search-memories.mjs",
     "list:memory-questions": "npx tsx scripts/list-memory-questions.mjs",
     "verify:chat-delete": "npx tsx scripts/verify-chat-delete.mjs",
-    "verify:graph-history": "npx tsx scripts/verify-graph-history.mjs"
+    "verify:graph-history": "npx tsx scripts/verify-graph-history.mjs",
+    "electron:start": "SPY_NEXT_MODE=start electron ."
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.40",
