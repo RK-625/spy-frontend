@@ -1,0 +1,51 @@
+# Local macOS packaging for the Spy Electron shell.
+# Does not notarize. Unsigned .app via `npm run electron:pack`.
+#
+# asar is disabled because the main process spawns system `node` to run
+# `next start`, and Node cannot read modules or `.next` from inside asar.
+# Native modules still ship as normal files under Resources/app.
+appId: app.spy.desktop
+productName: Spy
+copyright: Copyright © Spy
+
+directories:
+  output: dist-electron
+  buildResources: electron/build-resources
+
+files:
+  - electron/**/*
+  - package.json
+  - next.config.ts
+  - public/**/*
+  - .next/**/*
+  - node_modules/**/*
+  - "!node_modules/.cache/**"
+  - "!**/.env"
+  - "!**/.env.*"
+  - "!**/.data/**"
+  - "!**/dist-electron/**"
+  - "!**/.git/**"
+  - "!**/src/**"
+  - "!**/*.md"
+  - "!electron/build-resources/**"
+
+asar: false
+# Next is spawned with system `node`, so natives must stay Node-ABI.
+npmRebuild: false
+
+# Ready if asar is re-enabled later (system-node spawn currently needs asar:false).
+asarUnpack:
+  - "**/*.node"
+  - "**/better-sqlite3/**"
+  - "**/falkordblite/**"
+  - "**/falkordb/**"
+
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dir
+  # Skip code signing for local packs (set a real identity later for distribution).
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false

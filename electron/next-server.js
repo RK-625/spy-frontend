@@ -5,8 +5,58 @@
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const path = require("node:path");
+const fs = require("node:fs");
 
-const PROJECT_ROOT = path.join(__dirname, "..");
+/**
+ * Repo root in dev; Electron app path when packaged.
+ * @returns {string}
+ */
+function getProjectRoot() {
+  try {
+    const { app } = require("electron");
+    if (app?.isPackaged) {
+      return app.getAppPath();
+    }
+  } catch {
+    // not running under electron
+  }
+  return path.join(__dirname, "..");
+}
+
+/**
+ * Working directory for the Next child.
+ * Prefer asar.unpacked when packaged so native bins and cwd behave normally.
+ * @param {string} projectRoot
+ * @returns {string}
+ */
+function resolveWorkingDirectory(projectRoot) {
+  if (projectRoot.endsWith(".asar")) {
+    const unpacked = projectRoot.replace(/\.asar$/i, ".asar.unpacked");
+    if (fs.existsSync(unpacked)) {
+      return unpacked;
+    }
+  }
+  return projectRoot;
+}
+
+/**
+ * Prefer an unpacked path for spawning Next (cannot exec from inside asar).
+ * @param {string} projectRoot
+ * @returns {string}
+ */
+function resolveNextBin(projectRoot) {
+  const relativeNext = path.join("node_modules", "next", "dist", "bin", "next");
+  const candidates = [
+    path.join(resolveWorkingDirectory(projectRoot), relativeNext),
+    path.join(projectRoot, relativeNext),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return require.resolve("next/dist/bin/next");
+}
 
 /**
  * @typedef {object} NextServerHandle
@@ -58,14 +108,16 @@ function waitForNextReady(origin, options = {}) {
  */
 async function startNextServer(options) {
   const { mode, port, env: extraEnv = {} } = options;
-  const nextBin = require.resolve("next/dist/bin/next");
+  const projectRoot = getProjectRoot();
+  const cwd = resolveWorkingDirectory(projectRoot);
+  const nextBin = resolveNextBin(projectRoot);
   const args =
     mode === "dev"
       ? ["dev", "--port", String(port)]
       : ["start", "--port", String(port)];
 
   const child = spawn("node", [nextBin, ...args], {
-    cwd: PROJECT_ROOT,
+    cwd,
     env: {
       ...process.env,
       ...extraEnv,
@@ -125,8 +177,7 @@ function stopChild(child) {
       return;
     }
 
-    const finish = () => resolve();
-    child.once("exit", finish);
+    child.once("exit", () => resolve());
 
     try {
       child.kill("SIGTERM");
@@ -153,5 +204,7 @@ function stopChild(child) {
 module.exports = {
   startNextServer,
   waitForNextReady,
-  PROJECT_ROOT,
+  getProjectRoot,
+  resolveNextBin,
+  resolveWorkingDirectory,
 };

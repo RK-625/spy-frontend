@@ -16,7 +16,20 @@ const { applyElectronDataEnv } = require("./data-paths");
 
 const PORT = Number(process.env.SPY_ELECTRON_PORT ?? 3000);
 const START_PATH = process.env.SPY_ELECTRON_PATH ?? "/chat";
-const NEXT_MODE = process.env.SPY_NEXT_MODE; // 'dev' | 'start' | undefined
+/** @type {'dev' | 'start' | undefined} */
+function resolveNextMode() {
+  const fromEnv = process.env.SPY_NEXT_MODE;
+  if (fromEnv === "dev" || fromEnv === "start") {
+    return fromEnv;
+  }
+  // Packaged .app always hosts Next itself via `next start`.
+  if (app.isPackaged) {
+    return "start";
+  }
+  return undefined;
+}
+
+const NEXT_MODE = resolveNextMode();
 
 /** @type {import('./next-server').NextServerHandle | null} */
 let nextServer = null;
