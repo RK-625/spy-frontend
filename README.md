@@ -1,22 +1,23 @@
 # Spy
 
-**Spy** is an agent-first knowledge base. You throw messy notes and fragments at an alien intelligence; it weaves them into a connected knowledge graph. This repo is the Next.js frontend: landing experience, chat workspace, and agent API routes.
+**Spy** is an agent-first knowledge base. You throw messy notes and fragments at an alien intelligence; it weaves them into a connected knowledge graph. This repo is the Next.js app + local agent runtime: landing, chat/graph/notes workspace, and agent API routes.
 
 ## Quick start
 
 ```bash
 npm install
-npm run dev
+# Avoid falkordblite Unix socket path-length crashes in deep worktrees:
+FALKOR_PATH=/tmp/falkor npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
 | Route | What |
 |-------|------|
-| `/` | Landing (story, CTA; mascot host not mounted) |
-| `/chat` | Chat UI (conversation, sidebar, prompt shell). |
+| `/` | Landing (ShaderGradient; mascot host not mounted) |
+| `/chat` | Chat UI (`?c=<chatId>`). Conversation, sidebar, prompt shell. |
 | `/notes` | Notes master (blank detail). `/notes/[id]` is read-only Milkdown. |
-| `/graph` | Knowledge graph (same sidebar shell) |
+| `/graph` | Knowledge graph (Sigma + same sidebar shell) |
 
 Configure provider/API keys as needed in `.env.local` (never commit secrets).
 
@@ -24,25 +25,53 @@ Configure provider/API keys as needed in `.env.local` (never commit secrets).
 
 | File | Role |
 |------|------|
-| **`brief.md`** | Design constitution — color, type, chat chrome, voice, anti-references |
-| **`AGENTS.md`** | Architecture map for humans and coding agents — stack, constraints, component domains |
+| **`AGENTS.md`** | Preferences & coding standards for humans and agents (not an architecture map). |
+| Design brief | **TBD** — `brief.md` is not in the tree yet; do not invent one. |
+
+Optional agent orchestration notes live under `.agents/rules/` and `.grok/rules/` (they drift slightly; `.grok` adds Antigravity/`agy` guidance). Skills are shared (`.grok/skills` → `.agents/skills`).
+
+## Architecture (high level)
+
+**Dual agents**
+
+1. **ChatAgent** — `POST /api/chat` streams answers (retrieval, `askUserQuestion`, optional Exa web search, optional Excalidraw MCP tools/apps).
+2. **GraphAgent** — after each turn, `after()` enqueues a per-chat job that writes Memories/Links into FalkorDBLite graph `spy_brain`.
+
+Orchestrator SoT: `src/ai/agent/agent.ts`. Client transport/context: `src/contexts/ChatContext.tsx`.
+
+**Persistence (local-first)**
+
+| Store | Module | Contents |
+|-------|--------|----------|
+| SQLite (`better-sqlite3`) | `src/lib/chats/sqlite.ts` | Chat + graph-agent transcripts (`messages_json`, `graph_messages_json`) |
+| FalkorDBLite | `src/lib/graph/falkor.ts` | Knowledge graph `spy_brain` |
+| Dexie | `src/lib/storage/client-db.ts` | Prompt drafts in the browser |
+
+Graph history SoT is **SQLite on the server**, synced to the client via SSE (`GET /api/chats/[chatId]/graph-events`, event `graph-history-updated`). Pub/sub: `src/lib/chats/graph-events.ts`.
+
+**MCP Apps** — Excalidraw (and similar) via `@ai-sdk/mcp`: tool wiring in `src/ai/tools/excalidraw-mcp.ts`, proxy `GET/POST /api/mcp-apps`, iframe sandbox `src/app/mcp-app-sandbox/route.ts`, UI card under `src/components/chat/mcp-app/`.
 
 ## Project layout (high level)
 
 ```text
 src/
-  app/           # Routes + API (chat, etc.)
+  app/                 # Routes + API (chat, chats, graph, mcp-apps, …)
   components/
-    ui/          # Design-system primitives
-    chat/        # Chat domains: prompt/, conversation/, shell/
-    landing/     # Marketing/hero surfaces
-    dotmatrix/   # Pixel icons + loaders (use DotMatrixIcon from here)
-    brand/logos/ # Provider marks
-  ai/            # Agent streaming, tools, embeddings
-  contexts/      # ChatContext, etc.
+    ui/                # Design-system primitives
+    chat/              # prompt/, conversation/, sidebar/, mcp-app/, overlays/, …
+    graph/             # Sigma canvas + Milkdown
+    landing/           # Marketing/hero surfaces
+    dotmatrix/         # Pixel icons + loaders
+    logos/             # Provider marks (not brand/)
+  ai/                  # Dual-agent runtime, tools, schemas, models
+  contexts/            # ChatContext, etc.
+  lib/chats/           # SQLite + SSE
+  lib/graph/           # Falkor + policy
+  lib/storage/         # Dexie drafts
+  prompts/             # Agent instruction + tool prompt SoTs
 ```
 
-**Prompt input** SoT: `src/components/chat/prompt/shell/prompt-input.tsx`. Live **pending-ask** is a non-morph option list in the prompt body (`pendingAsk` / `onOptionSelect`). Do not rewire a morphing ask widget into `/chat` without an explicit redesign task.
+**Prompt input** SoT: `src/components/chat/prompt/shell/prompt-input.tsx`. Live **pending-ask** is a non-morph option list in the prompt body (`pendingAsk` / `onOptionSelect`). Do not rewire a morphing ask widget into `/chat` without an explicit redesign task. Ask schema SoT: `src/ai/schemas/ask-schema.ts`.
 
 ## Scripts
 
@@ -50,14 +79,31 @@ src/
 npm run dev
 npm run build
 npm run lint
-npm run verify:components-structure   # domain folder / naming gates
-npm run verify:reorg-scope           # rename-fidelity vs HEAD map
-npm run verify:widget-cleanup        # prompt-input stays free of widget symbols
+
+# Structure / UI gates (plain node)
+npm run verify:components-structure
+npm run verify:widget-cleanup
+npm run verify:icon-inventory
+npm run verify:pending-ask
+
+# Graph / chats (tsx; prefer FALKOR_PATH=/tmp/falkor …)
+npm run verify:parent-of-hierarchy
+npm run verify:notes-forest
+npm run verify:chat-delete
+npm run verify:graph-history
+npm run verify:manage-links-atomic
+npm run verify:upsert-memory-atomic
+
+# Diagnostics
+npm run probe:search-memories
+npm run list:memory-questions
 ```
+
+`verify:reorg-scope` was retired (stale rename map from an earlier layout); the script file is a no-op stub.
 
 ## Stack
 
-Next.js 16 (App Router, Turbopack) · React 19 · Tailwind CSS v4 · Vercel AI SDK · FalkorDB (Node runtime for DB routes) · GSAP + ShaderGradient on landing.
+Next.js 16 (App Router, Turbopack) · React 19 · Node `>=22` · Tailwind CSS v4 · **`motion`** · Vercel AI SDK v7 · FalkorDBLite + better-sqlite3 + Dexie · Sigma + graphology · Milkdown · ShaderGradient on landing.
 
 ## License
 

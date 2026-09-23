@@ -12,7 +12,6 @@
     "lint": "eslint",
     "verify:widget-cleanup": "node scripts/verify-widget-cleanup.mjs",
     "verify:components-structure": "node scripts/verify-components-structure.mjs",
-    "verify:reorg-scope": "node scripts/verify-reorg-scope.mjs",
     "verify:icon-inventory": "node scripts/verify-icon-inventory.mjs",
     "verify:pending-ask": "node scripts/verify-pending-ask.mjs",
     "verify:parent-of-hierarchy": "npx tsx scripts/verify-parent-of-hierarchy.mjs",
@@ -20,7 +19,9 @@
     "probe:search-memories": "npx tsx scripts/probe-search-memories.mjs",
     "list:memory-questions": "npx tsx scripts/list-memory-questions.mjs",
     "verify:chat-delete": "npx tsx scripts/verify-chat-delete.mjs",
-    "verify:graph-history": "npx tsx scripts/verify-graph-history.mjs"
+    "verify:graph-history": "npx tsx scripts/verify-graph-history.mjs",
+    "verify:manage-links-atomic": "npx tsx scripts/verify-manage-links-atomic.mjs",
+    "verify:upsert-memory-atomic": "npx tsx scripts/verify-upsert-memory-atomic.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.40",
