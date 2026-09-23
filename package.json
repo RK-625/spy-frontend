@@ -9,6 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "electron": "electron .",
+    "electron:dev": "electron .",
     "lint": "eslint",
     "verify:widget-cleanup": "node scripts/verify-widget-cleanup.mjs",
     "verify:components-structure": "node scripts/verify-components-structure.mjs",
@@ -89,6 +91,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.184.1",
+    "electron": "^44.4.5",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4.3.2",
@@ -98,5 +101,6 @@
   },
   "allowScripts": {
     "better-sqlite3@13.0.3": true
-  }
+  },
+  "main": "electron/main.js"
 }
