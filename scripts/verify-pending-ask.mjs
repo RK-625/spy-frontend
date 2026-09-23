@@ -11,10 +11,9 @@ import { spawnSync } from "node:child_process";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const moduleRel = "src/lib/ask-user-question.ts";
-// Schema SoT is ask-schema.ts; ask-user-question.ts is a compat re-export shim.
+// Schema SoT is ask-schema.ts (compat ask-user-question.ts shim removed).
 const schemaRel = "src/ai/schemas/ask-schema.ts";
-const schemaShimRel = "src/ai/schemas/ask-user-question.ts";
-// Toolset SoT is tools/toolset.ts; root toolset.ts is a compat re-export shim.
+// Toolset SoT is tools/toolset.ts.
 const toolsetRel = "src/ai/tools/toolset.ts";
 const moduleAbs = path.join(root, moduleRel);
 const schemaAbs = path.join(root, schemaRel);
@@ -34,10 +33,6 @@ function assert(cond, msg) {
 // ── Structural ──────────────────────────────────────────────────────
 assert(fs.existsSync(moduleAbs), `${moduleRel} exists`);
 assert(fs.existsSync(schemaAbs), `${schemaRel} exists`);
-assert(
-  fs.existsSync(path.join(root, schemaShimRel)),
-  `${schemaShimRel} exists (compat re-export)`,
-);
 assert(fs.existsSync(toolsetAbs), `${toolsetRel} exists`);
 
 const src = fs.readFileSync(moduleAbs, "utf8");
@@ -68,8 +63,8 @@ assert(
 );
 assert(
   /from\s+["']@\/ai\/schemas\/ask-schema["']/.test(toolsetSrc) ||
-    /from\s+["']@\/ai\/schemas\/ask-user-question["']/.test(toolsetSrc),
-  "toolset imports schema from @/ai/schemas/ask-schema (or compat ask-user-question)",
+    /from\s+["']\.\.\/schemas\/ask-schema["']/.test(toolsetSrc),
+  "toolset imports schema from ask-schema SoT",
 );
 assert(
   /askUserQuestionInputSchema/.test(toolsetSrc) &&
@@ -403,7 +398,8 @@ assertEq(
   "empty/whitespace question → null",
 );
 
-// option mapping: empty labels skipped, stable source-index ids
+// option mapping: whitespace-only labels skipped after trim; stable source-index ids.
+// Schema rejects "" (z.string().min(1)); use "  " so safeParse succeeds then filter.
 const mapped = getPendingAskUserQuestion([
   {
     id: "a-map",
@@ -415,7 +411,7 @@ const mapped = getPendingAskUserQuestion([
         state: "input-available",
         input: {
           question: "Map?",
-          options: [" A ", "", "B"],
+          options: [" A ", "  ", "B"],
           allowCustomInput: false,
         },
       },
@@ -428,7 +424,7 @@ assertEq(
     { id: "opt-0", label: "A" },
     { id: "opt-2", label: "B" },
   ],
-  "inline option map skips empty, stable source index ids",
+  "inline option map skips whitespace-only, stable source index ids",
 );
 
 if (process.exitCode && process.exitCode !== 0) {
