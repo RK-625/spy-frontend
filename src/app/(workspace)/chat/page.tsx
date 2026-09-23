@@ -293,7 +293,9 @@ const ChatWorkspace = () => {
                         <ChatActionRail
                           reveal={message.role === "user" ? "hover" : "always"}
                         >
-                          <ChatActionButton icon={Pencil} label="Edit" />
+                          {message.role === "user" && (
+                            <ChatActionButton icon={Pencil} label="Edit" />
+                          )}
                           <ChatActionButton icon={Copy} label="Copy" />
                         </ChatActionRail>
                       )}
