@@ -1,6 +1,12 @@
 "use client";
 
-import { type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   ChatActionButton,
   ChatActionRail,
@@ -37,6 +43,18 @@ import { useChatContext } from "@/contexts/ChatContext";
 import { Excalidraw } from "@/components/logos";
 import { Check, Copy, Globe, Lightbulb, Pencil } from "lucide-react";
 
+
+
+function getMessagePlainText(message: UIMessage): string {
+  return message.parts
+    .filter(
+      (part): part is Extract<UIMessage["parts"][number], { type: "text" }> =>
+        part.type === "text",
+    )
+    .map((part) => part.text)
+    .join("\n\n")
+    .trim();
+}
 
 function isReasoning(
   part: UIMessage["parts"][number],
@@ -82,8 +100,41 @@ const EmptyState = () => (
   </div>
 );
 
+const COPIED_FEEDBACK_MS = 1500;
+
 const ChatWorkspace = () => {
   const { status, messages, error } = useChatContext();
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const copiedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedResetRef.current) {
+        clearTimeout(copiedResetRef.current);
+      }
+    };
+  }, []);
+
+  const handleCopyMessage = useCallback(async (message: UIMessage) => {
+    const text = getMessagePlainText(message);
+    if (!text) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMessageId(message.id);
+      if (copiedResetRef.current) {
+        clearTimeout(copiedResetRef.current);
+      }
+      copiedResetRef.current = setTimeout(() => {
+        setCopiedMessageId(null);
+        copiedResetRef.current = null;
+      }, COPIED_FEEDBACK_MS);
+    } catch {
+      // Clipboard permission denied or unavailable — keep the rail quiet.
+    }
+  }, []);
 
   return (
     <div className="relative flex size-full flex-col overflow-hidden">
@@ -294,7 +345,17 @@ const ChatWorkspace = () => {
                           reveal={message.role === "user" ? "hover" : "always"}
                         >
                           <ChatActionButton icon={Pencil} label="Edit" />
-                          <ChatActionButton icon={Copy} label="Copy" />
+                          <ChatActionButton
+                            icon={
+                              copiedMessageId === message.id ? Check : Copy
+                            }
+                            label={
+                              copiedMessageId === message.id ? "Copied" : "Copy"
+                            }
+                            onClick={() => {
+                              void handleCopyMessage(message);
+                            }}
+                          />
                         </ChatActionRail>
                       )}
                     </div>
