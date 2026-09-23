@@ -12,6 +12,7 @@
  */
 const { app, BrowserWindow } = require("electron");
 const { startNextServer } = require("./next-server");
+const { applyElectronDataEnv } = require("./data-paths");
 
 const PORT = Number(process.env.SPY_ELECTRON_PORT ?? 3000);
 const START_PATH = process.env.SPY_ELECTRON_PATH ?? "/chat";
@@ -67,11 +68,15 @@ function createMainWindow() {
 }
 
 async function bootstrap() {
+  // Always resolve desktop data dirs under userData when running in Electron.
+  const dataEnv = applyElectronDataEnv();
+
   if (NEXT_MODE === "dev" || NEXT_MODE === "start") {
     console.log(`[electron] Starting Next (${NEXT_MODE}) on port ${PORT}…`);
     nextServer = await startNextServer({
       mode: NEXT_MODE,
       port: PORT,
+      env: dataEnv,
     });
     console.log(`[electron] Next ready at ${nextServer.origin}`);
   }
