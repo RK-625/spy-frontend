@@ -118,7 +118,9 @@ npm run electron:dev
 npm run build
 npm run electron:start
 
-# Package unsigned Spy.app (local; no notarization)
+# Package unsigned Spy.app (local; no notarization).
+# The bundle does not include `.env`. Spy.app reads `~/.spy/.env`
+# (or `SPY_ENV_FILE`) for `MUSE_SPARK_KEY`, `EXA_API_KEY`, and the rest.
 npm run electron:pack
 # → dist-electron/mac-arm64/Spy.app
 ```
@@ -130,9 +132,11 @@ npm run electron:pack
 | `electron:start` | Start Next production server + Electron |
 | `electron:pack` | `next build` + electron-builder mac `.app` (unsigned) |
 
-Data: under Electron, chats SQLite and Falkor live in `app.getPath('userData')` unless `CHATS_DB_PATH` / `FALKOR_PATH` are already set. For deep worktrees without Electron, keep using `FALKOR_PATH=/tmp/falkor` per AGENTS.md.
+Chats and Falkor both default to `~/.spy/chats.db` and `~/.spy/falkor`, the same store as the web app env. An existing `CHATS_DB_PATH` or `FALKOR_PATH` still wins; for deep worktrees without Electron, keep using `FALKOR_PATH=/tmp/falkor` per AGENTS.md.
 
-Startup order: install the app menu → write data paths into `process.env` (userData unless already set) → spawn Next, which inherits them → open the window. Set any `CHATS_DB_PATH` / `FALKOR_PATH` overrides before launching Electron.
+Finder launches do not inherit a shell `PATH`. The shell uses `node` from `PATH` when it is there, otherwise `SPY_NODE_BINARY`, a short login-shell lookup, or Homebrew's node.
+
+Startup order: install the app menu → load `~/.spy/.env` or `SPY_ENV_FILE` without overriding variables already set and without logging values → write data paths into `process.env` → spawn Next, which inherits them → open the window. `http`/`https` links leave the window for the system browser. In-app navigation stays on the app origin (`localhost` and, when set, `SPY_ELECTRON_URL`).
 
 ## License
 

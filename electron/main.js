@@ -1,21 +1,9 @@
-/**
- * Electron main process — thin shell around the Spy Next.js app.
- *
- * Modes:
- * - SPY_NEXT_MODE=dev|start → spawn Next, wait ready, load /chat, kill on quit
- * - unset → assume Next is already running (Sprint 1 launcher behavior)
- *
- * Env:
- * - SPY_ELECTRON_PORT (default 3000)
- * - SPY_ELECTRON_PATH (default /chat)
- * - SPY_ELECTRON_URL  (full URL override; skips path join)
- */
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, shell } = require("electron");
 
-// Dock / menu name (productName in electron-builder is Spy).
 app.setName("Spy");
 const { startNextServer } = require("./next-server");
 const { applyElectronDataEnv } = require("./data-paths");
+const { loadUserEnv } = require("./user-env");
 const { installApplicationMenu } = require("./menu");
 
 function resolveNextMode() {
@@ -23,7 +11,6 @@ function resolveNextMode() {
   if (fromEnv === "dev" || fromEnv === "start") {
     return fromEnv;
   }
-  // Packaged .app always hosts Next itself via `next start`.
   if (app.isPackaged) {
     return "start";
   }
@@ -36,11 +23,51 @@ const NEXT_MODE = resolveNextMode();
 
 /** @type {import('./next-server').NextServerHandle | null} */
 let nextServer = null;
-let isShuttingDown = false;
+/** @type {"idle" | "stopping" | "done"} */
+let quitState = "idle";
 
-/**
- * @returns {string}
- */
+function appOrigins() {
+  const origins = new Set();
+  const add = (raw) => {
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        origins.add(parsed.origin);
+      }
+    } catch {
+      // Ignore a malformed override; localhost is still allowed.
+    }
+  };
+  add(nextServer?.origin ?? `http://localhost:${PORT}`);
+  if (process.env.SPY_ELECTRON_URL) {
+    add(process.env.SPY_ELECTRON_URL);
+  }
+  return origins;
+}
+
+function isAllowedAppUrl(url) {
+  try {
+    return appOrigins().has(new URL(url).origin);
+  } catch {
+    return false;
+  }
+}
+
+function openExternalHttp(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return;
+  }
+  shell.openExternal(url).catch((error) => {
+    console.error("[electron] openExternal failed:", error);
+  });
+}
+
 function resolveLoadUrl() {
   if (process.env.SPY_ELECTRON_URL) {
     return process.env.SPY_ELECTRON_URL;
@@ -50,9 +77,26 @@ function resolveLoadUrl() {
   return `${origin}${pathPart}`;
 }
 
-/**
- * @returns {import('electron').BrowserWindow}
- */
+function attachNavigationGuards(mainWindow) {
+  const contents = mainWindow.webContents;
+
+  contents.setWindowOpenHandler(({ url }) => {
+    openExternalHttp(url);
+    return { action: "deny" };
+  });
+
+  const guardNavigation = (event, url) => {
+    if (isAllowedAppUrl(url)) {
+      return;
+    }
+    event.preventDefault();
+    openExternalHttp(url);
+  };
+
+  contents.on("will-navigate", guardNavigation);
+  contents.on("will-redirect", guardNavigation);
+}
+
 function createMainWindow() {
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -72,6 +116,8 @@ function createMainWindow() {
     mainWindow.show();
   });
 
+  attachNavigationGuards(mainWindow);
+
   const loadUrl = resolveLoadUrl();
   mainWindow.loadURL(loadUrl).catch((error) => {
     console.error(
@@ -83,12 +129,18 @@ function createMainWindow() {
   return mainWindow;
 }
 
+function destroyWindows() {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.destroy();
+  }
+}
+
 async function bootstrap() {
   installApplicationMenu();
 
-  // Always resolve desktop data dirs under userData when running in Electron.
-  // Must run before startNextServer: the Next child inherits process.env
-  // (CHATS_DB_PATH / FALKOR_PATH) at spawn time.
+  // User env, then data paths, both before startNextServer.
+  // The child inherits process.env at spawn; already-set vars win.
+  loadUserEnv();
   applyElectronDataEnv();
 
   if (NEXT_MODE === "dev" || NEXT_MODE === "start") {
@@ -103,6 +155,9 @@ async function bootstrap() {
   createMainWindow();
 
   app.on("activate", () => {
+    if (quitState !== "idle") {
+      return;
+    }
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
     }
@@ -123,11 +178,21 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", (event) => {
-  if (isShuttingDown || !nextServer) {
+  if (quitState === "done") {
     return;
   }
-  isShuttingDown = true;
+  if (quitState === "stopping") {
+    event.preventDefault();
+    return;
+  }
+  if (!nextServer) {
+    quitState = "done";
+    return;
+  }
+
+  quitState = "stopping";
   event.preventDefault();
+  destroyWindows();
   const handle = nextServer;
   nextServer = null;
   handle
@@ -136,6 +201,7 @@ app.on("before-quit", (event) => {
       console.error("[electron] Failed to stop Next:", error);
     })
     .finally(() => {
+      quitState = "done";
       app.quit();
     });
 });

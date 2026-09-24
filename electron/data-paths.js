@@ -1,29 +1,22 @@
 /**
- * Desktop data locations under Electron userData.
- * Product code already honors CHATS_DB_PATH and FALKOR_PATH — no Next changes.
- *
- * Existing env wins (e.g. FALKOR_PATH=/tmp/falkor for deep worktrees).
+ * Env must be set before startNextServer because the child inherits process.env at spawn,
+ * and these paths are the same store the web app uses.
  */
 const path = require("node:path");
 const { app } = require("electron");
 
-const DEFAULT_PATHS = {
-  CHATS_DB_PATH: "chats.db",
-  FALKOR_PATH: "falkor",
-};
-
-/**
- * Apply resolved data paths directly onto process.env.
- * Inherited automatically by child processes.
- */
 function applyElectronDataEnv() {
-  const userData = app.getPath("userData");
-  console.log(`[electron] userData=${userData}`);
+  const spyDir = path.join(app.getPath("home"), ".spy");
 
-  for (const [key, subPath] of Object.entries(DEFAULT_PATHS)) {
-    process.env[key] = process.env[key] || path.join(userData, subPath);
-    console.log(`[electron] ${key}=${process.env[key]}`);
+  if (!process.env.CHATS_DB_PATH) {
+    process.env.CHATS_DB_PATH = path.join(spyDir, "chats.db");
   }
+  if (!process.env.FALKOR_PATH) {
+    process.env.FALKOR_PATH = path.join(spyDir, "falkor");
+  }
+
+  console.log(`[electron] CHATS_DB_PATH=${process.env.CHATS_DB_PATH}`);
+  console.log(`[electron] FALKOR_PATH=${process.env.FALKOR_PATH}`);
 }
 
 module.exports = {
