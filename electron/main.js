@@ -18,9 +18,6 @@ const { startNextServer } = require("./next-server");
 const { applyElectronDataEnv } = require("./data-paths");
 const { installApplicationMenu } = require("./menu");
 
-const PORT = Number(process.env.SPY_ELECTRON_PORT ?? 3000);
-const START_PATH = process.env.SPY_ELECTRON_PATH ?? "/chat";
-/** @type {'dev' | 'start' | undefined} */
 function resolveNextMode() {
   const fromEnv = process.env.SPY_NEXT_MODE;
   if (fromEnv === "dev" || fromEnv === "start") {
@@ -33,6 +30,8 @@ function resolveNextMode() {
   return undefined;
 }
 
+const PORT = Number(process.env.SPY_ELECTRON_PORT ?? 3000);
+const START_PATH = process.env.SPY_ELECTRON_PATH ?? "/chat";
 const NEXT_MODE = resolveNextMode();
 
 /** @type {import('./next-server').NextServerHandle | null} */
@@ -88,14 +87,13 @@ async function bootstrap() {
   installApplicationMenu();
 
   // Always resolve desktop data dirs under userData when running in Electron.
-  const dataEnv = applyElectronDataEnv();
+  applyElectronDataEnv();
 
   if (NEXT_MODE === "dev" || NEXT_MODE === "start") {
     console.log(`[electron] Starting Next (${NEXT_MODE}) on port ${PORT}…`);
     nextServer = await startNextServer({
       mode: NEXT_MODE,
       port: PORT,
-      env: dataEnv,
     });
     console.log(`[electron] Next ready at ${nextServer.origin}`);
   }

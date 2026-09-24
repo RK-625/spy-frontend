@@ -7,54 +7,25 @@
 const path = require("node:path");
 const { app } = require("electron");
 
-/**
- * @returns {{ CHATS_DB_PATH?: string, FALKOR_PATH?: string, userData: string }}
- */
-function resolveElectronDataEnv() {
-  const userData = app.getPath("userData");
-  /** @type {{ CHATS_DB_PATH?: string, FALKOR_PATH?: string, userData: string }} */
-  const resolved = { userData };
-
-  if (!process.env.CHATS_DB_PATH) {
-    resolved.CHATS_DB_PATH = path.join(userData, "chats.db");
-  }
-  if (!process.env.FALKOR_PATH) {
-    resolved.FALKOR_PATH = path.join(userData, "falkor");
-  }
-
-  return resolved;
-}
+const DEFAULT_PATHS = {
+  CHATS_DB_PATH: "chats.db",
+  FALKOR_PATH: "falkor",
+};
 
 /**
- * Apply resolved paths onto process.env (and return spawn-ready env slice).
- * @returns {NodeJS.ProcessEnv}
+ * Apply resolved data paths directly onto process.env.
+ * Inherited automatically by child processes.
  */
 function applyElectronDataEnv() {
-  const resolved = resolveElectronDataEnv();
-  /** @type {NodeJS.ProcessEnv} */
-  const spawnEnv = {};
+  const userData = app.getPath("userData");
+  console.log(`[electron] userData=${userData}`);
 
-  if (resolved.CHATS_DB_PATH) {
-    process.env.CHATS_DB_PATH = resolved.CHATS_DB_PATH;
-    spawnEnv.CHATS_DB_PATH = resolved.CHATS_DB_PATH;
+  for (const [key, subPath] of Object.entries(DEFAULT_PATHS)) {
+    process.env[key] = process.env[key] || path.join(userData, subPath);
+    console.log(`[electron] ${key}=${process.env[key]}`);
   }
-  if (resolved.FALKOR_PATH) {
-    process.env.FALKOR_PATH = resolved.FALKOR_PATH;
-    spawnEnv.FALKOR_PATH = resolved.FALKOR_PATH;
-  }
-
-  console.log(`[electron] userData=${resolved.userData}`);
-  console.log(
-    `[electron] CHATS_DB_PATH=${process.env.CHATS_DB_PATH ?? "(unset)"}`,
-  );
-  console.log(
-    `[electron] FALKOR_PATH=${process.env.FALKOR_PATH ?? "(unset)"}`,
-  );
-
-  return spawnEnv;
 }
 
 module.exports = {
-  resolveElectronDataEnv,
   applyElectronDataEnv,
 };

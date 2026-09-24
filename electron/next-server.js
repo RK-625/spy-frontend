@@ -176,9 +176,6 @@ function stopChild(child) {
       resolve();
       return;
     }
-
-    child.once("exit", () => resolve());
-
     try {
       child.kill("SIGTERM");
     } catch {
@@ -197,7 +194,10 @@ function stopChild(child) {
       resolve();
     }, 5_000);
 
-    child.once("exit", () => clearTimeout(forceTimer));
+    child.once("exit", () => {
+      clearTimeout(forceTimer);
+      resolve();
+    });
   });
 }
 
