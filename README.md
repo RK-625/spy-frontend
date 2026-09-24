@@ -132,6 +132,8 @@ npm run electron:pack
 
 Data: under Electron, chats SQLite and Falkor live in `app.getPath('userData')` unless `CHATS_DB_PATH` / `FALKOR_PATH` are already set. For deep worktrees without Electron, keep using `FALKOR_PATH=/tmp/falkor` per AGENTS.md.
 
+Startup order: install the app menu → write data paths into `process.env` (userData unless already set) → spawn Next, which inherits them → open the window. Set any `CHATS_DB_PATH` / `FALKOR_PATH` overrides before launching Electron.
+
 ## License
 
 Private / project-specific unless otherwise stated.

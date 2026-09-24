@@ -103,6 +103,9 @@ function waitForNextReady(origin, options = {}) {
 }
 
 /**
+ * Spawn Next and resolve once it accepts HTTP connections.
+ * The child inherits `process.env` at spawn time, so callers must set data env
+ * (CHATS_DB_PATH / FALKOR_PATH via applyElectronDataEnv) before calling this.
  * @param {{ mode: 'dev' | 'start', port: number }} options
  * @returns {Promise<NextServerHandle>}
  */

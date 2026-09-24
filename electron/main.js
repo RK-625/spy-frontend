@@ -87,6 +87,8 @@ async function bootstrap() {
   installApplicationMenu();
 
   // Always resolve desktop data dirs under userData when running in Electron.
+  // Must run before startNextServer: the Next child inherits process.env
+  // (CHATS_DB_PATH / FALKOR_PATH) at spawn time.
   applyElectronDataEnv();
 
   if (NEXT_MODE === "dev" || NEXT_MODE === "start") {
