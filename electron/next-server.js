@@ -103,11 +103,11 @@ function waitForNextReady(origin, options = {}) {
 }
 
 /**
- * @param {{ mode: 'dev' | 'start', port: number, env?: NodeJS.ProcessEnv }} options
+ * @param {{ mode: 'dev' | 'start', port: number }} options
  * @returns {Promise<NextServerHandle>}
  */
 async function startNextServer(options) {
-  const { mode, port, env: extraEnv = {} } = options;
+  const { mode, port } = options;
   const projectRoot = getProjectRoot();
   const cwd = resolveWorkingDirectory(projectRoot);
   const nextBin = resolveNextBin(projectRoot);
@@ -120,7 +120,6 @@ async function startNextServer(options) {
     cwd,
     env: {
       ...process.env,
-      ...extraEnv,
       PORT: String(port),
     },
     stdio: ["ignore", "pipe", "pipe"],
