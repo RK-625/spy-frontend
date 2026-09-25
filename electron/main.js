@@ -2,7 +2,7 @@ const { app, BrowserWindow, shell } = require("electron");
 
 app.setName("Spy");
 const { startNextServer } = require("./next-server");
-const { applyElectronDataEnv } = require("./data-paths");
+const { applyElectronDataEnv, assertFalkorPath } = require("./data-paths");
 const { loadUserEnv } = require("./user-env");
 const { installApplicationMenu } = require("./menu");
 
@@ -142,6 +142,7 @@ async function bootstrap() {
   START_PATH = process.env.SPY_ELECTRON_PATH ?? "/chat";
   NEXT_MODE = resolveNextMode();
   if (NEXT_MODE === "dev" || NEXT_MODE === "start") {
+    assertFalkorPath();
     console.log(`[electron] Starting Next (${NEXT_MODE}) on port ${PORT}…`);
     nextServer = await startNextServer({
       mode: NEXT_MODE,

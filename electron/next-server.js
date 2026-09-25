@@ -50,15 +50,17 @@ function resolveNodeBinary() {
     return process.env.SPY_NODE_BINARY;
   }
 
+  // Active PATH first: natives are built with this Node, so spawning any
+  // other one risks an ABI mismatch. Homebrew spots are Finder fallbacks.
+  const fromPath = commandPath("/bin/sh", ["-c", "command -v node"], 1_000);
+  if (fromPath) {
+    return fromPath;
+  }
+
   for (const candidate of ["/opt/homebrew/bin/node", "/usr/local/bin/node"]) {
     if (isExecutable(candidate)) {
       return candidate;
     }
-  }
-
-  const fromPath = commandPath("/bin/sh", ["-c", "command -v node"], 1_000);
-  if (fromPath) {
-    return fromPath;
   }
 
   throw new Error(
