@@ -7,7 +7,7 @@
  * Run: node scripts/verify-electron-node-resolve.mjs
  */
 import { strict as assert } from "node:assert";
-import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -58,6 +58,7 @@ const {
 // Quiet the expected skip warnings; failures still throw.
 console.warn = () => {};
 
+try {
 // Banner lines are skipped, first executable line wins.
 assert.equal(
   commandPath("/bin/sh", ["-c", "command -v node"], 1_000),
@@ -80,5 +81,8 @@ assert.equal(resolveNodeBinary(), GOOD_NODE);
 process.env.SPY_NODE_BINARY = OLD_NODE;
 assert.throws(() => resolveNodeBinary(), /requires Node >= 22/);
 delete process.env.SPY_NODE_BINARY;
+} finally {
+  rmSync(fixtureDir, { recursive: true, force: true });
+}
 
 console.log("verify-electron-node-resolve: PASS");
