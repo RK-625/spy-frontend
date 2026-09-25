@@ -31,11 +31,13 @@ function commandPath(command, args, timeout) {
   if (result.error || result.status !== 0) {
     return null;
   }
-  const line = String(result.stdout || "")
+  // Login shells and version managers can print banners before the path,
+  // so check every line and take the first executable one.
+  const lines = String(result.stdout || "")
     .split(/\r?\n/)
     .map((item) => item.trim())
-    .find(Boolean);
-  return line && isExecutable(line) ? line : null;
+    .filter(Boolean);
+  return lines.find((line) => isExecutable(line)) ?? null;
 }
 
 function resolveNodeBinary() {
@@ -332,4 +334,6 @@ module.exports = {
   getProjectRoot,
   resolveNextBin,
   resolveWorkingDirectory,
+  commandPath,
+  resolveNodeBinary,
 };
