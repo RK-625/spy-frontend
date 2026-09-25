@@ -45,13 +45,24 @@ const FALKOR_PATH = resolve(process.env.FALKOR_PATH ?? ".data/falkor");
 type FalkorClient = Awaited<ReturnType<typeof FalkorDB.open>>;
 type FalkorGraph = ReturnType<FalkorClient["selectGraph"]>;
 
-let db: FalkorClient | null = null;
-/** Single-flight open so concurrent getDb() callers share one FalkorDB.open(). */
-let dbOpenPromise: Promise<FalkorClient> | null = null;
-/** Set after ensureVectorIndexes succeeds once per process (indexes are durable on disk). */
-let vectorIndexesReady = false;
-/** Single-flight so concurrent getDb() callers share one ensureVectorIndexes(). */
-let vectorIndexesReadyPromise: Promise<void> | null = null;
+type FalkorSingleton = {
+  client: FalkorClient | null;
+  opening: Promise<FalkorClient> | null;
+  vectorReady: boolean;
+  vectorOpening: Promise<void> | null;
+};
+
+// Turbopack serves this module from more than one server chunk. A module-level
+// singleton opens a second embedded Falkor, and that copy does not see the
+// graph the other copy is serving. globalThis keeps one client per process.
+const falkorSingleton: FalkorSingleton = ((
+  globalThis as { __spyFalkor?: FalkorSingleton }
+).__spyFalkor ??= {
+  client: null,
+  opening: null,
+  vectorReady: false,
+  vectorOpening: null,
+});
 
 async function ensureFalkorDataDir(): Promise<string> {
   await mkdir(FALKOR_PATH, { recursive: true });
@@ -63,24 +74,24 @@ async function ensureFalkorDataDir(): Promise<string> {
  * reset so the next call can retry (do not leave a rejected promise cached forever).
  */
 function openDbClient(): Promise<FalkorClient> {
-  if (db) {
-    return Promise.resolve(db);
+  if (falkorSingleton.client) {
+    return Promise.resolve(falkorSingleton.client);
   }
-  if (!dbOpenPromise) {
-    dbOpenPromise = (async () => {
+  if (!falkorSingleton.opening) {
+    falkorSingleton.opening = (async () => {
       const dataDir = await ensureFalkorDataDir();
       // falkordblite: embedded server — use open(), not falkordb client connect()
       const client = await FalkorDB.open({ path: dataDir });
-      db = client;
+      falkorSingleton.client = client;
       console.log(`FalkorDBLite open at ${dataDir}`);
       return client;
     })().catch((error: unknown) => {
-      dbOpenPromise = null;
-      db = null;
+      falkorSingleton.opening = null;
+      falkorSingleton.client = null;
       throw error;
     });
   }
-  return dbOpenPromise;
+  return falkorSingleton.opening;
 }
 
 async function createVectorIndex(
@@ -116,27 +127,27 @@ async function createVectorIndex(
  * Idempotent: already-exists logs and continues; other errors throw.
  */
 async function ensureVectorIndexes(graph: FalkorGraph): Promise<void> {
-  if (vectorIndexesReady) {
+  if (falkorSingleton.vectorReady) {
     return;
   }
-  if (!vectorIndexesReadyPromise) {
-    vectorIndexesReadyPromise = (async () => {
+  if (!falkorSingleton.vectorOpening) {
+    falkorSingleton.vectorOpening = (async () => {
       await createVectorIndex(
         graph,
         "MemoryQuestion",
         MEMORY_QUESTION_EMBEDDING_PROP,
       );
-      vectorIndexesReady = true;
+      falkorSingleton.vectorReady = true;
     })().catch((error: unknown) => {
-      vectorIndexesReadyPromise = null;
+      falkorSingleton.vectorOpening = null;
       throw error;
     });
   }
-  return vectorIndexesReadyPromise;
+  return falkorSingleton.vectorOpening;
 }
 
 export function isVectorIndexesReady(): boolean {
-  return vectorIndexesReady;
+  return falkorSingleton.vectorReady;
 }
 
 export async function getDb() {
