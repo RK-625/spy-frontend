@@ -81,7 +81,12 @@ function openDbClient(): Promise<FalkorClient> {
     falkorSingleton.opening = (async () => {
       const dataDir = await ensureFalkorDataDir();
       // falkordblite: embedded server — use open(), not falkordb client connect()
-      const client = await FalkorDB.open({ path: dataDir });
+      // Lite's signal cleanup sends SHUTDOWN NOSAVE, so only periodic RDB
+      // snapshots persist. Snapshot 1s after any write (lite default: 60s).
+      const client = await FalkorDB.open({
+        path: dataDir,
+        additionalConfig: { save: "1 1" },
+      });
       falkorSingleton.client = client;
       console.log(`FalkorDBLite open at ${dataDir}`);
       return client;
