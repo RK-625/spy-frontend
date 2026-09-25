@@ -17,9 +17,9 @@ function resolveNextMode() {
   return undefined;
 }
 
-const PORT = Number(process.env.SPY_ELECTRON_PORT ?? 3000);
-const START_PATH = process.env.SPY_ELECTRON_PATH ?? "/chat";
-const NEXT_MODE = resolveNextMode();
+let PORT = null;
+let START_PATH = null;
+let NEXT_MODE = null;
 
 /** @type {import('./next-server').NextServerHandle | null} */
 let nextServer = null;
@@ -138,7 +138,9 @@ async function bootstrap() {
   // The child inherits process.env at spawn; already-set vars win.
   loadUserEnv();
   applyElectronDataEnv();
-
+  PORT = Number(process.env.SPY_ELECTRON_PORT ?? 3000);
+  START_PATH = process.env.SPY_ELECTRON_PATH ?? "/chat";
+  NEXT_MODE = resolveNextMode();
   if (NEXT_MODE === "dev" || NEXT_MODE === "start") {
     console.log(`[electron] Starting Next (${NEXT_MODE}) on port ${PORT}…`);
     nextServer = await startNextServer({

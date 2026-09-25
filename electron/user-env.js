@@ -6,43 +6,17 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { app } = require("electron");
-
-function parseEnvLine(line) {
-  const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith("#")) {
-    return null;
-  }
-  const body = trimmed.startsWith("export ")
-    ? trimmed.slice("export ".length).trim()
-    : trimmed;
-  const eq = body.indexOf("=");
-  if (eq <= 0) {
-    return null;
-  }
-  const key = body.slice(0, eq).trim();
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-    return null;
-  }
-  let value = body.slice(eq + 1).trim();
-  if (
-    value.length >= 2 &&
-    ((value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'")))
-  ) {
-    value = value.slice(1, -1);
-  }
-  return { key, value };
-}
+const dotenv = require("dotenv");
 
 function applyEnvText(text) {
+  const parsed = dotenv.parse(text);
   let applied = 0;
-  for (const line of text.split(/\r?\n/)) {
-    const parsed = parseEnvLine(line);
-    if (!parsed) {
+  for (const [key, value] of Object.entries(parsed)) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
       continue;
     }
-    if (process.env[parsed.key] === undefined) {
-      process.env[parsed.key] = parsed.value;
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
       applied += 1;
     }
   }
