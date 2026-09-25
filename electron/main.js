@@ -91,6 +91,23 @@ function attachNavigationGuards(mainWindow) {
 
   contents.on("will-navigate", guardNavigation);
   contents.on("will-redirect", guardNavigation);
+
+  // will-navigate is main-frame only. MCP app iframes run third-party HTML,
+  // so subframes stay on the app origin or inline docs. Blocked silently:
+  // a frame navigating itself is not a user click.
+  contents.on("will-frame-navigate", (event) => {
+    if (event.isMainFrame) {
+      return;
+    }
+    if (event.url === "about:blank" || event.url === "about:srcdoc") {
+      return;
+    }
+    if (isAllowedAppUrl(event.url)) {
+      return;
+    }
+    console.warn(`[electron] Blocked subframe navigation to ${event.url}`);
+    event.preventDefault();
+  });
 }
 
 function createMainWindow() {
