@@ -7,7 +7,7 @@
  * Run: node scripts/verify-electron-node-resolve.mjs
  */
 import { strict as assert } from "node:assert";
-import { chmodSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -15,8 +15,10 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const Module = require("node:module");
 
-const OLD_NODE = join(tmpdir(), "spy-verify-old-node");
-const GOOD_NODE = join(tmpdir(), "spy-verify-good-node");
+// Private per-run fixture dir: never truncate or chmod fixed shared paths.
+const fixtureDir = mkdtempSync(join(tmpdir(), "spy-verify-node-"));
+const OLD_NODE = join(fixtureDir, "old-node");
+const GOOD_NODE = join(fixtureDir, "good-node");
 for (const file of [OLD_NODE, GOOD_NODE]) {
   writeFileSync(file, "#!/bin/sh\n");
   chmodSync(file, 0o755);
