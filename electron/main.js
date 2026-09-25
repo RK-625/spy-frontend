@@ -26,28 +26,24 @@ let nextServer = null;
 /** @type {"idle" | "stopping" | "done"} */
 let quitState = "idle";
 
-function appOrigins() {
-  const origins = new Set();
-  const add = (raw) => {
-    try {
-      const parsed = new URL(raw);
-      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-        origins.add(parsed.origin);
-      }
-    } catch {
-      // Ignore a malformed override; localhost is still allowed.
-    }
-  };
-  add(nextServer?.origin ?? `http://localhost:${PORT}`);
-  if (process.env.SPY_ELECTRON_URL) {
-    add(process.env.SPY_ELECTRON_URL);
-  }
-  return origins;
-}
-
 function isAllowedAppUrl(url) {
   try {
-    return appOrigins().has(new URL(url).origin);
+    const { origin, protocol } = new URL(url);
+    if (protocol !== "http:" && protocol !== "https:") {
+      return false;
+    }
+    const localOrigin = nextServer?.origin ?? `http://localhost:${PORT}`;
+    if (origin === localOrigin) {
+      return true;
+    }
+    if (process.env.SPY_ELECTRON_URL) {
+      try {
+        return origin === new URL(process.env.SPY_ELECTRON_URL).origin;
+      } catch {
+        return false;
+      }
+    }
+    return false;
   } catch {
     return false;
   }
