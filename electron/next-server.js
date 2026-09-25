@@ -12,6 +12,8 @@ const fs = require("node:fs");
 
 const READY_TIMEOUT_MS = 120_000;
 const STOP_GRACE_MS = 5_000;
+// Keep in sync with package.json engines.
+const REQUIRED_NODE_MAJOR = 22;
 
 function isExecutable(filePath) {
   try {
@@ -40,6 +42,27 @@ function commandPath(command, args, timeout) {
   return lines.find((line) => isExecutable(line)) ?? null;
 }
 
+/**
+ * Major version of a node binary, or null when it cannot be determined.
+ * @param {string} binary
+ * @returns {number | null}
+ */
+function nodeMajor(binary) {
+  try {
+    const result = spawnSync(binary, ["--version"], {
+      encoding: "utf8",
+      timeout: 5_000,
+    });
+    if (result.error || result.status !== 0) {
+      return null;
+    }
+    const match = /^v(\d+)\./.exec(String(result.stdout || "").trim());
+    return match ? Number(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
 function resolveNodeBinary() {
   if (process.env.SPY_NODE_BINARY) {
     if (!isExecutable(process.env.SPY_NODE_BINARY)) {
@@ -47,25 +70,61 @@ function resolveNodeBinary() {
         `SPY_NODE_BINARY is not executable: ${process.env.SPY_NODE_BINARY}`,
       );
     }
+    const major = nodeMajor(process.env.SPY_NODE_BINARY);
+    if (major !== null && major < REQUIRED_NODE_MAJOR) {
+      throw new Error(
+        `SPY_NODE_BINARY is Node v${major}, but Spy requires Node >= ${REQUIRED_NODE_MAJOR}.`,
+      );
+    }
     return process.env.SPY_NODE_BINARY;
   }
 
   // Active PATH first: natives are built with this Node, so spawning any
   // other one risks an ABI mismatch. Homebrew spots are Finder fallbacks.
+  // Each candidate must also meet the engines version; rejects are skipped
+  // with a warning instead of blocking startup outright.
+  const candidates = [];
   const fromPath = commandPath("/bin/sh", ["-c", "command -v node"], 1_000);
   if (fromPath) {
-    return fromPath;
+    candidates.push(fromPath);
   }
-
   for (const candidate of ["/opt/homebrew/bin/node", "/usr/local/bin/node"]) {
     if (isExecutable(candidate)) {
-      return candidate;
+      candidates.push(candidate);
     }
   }
 
+  const { binary, seen } = pickCompatibleNode(candidates);
+  if (binary) {
+    return binary;
+  }
+
   throw new Error(
-    "Could not find node. Set SPY_NODE_BINARY to an executable node binary.",
+    `Could not find node >= ${REQUIRED_NODE_MAJOR}. ` +
+      `Set SPY_NODE_BINARY to a compatible node binary.` +
+      (seen.length ? ` Found: ${seen.join(", ")}.` : ""),
   );
+}
+
+/**
+ * First candidate meeting the engines version, warn-skipping the rest.
+ * @param {string[]} candidates
+ * @returns {{ binary: string | null, seen: string[] }}
+ */
+function pickCompatibleNode(candidates) {
+  const seen = [];
+  for (const candidate of candidates) {
+    const major = nodeMajor(candidate);
+    seen.push(`${candidate} (v${major ?? "unknown"})`);
+    if (major !== null && major >= REQUIRED_NODE_MAJOR) {
+      return { binary: candidate, seen };
+    }
+    console.warn(
+      `[electron] Skipping node ${candidate}: ` +
+        `version v${major ?? "unknown"} does not meet >= ${REQUIRED_NODE_MAJOR}.`,
+    );
+  }
+  return { binary: null, seen };
 }
 
 function getProjectRoot() {
@@ -338,4 +397,6 @@ module.exports = {
   resolveWorkingDirectory,
   commandPath,
   resolveNodeBinary,
+  nodeMajor,
+  pickCompatibleNode,
 };

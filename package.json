@@ -22,6 +22,7 @@
     "list:memory-questions": "npx tsx scripts/list-memory-questions.mjs",
     "verify:chat-delete": "npx tsx scripts/verify-chat-delete.mjs",
     "verify:graph-history": "npx tsx scripts/verify-graph-history.mjs",
+    "verify:electron-node-resolve": "node scripts/verify-electron-node-resolve.mjs",
     "electron:start": "SPY_NEXT_MODE=start electron .",
     "electron:pack": "npm run build && electron-builder --mac dir --config.mac.identity=null",
     "electron:dist": "npm run build && electron-builder --mac --config.mac.identity=null"
