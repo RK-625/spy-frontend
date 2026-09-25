@@ -127,10 +127,10 @@ npm run electron:pack
 
 | Script | What |
 |--------|------|
-| `electron` | Window only (expects Next already on port 3000) |
 | `electron:dev` | Start Next dev + Electron → `/chat` |
 | `electron:start` | Start Next production server + Electron |
 | `electron:pack` | `next build` + electron-builder mac `.app` (unsigned) |
+| `electron:dist` | `next build` + electron-builder mac distributable (unsigned) |
 
 Chats and Falkor default to `~/.spy/chats.db` and `~/.spy/falkor` on the desktop, separate from the web defaults (`.data/`). Set `CHATS_DB_PATH` / `FALKOR_PATH` to share one store across both; for deep worktrees without Electron, keep using `FALKOR_PATH=/tmp/falkor` per AGENTS.md. `FALKOR_PATH` must not contain spaces.
 

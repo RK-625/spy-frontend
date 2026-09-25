@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, dialog, shell } = require("electron");
 
 app.setName("Spy");
 const { startNextServer } = require("./next-server");
@@ -114,6 +114,31 @@ function createMainWindow() {
 
   attachNavigationGuards(mainWindow);
 
+  // A failed load never fires ready-to-show, and macOS keeps the app alive
+  // with no windows. Report it and quit instead of idling hidden.
+  // -3 is ERR_ABORTED: a cancelled navigation, not a failure.
+  let reportedLoadFailure = false;
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      if (!isMainFrame || errorCode === -3 || reportedLoadFailure) {
+        return;
+      }
+      if (quitState !== "idle") {
+        return;
+      }
+      reportedLoadFailure = true;
+      console.error(
+        `[electron] Main frame failed to load ${validatedURL}: ${errorDescription} (${errorCode})`,
+      );
+      dialog.showErrorBox(
+        "Spy couldn't load",
+        `${validatedURL}\n${errorDescription} (${errorCode})\n\nIs Next running?`,
+      );
+      app.quit();
+    },
+  );
+
   const loadUrl = resolveLoadUrl();
   mainWindow.loadURL(loadUrl).catch((error) => {
     console.error(
@@ -181,6 +206,11 @@ async function bootstrap() {
 app.whenReady().then(() => {
   bootstrap().catch((error) => {
     console.error("[electron] Bootstrap failed:", error);
+    // Finder launches have no terminal; the log alone is invisible.
+    if (quitState === "idle") {
+      const message = error instanceof Error ? error.message : String(error);
+      dialog.showErrorBox("Spy couldn't start", message);
+    }
     app.quit();
   });
 });

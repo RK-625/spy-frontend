@@ -9,7 +9,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "electron": "electron .",
     "electron:dev": "SPY_NEXT_MODE=dev electron .",
     "lint": "eslint",
     "verify:widget-cleanup": "node scripts/verify-widget-cleanup.mjs",
