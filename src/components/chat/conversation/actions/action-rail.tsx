@@ -9,6 +9,7 @@ import {
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import type { ComponentProps, HTMLAttributes } from "react";
 
 export type ChatActionRailProps = HTMLAttributes<HTMLDivElement> & {
@@ -62,11 +63,22 @@ export const ChatActionButton = ({
         {...props}
         tabIndex={-1}
       >
-        <Icon
-          size={ICON_GLYPH.badge}
-          strokeWidth={1.5}
-          className="cursor-default"
-        />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={Icon.displayName ?? label}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="flex items-center justify-center"
+          >
+            <Icon
+              size={ICON_GLYPH.badge}
+              strokeWidth={1.5}
+              className="cursor-default"
+            />
+          </motion.span>
+        </AnimatePresence>
       </Button>
     </TooltipTrigger>
     <TooltipContent side="bottom">{label}</TooltipContent>
