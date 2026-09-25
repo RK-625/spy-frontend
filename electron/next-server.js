@@ -48,6 +48,12 @@ function resolveNodeBinary() {
     return process.env.SPY_NODE_BINARY;
   }
 
+  for (const candidate of ["/opt/homebrew/bin/node", "/usr/local/bin/node"]) {
+    if (isExecutable(candidate)) {
+      return candidate;
+    }
+  }
+
   const fromPath = commandPath("/bin/sh", ["-c", "command -v node"], 2_000);
   if (fromPath) {
     return fromPath;
@@ -60,12 +66,6 @@ function resolveNodeBinary() {
   );
   if (fromLogin) {
     return fromLogin;
-  }
-
-  for (const candidate of ["/opt/homebrew/bin/node", "/usr/local/bin/node"]) {
-    if (isExecutable(candidate)) {
-      return candidate;
-    }
   }
 
   throw new Error(
@@ -156,50 +156,44 @@ function groupAlive(child) {
  * @param {import('node:child_process').ChildProcess} child
  * @returns {Promise<void>}
  */
-function stopChild(child) {
-  return new Promise((resolve) => {
-    if (!child.pid || !groupAlive(child)) {
-      resolve();
+async function stopChild(child) {
+  if (!child.pid || !groupAlive(child)) {
+    return;
+  }
+
+  signalGroup(child, "SIGTERM");
+
+  const start = Date.now();
+  while (Date.now() - start < STOP_GRACE_MS) {
+    if (!groupAlive(child)) {
       return;
     }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (!settled && groupAlive(child)) {
-        try {
-          signalGroup(child, "SIGKILL");
-        } catch {
-          // already gone
-        }
-      }
-      settled = true;
-      resolve();
-    }, STOP_GRACE_MS);
-
-    const finishIfGone = () => {
-      if (settled || groupAlive(child)) {
-        return;
-      }
-      settled = true;
-      clearTimeout(timer);
-      resolve();
-    };
-
-    child.once("exit", finishIfGone);
-    try {
-      signalGroup(child, "SIGTERM");
-    } catch {
-      settled = true;
-      clearTimeout(timer);
-      resolve();
-      return;
-    }
-    finishIfGone();
-  });
+  try {
+    signalGroup(child, "SIGKILL");
+  } catch {
+    // already dead
+  }
 }
 
 function childIsDead(child) {
   return child.exitCode !== null || child.signalCode !== null;
+}
+
+function probeHttp(origin) {
+  return new Promise((resolve) => {
+    const req = http.get(origin, (res) => {
+      res.resume();
+      resolve(true);
+    });
+    req.on("error", () => resolve(false));
+    req.setTimeout(2_000, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
 }
 
 /**
@@ -207,90 +201,49 @@ function childIsDead(child) {
  * @param {string} origin
  * @param {{ readyLog: boolean, addrInUse: boolean, exitError: Error | null }} state
  */
-function waitForOwnNextReady(child, origin, state) {
+async function waitForOwnNextReady(child, origin, state) {
   const startedAt = Date.now();
 
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    let timer = null;
+  const checkDead = () => {
+    if (state.addrInUse) {
+      return new Error(
+        `Port already in use at ${origin}. Refusing to attach to a server this process did not start.`,
+      );
+    }
+    if (state.exitError || childIsDead(child)) {
+      return (
+        state.exitError ??
+        new Error(`Next exited before it was ready at ${origin}`)
+      );
+    }
+    return null;
+  };
 
-    const finish = (fn, value) => {
-      if (settled) {
+  while (Date.now() - startedAt < READY_TIMEOUT_MS) {
+    const dead = checkDead();
+    if (dead) {
+      throw dead;
+    }
+
+    if (state.readyLog) {
+      const accepted = await probeHttp(origin);
+      const deadAfter = checkDead();
+      if (deadAfter) {
+        throw deadAfter;
+      }
+      if (accepted) {
         return;
       }
-      settled = true;
-      if (timer) {
-        clearTimeout(timer);
-      }
-      fn(value);
-    };
+    }
 
-    const deadError = () => {
-      if (state.addrInUse) {
-        return new Error(
-          `Port already in use at ${origin}. Refusing to attach to a server this process did not start.`,
-        );
-      }
-      if (state.exitError || childIsDead(child)) {
-        return (
-          state.exitError ??
-          new Error(`Next exited before it was ready at ${origin}`)
-        );
-      }
-      return null;
-    };
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
 
-    const tick = () => {
-      const dead = deadError();
-      if (dead) {
-        finish(reject, dead);
-        return;
-      }
-      if (!state.readyLog) {
-        if (Date.now() - startedAt >= READY_TIMEOUT_MS) {
-          finish(
-            reject,
-            new Error(`Next did not log ready at ${origin} within ${READY_TIMEOUT_MS}ms`),
-          );
-          return;
-        }
-        timer = setTimeout(tick, 200);
-        return;
-      }
-
-      const req = http.get(origin, (res) => {
-        res.resume();
-        const after = deadError();
-        if (after) {
-          finish(reject, after);
-          return;
-        }
-        finish(resolve, undefined);
-      });
-      req.on("error", () => {
-        const after = deadError();
-        if (after) {
-          finish(reject, after);
-          return;
-        }
-        if (Date.now() - startedAt >= READY_TIMEOUT_MS) {
-          finish(
-            reject,
-            new Error(
-              `Next did not accept HTTP at ${origin} within ${READY_TIMEOUT_MS}ms`,
-            ),
-          );
-          return;
-        }
-        timer = setTimeout(tick, 200);
-      });
-      req.setTimeout(2_000, () => {
-        req.destroy();
-      });
-    };
-
-    tick();
-  });
+  throw new Error(
+    state.readyLog
+      ? `Next did not accept HTTP at ${origin} within ${READY_TIMEOUT_MS}ms`
+      : `Next did not log ready at ${origin} within ${READY_TIMEOUT_MS}ms`,
+  );
 }
 
 /**
@@ -366,14 +319,6 @@ async function startNextServer(options) {
   } catch (error) {
     await stopChild(child);
     throw state.exitError ?? error;
-  }
-
-  if (state.exitError || state.addrInUse || childIsDead(child)) {
-    await stopChild(child);
-    throw (
-      state.exitError ??
-      new Error("Next exited before the window opened")
-    );
   }
 
   return {
