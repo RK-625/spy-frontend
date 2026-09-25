@@ -144,11 +144,26 @@ async function bootstrap() {
   if (NEXT_MODE === "dev" || NEXT_MODE === "start") {
     assertFalkorPath();
     console.log(`[electron] Starting Next (${NEXT_MODE}) on port ${PORT}…`);
-    nextServer = await startNextServer({
+    const started = await startNextServer({
       mode: NEXT_MODE,
       port: PORT,
+      onSpawn(spawned) {
+        if (quitState !== "idle") {
+          void spawned.stop();
+          return;
+        }
+        nextServer = spawned;
+      },
     });
+    if (quitState !== "idle") {
+      return;
+    }
+    nextServer = started;
     console.log(`[electron] Next ready at ${nextServer.origin}`);
+  }
+
+  if (quitState !== "idle") {
+    return;
   }
 
   createMainWindow();
@@ -184,6 +199,7 @@ app.on("before-quit", (event) => {
     event.preventDefault();
     return;
   }
+  // Window-only mode, or spawn has not returned a child yet.
   if (!nextServer) {
     quitState = "done";
     return;

@@ -309,11 +309,13 @@ async function waitForOwnNextReady(child, origin, state) {
 
 /**
  * Callers must set data env before this. The child inherits process.env at spawn.
- * @param {{ mode: 'dev' | 'start', port: number }} options
+ * `onSpawn` runs after the child exists and before the ready wait, so quit can
+ * stop a server that is not ready yet.
+ * @param {{ mode: 'dev' | 'start', port: number, onSpawn?: (handle: NextServerHandle) => void }} options
  * @returns {Promise<NextServerHandle>}
  */
 async function startNextServer(options) {
-  const { mode, port } = options;
+  const { mode, port, onSpawn } = options;
   const projectRoot = getProjectRoot();
   const cwd = resolveWorkingDirectory(projectRoot);
   const nextBin = resolveNextBin(projectRoot);
@@ -375,6 +377,13 @@ async function startNextServer(options) {
   });
 
   const origin = `http://localhost:${port}`;
+  const handle = {
+    child,
+    port,
+    origin,
+    stop: () => stopChild(child),
+  };
+  onSpawn?.(handle);
   try {
     await waitForOwnNextReady(child, origin, state);
   } catch (error) {
@@ -382,12 +391,7 @@ async function startNextServer(options) {
     throw state.exitError ?? error;
   }
 
-  return {
-    child,
-    port,
-    origin,
-    stop: () => stopChild(child),
-  };
+  return handle;
 }
 
 module.exports = {
