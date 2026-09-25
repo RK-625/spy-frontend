@@ -54,18 +54,9 @@ function resolveNodeBinary() {
     }
   }
 
-  const fromPath = commandPath("/bin/sh", ["-c", "command -v node"], 2_000);
+  const fromPath = commandPath("/bin/sh", ["-c", "command -v node"], 1_000);
   if (fromPath) {
     return fromPath;
-  }
-
-  const fromLogin = commandPath(
-    "/bin/zsh",
-    ["-lic", "command -v node"],
-    5_000,
-  );
-  if (fromLogin) {
-    return fromLogin;
   }
 
   throw new Error(
@@ -178,20 +169,27 @@ async function stopChild(child) {
   }
 }
 
-function childIsDead(child) {
-  return child.exitCode !== null || child.signalCode !== null;
-}
-
 function probeHttp(origin) {
   return new Promise((resolve) => {
-    const req = http.get(origin, (res) => {
+    let settled = false;
+    const done = (val) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(val);
+    };
+
+    const req = http.get(origin, { agent: false }, (res) => {
       res.resume();
-      resolve(true);
+      done(true);
     });
-    req.on("error", () => resolve(false));
+
+    req.on("error", () => done(false));
+
     req.setTimeout(2_000, () => {
       req.destroy();
-      resolve(false);
+      done(false);
     });
   });
 }
@@ -210,7 +208,7 @@ async function waitForOwnNextReady(child, origin, state) {
         `Port already in use at ${origin}. Refusing to attach to a server this process did not start.`,
       );
     }
-    if (state.exitError || childIsDead(child)) {
+    if (state.exitError || child.exitCode !== null || child.signalCode !== null) {
       return (
         state.exitError ??
         new Error(`Next exited before it was ready at ${origin}`)
