@@ -70,7 +70,10 @@ Quick pointers (prefs above; architecture detail lives in code + README):
 <!-- END: Key source-of-truth paths -->
 
 ## Environment & Verification
-  - **FalkorDB Socket Limit**: When running the dev server, testing, or executing verification scripts (especially in agent worktrees or deep directories),
-    always set `FALKOR_PATH=/tmp/falkor` (e.g., `FALKOR_PATH=/tmp/falkor npm run dev`). This prevents `falkordblite` crashes from Unix domain socket path length
-    limits (104 bytes on macOS / 108 bytes on Linux).
+  - **Data paths**: The real local data lives in `~/.spy/` — `FALKOR_PATH=/Users/apple/.spy/falkor` and `CHATS_DB_PATH=/Users/apple/.spy/chats.db`, set in `.env`
+    (Next loads it for `npm run dev`; Electron defaults to the same `~/.spy/` paths). Never point the app at another path, or it opens an empty graph/chat store.
+  - **FalkorDB Socket Limit**: `falkordblite` crashes when its Unix socket path is too long (104 bytes on macOS / 108 on Linux). `~/.spy/falkor` is short enough.
+    Without `.env` the code falls back to `.data/falkor` inside the checkout, which is too long in agent worktrees (`.env` is gitignored, so worktrees lack it) —
+    there, and for `npx tsx scripts/…` (which do not load `.env`), pass the path explicitly: `FALKOR_PATH=$HOME/.spy/falkor npm run dev`.
+    Scripts that write test data (`verify-*`) must use their own temp dir, never `~/.spy/`.
 <!-- START:Code Preferences -->

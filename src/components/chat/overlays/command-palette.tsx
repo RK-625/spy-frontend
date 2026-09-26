@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 const QUERY_SPLIT_REGEX = /\s+/;
 
 const commandItemHighlightClassName =
-  "absolute inset-0 rounded-[var(--radius)] bg-accent/60";
+  "absolute inset-0 rounded-[var(--radius)] bg-[var(--surface-focus)] ring-1 ring-inset ring-[var(--border-strong)]";
 
 function useDebouncedValue<T>(value: T, delayMs = 150): T {
   const [debounced, setDebounced] = React.useState(value);
@@ -160,7 +160,7 @@ function CommandPaletteTrigger({
   return (
     <button
       className={cn(
-        "flex w-full max-w-sm items-center gap-2 rounded-[var(--radius)] border border-border/80 bg-background/60 px-3 py-2 text-left text-muted-foreground text-sm backdrop-blur-sm transition-colors hover:bg-accent/50",
+        "flex w-full max-w-sm items-center gap-2 rounded-[var(--radius)] border border-border/80 bg-background/60 px-3 py-2 text-left text-muted-foreground text-sm backdrop-blur-sm transition-colors hover:bg-[var(--surface-hover)]",
         className
       )}
       onClick={onClick}
@@ -536,7 +536,7 @@ function CommandPalette({
               <DialogPrimitive.Close asChild>
                 <button
                   aria-label="Close search"
-                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-muted-foreground transition-colors hover:bg-[var(--surface-hover)] hover:text-foreground"
                   type="button"
                 >
                   <X size={ICON_GLYPH.toolbar} strokeWidth={1.5} />

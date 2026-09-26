@@ -37,7 +37,7 @@
 }
 
 .milkdown-pane:not([data-readonly="true"]) .ProseMirror {
-  caret-color: var(--color-accent);
+  caret-color: var(--color-highlight);
 }
 
 .milkdown-pane h1,
@@ -46,7 +46,7 @@
 .milkdown-pane h4,
 .milkdown-pane h5,
 .milkdown-pane h6 {
-  color: var(--color-accent);
+  color: var(--color-highlight);
   font-weight: 600;
   line-height: 1.3;
   margin: 0.6em 0 0.3em;
@@ -85,7 +85,7 @@
 }
 
 .milkdown-pane a {
-  color: var(--color-accent);
+  color: var(--color-highlight);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -163,6 +163,6 @@
 }
 
 .milkdown-pane th {
-  color: var(--color-accent);
+  color: var(--color-highlight);
   font-weight: 600;
 }

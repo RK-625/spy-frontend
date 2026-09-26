@@ -12,8 +12,10 @@
   --color-text-secondary: #7a7685;
   --color-text-dim: #4a4658;
 
-  --color-accent: #e8dff8;
-  --color-accent-hover: #f0eaff;
+  /* Light lavender ink: focus outline, caret, headings. `accent` stays shadcn's dark fill. */
+  --color-highlight: var(--primary);
+  --color-primary-hover: #f0eaff;
+  --color-accent: var(--accent);
 
   --color-surface-chat: #150c28;
   --color-surface-elevated: #0a0516;
@@ -95,7 +97,7 @@
   }
 
   *:focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-highlight);
     outline-offset: 4px;
   }
 
@@ -229,7 +231,7 @@
   --secondary-foreground: #C8ACFB;
   --muted: #181230;
   --muted-foreground: #C8ACFB;
-  --accent: #1e1540;
+  --accent: #362a60; /* visible highlight on popover (1.5:1); accent-foreground 9.9:1 */
   --accent-foreground: #e8dff8;
   --destructive: #c45c5c; /* glanceable on dark */
   --destructive-foreground: #e8e4df;
@@ -300,7 +302,7 @@
   --secondary-foreground: #C8ACFB;
   --muted: #181230;
   --muted-foreground: #C8ACFB;
-  --accent: #1e1540;
+  --accent: #362a60; /* visible highlight on popover (1.5:1); accent-foreground 9.9:1 */
   --accent-foreground: #e8dff8;
   --destructive: #c45c5c; /* glanceable on dark */
   --destructive-foreground: #e8e4df;
