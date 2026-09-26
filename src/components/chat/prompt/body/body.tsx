@@ -60,7 +60,7 @@ export const PromptInputBody = ({
         ) : null}
         {showOptions ? (
           <div
-            className="flex flex-col gap-1"
+            className="flex max-h-48 min-h-0 flex-col gap-1 overflow-y-auto"
             data-slot="prompt-input-options"
             role="group"
             {...(showQuestion
