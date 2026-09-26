@@ -71,11 +71,11 @@ function resolveNodeBinary() {
       );
     }
     const major = nodeMajor(process.env.SPY_NODE_BINARY);
-    if (major === null && major < REQUIRED_NODE_MAJOR) {
+    if (major === null || major < REQUIRED_NODE_MAJOR) {
       throw new Error(
-          major === null
-              ? `SPY_NODE_BINARY version could not be read: ${process.env.SPY_NODE_BINARY}. Spy requires Node >= ${REQUIRED_NODE_MAJOR}.`
-              : `SPY_NODE_BINARY is Node v${major}, but Spy requires Node >= ${REQUIRED_NODE_MAJOR}.`,
+        major === null
+          ? `SPY_NODE_BINARY version could not be read: ${process.env.SPY_NODE_BINARY}. Spy requires Node >= ${REQUIRED_NODE_MAJOR}.`
+          : `SPY_NODE_BINARY is Node v${major}, but Spy requires Node >= ${REQUIRED_NODE_MAJOR}.`,
       );
     }
     return process.env.SPY_NODE_BINARY;
