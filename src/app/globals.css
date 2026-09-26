@@ -12,8 +12,10 @@
   --color-text-secondary: #7a7685;
   --color-text-dim: #4a4658;
 
-  --color-accent: #e8dff8;
-  --color-accent-hover: #f0eaff;
+  /* Light lavender ink: focus outline, caret, headings. `accent` stays shadcn's dark fill. */
+  --color-highlight: var(--primary);
+  --color-primary-hover: #f0eaff;
+  --color-accent: var(--accent);
 
   --color-surface-chat: #150c28;
   --color-surface-elevated: #0a0516;
@@ -95,7 +97,7 @@
   }
 
   *:focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-highlight);
     outline-offset: 4px;
   }
 

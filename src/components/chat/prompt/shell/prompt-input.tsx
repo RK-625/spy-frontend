@@ -546,7 +546,7 @@ function PromptInputWorkspaceContent() {
                 className={cn(
                   "transition-colors",
                   useWebSearch
-                    ? "bg-primary text-accent-ink hover:bg-accent-hover"
+                    ? "bg-primary text-accent-ink hover:bg-primary-hover"
                     : "text-text-primary hover:bg-[var(--surface-hover)]",
                 )}
               >
@@ -568,7 +568,7 @@ function PromptInputWorkspaceContent() {
                 className={cn(
                   "transition-colors",
                   useExcalidraw
-                    ? "bg-primary text-accent-ink hover:bg-accent-hover"
+                    ? "bg-primary text-accent-ink hover:bg-primary-hover"
                     : "text-text-primary hover:bg-[var(--surface-hover)]",
                 )}
               >
@@ -668,7 +668,7 @@ function PromptInputWorkspaceContent() {
               className={cn(
                 "!size-8 !rounded-[var(--radius)] transition-colors duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] disabled:!opacity-100",
                 !isSubmitDisabled
-                  ? "bg-primary text-accent-ink hover:bg-accent-hover"
+                  ? "bg-primary text-accent-ink hover:bg-primary-hover"
                   : "text-text-primary hover:bg-[var(--surface-hover)]",
               )}
               variant={!isSubmitDisabled ? "default" : "ghost"}
