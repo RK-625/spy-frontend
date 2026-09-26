@@ -24,7 +24,7 @@
     "verify:electron-node-resolve": "node scripts/verify-electron-node-resolve.mjs",
     "electron:start": "SPY_NEXT_MODE=start electron .",
     "electron:pack": "npm run build && electron-builder --mac dir --config.mac.identity=null",
-    "electron:dist": "npm run build && electron-builder --mac --config.mac.identity=null"
+    "electron:dist": "npm run build && electron-builder --mac dmg zip --config.mac.identity=null"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.40",
