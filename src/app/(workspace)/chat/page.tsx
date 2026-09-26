@@ -18,6 +18,7 @@ import {
   MessageContent,
   MessageFile,
   MessageResponse,
+  GraphPane,
   ChainOfThought,
   ChainOfThoughtStep,
   ChainOfThoughtSearchResults,
@@ -138,6 +139,7 @@ const ChatWorkspace = () => {
 
   return (
     <div className="relative flex size-full flex-col overflow-hidden">
+      <GraphPane />
       <Conversation className="chat-fade-bottom" aria-live="polite">
         <ConversationContent
           aria-label="Conversation messages"
@@ -344,7 +346,9 @@ const ChatWorkspace = () => {
                         <ChatActionRail
                           reveal={message.role === "user" ? "hover" : "always"}
                         >
-                          <ChatActionButton icon={Pencil} label="Edit" />
+                          {message.role === "user" && (
+                            <ChatActionButton icon={Pencil} label="Edit" />
+                          )}
                           <ChatActionButton
                             icon={
                               copiedMessageId === message.id ? Check : Copy
@@ -368,7 +372,7 @@ const ChatWorkspace = () => {
         <ConversationScrollButton />
       </Conversation>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto mx-auto w-full max-w-4xl">
           <PromptInputWorkspace />
         </div>
       </div>
@@ -378,8 +382,8 @@ const ChatWorkspace = () => {
 
 export default function ChatPage() {
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col items-center overflow-hidden">
-      <div className="flex h-full w-full max-w-4xl flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
+    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <div className="flex h-full w-full flex-col bg-[var(--surface-chat-panel)] backdrop-blur-sm">
         <ChatWorkspace />
       </div>
     </div>

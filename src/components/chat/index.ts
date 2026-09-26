@@ -15,5 +15,6 @@ export * from "./sidebar";
 export * from "./overlays";
 export * from "./prompt";
 export * from "./conversation";
+export * from "./graph-pane";
 export * from "./mcp-app";
 export * from "./workspace";
