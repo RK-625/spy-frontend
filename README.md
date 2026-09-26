@@ -6,8 +6,8 @@
 
 ```bash
 npm install
-# Avoid falkordblite Unix socket path-length crashes in deep worktrees:
-FALKOR_PATH=/tmp/falkor npm run dev
+# .env sets FALKOR_PATH / CHATS_DB_PATH to ~/.spy/ (short socket path, real data)
+npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -86,7 +86,7 @@ npm run verify:widget-cleanup
 npm run verify:icon-inventory
 npm run verify:pending-ask
 
-# Graph / chats (tsx; prefer FALKOR_PATH=/tmp/falkor …)
+# Graph / chats (tsx does not load .env: prefix FALKOR_PATH=$HOME/.spy/falkor …)
 npm run verify:parent-of-hierarchy
 npm run verify:notes-forest
 npm run verify:chat-delete
@@ -132,7 +132,7 @@ npm run electron:pack
 | `electron:pack` | `next build` + electron-builder mac `.app` (unsigned) |
 | `electron:dist` | `next build` + electron-builder mac distributable (unsigned) |
 
-Chats and Falkor default to `~/.spy/chats.db` and `~/.spy/falkor` on the desktop, separate from the web defaults (`.data/`). Set `CHATS_DB_PATH` / `FALKOR_PATH` to share one store across both; for deep worktrees without Electron, keep using `FALKOR_PATH=/tmp/falkor` per AGENTS.md. `FALKOR_PATH` must not contain spaces.
+Chats and Falkor default to `~/.spy/chats.db` and `~/.spy/falkor` on the desktop, separate from the web defaults (`.data/`). Set `CHATS_DB_PATH` / `FALKOR_PATH` to share one store across both; in worktrees (no `.env`) pass `FALKOR_PATH=$HOME/.spy/falkor` per AGENTS.md. `FALKOR_PATH` must not contain spaces.
 
 Finder launches do not inherit a shell `PATH`. The shell uses `SPY_NODE_BINARY` when set (rejected if older than Node 22 or its version can't be read). Otherwise it tries the first executable `node` on `PATH` (banner lines are skipped), then Homebrew's node as the Finder fallback, skipping any candidate older than Node 22 with a warning.
 
