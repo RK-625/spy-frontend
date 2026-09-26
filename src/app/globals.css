@@ -231,7 +231,7 @@
   --secondary-foreground: #C8ACFB;
   --muted: #181230;
   --muted-foreground: #C8ACFB;
-  --accent: #1e1540;
+  --accent: #362a60; /* visible highlight on popover (1.5:1); accent-foreground 9.9:1 */
   --accent-foreground: #e8dff8;
   --destructive: #c45c5c; /* glanceable on dark */
   --destructive-foreground: #e8e4df;
@@ -302,7 +302,7 @@
   --secondary-foreground: #C8ACFB;
   --muted: #181230;
   --muted-foreground: #C8ACFB;
-  --accent: #1e1540;
+  --accent: #362a60; /* visible highlight on popover (1.5:1); accent-foreground 9.9:1 */
   --accent-foreground: #e8dff8;
   --destructive: #c45c5c; /* glanceable on dark */
   --destructive-foreground: #e8e4df;
