@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "electron:dev": "SPY_NEXT_MODE=dev electron .",
     "lint": "eslint",
     "verify:widget-cleanup": "node scripts/verify-widget-cleanup.mjs",
     "verify:components-structure": "node scripts/verify-components-structure.mjs",
@@ -19,7 +20,11 @@
     "probe:search-memories": "npx tsx scripts/probe-search-memories.mjs",
     "list:memory-questions": "npx tsx scripts/list-memory-questions.mjs",
     "verify:chat-delete": "npx tsx scripts/verify-chat-delete.mjs",
-    "verify:graph-history": "npx tsx scripts/verify-graph-history.mjs"
+    "verify:graph-history": "npx tsx scripts/verify-graph-history.mjs",
+    "verify:electron-node-resolve": "node scripts/verify-electron-node-resolve.mjs",
+    "electron:start": "SPY_NEXT_MODE=start electron .",
+    "electron:pack": "npm run build && electron-builder --mac dir --config.mac.identity=null",
+    "electron:dist": "npm run build && electron-builder --mac dmg zip --config.mac.identity=null"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.40",
@@ -53,6 +58,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "dexie": "^4.4.6",
+    "dotenv": "^18.0.4",
     "exa-js": "^2.16.0",
     "falkordb": "^6.6.2",
     "falkordblite": "^0.3.0",
@@ -89,6 +95,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.184.1",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4.3.2",
@@ -98,5 +106,8 @@
   },
   "allowScripts": {
     "better-sqlite3@13.0.3": true
-  }
+  },
+  "main": "electron/main.js",
+  "description": "Spy — agent-first knowledge base (Next.js + Electron shell)",
+  "author": "Rithesh Kumar"
 }

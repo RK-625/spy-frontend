@@ -105,6 +105,39 @@ npm run list:memory-questions
 
 Next.js 16 (App Router, Turbopack) · React 19 · Node `>=22` · Tailwind CSS v4 · **`motion`** · Vercel AI SDK v7 · FalkorDBLite + better-sqlite3 + Dexie · Sigma + graphology · Milkdown · ShaderGradient on landing.
 
+
+## Desktop (Electron)
+
+Additive macOS shell around the same Next.js app (does not replace `npm run dev`).
+
+```bash
+# Dev: Electron spawns `next dev`, opens /chat, stops Next on quit
+npm run electron:dev
+
+# Production-like: build Next, then Electron spawns `next start`
+npm run build
+npm run electron:start
+
+# Package unsigned Spy.app (local; no notarization).
+# The bundle does not include `.env`. Spy.app reads `~/.spy/.env`
+# (or `SPY_ENV_FILE`) for `MUSE_SPARK_KEY`, `EXA_API_KEY`, and the rest.
+npm run electron:pack
+# → dist-electron/mac-arm64/Spy.app
+```
+
+| Script | What |
+|--------|------|
+| `electron:dev` | Start Next dev + Electron → `/chat` |
+| `electron:start` | Start Next production server + Electron |
+| `electron:pack` | `next build` + electron-builder mac `.app` (unsigned) |
+| `electron:dist` | `next build` + electron-builder mac distributable (unsigned) |
+
+Chats and Falkor default to `~/.spy/chats.db` and `~/.spy/falkor` on the desktop, separate from the web defaults (`.data/`). Set `CHATS_DB_PATH` / `FALKOR_PATH` to share one store across both; for deep worktrees without Electron, keep using `FALKOR_PATH=/tmp/falkor` per AGENTS.md. `FALKOR_PATH` must not contain spaces.
+
+Finder launches do not inherit a shell `PATH`. The shell uses `SPY_NODE_BINARY` when set (rejected if older than Node 22 or its version can't be read). Otherwise it tries the first executable `node` on `PATH` (banner lines are skipped), then Homebrew's node as the Finder fallback, skipping any candidate older than Node 22 with a warning.
+
+Startup order: install the app menu → load `~/.spy/.env` or `SPY_ENV_FILE` without overriding variables already set and without logging values → write data paths into `process.env` → spawn Next, which inherits them → open the window. `http`/`https` links leave the window for the system browser. In-app navigation stays on the app origin (`localhost` and, when set, `SPY_ELECTRON_URL`).
+
 ## License
 
 Private / project-specific unless otherwise stated.

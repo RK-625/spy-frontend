@@ -1,0 +1,44 @@
+# .env stays out of the bundle. Packaged Spy.app reads ~/.spy/.env (or SPY_ENV_FILE).
+appId: app.spy.desktop
+productName: Spy
+copyright: Copyright © Spy
+
+directories:
+  output: dist-electron
+  buildResources: electron/build-resources
+
+files:
+  - electron/**/*
+  - package.json
+  - next.config.ts
+  - public/**/*
+  - .next/**/*
+  - node_modules/**/*
+  - "!node_modules/.cache/**"
+  - "!**/.env"
+  - "!**/.env.*"
+  - "!**/.data/**"
+  - "!**/dist-electron/**"
+  - "!**/.git/**"
+  - "!**/src/**"
+  - "!**/*.md"
+  - "!electron/build-resources/**"
+
+# asar: false — spawned system Node cannot read .next or node_modules from inside asar.
+# npmRebuild: false — better-sqlite3 and falkordblite must stay on the Node ABI, not Electron's.
+asar: false
+npmRebuild: false
+
+asarUnpack:
+  - "**/*.node"
+  - "**/better-sqlite3/**"
+  - "**/falkordblite/**"
+  - "**/falkordb/**"
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dir
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false

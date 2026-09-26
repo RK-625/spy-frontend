@@ -49,3 +49,6 @@ next-env.d.ts
 
 # Pencil design files
 *.pen
+
+# Electron packaging output
+dist-electron/
