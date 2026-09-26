@@ -12,7 +12,7 @@ import {
 
 type GraphPaneContextValue = {
   open: boolean;
-  toggle: () => void;
+  toggleGraphPane: () => void;
   close: () => void;
 };
 
@@ -21,7 +21,7 @@ const GraphPaneContext = createContext<GraphPaneContextValue | null>(null);
 export function GraphPaneProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
 
-  const toggle = useCallback(() => {
+  const toggleGraphPane = useCallback(() => {
     setOpen((prev) => !prev);
   }, []);
 
@@ -35,6 +35,9 @@ export function GraphPaneProvider({ children }: { children: ReactNode }) {
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (document.querySelector('[role="dialog"]')) {
+          return;
+        }
         setOpen(false);
       }
     };
@@ -68,8 +71,8 @@ export function GraphPaneProvider({ children }: { children: ReactNode }) {
   }, [open ]);
 
   const value = useMemo(
-    () => ({ open, toggle, close }),
-    [open, toggle, close],
+    () => ({ open, toggleGraphPane, close }),
+    [open, toggleGraphPane, close],
   );
 
   return (

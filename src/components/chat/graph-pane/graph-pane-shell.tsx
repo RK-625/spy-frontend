@@ -1,9 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { usePrefersReducedMotion } from "@/components/dotmatrix";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
-import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { useGraphPane } from "./graph-pane-state";
 
@@ -62,12 +62,11 @@ function GraphPaneError({ message }: { message: string }) {
         Couldn&apos;t load the graph
       </p>
       <p className="max-w-xs text-sm text-text-secondary">{message}</p>
-      <Button type="button" variant="ghost" size="sm" tabIndex={-1}>
-        Retry
-      </Button>
     </div>
   );
 }
+
+export const GRAPH_PANE_TRIGGER_ID = "graph-pane-trigger";
 
 export function GraphPaneShell({
   state = "empty",
@@ -76,14 +75,30 @@ export function GraphPaneShell({
   const { open } = useGraphPane();
   const reducedMotion = usePrefersReducedMotion();
   const transition = reducedMotion ? { duration: 0 } : MOTION.chrome;
+  const panelRef = useRef<HTMLElement>(null);
+  const wasOpenRef = useRef(open);
+
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
+    if (open && !wasOpen) {
+      panelRef.current?.focus({ preventScroll: true });
+    } else if (!open && wasOpen) {
+      document
+        .getElementById(GRAPH_PANE_TRIGGER_ID)
+        ?.focus({ preventScroll: true });
+    }
+  }, [open]);
 
   return (
     <AnimatePresence initial={false}>
       {open ? (
         <motion.aside
+          ref={panelRef}
           role="complementary"
           aria-label="Graph"
           data-graph-pane
+          tabIndex={-1}
           className="absolute inset-y-0 right-0 z-30 flex w-[360px] flex-col border-l border-[var(--border-default)] bg-[var(--surface-chat-panel)]/80 backdrop-blur-md"
           initial={
             reducedMotion

@@ -4,10 +4,14 @@ import { List } from "lucide-react";
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { GraphPaneProvider, useGraphPane } from "./graph-pane-state";
-import { GraphPaneShell, type GraphPaneState } from "./graph-pane-shell";
+import {
+  GraphPaneShell,
+  GRAPH_PANE_TRIGGER_ID,
+  type GraphPaneState,
+} from "./graph-pane-shell";
 
 function GraphPaneRailTrigger() {
-  const { open, toggle } = useGraphPane();
+  const { open, toggleGraphPane } = useGraphPane();
 
   if (open) {
     return null;
@@ -20,7 +24,8 @@ function GraphPaneRailTrigger() {
           aria-expanded={open}
           aria-label="Open graph pane"
           className="absolute top-4 right-4 z-30 text-muted-foreground hover:bg-[var(--surface-hover)] hover:text-foreground"
-          onClick={toggle}
+          id={GRAPH_PANE_TRIGGER_ID}
+          onClick={toggleGraphPane}
           size="icon"
           type="button"
           variant="ghost"
