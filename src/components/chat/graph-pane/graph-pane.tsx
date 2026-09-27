@@ -1,13 +1,13 @@
 "use client";
 
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
-import { GraphPaneProvider, useGraphPane } from "./graph-pane-state";
+import { GraphPaneProvider, useGraphPane } from "./state/graph-pane-state";
 import {
   GraphPaneAgentMark,
   GraphPaneShell,
   GRAPH_PANE_TRIGGER_ID,
   type GraphPaneState,
-} from "./graph-pane-shell";
+} from "./shell/graph-pane-shell";
 
 function GraphPaneRailTrigger() {
   const { open, toggleGraphPane } = useGraphPane();

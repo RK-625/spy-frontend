@@ -8,8 +8,8 @@ import { useChatContext } from "@/contexts/ChatContext";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { GraphChangeFeed, parseGraphChanges } from "./graph-change-feed";
-import { useGraphPane } from "./graph-pane-state";
+import { GraphChangeFeed, parseGraphChanges } from "../feed/graph-change-feed";
+import { useGraphPane } from "../state/graph-pane-state";
 
 export type GraphPaneState = "empty" | "loading" | "error";
 
