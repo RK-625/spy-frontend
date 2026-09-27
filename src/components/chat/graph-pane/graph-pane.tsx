@@ -1,13 +1,13 @@
 "use client";
 
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
+import { useEffect, useRef } from "react";
+import { Button, Tooltip, TooltipContent, TooltipTrigger, toast } from "@/components/ui";
+import { useChatContext } from "@/contexts/ChatContext";
 import { GraphPaneProvider, useGraphPane } from "./state/graph-pane-state";
-import { useGraphFailedToast } from "./state/use-graph-failed-toast";
 import {
   GraphPaneAgentMark,
   GraphPaneShell,
   GRAPH_PANE_TRIGGER_ID,
-  type GraphPaneState,
 } from "./shell/graph-pane-shell";
 
 function GraphPaneRailTrigger() {
@@ -38,18 +38,27 @@ function GraphPaneRailTrigger() {
   );
 }
 
-type GraphPaneProps = {
-  state?: GraphPaneState;
-};
+export function GraphPane() {
+  const { graphJobStatus } = useChatContext();
+  const previousStatusRef = useRef(graphJobStatus);
 
-export function GraphPane({ state }: GraphPaneProps) {
-  // Always mounted (unlike the rail trigger), so no failed transition is missed.
-  useGraphFailedToast();
+  // GraphPane stays mounted when the rail trigger unmounts, so the toast
+  // still fires while the pane is open. A status that is already failed
+  // on mount does not toast again.
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = graphJobStatus;
+    if (graphJobStatus === "failed" && previousStatus !== "failed") {
+      toast.error("Graph update failed", {
+        description: "Chat is unaffected. It retries on your next message.",
+      });
+    }
+  }, [graphJobStatus]);
 
   return (
     <GraphPaneProvider>
       <GraphPaneRailTrigger />
-      <GraphPaneShell state={state} />
+      <GraphPaneShell />
     </GraphPaneProvider>
   );
 }

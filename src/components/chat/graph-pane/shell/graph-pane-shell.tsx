@@ -12,16 +12,6 @@ import type { GraphJobStatus } from "@/types/chat";
 import { GraphChangeFeed, parseGraphChanges } from "../feed/graph-change-feed";
 import { useGraphPane } from "../state/graph-pane-state";
 
-export type GraphPaneState = "empty" | "loading" | "error";
-
-type GraphPaneShellProps = {
-  state?: GraphPaneState;
-  errorMessage?: string;
-};
-
-const DEFAULT_ERROR_MESSAGE =
-  "Something went wrong while loading the graph. Please try again.";
-
 export const GRAPH_PANE_TRIGGER_ID = "graph-pane-trigger";
 
 function GraphAgentMark({
@@ -125,41 +115,7 @@ function GraphPaneEmpty() {
   );
 }
 
-const LOADING_SKELETON_ROWS = [0, 1, 2];
-
-function GraphPaneLoading() {
-  return (
-    <div
-      className="flex flex-col gap-3 px-4 py-4"
-      role="status"
-      aria-label="Loading graph"
-    >
-      {LOADING_SKELETON_ROWS.map((row) => (
-        <div
-          key={row}
-          aria-hidden
-          className="h-16 animate-pulse rounded-[var(--radius)] bg-[var(--surface-subtle)]"
-        />
-      ))}
-    </div>
-  );
-}
-
-function GraphPaneError({ message }: { message: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-      <p className="text-sm font-medium text-text-primary">
-        Couldn&apos;t load the graph
-      </p>
-      <p className="max-w-xs text-sm text-text-secondary">{message}</p>
-    </div>
-  );
-}
-
-export function GraphPaneShell({
-  state = "empty",
-  errorMessage = DEFAULT_ERROR_MESSAGE,
-}: GraphPaneShellProps) {
+export function GraphPaneShell() {
   const { open } = useGraphPane();
   const { graphMessages } = useChatContext();
   const changes = parseGraphChanges(graphMessages);
@@ -207,12 +163,8 @@ export function GraphPaneShell({
         >
           <GraphPaneHeader />
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {state === "error" ? (
-              <GraphPaneError message={errorMessage} />
-            ) : changes.length > 0 ? (
+            {changes.length > 0 ? (
               <GraphChangeFeed changes={changes} />
-            ) : state === "loading" ? (
-              <GraphPaneLoading />
             ) : (
               <GraphPaneEmpty />
             )}
