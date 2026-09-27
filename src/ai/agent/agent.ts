@@ -191,10 +191,17 @@ export async function runAgent({
           ...responseMessages,
         ];
 
+        const streamed: ModelMessage[] = [];
         const result = await runGraphAgent({
           model: resolvedModel,
           providerOptions: resolvedProviderOptions,
           messages: graphHistory,
+          onStep(stepMessages) {
+            streamed.push(...stepMessages);
+            const soFar = [...graphHistory, ...streamed];
+            replaceGraphMessages(chatId, soFar);
+            publishGraphUpdate(chatId, soFar);
+          },
         });
 
         const updatedGraphMessages: ModelMessage[] = [

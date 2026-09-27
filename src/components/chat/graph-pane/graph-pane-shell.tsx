@@ -3,8 +3,10 @@
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { usePrefersReducedMotion } from "@/components/dotmatrix";
+import { useChatContext } from "@/contexts/ChatContext";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { GraphChangeFeed, parseGraphChanges } from "./graph-change-feed";
 import { useGraphPane } from "./graph-pane-state";
 
 export type GraphPaneState = "empty" | "loading" | "error";
@@ -16,6 +18,8 @@ type GraphPaneShellProps = {
 
 const DEFAULT_ERROR_MESSAGE =
   "Something went wrong while loading the graph. Please try again.";
+
+export const GRAPH_PANE_TRIGGER_ID = "graph-pane-trigger";
 
 function GraphPaneHeader({ className }: { className?: string }) {
   return (
@@ -66,13 +70,13 @@ function GraphPaneError({ message }: { message: string }) {
   );
 }
 
-export const GRAPH_PANE_TRIGGER_ID = "graph-pane-trigger";
-
 export function GraphPaneShell({
   state = "empty",
   errorMessage = DEFAULT_ERROR_MESSAGE,
 }: GraphPaneShellProps) {
   const { open } = useGraphPane();
+  const { graphMessages } = useChatContext();
+  const changes = parseGraphChanges(graphMessages);
   const reducedMotion = usePrefersReducedMotion();
   const transition = reducedMotion ? { duration: 0 } : MOTION.chrome;
   const panelRef = useRef<HTMLElement>(null);
@@ -117,10 +121,12 @@ export function GraphPaneShell({
         >
           <GraphPaneHeader />
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {state === "loading" ? (
-              <GraphPaneLoading />
-            ) : state === "error" ? (
+            {state === "error" ? (
               <GraphPaneError message={errorMessage} />
+            ) : changes.length > 0 ? (
+              <GraphChangeFeed changes={changes} />
+            ) : state === "loading" ? (
+              <GraphPaneLoading />
             ) : (
               <GraphPaneEmpty />
             )}
