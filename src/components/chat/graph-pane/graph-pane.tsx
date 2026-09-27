@@ -1,14 +1,14 @@
 "use client";
 
-import { List } from "lucide-react";
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
-import { ICON_GLYPH } from "@/lib/icon-tokens";
-import { GraphPaneProvider, useGraphPane } from "./graph-pane-state";
+import { useEffect, useRef } from "react";
+import { Button, Tooltip, TooltipContent, TooltipTrigger, toast } from "@/components/ui";
+import { useChatContext } from "@/contexts/ChatContext";
+import { GraphPaneProvider, useGraphPane } from "./state/graph-pane-state";
 import {
+  GraphPaneAgentMark,
   GraphPaneShell,
   GRAPH_PANE_TRIGGER_ID,
-  type GraphPaneState,
-} from "./graph-pane-shell";
+} from "./shell/graph-pane-shell";
 
 function GraphPaneRailTrigger() {
   const { open, toggleGraphPane } = useGraphPane();
@@ -30,11 +30,7 @@ function GraphPaneRailTrigger() {
           type="button"
           variant="ghost"
         >
-          <List
-            size={ICON_GLYPH.toolbar}
-            strokeWidth={1.5}
-            aria-hidden
-          />
+          <GraphPaneAgentMark />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="left">Open graph pane</TooltipContent>
@@ -42,15 +38,30 @@ function GraphPaneRailTrigger() {
   );
 }
 
-type GraphPaneProps = {
-  state?: GraphPaneState;
-};
+export function GraphPane() {
+  const { chatId, graphJobStatus } = useChatContext();
+  const previousStatusRef = useRef(graphJobStatus);
+  const previousChatIdRef = useRef(chatId);
 
-export function GraphPane({ state }: GraphPaneProps) {
+  // Toast only after this same chat was running and then failed. Restoring
+  // an older failed chat on switch is a different chat id, so it stays quiet.
+  // The rail mark still shows that saved failure.
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    const sameChat = previousChatIdRef.current === chatId;
+    previousStatusRef.current = graphJobStatus;
+    previousChatIdRef.current = chatId;
+    if (sameChat && previousStatus === "running" && graphJobStatus === "failed") {
+      toast.error("Graph update failed", {
+        description: "Chat is unaffected. It retries on your next message.",
+      });
+    }
+  }, [chatId, graphJobStatus]);
+
   return (
     <GraphPaneProvider>
       <GraphPaneRailTrigger />
-      <GraphPaneShell state={state} />
+      <GraphPaneShell />
     </GraphPaneProvider>
   );
 }

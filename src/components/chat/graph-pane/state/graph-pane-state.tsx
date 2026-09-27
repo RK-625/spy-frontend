@@ -13,7 +13,6 @@ import {
 type GraphPaneContextValue = {
   open: boolean;
   toggleGraphPane: () => void;
-  close: () => void;
 };
 
 const GraphPaneContext = createContext<GraphPaneContextValue | null>(null);
@@ -23,10 +22,6 @@ export function GraphPaneProvider({ children }: { children: ReactNode }) {
 
   const toggleGraphPane = useCallback(() => {
     setOpen((prev) => !prev);
-  }, []);
-
-  const close = useCallback(() => {
-    setOpen(false);
   }, []);
 
   useEffect(() => {
@@ -71,8 +66,8 @@ export function GraphPaneProvider({ children }: { children: ReactNode }) {
   }, [open ]);
 
   const value = useMemo(
-    () => ({ open, toggleGraphPane, close }),
-    [open, toggleGraphPane, close],
+    () => ({ open, toggleGraphPane }),
+    [open, toggleGraphPane],
   );
 
   return (

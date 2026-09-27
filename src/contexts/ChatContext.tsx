@@ -21,7 +21,7 @@ import {
   saveChatMessages,
 } from "@/lib/chats/api";
 import { discardDraftForDeletedChat } from "@/lib/storage/prompt-draft-store";
-import type { ChatContextValue } from "@/types/chat";
+import type { ChatContextValue, GraphJobStatus } from "@/types/chat";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
@@ -107,6 +107,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
   const [graphMessages, setGraphMessages] = useState<ModelMessage[]>([]);
   const graphMessagesRef = useRef(new Map<string, ModelMessage[]>());
+  const [graphJobStatus, setGraphJobStatus] = useState<GraphJobStatus>("idle");
+  const graphJobStatusRef = useRef(new Map<string, GraphJobStatus>());
   const { messages, status, stop, sendMessage, error } = useChat<UIMessage>({
     chat: activeChat,
     throttle: 50,
@@ -136,7 +138,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       );
       chatsRef.current.set(chat.id, chat);
       graphMessagesRef.current.set(chat.id, []);
+      graphJobStatusRef.current.set(chat.id, "idle");
       setGraphMessages([]);
+      setGraphJobStatus("idle");
       setActiveChat(chat);
       activeChatIdRef.current = chat.id;
       syncChatUrl(chat.id, true, replace);
@@ -203,6 +207,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (deletedIdsRef.current.has(chatId)) return;
 
         setGraphMessages(graphMessagesRef.current.get(chat.id) ?? []);
+        setGraphJobStatus(graphJobStatusRef.current.get(chat.id) ?? "idle");
         setActiveChat(chat);
         activeChatIdRef.current = chat.id;
         if (writeUrl) {
@@ -290,7 +295,40 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const handleGraphJobStatus = (event: Event) => {
+      if (!(event instanceof MessageEvent)) {
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(event.data) as {
+          type: string;
+          chatId: string;
+          status: unknown;
+        };
+
+        if (payload.type !== "graph-job-status") {
+          return;
+        }
+        if (
+          payload.status !== "idle" &&
+          payload.status !== "running" &&
+          payload.status !== "failed"
+        ) {
+          return;
+        }
+
+        graphJobStatusRef.current.set(payload.chatId, payload.status);
+        if (payload.chatId === activeChatIdRef.current) {
+          setGraphJobStatus(payload.status);
+        }
+      } catch (error: unknown) {
+        console.error("[graph-events] invalid status:", error);
+      }
+    };
+
     eventSource.addEventListener("graph-history-updated", handleGraphHistoryUpdate);
+    eventSource.addEventListener("graph-job-status", handleGraphJobStatus);
 
     return () => {
       eventSource.close();
@@ -349,7 +387,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
       chatsRef.current.delete(id);
       const cachedGraphMessages = graphMessagesRef.current.get(id);
+      const cachedGraphJobStatus = graphJobStatusRef.current.get(id);
       graphMessagesRef.current.delete(id);
+      graphJobStatusRef.current.delete(id);
 
       const wasActive = activeChatIdRef.current === id;
 
@@ -371,6 +411,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             setGraphMessages(cachedGraphMessages);
           }
         }
+        if (cachedGraphJobStatus !== undefined) {
+          graphJobStatusRef.current.set(id, cachedGraphJobStatus);
+          if (wasActive) {
+            setGraphJobStatus(cachedGraphJobStatus);
+          }
+        }
         throw err;
       }
     },
@@ -383,6 +429,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       status,
       messages,
       graphMessages,
+      graphJobStatus,
       error,
       stop,
       sendMessage,
@@ -396,6 +443,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       status,
       messages,
       graphMessages,
+      graphJobStatus,
       error,
       stop,
       sendMessage,

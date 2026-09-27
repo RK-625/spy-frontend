@@ -10,6 +10,18 @@ export interface PromptInputMessage {
   files: FileUIPart[];
 }
 
+/** Which agent issued a graph-history message. */
+export type GraphMessageSource = "chat" | "graph";
+
+/**
+ * Graph-history message with a required origin marker. The SDK tolerates
+ * the extra field (prompt validation strips unknown keys; provider mappers
+ * read known fields only).
+ */
+export type SourcedModelMessage = ModelMessage & {
+  graphSource: GraphMessageSource;
+};
+
 type UseChatApi = ReturnType<typeof import("@ai-sdk/react").useChat>;
 
 /**
@@ -20,12 +32,16 @@ type UseChatApi = ReturnType<typeof import("@ai-sdk/react").useChat>;
  * One id per open conversation: minted at Map register, equals AI SDK Chat.id
  * and (after first persist) SQLite row PK. No draft/server dual identity.
  */
+/** Graph-agent run, beside the message feed. "idle" is a finished run. */
+export type GraphJobStatus = "idle" | "running" | "failed";
+
 export interface ChatContextValue {
   /** Active conversation id (always registered in the Chat map). */
   chatId: string;
   status: ChatStatus;
   messages: UIMessage[];
   graphMessages: ModelMessage[];
+  graphJobStatus: GraphJobStatus;
   error: Error | undefined;
   stop: () => void;
   /** Same signature as useChat().sendMessage (text/files convenience form). */

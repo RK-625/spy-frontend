@@ -11,9 +11,24 @@ import { modelConfig } from "../models/modelstore";
 import { buildChatInstructions } from "@/prompts/chat-instructions";
 import { runChatAgent } from "./chat/agent";
 import { runGraphAgent } from "./graph/agent";
+import type {
+  GraphMessageSource,
+  SourcedModelMessage,
+} from "@/types/chat";
 import { enqueueGraphJob } from "./graph/job-queue";
 import { getChatWithMessages, replaceGraphMessages } from "@/lib/chats/sqlite";
-import { publishGraphUpdate } from "@/lib/chats/graph-events";
+import {
+  publishGraphJobStatus,
+  publishGraphUpdate,
+} from "@/lib/chats/graph-events";
+
+/** Stamps graph-history messages with their issuing agent. */
+function tagGraphSource(
+  messages: ModelMessage[],
+  graphSource: GraphMessageSource,
+): SourcedModelMessage[] {
+  return messages.map((message) => ({ ...message, graphSource }));
+}
 
 function isAbortRejection(error: unknown): boolean {
   return (
@@ -153,6 +168,7 @@ export async function runAgent({
 
     // Stream wait stays per-request; only Falkor writes serialize per chat.
     await enqueueGraphJob(chatId, async () => {
+      let started = false;
       try {
         const chat = getChatWithMessages(chatId);
 
@@ -188,24 +204,36 @@ export async function runAgent({
 
         const graphHistory: ModelMessage[] = [
           ...baseHistory,
-          ...responseMessages,
+          ...tagGraphSource(responseMessages, "chat"),
         ];
 
+        started = true;
+        publishGraphJobStatus(chatId, "running");
+
+        const streamed: ModelMessage[] = [];
         const result = await runGraphAgent({
           model: resolvedModel,
           providerOptions: resolvedProviderOptions,
           messages: graphHistory,
+          onStep(stepMessages) {
+            streamed.push(...tagGraphSource(stepMessages, "graph"));
+            const soFar = [...graphHistory, ...streamed];
+            replaceGraphMessages(chatId, soFar);
+            publishGraphUpdate(chatId, soFar);
+          },
         });
 
         const updatedGraphMessages: ModelMessage[] = [
           ...graphHistory,
-          ...result.responseMessages,
+          ...tagGraphSource(result.responseMessages, "graph"),
         ];
 
         replaceGraphMessages(chatId, updatedGraphMessages);
         publishGraphUpdate(chatId, updatedGraphMessages);
+        publishGraphJobStatus(chatId, "idle");
       } catch (error: unknown) {
         console.error("[graph-agent] failed:", error);
+        if (started) publishGraphJobStatus(chatId, "failed");
       }
     });
   };
