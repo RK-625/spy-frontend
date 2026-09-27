@@ -1,6 +1,7 @@
 "use client";
 
 import type { ModelMessage, ToolCallPart, ToolResultPart } from "ai";
+import type { GraphMessageSource } from "@/types/chat";
 
 type ToolResultOutput = ToolResultPart["output"];
 import { Link2, Pencil, Plus, Search, Unlink } from "lucide-react";
@@ -14,11 +15,26 @@ import type { Links } from "@/types/graph-schema";
 
 export type GraphChangeKind = "created" | "updated" | "linked" | "unlinked" | "read";
 
+const GRAPH_FEED_TOOLS = [
+  "upsertMemory",
+  "manageLinks",
+  "searchMemories",
+  "getMemories",
+] as const;
+
+type GraphFeedToolName = (typeof GRAPH_FEED_TOOLS)[number];
+
+function isGraphFeedTool(toolName: string): toolName is GraphFeedToolName {
+  return (GRAPH_FEED_TOOLS as readonly string[]).includes(toolName);
+}
+
 export type GraphChange = {
   key: string;
   kind: GraphChangeKind;
   label: string;
   failed: boolean;
+  /** Absent on history written before messages were stamped. */
+  origin: GraphMessageSource | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,6 +73,7 @@ function pushLinkChanges(
   links: Links[],
   kind: Extract<GraphChangeKind, "linked" | "unlinked">,
   failed: boolean,
+  origin: GraphMessageSource | null,
 ): void {
   const verb = kind === "linked" ? "Linked" : "Unlinked";
   links.forEach((link, linkIndex) => {
@@ -65,6 +82,7 @@ function pushLinkChanges(
       kind,
       label: `${verb} ${shortId(link.source)} → ${shortId(link.target)} ${linkRelation(link.type)}`,
       failed,
+      origin,
     });
   });
 }
@@ -93,70 +111,82 @@ function collectResultNames(messages: ModelMessage[]): Map<string, string> {
 
 function pushToolCallChanges(
   changes: GraphChange[],
-  toolName: string,
+  toolName: GraphFeedToolName,
   toolCallId: string,
   input: unknown,
   failed: boolean,
   resultName: string | undefined,
+  origin: GraphMessageSource | null,
 ): void {
-  if (toolName === "upsertMemory") {
-    const parsed = upsertMemoryInputSchema.safeParse(input);
-    if (!parsed.success) return;
-    const { id, name } = parsed.data;
-    if (id == null) {
-      const label = name && name.length > 0 ? name : "untitled memory";
+  switch (toolName) {
+    case "upsertMemory": {
+      const parsed = upsertMemoryInputSchema.safeParse(input);
+      if (!parsed.success) return;
+      const { id, name } = parsed.data;
+      if (id == null) {
+        const label = name && name.length > 0 ? name : "untitled memory";
+        changes.push({
+          key: toolCallId,
+          kind: "created",
+          label: `Created memory \u201c${label}\u201d`,
+          failed,
+          origin,
+        });
+        return;
+      }
+      const inputName = name && name.length > 0 ? name : undefined;
+      const resolved = inputName ?? (failed ? undefined : resultName);
       changes.push({
         key: toolCallId,
-        kind: "created",
-        label: `Created memory “${label}”`,
+        kind: "updated",
+        label:
+          resolved !== undefined
+            ? `Updated memory \u201c${resolved}\u201d`
+            : `Updated memory ${shortId(id ?? toolCallId)}`,
         failed,
+        origin,
       });
       return;
     }
-    const inputName = name && name.length > 0 ? name : undefined;
-    const resolved = inputName ?? (failed ? undefined : resultName);
-    changes.push({
-      key: toolCallId,
-      kind: "updated",
-      label:
-        resolved !== undefined
-          ? `Updated memory “${resolved}”`
-          : `Updated memory ${shortId(id ?? toolCallId)}`,
-      failed,
-    });
-    return;
-  }
-  if (toolName === "manageLinks") {
-    const parsed = manageLinksInputSchema.safeParse(input);
-    if (!parsed.success) return;
-    pushLinkChanges(changes, toolCallId, parsed.data.remove, "unlinked", failed);
-    pushLinkChanges(changes, toolCallId, parsed.data.upsert, "linked", failed);
-    return;
-  }
-  if (toolName === "searchMemories") {
-    const parsed = searchMemoriesInputSchema.safeParse(input);
-    if (!parsed.success) return;
-    const [first, ...rest] = parsed.data.questions;
-    const query = `“${first.length > 60 ? `${first.slice(0, 60).trimEnd()}…` : first}”${rest.length > 0 ? ` (+${rest.length})` : ""}`;
-    changes.push({
-      key: toolCallId,
-      kind: "read",
-      label: `Searched ${query}`,
-      failed,
-    });
-    return;
-  }
-  if (toolName === "getMemories") {
-    const parsed = getMemoriesInputSchema.safeParse(input);
-    if (!parsed.success) return;
-    const hops = parsed.data.hops ?? 0;
-    const hopsLabel = hops > 0 ? ` (${hops} hop${hops === 1 ? "" : "s"})` : "";
-    changes.push({
-      key: toolCallId,
-      kind: "read",
-      label: `Read ${shortId(parsed.data.id)}${hopsLabel}`,
-      failed,
-    });
+    case "manageLinks": {
+      const parsed = manageLinksInputSchema.safeParse(input);
+      if (!parsed.success) return;
+      pushLinkChanges(changes, toolCallId, parsed.data.remove, "unlinked", failed, origin);
+      pushLinkChanges(changes, toolCallId, parsed.data.upsert, "linked", failed, origin);
+      return;
+    }
+    case "searchMemories": {
+      const parsed = searchMemoriesInputSchema.safeParse(input);
+      if (!parsed.success) return;
+      const [first, ...rest] = parsed.data.questions;
+      const query = `\u201c${first.length > 60 ? `${first.slice(0, 60).trimEnd()}\u2026` : first}\u201d${rest.length > 0 ? ` (+${rest.length})` : ""}`;
+      changes.push({
+        key: toolCallId,
+        kind: "read",
+        label: `Searched ${query}`,
+        failed,
+        origin,
+      });
+      return;
+    }
+    case "getMemories": {
+      const parsed = getMemoriesInputSchema.safeParse(input);
+      if (!parsed.success) return;
+      const hops = parsed.data.hops ?? 0;
+      const hopsLabel = hops > 0 ? ` (${hops} hop${hops === 1 ? "" : "s"})` : "";
+      changes.push({
+        key: toolCallId,
+        kind: "read",
+        label: `Read ${shortId(parsed.data.id)}${hopsLabel}`,
+        failed,
+        origin,
+      });
+      return;
+    }
+    default: {
+      const _exhaustive: never = toolName;
+      return _exhaustive;
+    }
   }
 }
 
@@ -184,10 +214,20 @@ function collectFailedCallIds(messages: ModelMessage[]): Set<string> {
   return failed;
 }
 
+function messageSource(message: ModelMessage): GraphMessageSource | null {
+  const record = message as unknown as Record<string, unknown>;
+  const source = record.graphSource;
+  if (source === "graph" || source === "chat") return source;
+  return null;
+}
+
 /**
  * Parses graph history into a newest-first change feed: mutating tool calls
  * (creates, updates, link changes) plus trimmed read calls. Reasoning and
- * turns are dropped — the conversation already shows those.
+ * turns are dropped — the conversation already shows those. Non-graph tools
+ * (web search, ask-user, MCP apps) fail the feed-tool gate below and are
+ * skipped. Chat and graph calls both stay in the feed. A missing marker
+ * is legacy history and renders with no agent prefix.
  */
 export function parseGraphChanges(messages: ModelMessage[]): GraphChange[] {
   const failedCallIds = collectFailedCallIds(messages);
@@ -196,8 +236,10 @@ export function parseGraphChanges(messages: ModelMessage[]): GraphChange[] {
   for (const message of messages) {
     const content = message.content;
     if (!Array.isArray(content)) continue;
+    const source = messageSource(message);
     for (const part of content) {
       if (!isToolCallPart(part)) continue;
+      if (!isGraphFeedTool(part.toolName)) continue;
       pushToolCallChanges(
         changes,
         part.toolName,
@@ -205,10 +247,17 @@ export function parseGraphChanges(messages: ModelMessage[]): GraphChange[] {
         part.input,
         failedCallIds.has(part.toolCallId),
         resultNames.get(part.toolCallId),
+        source,
       );
     }
   }
   return changes.reverse();
+}
+
+function originPrefix(origin: GraphMessageSource | null): string | null {
+  if (origin === "chat") return "chat · ";
+  if (origin === "graph") return "graph · ";
+  return null;
 }
 
 const CHANGE_ICON = {
@@ -246,6 +295,7 @@ export function GraphChangeFeed({ changes }: { changes: GraphChange[] }) {
                   : "text-text-primary",
               )}
             >
+              {originPrefix(change.origin)}
               {change.label}
             </span>
             {change.failed ? (

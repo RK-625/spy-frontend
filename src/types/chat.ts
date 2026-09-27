@@ -10,6 +10,18 @@ export interface PromptInputMessage {
   files: FileUIPart[];
 }
 
+/** Which agent issued a graph-history message. */
+export type GraphMessageSource = "chat" | "graph";
+
+/**
+ * Graph-history message with a required origin marker. The SDK tolerates
+ * the extra field (prompt validation strips unknown keys; provider mappers
+ * read known fields only).
+ */
+export type SourcedModelMessage = ModelMessage & {
+  graphSource: GraphMessageSource;
+};
+
 type UseChatApi = ReturnType<typeof import("@ai-sdk/react").useChat>;
 
 /**

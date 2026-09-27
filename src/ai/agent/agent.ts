@@ -11,12 +11,24 @@ import { modelConfig } from "../models/modelstore";
 import { buildChatInstructions } from "@/prompts/chat-instructions";
 import { runChatAgent } from "./chat/agent";
 import { runGraphAgent } from "./graph/agent";
+import type {
+  GraphMessageSource,
+  SourcedModelMessage,
+} from "@/types/chat";
 import { enqueueGraphJob } from "./graph/job-queue";
 import { getChatWithMessages, replaceGraphMessages } from "@/lib/chats/sqlite";
 import {
   publishGraphJobStatus,
   publishGraphUpdate,
 } from "@/lib/chats/graph-events";
+
+/** Stamps graph-history messages with their issuing agent. */
+function tagGraphSource(
+  messages: ModelMessage[],
+  graphSource: GraphMessageSource,
+): SourcedModelMessage[] {
+  return messages.map((message) => ({ ...message, graphSource }));
+}
 
 function isAbortRejection(error: unknown): boolean {
   return (
@@ -192,7 +204,7 @@ export async function runAgent({
 
         const graphHistory: ModelMessage[] = [
           ...baseHistory,
-          ...responseMessages,
+          ...tagGraphSource(responseMessages, "chat"),
         ];
 
         started = true;
@@ -204,7 +216,7 @@ export async function runAgent({
           providerOptions: resolvedProviderOptions,
           messages: graphHistory,
           onStep(stepMessages) {
-            streamed.push(...stepMessages);
+            streamed.push(...tagGraphSource(stepMessages, "graph"));
             const soFar = [...graphHistory, ...streamed];
             replaceGraphMessages(chatId, soFar);
             publishGraphUpdate(chatId, soFar);
@@ -213,7 +225,7 @@ export async function runAgent({
 
         const updatedGraphMessages: ModelMessage[] = [
           ...graphHistory,
-          ...result.responseMessages,
+          ...tagGraphSource(result.responseMessages, "graph"),
         ];
 
         replaceGraphMessages(chatId, updatedGraphMessages);
