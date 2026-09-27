@@ -1,6 +1,11 @@
 import type { ModelMessage } from "ai";
 import { getChatWithMessages } from "@/lib/chats/sqlite";
-import { subscribeToGraphUpdates } from "@/lib/chats/graph-events";
+import {
+  getGraphJobStatus,
+  subscribeToGraphJobStatus,
+  subscribeToGraphUpdates,
+} from "@/lib/chats/graph-events";
+import type { GraphJobStatus } from "@/types/chat";
 
 export const runtime = "nodejs";
 
@@ -14,6 +19,7 @@ export async function GET(
   let closed = false;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let unsubscribe: (() => void) | undefined;
+  let unsubscribeStatus: (() => void) | undefined;
 
   const stream = new ReadableStream({
     start(controller) {
@@ -34,17 +40,34 @@ export async function GET(
         });
       };
 
+      const writeStatus = (status: GraphJobStatus) => {
+        write("graph-job-status", {
+          type: "graph-job-status",
+          chatId,
+          status,
+        });
+      };
+
       // Subscribe before reading: a publish landing between the read and
       // the snapshot write is buffered and replayed after, never dropped
       // or overwritten by the older snapshot.
       let snapshotSent = false;
       let pending: ModelMessage[] | null = null;
+      let statusSent = false;
+      let pendingStatus: GraphJobStatus | null = null;
       unsubscribe = subscribeToGraphUpdates(chatId, (messages) => {
         if (!snapshotSent) {
           pending = messages;
           return;
         }
         writeSnapshot(messages);
+      });
+      unsubscribeStatus = subscribeToGraphJobStatus(chatId, (status) => {
+        if (!statusSent) {
+          pendingStatus = status;
+          return;
+        }
+        writeStatus(status);
       });
 
       // No row yet (client mints the id before first persist): stream an
@@ -56,6 +79,12 @@ export async function GET(
       if (pending) {
         writeSnapshot(pending);
         pending = null;
+      }
+      writeStatus(getGraphJobStatus(chatId));
+      statusSent = true;
+      if (pendingStatus) {
+        writeStatus(pendingStatus);
+        pendingStatus = null;
       }
 
       heartbeat = setInterval(() => {
@@ -70,6 +99,8 @@ export async function GET(
           closed = true;
           unsubscribe?.();
           unsubscribe = undefined;
+          unsubscribeStatus?.();
+          unsubscribeStatus = undefined;
           if (heartbeat) clearInterval(heartbeat);
           try {
             controller.close();
@@ -84,6 +115,8 @@ export async function GET(
       closed = true;
       unsubscribe?.();
       unsubscribe = undefined;
+      unsubscribeStatus?.();
+      unsubscribeStatus = undefined;
       if (heartbeat) clearInterval(heartbeat);
     },
   });

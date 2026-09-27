@@ -13,7 +13,10 @@ import { runChatAgent } from "./chat/agent";
 import { runGraphAgent } from "./graph/agent";
 import { enqueueGraphJob } from "./graph/job-queue";
 import { getChatWithMessages, replaceGraphMessages } from "@/lib/chats/sqlite";
-import { publishGraphUpdate } from "@/lib/chats/graph-events";
+import {
+  publishGraphJobStatus,
+  publishGraphUpdate,
+} from "@/lib/chats/graph-events";
 
 function isAbortRejection(error: unknown): boolean {
   return (
@@ -153,6 +156,7 @@ export async function runAgent({
 
     // Stream wait stays per-request; only Falkor writes serialize per chat.
     await enqueueGraphJob(chatId, async () => {
+      let started = false;
       try {
         const chat = getChatWithMessages(chatId);
 
@@ -191,6 +195,9 @@ export async function runAgent({
           ...responseMessages,
         ];
 
+        started = true;
+        publishGraphJobStatus(chatId, "running");
+
         const streamed: ModelMessage[] = [];
         const result = await runGraphAgent({
           model: resolvedModel,
@@ -211,8 +218,10 @@ export async function runAgent({
 
         replaceGraphMessages(chatId, updatedGraphMessages);
         publishGraphUpdate(chatId, updatedGraphMessages);
+        publishGraphJobStatus(chatId, "idle");
       } catch (error: unknown) {
         console.error("[graph-agent] failed:", error);
+        if (started) publishGraphJobStatus(chatId, "failed");
       }
     });
   };

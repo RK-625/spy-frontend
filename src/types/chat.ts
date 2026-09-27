@@ -20,12 +20,16 @@ type UseChatApi = ReturnType<typeof import("@ai-sdk/react").useChat>;
  * One id per open conversation: minted at Map register, equals AI SDK Chat.id
  * and (after first persist) SQLite row PK. No draft/server dual identity.
  */
+/** Graph-agent run, beside the message feed. "idle" is a finished run. */
+export type GraphJobStatus = "idle" | "running" | "failed";
+
 export interface ChatContextValue {
   /** Active conversation id (always registered in the Chat map). */
   chatId: string;
   status: ChatStatus;
   messages: UIMessage[];
   graphMessages: ModelMessage[];
+  graphJobStatus: GraphJobStatus;
   error: Error | undefined;
   stop: () => void;
   /** Same signature as useChat().sendMessage (text/files convenience form). */
