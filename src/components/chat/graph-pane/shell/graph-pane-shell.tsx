@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { List } from "lucide-react";
+import { List, TriangleAlert } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { DotmHex9, usePrefersReducedMotion } from "@/components/dotmatrix";
 import { useChatContext } from "@/contexts/ChatContext";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import type { GraphJobStatus } from "@/types/chat";
 import { GraphChangeFeed, parseGraphChanges } from "../feed/graph-change-feed";
 import { useGraphPane } from "../state/graph-pane-state";
 
@@ -24,47 +25,64 @@ const DEFAULT_ERROR_MESSAGE =
 export const GRAPH_PANE_TRIGGER_ID = "graph-pane-trigger";
 
 function GraphAgentMark({
-  running,
+  status,
   animated,
 }: {
-  running: boolean;
+  status: GraphJobStatus;
   animated: boolean;
 }) {
-  if (running) {
-    return (
-      <DotmHex9
-        size={ICON_GLYPH.toolbar}
-        dotSize={2.5}
-        dotShape="square"
-        color="currentColor"
-        animated={animated}
-        ariaLabel="Graph agent running"
-      />
-    );
+  switch (status) {
+    case "running":
+      return (
+        <DotmHex9
+          size={ICON_GLYPH.toolbar}
+          dotSize={2.5}
+          dotShape="square"
+          color="currentColor"
+          animated={animated}
+          ariaLabel="Graph agent running"
+        />
+      );
+    case "failed":
+      return (
+        <TriangleAlert
+          size={ICON_GLYPH.toolbar}
+          strokeWidth={1.5}
+          aria-label="Graph update failed"
+        />
+      );
+    case "idle":
+      return (
+        <List size={ICON_GLYPH.toolbar} strokeWidth={1.5} aria-hidden />
+      );
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
   }
-
-  return (
-    <List size={ICON_GLYPH.toolbar} strokeWidth={1.5} aria-hidden />
-  );
 }
 
 export function GraphPaneAgentMark() {
   const { graphJobStatus } = useChatContext();
   const reducedMotion = usePrefersReducedMotion();
-  const running = graphJobStatus === "running";
   const transition = reducedMotion ? { duration: 0 } : MOTION.chrome;
 
   return (
     <AnimatePresence mode="wait">
       <motion.span
-        key={running ? "running" : "idle"}
+        key={graphJobStatus}
         initial={reducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={reducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.8 }}
         transition={transition}
-        className="flex items-center justify-center text-text-secondary"
+        className={cn(
+          "flex items-center justify-center",
+          graphJobStatus === "failed"
+            ? "text-destructive"
+            : "text-text-secondary",
+        )}
       >
-        <GraphAgentMark running={running} animated={!reducedMotion} />
+        <GraphAgentMark status={graphJobStatus} animated={!reducedMotion} />
       </motion.span>
     </AnimatePresence>
   );
@@ -91,7 +109,7 @@ function GraphPaneHeader({ className }: { className?: string }) {
             transition={transition}
             className="flex items-center justify-center text-text-secondary"
           >
-            <GraphAgentMark running animated={!reducedMotion} />
+            <GraphAgentMark status="running" animated={!reducedMotion} />
           </motion.span>
         ) : null}
       </AnimatePresence>

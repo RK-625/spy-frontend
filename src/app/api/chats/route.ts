@@ -9,6 +9,7 @@ import {
   type ChatListCursor,
 } from "@/lib/chats/sqlite";
 import type { ChatMeta } from "@/types/chat-schema";
+import { clearGraphJobStatus } from "@/lib/chats/graph-events";
 
 /** better-sqlite3 — Node.js only. */
 export const runtime = "nodejs";
@@ -253,6 +254,7 @@ export async function DELETE(req: Request) {
       );
     }
     deleteChatRecord(id);
+    clearGraphJobStatus(id);
     return new NextResponse(null, { status: 204 });
   } catch (error: unknown) {
     console.error("DELETE /api/chats:", error);

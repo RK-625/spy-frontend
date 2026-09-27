@@ -208,6 +208,17 @@ try {
   // H8: GET /api/chats?id= unknown (never posted) -> still 404
   const h8Res = await GET(new Request("http://localhost:3000/api/chats?id=never-posted-uuid"));
   assert(h8Res.status === 404, `H8: GET unknown chat returned 404 (got ${h8Res.status})`);
+
+  // H9: DELETE clears retained graph job status (no leaked `failed` entry)
+  const { publishGraphJobStatus, getGraphJobStatus } = await import(
+    pathToFileURL(path.join(root, "src/lib/chats/graph-events.ts")).href
+  );
+  const h9Id = `http-graph-status-${Date.now()}`;
+  publishGraphJobStatus(h9Id, "failed");
+  assert(getGraphJobStatus(h9Id) === "failed", "H9: status is failed before delete");
+  const h9Res = await DELETE(new Request(`http://localhost:3000/api/chats?id=${h9Id}`, { method: "DELETE" }));
+  assert(h9Res.status === 204, `H9: DELETE returned 204 (got ${h9Res.status})`);
+  assert(getGraphJobStatus(h9Id) === "idle", "H9: status back to idle after delete (entry cleared)");
 } catch (err) {
   console.error("Unhandled error during verification:", err);
   failed += 1;

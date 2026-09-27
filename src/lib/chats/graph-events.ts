@@ -49,6 +49,16 @@ export function getGraphJobStatus(chatId: string): GraphJobStatus {
   return graphJobStatus.get(chatId) ?? "idle";
 }
 
+/**
+ * Drop all in-memory graph state for a chat. Call when the chat is deleted so
+ * a retained `failed` (or `running`) entry does not leak for process lifetime.
+ * Subscriber sets self-clean on unsubscribe, so only the status entry needs
+ * explicit removal.
+ */
+export function clearGraphJobStatus(chatId: string): void {
+  graphJobStatus.delete(chatId);
+}
+
 export function subscribeToGraphJobStatus(
   chatId: string,
   listener: GraphJobStatusListener,

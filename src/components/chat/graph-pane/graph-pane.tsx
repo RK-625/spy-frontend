@@ -2,6 +2,7 @@
 
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { GraphPaneProvider, useGraphPane } from "./state/graph-pane-state";
+import { useGraphFailedToast } from "./state/use-graph-failed-toast";
 import {
   GraphPaneAgentMark,
   GraphPaneShell,
@@ -42,6 +43,9 @@ type GraphPaneProps = {
 };
 
 export function GraphPane({ state }: GraphPaneProps) {
+  // Always mounted (unlike the rail trigger), so no failed transition is missed.
+  useGraphFailedToast();
+
   return (
     <GraphPaneProvider>
       <GraphPaneRailTrigger />
