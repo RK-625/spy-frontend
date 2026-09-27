@@ -39,21 +39,24 @@ function GraphPaneRailTrigger() {
 }
 
 export function GraphPane() {
-  const { graphJobStatus } = useChatContext();
+  const { chatId, graphJobStatus } = useChatContext();
   const previousStatusRef = useRef(graphJobStatus);
+  const previousChatIdRef = useRef(chatId);
 
-  // GraphPane stays mounted when the rail trigger unmounts, so the toast
-  // still fires while the pane is open. A status that is already failed
-  // on mount does not toast again.
+  // Toast only after this same chat was running and then failed. Restoring
+  // an older failed chat on switch is a different chat id, so it stays quiet.
+  // The rail mark still shows that saved failure.
   useEffect(() => {
     const previousStatus = previousStatusRef.current;
+    const sameChat = previousChatIdRef.current === chatId;
     previousStatusRef.current = graphJobStatus;
-    if (graphJobStatus === "failed" && previousStatus !== "failed") {
+    previousChatIdRef.current = chatId;
+    if (sameChat && previousStatus === "running" && graphJobStatus === "failed") {
       toast.error("Graph update failed", {
         description: "Chat is unaffected. It retries on your next message.",
       });
     }
-  }, [graphJobStatus]);
+  }, [chatId, graphJobStatus]);
 
   return (
     <GraphPaneProvider>
