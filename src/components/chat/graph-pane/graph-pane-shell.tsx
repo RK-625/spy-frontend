@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { List } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { usePrefersReducedMotion } from "@/components/dotmatrix";
+import { DotmHex9, usePrefersReducedMotion } from "@/components/dotmatrix";
 import { useChatContext } from "@/contexts/ChatContext";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { GraphChangeFeed, parseGraphChanges } from "./graph-change-feed";
@@ -21,12 +23,78 @@ const DEFAULT_ERROR_MESSAGE =
 
 export const GRAPH_PANE_TRIGGER_ID = "graph-pane-trigger";
 
+function GraphAgentMark({
+  running,
+  animated,
+}: {
+  running: boolean;
+  animated: boolean;
+}) {
+  if (running) {
+    return (
+      <DotmHex9
+        size={ICON_GLYPH.toolbar}
+        dotSize={2.5}
+        dotShape="square"
+        color="currentColor"
+        animated={animated}
+        ariaLabel="Graph agent running"
+      />
+    );
+  }
+
+  return (
+    <List size={ICON_GLYPH.toolbar} strokeWidth={1.5} aria-hidden />
+  );
+}
+
+export function GraphPaneAgentMark() {
+  const { graphJobStatus } = useChatContext();
+  const reducedMotion = usePrefersReducedMotion();
+  const running = graphJobStatus === "running";
+  const transition = reducedMotion ? { duration: 0 } : MOTION.chrome;
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.span
+        key={running ? "running" : "idle"}
+        initial={reducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={reducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.8 }}
+        transition={transition}
+        className="flex items-center justify-center text-text-secondary"
+      >
+        <GraphAgentMark running={running} animated={!reducedMotion} />
+      </motion.span>
+    </AnimatePresence>
+  );
+}
+
 function GraphPaneHeader({ className }: { className?: string }) {
+  const { graphJobStatus } = useChatContext();
+  const reducedMotion = usePrefersReducedMotion();
+  const running = graphJobStatus === "running";
+  const transition = reducedMotion ? { duration: 0 } : MOTION.chrome;
+
   return (
     <div
       className={cn("flex h-12 shrink-0 items-center gap-2 px-4", className)}
     >
       <h2 className="flex-1 text-sm font-medium text-text-primary">Graph</h2>
+      <AnimatePresence>
+        {running ? (
+          <motion.span
+            key="running"
+            initial={reducedMotion ? { opacity: 1 } : CHROME_FADE.initial}
+            animate={CHROME_FADE.animate}
+            exit={reducedMotion ? { opacity: 1 } : CHROME_FADE.exit}
+            transition={transition}
+            className="flex items-center justify-center text-text-secondary"
+          >
+            <GraphAgentMark running animated={!reducedMotion} />
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

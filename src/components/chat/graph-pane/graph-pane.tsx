@@ -1,10 +1,9 @@
 "use client";
 
-import { List } from "lucide-react";
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
-import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { GraphPaneProvider, useGraphPane } from "./graph-pane-state";
 import {
+  GraphPaneAgentMark,
   GraphPaneShell,
   GRAPH_PANE_TRIGGER_ID,
   type GraphPaneState,
@@ -30,11 +29,7 @@ function GraphPaneRailTrigger() {
           type="button"
           variant="ghost"
         >
-          <List
-            size={ICON_GLYPH.toolbar}
-            strokeWidth={1.5}
-            aria-hidden
-          />
+          <GraphPaneAgentMark />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="left">Open graph pane</TooltipContent>
