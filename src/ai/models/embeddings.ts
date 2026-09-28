@@ -7,7 +7,7 @@ const EMBEDDING_DIMENSION = 1536;
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
     const result = await embed({
-      model: embedModel(),
+      model: await embedModel(),
       value: text,
       providerOptions: {
         google: { outputDimensionality: EMBEDDING_DIMENSION },

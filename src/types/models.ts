@@ -28,6 +28,15 @@ export interface ProviderDefinition {
   models: ProviderModel[];
 }
 
+/** Where a provider's key came from: saved in the app (OS keychain) or `.env`. */
+export type ProviderKeySource = "app" | "env";
+
+/** Key presence only — the key itself never leaves the server. */
+export interface ProviderKeyStatus {
+  id: ProviderId;
+  keySource: ProviderKeySource | null;
+}
+
 /** A chat model flattened with its provider, as the model picker consumes it. */
 export interface AIModel extends ProviderModel {
   chef: Chef;

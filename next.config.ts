@@ -11,7 +11,12 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
-  serverExternalPackages: ["falkordb", "falkordblite", "better-sqlite3"],
+  serverExternalPackages: [
+    "falkordb",
+    "falkordblite",
+    "better-sqlite3",
+    "@napi-rs/keyring",
+  ],
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

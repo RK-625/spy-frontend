@@ -2,7 +2,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createDeepSeek } from "@ai-sdk/deepseek";
-import { getProvider, models } from "@/lib/providers/registry";
+import { models } from "@/lib/providers/registry";
+import { requireProviderKey } from "@/lib/providers/keys/resolve-key";
 import type { ProviderId } from "@/types/models";
 import { EmbeddingModel, LanguageModel } from "ai";
 import { type SharedV4ProviderOptions } from "@ai-sdk/provider";
@@ -17,15 +18,6 @@ type ChatModelFactory = (args: {
   modelId: string;
   mode: string;
 }) => ResolvedModel;
-
-function resolveProviderApiKey(providerId: ProviderId): string {
-  const { envKey } = getProvider(providerId);
-  const apiKey = process.env[envKey];
-  if (!apiKey) {
-    throw new Error(`${envKey} is not set`);
-  }
-  return apiKey;
-}
 
 const chatModelFactories: Record<ProviderId, ChatModelFactory> = {
   openai: ({ apiKey, modelId, mode }) => ({
@@ -62,27 +54,27 @@ const chatModelFactories: Record<ProviderId, ChatModelFactory> = {
   }),
 };
 
-export const modelConfig = ({
+export const modelConfig = async ({
   model,
   mode,
 }: {
   model: string;
   mode: string;
-}): ResolvedModel => {
+}): Promise<ResolvedModel> => {
   const found = models.find((entry) => entry.id === model);
   if (!found) {
     throw new Error(`Unknown model: ${model}`);
   }
   return chatModelFactories[found.chefSlug]({
-    apiKey: resolveProviderApiKey(found.chefSlug),
+    apiKey: await requireProviderKey(found.chefSlug),
     modelId: model,
     mode,
   });
 };
 
 // Right now only Google embeddings are supported
-export const embedModel = (): EmbeddingModel => {
+export const embedModel = async (): Promise<EmbeddingModel> => {
   return createGoogleGenerativeAI({
-    apiKey: resolveProviderApiKey("google"),
+    apiKey: await requireProviderKey("google"),
   }).embedding("gemini-embedding-2");
 };

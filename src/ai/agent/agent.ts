@@ -95,7 +95,7 @@ export async function runAgent({
   const tools: ToolSet = { ...baseTools, ...mcpTools };
 
   const { model: resolvedModel, providerOptions: resolvedProviderOptions } =
-    modelConfig({ model, mode });
+    await modelConfig({ model, mode });
   // Web or Excalidraw MCP tool loops need a higher step budget.
   const streamResult = runChatAgent({
     model: resolvedModel,
