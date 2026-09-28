@@ -16,7 +16,7 @@ await mkdir(dataDir, { recursive: true });
 const { createToolSet } = await import(
   pathToFileURL(path.join(root, "src/ai/tools/toolset.ts")).href
 );
-const { upsertMemory, getDb } = await import(
+const { getDb } = await import(
   pathToFileURL(path.join(root, "src/lib/graph/falkor.ts")).href
 );
 
@@ -66,9 +66,25 @@ const mem = (id, name) => ({
   confidence: 0.5,
 });
 
-await upsertMemory(mem("A", "A"));
-await upsertMemory(mem("B", "B"));
-await upsertMemory(mem("C", "C"));
+// falkor.ts is reads-only; seed core fields with direct Cypher (same
+// MERGE + SET the retired upsertMemory helper performed).
+async function seedMemory(memory) {
+  const graph = await getDb();
+  await graph.query(
+    `
+    MERGE (m:Memory {id: $id})
+    SET m.name = $name,
+        m.content = $content,
+        m.impression = $impression,
+        m.confidence = $confidence
+    `,
+    { params: memory },
+  );
+}
+
+await seedMemory(mem("A", "A"));
+await seedMemory(mem("B", "B"));
+await seedMemory(mem("C", "C"));
 
 function batchAllOk(batch, expectedTotal) {
   return (
