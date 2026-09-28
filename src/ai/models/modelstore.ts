@@ -4,7 +4,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { models } from "@/lib/providers/registry";
 import { requireProviderKey } from "@/lib/providers/keys/resolve-key";
-import type { ProviderId } from "@/types/models";
+import type { AIModel, ProviderId } from "@/types/models";
 import { EmbeddingModel, LanguageModel } from "ai";
 import { type SharedV4ProviderOptions } from "@ai-sdk/provider";
 
@@ -61,7 +61,9 @@ export const modelConfig = async ({
   model: string;
   mode: string;
 }): Promise<ResolvedModel> => {
-  const found = models.find((entry) => entry.id === model);
+  const found: AIModel | undefined = models.find(
+    (entry) => entry.id === model,
+  );
   if (!found) {
     throw new Error(`Unknown model: ${model}`);
   }

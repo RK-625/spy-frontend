@@ -20,7 +20,7 @@ export const providers: ProviderDefinition[] = [
     id: "deepseek",
     name: "DeepSeek",
     icon: Deepseek,
-    envKey: "DEEPSEEK_API_KEY",
+    keyPrefix: "sk-",
     capabilities: ["chat"],
     models: [
       {
@@ -35,7 +35,7 @@ export const providers: ProviderDefinition[] = [
     id: "meta",
     name: "Meta",
     icon: Meta,
-    envKey: "MUSE_SPARK_KEY",
+    keyPrefix: "",
     capabilities: ["chat"],
     models: [
       {
@@ -50,7 +50,7 @@ export const providers: ProviderDefinition[] = [
     id: "openai",
     name: "OpenAI",
     icon: OpenAIDark,
-    envKey: "OPENAI_API_KEY",
+    keyPrefix: "sk-",
     capabilities: ["chat"],
     models: [],
   },
@@ -58,7 +58,7 @@ export const providers: ProviderDefinition[] = [
     id: "anthropic",
     name: "Anthropic",
     icon: AnthropicWhite,
-    envKey: "ANTHROPIC_API_KEY",
+    keyPrefix: "sk-ant-",
     capabilities: ["chat"],
     models: [],
   },
@@ -66,7 +66,7 @@ export const providers: ProviderDefinition[] = [
     id: "google",
     name: "Google",
     icon: Google,
-    envKey: "GOOGLE_GENERATIVE_AI_API_KEY",
+    keyPrefix: "AIza",
     capabilities: ["chat", "embeddings"],
     models: [],
   },

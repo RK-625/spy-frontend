@@ -22,19 +22,16 @@ export interface ProviderDefinition {
   id: ProviderId;
   name: Chef;
   icon: ProviderIcon;
-  /** Env var read when no key is saved in the app. */
-  envKey: string;
+  /** Known key prefix, shown in the paste placeholder and the masked hint. */
+  keyPrefix: string;
   capabilities: ProviderCapability[];
   models: ProviderModel[];
 }
 
-/** Where a provider's key came from: saved in the app (OS keychain) or `.env`. */
-export type ProviderKeySource = "app" | "env";
-
-/** Key presence only — the key itself never leaves the server. */
+/** Saved keys were verified on save; only the last 4 characters leave the server. */
 export interface ProviderKeyStatus {
   id: ProviderId;
-  keySource: ProviderKeySource | null;
+  keyHint: string | null;
 }
 
 /** A chat model flattened with its provider, as the model picker consumes it. */

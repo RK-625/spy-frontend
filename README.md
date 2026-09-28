@@ -19,7 +19,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `/notes` | Notes master (blank detail). `/notes/[id]` is read-only Milkdown. |
 | `/graph` | Knowledge graph (Sigma + same sidebar shell) |
 
-Configure provider/API keys as needed in `.env.local` (never commit secrets).
+Model provider API keys (DeepSeek, Meta, OpenAI, Anthropic, Google) are added in **Settings** and stored in the OS keychain after the provider accepts them; `.env` is not read for them. `EXA_API_KEY` (web search) still comes from `.env` (never commit secrets).
 
 ## Docs
 
@@ -120,7 +120,8 @@ npm run electron:start
 
 # Package unsigned Spy.app (local; no notarization).
 # The bundle does not include `.env`. Spy.app reads `~/.spy/.env`
-# (or `SPY_ENV_FILE`) for `MUSE_SPARK_KEY`, `EXA_API_KEY`, and the rest.
+# (or `SPY_ENV_FILE`) for `EXA_API_KEY` and data paths; provider keys
+# come from the OS keychain (Settings).
 npm run electron:pack
 # → dist-electron/mac-arm64/Spy.app
 ```

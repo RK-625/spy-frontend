@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { providers } from "@/lib/providers/registry";
 import { saveProviderKey } from "@/lib/providers/keys/keychain";
+import { toKeyHint } from "@/lib/providers/keys/resolve-key";
 import { isSameOriginJsonRequest } from "@/lib/providers/keys/same-origin";
 import { verifyProviderKey } from "@/lib/providers/keys/verify-key";
 import type { ProviderDefinition, ProviderKeyStatus } from "@/types/models";
@@ -74,6 +75,9 @@ export async function POST(
     return errorResponse("Could not save the key to the system keychain", 500);
   }
 
-  const status: ProviderKeyStatus = { id: provider.id, keySource: "app" };
+  const status: ProviderKeyStatus = {
+    id: provider.id,
+    keyHint: toKeyHint(apiKey),
+  };
   return NextResponse.json({ ok: true, provider: status });
 }
