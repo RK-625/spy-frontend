@@ -55,7 +55,7 @@ import {
   formatAskUserQuestionAnswer,
   getPendingAskUserQuestion,
 } from "@/lib/ask-user-question";
-import { chefs, models } from "@/lib/models";
+import { chefs, models } from "@/lib/providers/registry";
 import { useChatContext } from "@/contexts/ChatContext";
 
 // PROMPT_INPUT_ACCEPT / MAX_FILES / MAX_FILE_SIZE live in attachments/prompt-input-files;
