@@ -35,6 +35,9 @@ type UseChatApi = ReturnType<typeof import("@ai-sdk/react").useChat>;
 /** Graph-agent run, beside the message feed. "idle" is a finished run. */
 export type GraphJobStatus = "idle" | "running" | "failed";
 
+/** Panes of the Settings dialog. */
+export type SettingsPaneId = "general" | "providers" | "embeddings";
+
 export interface ChatContextValue {
   /** Active conversation id (always registered in the Chat map). */
   chatId: string;
@@ -63,4 +66,10 @@ export interface ChatContextValue {
   deleteChat: (chatId: string) => Promise<void>;
   /** Catalog revision after persist; Recents refetch. */
   chatOrder: number;
+  /** Settings dialog (rendered once by the sidebar; the model picker can open it too). */
+  isSettingsOpen: boolean;
+  settingsPaneId: SettingsPaneId;
+  openSettings: (paneId?: SettingsPaneId) => void;
+  setSettingsOpen: (open: boolean) => void;
+  setSettingsPaneId: (paneId: SettingsPaneId) => void;
 }

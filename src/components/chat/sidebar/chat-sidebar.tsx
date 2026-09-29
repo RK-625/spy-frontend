@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { CommandPalette, SettingsDialog } from "../overlays";
 import { usePrefersReducedMotion } from "@/components/dotmatrix";
 import { useChatContext } from "@/contexts/ChatContext";
-import { useSettingsDialog } from "@/contexts/SettingsDialogContext";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import {
   Book,
@@ -72,7 +71,7 @@ export function ChatSidebar() {
     useState<SidebarDisplayMode>(DEFAULT_SIDEBAR_MODE);
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
   const { isSettingsOpen, openSettings, setSettingsOpen, settingsPaneId, setSettingsPaneId } =
-    useSettingsDialog();
+    useChatContext();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   useEffect(() => {

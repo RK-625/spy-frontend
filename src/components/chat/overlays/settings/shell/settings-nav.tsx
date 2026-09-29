@@ -4,8 +4,9 @@ import { motion } from "motion/react";
 import { DialogTitle } from "@/components/ui";
 import { MOTION } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import type { SettingsPaneId } from "@/types/chat";
 
-export type SettingsPaneId = "general" | "providers" | "embeddings";
+export type { SettingsPaneId };
 
 const settingsPanes: { id: SettingsPaneId; label: string }[] = [
   { id: "general", label: "General" },

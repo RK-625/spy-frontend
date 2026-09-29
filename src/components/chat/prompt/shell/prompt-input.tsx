@@ -58,7 +58,6 @@ import {
 import { chefs, models } from "@/lib/providers/registry";
 import { useChatContext } from "@/contexts/ChatContext";
 import { useProviderKeys } from "@/contexts/ProviderKeysContext";
-import { useSettingsDialog } from "@/contexts/SettingsDialogContext";
 
 // PROMPT_INPUT_ACCEPT / MAX_FILES / MAX_FILE_SIZE live in attachments/prompt-input-files;
 // re-exported via the `@/components/chat/prompt` barrel.
@@ -381,7 +380,7 @@ function PromptInputWorkspaceContent() {
 
   // Only models whose provider has a verified key are offered.
   const { keyHints } = useProviderKeys();
-  const { openSettings } = useSettingsDialog();
+  const { openSettings } = useChatContext();
   const availableModels = useMemo(
     () => (keyHints ? models.filter((entry) => keyHints[entry.chefSlug]) : []),
     [keyHints],
