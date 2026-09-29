@@ -382,7 +382,7 @@ function PromptInputWorkspaceContent() {
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
 
   // Only models whose provider has a verified key are offered.
-  const { keyHints } = useProviderKeys();
+  const { keyHints, loadError, reloadProviderKeys } = useProviderKeys();
   const { openSettings } = useChatContext();
   const availableModels = useMemo(
     () => (keyHints ? models.filter((entry) => keyHints[entry.chefSlug]) : []),
@@ -444,9 +444,14 @@ function PromptInputWorkspaceContent() {
       if (status !== "ready") {
         throw new SubmitRefusedError("Chat is not ready to send.");
       }
-      // Keys still loading: refuse quietly; the draft stays.
       if (keyHints === null) {
-        throw new SubmitRefusedError("Provider keys are still loading.");
+        // The status load failed: say so and retry, so a saved key isn't blocked
+        // silently. Otherwise it is still loading: refuse quietly; the draft stays.
+        if (loadError) {
+          toast.error(`${loadError} Retrying — send again in a moment.`);
+          reloadProviderKeys();
+        }
+        throw new SubmitRefusedError("Provider keys are not loaded.");
       }
       // No model with a saved key: send the user to add one; the draft stays.
       if (!selectedModelData) {
@@ -499,6 +504,8 @@ function PromptInputWorkspaceContent() {
       pendingAsk,
       status,
       keyHints,
+      loadError,
+      reloadProviderKeys,
       selectedModelData,
       openSettings,
       model,
