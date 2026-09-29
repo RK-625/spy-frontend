@@ -12,6 +12,7 @@ const settingsPanes: { id: SettingsPaneId; label: string }[] = [
   { id: "general", label: "General" },
   { id: "providers", label: "Providers" },
   { id: "embeddings", label: "Embeddings" },
+  { id: "tools", label: "Tools" },
 ];
 
 export interface SettingsNavProps {

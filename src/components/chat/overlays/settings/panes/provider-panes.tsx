@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Providers (chat models) and Embeddings panes. Split by registry capability:
- * embedding providers live only in Embeddings, never in the model picker.
+ * Providers (chat models), Embeddings and Tools panes. Split by registry
+ * capability: embedding and web-search providers never reach the model picker.
  */
 
 import { AnimatePresence, motion } from "motion/react";
@@ -14,10 +14,14 @@ import { ProviderKeyList, type ProviderKeyListProps } from "../keys/provider-key
 import { SettingsPaneHeader } from "./settings-pane-header";
 
 export const chatProviders = providers.filter(
-  (provider) => !provider.capabilities.includes("embeddings"),
+  (provider) =>
+    provider.capabilities.includes("chat") && !provider.capabilities.includes("embeddings"),
 );
 export const embeddingProviders = providers.filter((provider) =>
   provider.capabilities.includes("embeddings"),
+);
+export const toolProviders = providers.filter((provider) =>
+  provider.capabilities.includes("webSearch"),
 );
 
 type ProviderPaneProps = Pick<ProviderKeyListProps, "keyHints" | "onSaveKey" | "onRemoveKey"> & {
@@ -93,6 +97,24 @@ export function EmbeddingsPane({
         onRemoveKey={onRemoveKey}
         onSaveKey={onSaveKey}
         providers={embeddingProviders}
+      />
+    </>
+  );
+}
+
+export function ToolsPane({ keyHints, loadError, onSaveKey, onRemoveKey }: ProviderPaneProps) {
+  return (
+    <>
+      <SettingsPaneHeader
+        description="Extra capabilities Spy can use while chatting."
+        title="Tools"
+      />
+      <LoadErrorNotice loadError={loadError} />
+      <ProviderKeyList
+        keyHints={keyHints}
+        onRemoveKey={onRemoveKey}
+        onSaveKey={onSaveKey}
+        providers={toolProviders}
       />
     </>
   );

@@ -405,6 +405,20 @@ function PromptInputWorkspaceContent() {
     openSettings("providers");
   }, [openSettings]);
 
+  // Web search runs only with a verified Exa key; the saved toggle is kept as-is
+  // so it resumes once a key is added. The server re-checks the key per request.
+  const hasExaKey = Boolean(keyHints?.exa);
+  const isExaKeyMissing = keyHints !== null && !hasExaKey;
+  const isWebSearchActive = useWebSearch && hasExaKey;
+
+  const handleWebSearchClick = useCallback(() => {
+    if (isExaKeyMissing) {
+      openSettings("tools");
+      return;
+    }
+    toggleWebSearch();
+  }, [isExaKeyMissing, openSettings, toggleWebSearch]);
+
   /**
    * Single accept path for form submit and MCQ option clicks.
    * Owns all validation + pending-ask shaping; then calls submitUserMessage.
@@ -421,7 +435,7 @@ function PromptInputWorkspaceContent() {
 
       const answer = message.text?.trim() ?? "";
       const hasFiles = (message.files?.length ?? 0) > 0;
-      const prefs = { model, mode, useWebSearch, useExcalidraw };
+      const prefs = { model, mode, useWebSearch: isWebSearchActive, useExcalidraw };
 
       if (pendingAsk != null) {
         // Empty form / nothing to answer.
@@ -464,7 +478,7 @@ function PromptInputWorkspaceContent() {
       status,
       model,
       mode,
-      useWebSearch,
+      isWebSearchActive,
       useExcalidraw,
     ],
   );
@@ -559,23 +573,31 @@ function PromptInputWorkspaceContent() {
                 variant="ghost"
               />
               <PromptInputButton
-                onClick={toggleWebSearch}
+                onClick={handleWebSearchClick}
                 size="icon-sm"
-                variant={useWebSearch ? "default" : "ghost"}
+                variant={isWebSearchActive ? "default" : "ghost"}
                 aria-label={
-                  useWebSearch ? "Disable web search" : "Enable web search"
+                  isExaKeyMissing
+                    ? "Add an Exa key in Settings"
+                    : isWebSearchActive
+                      ? "Disable web search"
+                      : "Enable web search"
                 }
                 tooltip={{
-                  content: useWebSearch
-                    ? "Disable web search"
-                    : "Enable web search",
+                  content: isExaKeyMissing
+                    ? "Add an Exa key in Settings"
+                    : isWebSearchActive
+                      ? "Disable web search"
+                      : "Enable web search",
                   side: "top",
                 }}
                 className={cn(
                   "transition-colors",
-                  useWebSearch
-                    ? "bg-primary text-accent-ink hover:bg-primary-hover"
-                    : "text-text-primary hover:bg-[var(--surface-hover)]",
+                  isExaKeyMissing
+                    ? "text-text-dim hover:bg-[var(--surface-hover)]"
+                    : isWebSearchActive
+                      ? "bg-primary text-accent-ink hover:bg-primary-hover"
+                      : "text-text-primary hover:bg-[var(--surface-hover)]",
                 )}
               >
                 <Globe size={ICON_GLYPH.inline} strokeWidth={1.5} />

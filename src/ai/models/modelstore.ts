@@ -4,7 +4,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { models } from "@/lib/providers/registry";
 import { requireProviderKey } from "@/lib/providers/keys/resolve-key";
-import type { AIModel, ProviderId } from "@/types/models";
+import type { AIModel, ChatProviderId } from "@/types/models";
 import { EmbeddingModel, LanguageModel } from "ai";
 import { type SharedV4ProviderOptions } from "@ai-sdk/provider";
 
@@ -19,7 +19,7 @@ type ChatModelFactory = (args: {
   mode: string;
 }) => ResolvedModel;
 
-const chatModelFactories: Record<ProviderId, ChatModelFactory> = {
+const chatModelFactories: Record<ChatProviderId, ChatModelFactory> = {
   openai: ({ apiKey, modelId, mode }) => ({
     model: createOpenAI({ apiKey })(modelId),
     providerOptions: mode ? { openai: { reasoningEffort: mode } } : undefined,

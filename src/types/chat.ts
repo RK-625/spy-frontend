@@ -36,7 +36,7 @@ type UseChatApi = ReturnType<typeof import("@ai-sdk/react").useChat>;
 export type GraphJobStatus = "idle" | "running" | "failed";
 
 /** Panes of the Settings dialog. */
-export type SettingsPaneId = "general" | "providers" | "embeddings";
+export type SettingsPaneId = "general" | "providers" | "embeddings" | "tools";
 
 export interface ChatContextValue {
   /** Active conversation id (always registered in the Chat map). */

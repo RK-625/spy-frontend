@@ -5,12 +5,14 @@
 import {
   AnthropicWhite,
   Deepseek,
+  Exa,
   Google,
   Meta,
   OpenAIDark,
 } from "@/components/logos";
 import type {
   AIModel,
+  ChatProviderId,
   ProviderDefinition,
   ProviderId,
 } from "@/types/models";
@@ -103,6 +105,14 @@ export const providers: ProviderDefinition[] = [
       },
     ],
   },
+  {
+    id: "exa",
+    name: "Exa",
+    icon: Exa,
+    keyPrefix: "",
+    capabilities: ["webSearch"],
+    models: [],
+  },
 ];
 
 export function getProvider(providerId: ProviderId): ProviderDefinition {
@@ -113,7 +123,13 @@ export function getProvider(providerId: ProviderId): ProviderDefinition {
   return provider;
 }
 
-export const models: AIModel[] = providers.flatMap((provider) =>
+function isChatProvider(
+  provider: ProviderDefinition,
+): provider is ProviderDefinition & { id: ChatProviderId } {
+  return provider.id !== "exa";
+}
+
+export const models: AIModel[] = providers.filter(isChatProvider).flatMap((provider) =>
   provider.models.map((model) => ({
     ...model,
     chef: provider.name,

@@ -7,7 +7,12 @@ import { CHROME_FADE, MOTION } from "@/lib/motion";
 import type { ProviderDefinition } from "@/types/models";
 import { useProviderKeys } from "@/contexts/ProviderKeysContext";
 import { GeneralPane } from "../panes/general-pane";
-import { EmbeddingsPane, embeddingProviders, ProvidersPane } from "../panes/provider-panes";
+import {
+  EmbeddingsPane,
+  embeddingProviders,
+  ProvidersPane,
+  ToolsPane,
+} from "../panes/provider-panes";
 import { SettingsNav, type SettingsPaneId } from "./settings-nav";
 
 export interface SettingsDialogProps {
@@ -80,6 +85,14 @@ export function SettingsDialog({
               {activePaneId === "embeddings" && (
                 <EmbeddingsPane
                   isEmbeddingKeyMissing={isEmbeddingKeyMissing}
+                  keyHints={keyHints}
+                  loadError={loadError}
+                  onRemoveKey={handleRemoveKey}
+                  onSaveKey={handleSaveKey}
+                />
+              )}
+              {activePaneId === "tools" && (
+                <ToolsPane
                   keyHints={keyHints}
                   loadError={loadError}
                   onRemoveKey={handleRemoveKey}

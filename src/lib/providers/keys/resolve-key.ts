@@ -20,7 +20,8 @@ export class MissingProviderKeyError extends Error {
   }
 }
 
-async function readSavedKeyOrNull(
+/** The saved key, or null when none is saved or the keychain can't be read. */
+export async function readSavedKeyOrNull(
   providerId: ProviderId,
 ): Promise<string | null> {
   try {

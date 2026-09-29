@@ -13,9 +13,16 @@ export interface ProviderKeyRowProps {
   onRemoveKey: (provider: ProviderDefinition) => Promise<RemoveProviderKeyResult>;
 }
 
+/** What a non-chat provider's key unlocks, shown under its name. */
+function providerRequirementLabel(provider: ProviderDefinition): string | null {
+  if (provider.capabilities.includes("embeddings")) return "Needed for embeddings";
+  if (provider.capabilities.includes("webSearch")) return "Needed for web search";
+  return null;
+}
+
 export function ProviderKeyRow({ provider, keyHint, onSaveKey, onRemoveKey }: ProviderKeyRowProps) {
   const Icon = provider.icon;
-  const isEmbeddingProvider = provider.capabilities.includes("embeddings");
+  const requirementLabel = providerRequirementLabel(provider);
   const handleSaveKey = useCallback(
     (apiKey: string) => onSaveKey(provider, apiKey),
     [onSaveKey, provider],
@@ -31,8 +38,10 @@ export function ProviderKeyRow({ provider, keyHint, onSaveKey, onRemoveKey }: Pr
         <Icon aria-hidden height={ICON_GLYPH.toolbar} width={ICON_GLYPH.toolbar} />
         <div className="min-w-0">
           <div className="text-sm leading-tight font-medium text-text-primary">{provider.name}</div>
-          {isEmbeddingProvider && (
-            <div className="text-[0.7rem] leading-snug whitespace-nowrap text-lavender">Needed for embeddings</div>
+          {requirementLabel && (
+            <div className="text-[0.7rem] leading-snug whitespace-nowrap text-lavender">
+              {requirementLabel}
+            </div>
           )}
         </div>
       </div>

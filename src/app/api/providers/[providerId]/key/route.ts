@@ -14,6 +14,10 @@ export const runtime = "nodejs";
 
 const MAX_API_KEY_LENGTH = 512;
 
+interface ProviderKeyRouteContext {
+  params: Promise<{ providerId: string }>;
+}
+
 function errorResponse(error: string, status: number) {
   return NextResponse.json({ ok: false, error }, { status });
 }
@@ -37,7 +41,7 @@ function readApiKey(body: unknown): string | null {
 /** Verify a pasted key with the provider, then save it to the OS keychain. */
 export async function POST(
   request: Request,
-  ctx: RouteContext<"/api/providers/[providerId]/key">,
+  ctx: ProviderKeyRouteContext,
 ) {
   if (!isSameOriginJsonRequest(request)) {
     return errorResponse("Cross-origin or non-JSON request refused", 403);
@@ -88,7 +92,7 @@ export async function POST(
 /** Remove a provider's saved key from the OS keychain. */
 export async function DELETE(
   request: Request,
-  ctx: RouteContext<"/api/providers/[providerId]/key">,
+  ctx: ProviderKeyRouteContext,
 ) {
   if (!isSameOriginRequest(request)) {
     return errorResponse("Cross-origin request refused", 403);

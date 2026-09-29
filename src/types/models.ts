@@ -3,10 +3,13 @@ import type React from "react";
 export type Chef = string;
 export type ModelId = string;
 
-export type ProviderId = "deepseek" | "meta" | "openai" | "anthropic" | "google";
+export type ProviderId = "deepseek" | "meta" | "openai" | "anthropic" | "google" | "exa";
 
-/** What the app uses a provider for; embeddings run outside the model picker. */
-export type ProviderCapability = "chat" | "embeddings";
+/** Providers that serve chat models (tool-only providers such as Exa are excluded). */
+export type ChatProviderId = Exclude<ProviderId, "exa">;
+
+/** What the app uses a provider for; embeddings and web search run outside the model picker. */
+export type ProviderCapability = "chat" | "embeddings" | "webSearch";
 
 export type ProviderIcon = React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
 
@@ -37,6 +40,6 @@ export interface ProviderKeyStatus {
 /** A chat model flattened with its provider, as the model picker consumes it. */
 export interface AIModel extends ProviderModel {
   chef: Chef;
-  chefSlug: ProviderId;
+  chefSlug: ChatProviderId;
   icon: ProviderIcon;
 }
