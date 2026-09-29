@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { CommandPalette, SettingsDialog } from "../overlays";
 import { usePrefersReducedMotion } from "@/components/dotmatrix";
 import { useChatContext } from "@/contexts/ChatContext";
+import { useSettingsDialog } from "@/contexts/SettingsDialogContext";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import {
   Book,
@@ -70,7 +71,8 @@ export function ChatSidebar() {
   const [sidebarMode, setSidebarMode] =
     useState<SidebarDisplayMode>(DEFAULT_SIDEBAR_MODE);
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
-  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const { isSettingsOpen, openSettings, setSettingsOpen, settingsPaneId, setSettingsPaneId } =
+    useSettingsDialog();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   useEffect(() => {
@@ -129,8 +131,8 @@ export function ChatSidebar() {
   }, [pathname, router]);
 
   const handleOpenSettings = useCallback(() => {
-    setSettingsDialogOpen(true);
-  }, []);
+    openSettings();
+  }, [openSettings]);
 
   const handleOpenCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
@@ -322,7 +324,7 @@ export function ChatSidebar() {
             icon={(props) => <Settings {...props} strokeWidth={1.5} />}
             label="Settings"
             onClick={handleOpenSettings}
-            active={settingsDialogOpen}
+            active={isSettingsOpen}
             showLabel={isSidebarFull}
           />
         </ChatSidebarFooter>
@@ -335,8 +337,10 @@ export function ChatSidebar() {
         trigger={null}
       />
       <SettingsDialog
-        onOpenChange={setSettingsDialogOpen}
-        open={settingsDialogOpen}
+        activePaneId={settingsPaneId}
+        onActivePaneChange={setSettingsPaneId}
+        onOpenChange={setSettingsOpen}
+        open={isSettingsOpen}
       />
     </>
   );

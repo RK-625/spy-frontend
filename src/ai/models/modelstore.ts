@@ -28,9 +28,11 @@ const chatModelFactories: Record<ProviderId, ChatModelFactory> = {
     model: createAnthropic({ apiKey })(modelId),
     providerOptions: mode ? { anthropic: { effort: mode } } : undefined,
   }),
-  google: ({ apiKey, modelId }) => ({
+  google: ({ apiKey, modelId, mode }) => ({
     model: createGoogleGenerativeAI({ apiKey })(modelId),
-    providerOptions: undefined,
+    providerOptions: mode
+      ? { google: { thinkingConfig: { thinkingLevel: mode } } }
+      : undefined,
   }),
   deepseek: ({ apiKey, modelId, mode }) => ({
     model: createDeepSeek({ apiKey })(modelId),

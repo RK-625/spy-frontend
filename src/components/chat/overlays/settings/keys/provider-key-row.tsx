@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import type { ProviderDefinition } from "@/types/models";
 import { ProviderKeyField } from "./provider-key-field";
-import type { RemoveProviderKeyResult, SaveProviderKeyResult } from "./use-provider-keys";
+import type { RemoveProviderKeyResult, SaveProviderKeyResult } from "@/contexts/ProviderKeysContext";
 
 export interface ProviderKeyRowProps {
   provider: ProviderDefinition;

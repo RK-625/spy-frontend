@@ -1,11 +1,11 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription } from "@/components/ui";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import type { ProviderDefinition } from "@/types/models";
-import { useProviderKeys } from "../keys/use-provider-keys";
+import { useProviderKeys } from "@/contexts/ProviderKeysContext";
 import { GeneralPane } from "../panes/general-pane";
 import { EmbeddingsPane, embeddingProviders, ProvidersPane } from "../panes/provider-panes";
 import { SettingsNav, type SettingsPaneId } from "./settings-nav";
@@ -13,11 +13,24 @@ import { SettingsNav, type SettingsPaneId } from "./settings-nav";
 export interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  activePaneId: SettingsPaneId;
+  onActivePaneChange: (paneId: SettingsPaneId) => void;
 }
 
-export function SettingsDialog({ onOpenChange, open }: SettingsDialogProps) {
-  const [activePaneId, setActivePaneId] = useState<SettingsPaneId>("general");
-  const { keyHints, loadError, saveProviderKey, removeProviderKey } = useProviderKeys(open);
+export function SettingsDialog({
+  onOpenChange,
+  open,
+  activePaneId,
+  onActivePaneChange,
+}: SettingsDialogProps) {
+  const { keyHints, loadError, reloadProviderKeys, saveProviderKey, removeProviderKey } =
+    useProviderKeys();
+
+  // Opening Settings retries a failed status load.
+  useEffect(() => {
+    if (open && loadError) reloadProviderKeys();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- retry once per open, not per error change
+  }, [open]);
 
   const handleSaveKey = useCallback(
     (provider: ProviderDefinition, apiKey: string) => saveProviderKey(provider.id, apiKey),
@@ -45,7 +58,7 @@ export function SettingsDialog({ onOpenChange, open }: SettingsDialogProps) {
         <SettingsNav
           activePaneId={activePaneId}
           attentionPaneIds={attentionPaneIds}
-          onSelectPane={setActivePaneId}
+          onSelectPane={onActivePaneChange}
         />
         <div className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
           <AnimatePresence initial={false} mode="wait">

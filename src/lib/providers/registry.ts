@@ -52,7 +52,20 @@ export const providers: ProviderDefinition[] = [
     icon: OpenAIDark,
     keyPrefix: "sk-",
     capabilities: ["chat"],
-    models: [],
+    models: [
+      {
+        id: "gpt-6-sol",
+        name: "GPT-6 Sol",
+        mode: ["none", "low", "medium", "high", "xhigh", "max"],
+        defaultMode: "medium",
+      },
+      {
+        id: "gpt-6-luna",
+        name: "GPT-6 Luna",
+        mode: ["none", "low", "medium", "high", "xhigh", "max"],
+        defaultMode: "medium",
+      },
+    ],
   },
   {
     id: "anthropic",
@@ -60,7 +73,20 @@ export const providers: ProviderDefinition[] = [
     icon: AnthropicWhite,
     keyPrefix: "sk-ant-",
     capabilities: ["chat"],
-    models: [],
+    models: [
+      {
+        id: "claude-opus-5-5",
+        name: "Claude Opus 5.5",
+        mode: ["low", "medium", "high", "xhigh", "max"],
+        defaultMode: "medium",
+      },
+      {
+        id: "claude-sonnet-5-5",
+        name: "Claude Sonnet 5.5",
+        mode: ["low", "medium", "high", "xhigh", "max"],
+        defaultMode: "high",
+      },
+    ],
   },
   {
     id: "google",
@@ -68,7 +94,14 @@ export const providers: ProviderDefinition[] = [
     icon: Google,
     keyPrefix: "AIza",
     capabilities: ["chat", "embeddings"],
-    models: [],
+    models: [
+      {
+        id: "gemini-3.8-flash",
+        name: "Gemini 3.8 Flash",
+        mode: ["low", "medium", "high"],
+        defaultMode: "medium",
+      },
+    ],
   },
 ];
 

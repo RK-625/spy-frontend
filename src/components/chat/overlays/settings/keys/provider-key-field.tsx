@@ -15,7 +15,7 @@ import { Button, Input } from "@/components/ui";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { CHROME_FADE, ERROR_SHAKE, GLYPH_SWAP, MOTION } from "@/lib/motion";
 import type { ProviderDefinition } from "@/types/models";
-import type { RemoveProviderKeyResult, SaveProviderKeyResult } from "./use-provider-keys";
+import type { RemoveProviderKeyResult, SaveProviderKeyResult } from "@/contexts/ProviderKeysContext";
 
 const MASK_DOTS = "••••••••";
 

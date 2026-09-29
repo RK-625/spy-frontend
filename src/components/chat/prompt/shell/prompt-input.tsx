@@ -57,6 +57,8 @@ import {
 } from "@/lib/ask-user-question";
 import { chefs, models } from "@/lib/providers/registry";
 import { useChatContext } from "@/contexts/ChatContext";
+import { useProviderKeys } from "@/contexts/ProviderKeysContext";
+import { useSettingsDialog } from "@/contexts/SettingsDialogContext";
 
 // PROMPT_INPUT_ACCEPT / MAX_FILES / MAX_FILE_SIZE live in attachments/prompt-input-files;
 // re-exported via the `@/components/chat/prompt` barrel.
@@ -377,6 +379,33 @@ function PromptInputWorkspaceContent() {
     [model],
   );
 
+  // Only models whose provider has a verified key are offered.
+  const { keyHints } = useProviderKeys();
+  const { openSettings } = useSettingsDialog();
+  const availableModels = useMemo(
+    () => (keyHints ? models.filter((entry) => keyHints[entry.chefSlug]) : []),
+    [keyHints],
+  );
+  const availableChefs = useMemo(
+    () => chefs.filter((chef) => availableModels.some((entry) => entry.chef === chef)),
+    [availableModels],
+  );
+  const hasNoAvailableModels = keyHints !== null && availableModels.length === 0;
+
+  // A key removed elsewhere can strand the selection on an unusable model.
+  useEffect(() => {
+    if (availableModels.length === 0) return;
+    if (availableModels.some((entry) => entry.id === model)) return;
+    const [fallback] = availableModels;
+    setModel(fallback.id);
+    setMode(fallback.defaultMode);
+  }, [availableModels, model, setModel, setMode]);
+
+  const handleOpenProviderSettings = useCallback(() => {
+    setModelSelectorOpen(false);
+    openSettings("providers");
+  }, [openSettings]);
+
   /**
    * Single accept path for form submit and MCQ option clicks.
    * Owns all validation + pending-ask shaping; then calls submitUserMessage.
@@ -599,12 +628,27 @@ function PromptInputWorkspaceContent() {
                   </PromptInputButton>
                 </ModelSelectorTrigger>
                 <ModelSelectorContent>
-                  <ModelSelectorInput placeholder="Search models..." />
+                  {hasNoAvailableModels ? (
+                    <button
+                      className="flex w-full flex-col gap-0.5 px-3 py-3 text-left text-sm transition-colors duration-[var(--duration-fast)] hover:bg-[var(--surface-hover)]"
+                      onClick={handleOpenProviderSettings}
+                      type="button"
+                    >
+                      <span className="text-text-primary">Add an API key in Settings</span>
+                      <span className="text-xs text-text-secondary">
+                        Models appear once a provider key is verified.
+                      </span>
+                    </button>
+                  ) : (
+                    <ModelSelectorInput placeholder="Search models..." />
+                  )}
                   <ModelSelectorList>
-                    <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                    {chefs.map((chef) => (
+                    {!hasNoAvailableModels && (
+                      <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                    )}
+                    {availableChefs.map((chef) => (
                       <ModelSelectorGroup heading={chef} key={chef}>
-                        {models
+                        {availableModels
                           .filter((entry) => entry.chef === chef)
                           .map((entry) => (
                             <ModelItem

@@ -2,7 +2,7 @@
 
 import type { ProviderDefinition } from "@/types/models";
 import { ProviderKeyRow, type ProviderKeyRowProps } from "./provider-key-row";
-import type { ProviderKeyHints } from "./use-provider-keys";
+import type { ProviderKeyHints } from "@/contexts/ProviderKeysContext";
 
 export interface ProviderKeyListProps {
   providers: ProviderDefinition[];

@@ -1,6 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+/**
+ * Shared provider-key status: which providers have a verified key saved in the
+ * OS keychain. Settings edits it; the model picker reads it. Only the last 4
+ * characters of a key ever reach the browser.
+ */
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { ProviderId, ProviderKeyStatus } from "@/types/models";
 
 /** Last 4 characters of each saved key; null = no key saved. */
@@ -16,19 +30,29 @@ interface ProviderKeysResponse {
   error?: string;
 }
 
+interface ProviderKeysContextValue {
+  /** null until the first status load finishes (or fails). */
+  keyHints: ProviderKeyHints | null;
+  loadError: string | null;
+  reloadProviderKeys: () => void;
+  saveProviderKey: (providerId: ProviderId, apiKey: string) => Promise<SaveProviderKeyResult>;
+  removeProviderKey: (providerId: ProviderId) => Promise<RemoveProviderKeyResult>;
+}
+
 const NETWORK_ERROR = "Could not reach Spy. Check that the app is running.";
+
+const ProviderKeysContext = createContext<ProviderKeysContextValue | null>(null);
 
 function toHints(statuses: ProviderKeyStatus[]): ProviderKeyHints {
   return Object.fromEntries(statuses.map((status) => [status.id, status.keyHint]));
 }
 
-/** Loads key status when `enabled` turns on; saves verified keys via the API. */
-export function useProviderKeys(enabled: boolean) {
+export function ProviderKeysProvider({ children }: { children: ReactNode }) {
   const [keyHints, setKeyHints] = useState<ProviderKeyHints | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadCount, setReloadCount] = useState(0);
 
   useEffect(() => {
-    if (!enabled) return;
     const controller = new AbortController();
     fetch("/api/providers", { signal: controller.signal, cache: "no-store" })
       .then((response) => response.json() as Promise<ProviderKeysResponse>)
@@ -42,11 +66,15 @@ export function useProviderKeys(enabled: boolean) {
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
-        console.error("[settings] provider keys load failed:", error);
+        console.error("[provider-keys] load failed:", error);
         setLoadError(NETWORK_ERROR);
       });
     return () => controller.abort();
-  }, [enabled]);
+  }, [reloadCount]);
+
+  const reloadProviderKeys = useCallback(() => {
+    setReloadCount((count) => count + 1);
+  }, []);
 
   const saveProviderKey = useCallback(
     async (providerId: ProviderId, apiKey: string): Promise<SaveProviderKeyResult> => {
@@ -59,7 +87,7 @@ export function useProviderKeys(enabled: boolean) {
         });
         body = (await response.json()) as ProviderKeysResponse;
       } catch (error: unknown) {
-        console.error("[settings] provider key save failed:", error);
+        console.error("[provider-keys] save failed:", error);
         return { ok: false, error: NETWORK_ERROR };
       }
       if (!body.ok || !body.provider) {
@@ -81,7 +109,7 @@ export function useProviderKeys(enabled: boolean) {
         });
         body = (await response.json()) as ProviderKeysResponse;
       } catch (error: unknown) {
-        console.error("[settings] provider key remove failed:", error);
+        console.error("[provider-keys] remove failed:", error);
         return { ok: false, error: NETWORK_ERROR };
       }
       if (!body.ok || !body.provider) {
@@ -94,5 +122,18 @@ export function useProviderKeys(enabled: boolean) {
     [],
   );
 
-  return { keyHints, loadError, saveProviderKey, removeProviderKey };
+  const value = useMemo(
+    () => ({ keyHints, loadError, reloadProviderKeys, saveProviderKey, removeProviderKey }),
+    [keyHints, loadError, reloadProviderKeys, saveProviderKey, removeProviderKey],
+  );
+
+  return <ProviderKeysContext.Provider value={value}>{children}</ProviderKeysContext.Provider>;
+}
+
+export function useProviderKeys(): ProviderKeysContextValue {
+  const value = useContext(ProviderKeysContext);
+  if (!value) {
+    throw new Error("useProviderKeys must be used within a ProviderKeysProvider");
+  }
+  return value;
 }
