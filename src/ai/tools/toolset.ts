@@ -14,6 +14,7 @@ import {
   getMemoryCone as falkorGetMemoryCone,
 } from "@/lib/graph/falkor";
 import { MEMORY_SEARCH_TOP_K } from "@/lib/graph/policy";
+import { publishTopologyUpdate } from "@/lib/graph/topology-events";
 import type {
   Links,
   ManageLinksBatchResult,
@@ -201,6 +202,7 @@ export function createToolSet() {
             },
           });
 
+          publishTopologyUpdate();
           return { id, name, questionCount: rows.length };
         }
 
@@ -247,6 +249,7 @@ export function createToolSet() {
           return { error: "Memory not found" };
         }
 
+        publishTopologyUpdate();
         if (rows != null) {
           return {
             id: row.id,
@@ -370,6 +373,7 @@ export function createToolSet() {
         const graph = await getDb();
         await graph.query(query, { params });
 
+        publishTopologyUpdate();
         return {
           remove: okBatch(remove),
           upsert: okBatch(upsert),
