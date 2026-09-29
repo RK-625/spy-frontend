@@ -8,6 +8,7 @@ import {
 import { createChatToolSet } from "../tools/agent-toolsets";
 import { connectExcalidrawMcp } from "../tools/excalidraw-mcp";
 import { modelConfig } from "../models/modelstore";
+import { readSavedKeyOrNull } from "@/lib/providers/keys/resolve-key";
 import { buildChatInstructions } from "@/prompts/chat-instructions";
 import { runChatAgent } from "./chat/agent";
 import { runGraphAgent } from "./graph/agent";
@@ -81,9 +82,12 @@ export async function runAgent({
   });
   // Product tools are model-agnostic; chat model stays on modelConfig only.
   const toolSet = createChatToolSet();
-  // webSearch and Excalidraw MCP are optional; retrieval + ask stay on.
+  // webSearch needs the user's toggle AND a verified Exa key in the keychain;
+  // the client flag alone is never trusted. Retrieval + ask stay on.
+  const isWebSearchEnabled =
+    useWebSearch && (await readSavedKeyOrNull("exa")) !== null;
   const { webSearch, ...toolsWithoutSearch } = toolSet;
-  const baseTools = useWebSearch ? toolSet : toolsWithoutSearch;
+  const baseTools = isWebSearchEnabled ? toolSet : toolsWithoutSearch;
 
   const { tools: mcpTools, close: closeExcalidraw } = useExcalidraw
     ? await connectExcalidrawMcp().catch((error: unknown) => {
@@ -95,14 +99,14 @@ export async function runAgent({
   const tools: ToolSet = { ...baseTools, ...mcpTools };
 
   const { model: resolvedModel, providerOptions: resolvedProviderOptions } =
-    modelConfig({ model, mode });
+    await modelConfig({ model, mode });
   // Web or Excalidraw MCP tool loops need a higher step budget.
   const streamResult = runChatAgent({
     model: resolvedModel,
     instructions: buildChatInstructions(),
     messages: modelMessages,
     tools,
-    stopWhen: isStepCount(useWebSearch || useExcalidraw ? 25 : 8),
+    stopWhen: isStepCount(isWebSearchEnabled || useExcalidraw ? 25 : 8),
     providerOptions: resolvedProviderOptions,
     abortSignal,
   });

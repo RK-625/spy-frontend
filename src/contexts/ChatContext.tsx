@@ -21,7 +21,7 @@ import {
   saveChatMessages,
 } from "@/lib/chats/api";
 import { discardDraftForDeletedChat } from "@/lib/storage/prompt-draft-store";
-import type { ChatContextValue, GraphJobStatus } from "@/types/chat";
+import type { ChatContextValue, GraphJobStatus, SettingsPaneId } from "@/types/chat";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
@@ -423,6 +423,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [landOnEmptyChat, updateChatOrder],
   );
 
+  const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [settingsPaneId, setSettingsPaneId] = useState<SettingsPaneId>("general");
+  const openSettings = useCallback((paneId?: SettingsPaneId) => {
+    if (paneId) setSettingsPaneId(paneId);
+    setSettingsOpen(true);
+  }, []);
+
   const value: ChatContextValue = useMemo(
     () => ({
       chatId: activeChat.id,
@@ -437,6 +444,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchChat,
       deleteChat,
       chatOrder,
+      isSettingsOpen,
+      settingsPaneId,
+      openSettings,
+      setSettingsOpen,
+      setSettingsPaneId,
     }),
     [
       activeChat.id,
@@ -451,6 +463,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchChat,
       deleteChat,
       chatOrder,
+      isSettingsOpen,
+      settingsPaneId,
+      openSettings,
     ],
   );
 

@@ -1,2 +1,2 @@
 export * from "./command-palette";
-export * from "./settings-dialog";
+export * from "./settings";

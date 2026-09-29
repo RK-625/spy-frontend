@@ -5,6 +5,7 @@
  * to product-facing `OpenAI` / `OpenAIDark`. Prefer this barrel over deep paths.
  */
 export { Deepseek } from "./deepseek";
+export { Exa } from "./exa";
 export { Excalidraw } from "./excalidraw";
 export { Meta } from "./meta";
 export { Openai as OpenAI } from "./openai";
