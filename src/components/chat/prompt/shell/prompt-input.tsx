@@ -109,6 +109,14 @@ const MOTION_DOM_PROP_KEYS = [
 
 export type { PromptInputMessage };
 
+/** Thrown by the submit handler to keep the draft; an expected outcome, not a failure to log. */
+class SubmitRefusedError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "SubmitRefusedError";
+  }
+}
+
 export type PromptInputProps = Omit<
   HTMLAttributes<HTMLFormElement>,
   "onSubmit" | "onError"
@@ -233,8 +241,8 @@ export const PromptInput = ({
         attachments.clear();
         textInput.clear();
       } catch (error) {
-        // Conversion failed or onSubmit refused — keep draft; log only.
-        console.error(error);
+        // Keep the draft either way; only unexpected failures are logged.
+        if (!(error instanceof SubmitRefusedError)) console.error(error);
       }
     },
     [attachments, textInput, onSubmit]
@@ -373,17 +381,21 @@ function PromptInputWorkspaceContent() {
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
 
-  const selectedModelData = useMemo(
-    () => models.find((m) => m.id === model),
-    [model],
-  );
-
   // Only models whose provider has a verified key are offered.
   const { keyHints } = useProviderKeys();
   const { openSettings } = useChatContext();
   const availableModels = useMemo(
     () => (keyHints ? models.filter((entry) => keyHints[entry.chefSlug]) : []),
     [keyHints],
+  );
+  // The default model is only a placeholder: it counts as selected once its
+  // provider has a key. While keys load, show it rather than flash empty.
+  const selectedModelData = useMemo(
+    () =>
+      keyHints === null
+        ? models.find((entry) => entry.id === model)
+        : availableModels.find((entry) => entry.id === model),
+    [availableModels, keyHints, model],
   );
   const availableChefs = useMemo(
     () => chefs.filter((chef) => availableModels.some((entry) => entry.chef === chef)),
@@ -430,7 +442,17 @@ function PromptInputWorkspaceContent() {
   const handleSubmit = useCallback(
     (message: PromptInputMessage): void => {
       if (status !== "ready") {
-        throw new Error("Chat is not ready to send.");
+        throw new SubmitRefusedError("Chat is not ready to send.");
+      }
+      // Keys still loading: refuse quietly; the draft stays.
+      if (keyHints === null) {
+        throw new SubmitRefusedError("Provider keys are still loading.");
+      }
+      // No model with a saved key: send the user to add one; the draft stays.
+      if (!selectedModelData) {
+        toast.error("Add an API key to send messages");
+        openSettings("providers");
+        throw new SubmitRefusedError("No model with a saved API key.");
       }
 
       const answer = message.text?.trim() ?? "";
@@ -440,11 +462,11 @@ function PromptInputWorkspaceContent() {
       if (pendingAsk != null) {
         // Empty form / nothing to answer.
         if (!answer && !hasFiles) {
-          throw new Error("Empty message.");
+          throw new SubmitRefusedError("Empty message.");
         }
         // Pure MCQ: require a choice label; files alone are not an answer.
         if (!pendingAsk.allowCustomInput && !answer) {
-          throw new Error("Choice required.");
+          throw new SubmitRefusedError("Choice required.");
         }
 
         submitUserMessage(
@@ -461,7 +483,7 @@ function PromptInputWorkspaceContent() {
       }
 
       if (!answer && !hasFiles) {
-        throw new Error("Empty message.");
+        throw new SubmitRefusedError("Empty message.");
       }
 
       submitUserMessage(
@@ -476,6 +498,9 @@ function PromptInputWorkspaceContent() {
       submitUserMessage,
       pendingAsk,
       status,
+      keyHints,
+      selectedModelData,
+      openSettings,
       model,
       mode,
       isWebSearchActive,
@@ -641,11 +666,9 @@ function PromptInputWorkspaceContent() {
                     ) : (
                       <Settings size={ICON_GLYPH.toolbar} strokeWidth={1.5} />
                     )}
-                    {selectedModelData ? (
-                      <span className="text-sm font-[family-name:var(--font-body)] font-medium tracking-wide">
-                        {selectedModelData.name}
-                      </span>
-                    ) : null}
+                    <span className="text-sm font-[family-name:var(--font-body)] font-medium tracking-wide">
+                      {selectedModelData ? selectedModelData.name : "Select model"}
+                    </span>
                   </PromptInputButton>
                 </ModelSelectorTrigger>
                 <ModelSelectorContent>
