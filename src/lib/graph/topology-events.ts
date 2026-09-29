@@ -17,31 +17,41 @@ export type TopologyUpdatedEvent = {
 
 type TopologyUpdateListener = (event: TopologyUpdatedEvent) => void;
 
-const topologySubscribers = new Set<TopologyUpdateListener>();
+type TopologyChannel = {
+  subscribers: Set<TopologyUpdateListener>;
+  revision: number;
+};
 
-let topologyRevision = 0;
+// Next can evaluate this module in separate route/tool chunks. Keep one
+// channel per process, as with the embedded Falkor client singleton.
+const topologyChannel = ((
+  globalThis as { __spyTopologyChannel?: TopologyChannel }
+).__spyTopologyChannel ??= {
+  subscribers: new Set<TopologyUpdateListener>(),
+  revision: 0,
+});
 
 export function getTopologyRevision(): number {
-  return topologyRevision;
+  return topologyChannel.revision;
 }
 
 export function subscribeToTopologyUpdates(
   listener: TopologyUpdateListener,
 ): () => void {
-  topologySubscribers.add(listener);
+  topologyChannel.subscribers.add(listener);
   return () => {
-    topologySubscribers.delete(listener);
+    topologyChannel.subscribers.delete(listener);
   };
 }
 
 export function publishTopologyUpdate(): void {
-  topologyRevision += 1;
+  topologyChannel.revision += 1;
   const event: TopologyUpdatedEvent = {
     type: "graph-topology-updated",
-    revision: topologyRevision,
+    revision: topologyChannel.revision,
     updatedAt: Date.now(),
   };
-  for (const listener of topologySubscribers) {
+  for (const listener of topologyChannel.subscribers) {
     listener(event);
   }
 }

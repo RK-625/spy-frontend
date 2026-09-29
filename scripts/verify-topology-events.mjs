@@ -9,6 +9,9 @@
  * Run: npx tsx scripts/verify-topology-events.mjs
  */
 import path from "node:path";
+import { readFileSync } from "node:fs";
+import { runInThisContext } from "node:vm";
+import ts from "typescript";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -98,6 +101,28 @@ try {
     received.length === 1,
     `T3: no delivery after unsubscribe (got ${received.length})`,
   );
+
+  // Independently evaluated Next route/tool chunks must share one channel.
+  const channelCode = ts.transpileModule(
+    readFileSync(path.join(root, "src/lib/graph/topology-events.ts"), "utf8"),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+  ).outputText;
+  const copy = {};
+  runInThisContext(`(function(exports) {${channelCode}\n})`)(copy);
+  const chunkEvents = [];
+  const stopChunkListener = subscribeToTopologyUpdates((event) => chunkEvents.push(event));
+  const beforeChunkPublish = getTopologyRevision();
+  try {
+    copy.publishTopologyUpdate();
+    assert(
+      getTopologyRevision() === beforeChunkPublish + 1 &&
+        copy.getTopologyRevision() === getTopologyRevision() &&
+        chunkEvents.length === 1,
+      "independent module copies share revisions and subscribers",
+    );
+  } finally {
+    stopChunkListener();
+  }
 
   // T4: route streams SSE.
   const baseline = getTopologyRevision();
