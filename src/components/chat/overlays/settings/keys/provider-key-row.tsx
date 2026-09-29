@@ -4,20 +4,25 @@ import { useCallback } from "react";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import type { ProviderDefinition } from "@/types/models";
 import { ProviderKeyField } from "./provider-key-field";
-import type { SaveProviderKeyResult } from "./use-provider-keys";
+import type { RemoveProviderKeyResult, SaveProviderKeyResult } from "./use-provider-keys";
 
 export interface ProviderKeyRowProps {
   provider: ProviderDefinition;
   keyHint: string | null | undefined;
   onSaveKey: (provider: ProviderDefinition, apiKey: string) => Promise<SaveProviderKeyResult>;
+  onRemoveKey: (provider: ProviderDefinition) => Promise<RemoveProviderKeyResult>;
 }
 
-export function ProviderKeyRow({ provider, keyHint, onSaveKey }: ProviderKeyRowProps) {
+export function ProviderKeyRow({ provider, keyHint, onSaveKey, onRemoveKey }: ProviderKeyRowProps) {
   const Icon = provider.icon;
   const isEmbeddingProvider = provider.capabilities.includes("embeddings");
   const handleSaveKey = useCallback(
     (apiKey: string) => onSaveKey(provider, apiKey),
     [onSaveKey, provider],
+  );
+  const handleRemoveKey = useCallback(
+    () => onRemoveKey(provider),
+    [onRemoveKey, provider],
   );
 
   return (
@@ -32,7 +37,12 @@ export function ProviderKeyRow({ provider, keyHint, onSaveKey }: ProviderKeyRowP
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        <ProviderKeyField keyHint={keyHint} onSaveKey={handleSaveKey} provider={provider} />
+        <ProviderKeyField
+          keyHint={keyHint}
+          onRemoveKey={handleRemoveKey}
+          onSaveKey={handleSaveKey}
+          provider={provider}
+        />
       </div>
     </div>
   );

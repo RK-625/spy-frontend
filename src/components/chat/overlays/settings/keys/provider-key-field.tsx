@@ -2,10 +2,12 @@
 
 /**
  * Paste → verify → saved. Saved keys show only a masked hint with the
- * verified double tick; the pasted key is dropped from state once saved.
+ * verified double tick; hovering or focusing the tick flips it to a remove
+ * control that asks for inline confirmation. The pasted key is dropped from
+ * state once saved.
  */
 
-import { CheckCheck } from "lucide-react";
+import { CheckCheck, X } from "lucide-react";
 import { AnimatePresence, motion, useAnimationControls } from "motion/react";
 import { type FormEvent, useCallback, useState } from "react";
 import { DotmSquare18 } from "@/components/dotmatrix";
@@ -13,7 +15,7 @@ import { Button, Input } from "@/components/ui";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { CHROME_FADE, ERROR_SHAKE, GLYPH_SWAP, MOTION } from "@/lib/motion";
 import type { ProviderDefinition } from "@/types/models";
-import type { SaveProviderKeyResult } from "./use-provider-keys";
+import type { RemoveProviderKeyResult, SaveProviderKeyResult } from "./use-provider-keys";
 
 const MASK_DOTS = "••••••••";
 
@@ -22,24 +24,162 @@ export interface ProviderKeyFieldProps {
   /** undefined = still loading; null = no key saved. */
   keyHint: string | null | undefined;
   onSaveKey: (apiKey: string) => Promise<SaveProviderKeyResult>;
+  onRemoveKey: () => Promise<RemoveProviderKeyResult>;
 }
 
-function MaskedKey({ provider, keyHint }: { provider: ProviderDefinition; keyHint: string }) {
+type SavedKeyMode = "masked" | "confirming";
+
+function SavedKey({
+  provider,
+  keyHint,
+  onRemoveKey,
+}: {
+  provider: ProviderDefinition;
+  keyHint: string;
+  onRemoveKey: () => Promise<RemoveProviderKeyResult>;
+}) {
+  const [mode, setMode] = useState<SavedKeyMode>("masked");
+  const [isRemoveMarkShown, setIsRemoveMarkShown] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const showRemoveMark = useCallback(() => setIsRemoveMarkShown(true), []);
+  const showVerifiedMark = useCallback(() => setIsRemoveMarkShown(false), []);
+  const startConfirming = useCallback(() => {
+    setIsRemoveMarkShown(false);
+    setMode("confirming");
+  }, []);
+  const cancelConfirming = useCallback(() => {
+    setRemoveError(null);
+    setMode("masked");
+  }, []);
+  const confirmRemoval = useCallback(async () => {
+    setIsRemoving(true);
+    setRemoveError(null);
+    const result = await onRemoveKey();
+    // On success the saved hint clears and this row is replaced by the paste field.
+    if (!result.ok) {
+      setIsRemoving(false);
+      setRemoveError(result.error);
+    }
+  }, [onRemoveKey]);
+
   return (
-    <div className="flex h-9 items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3">
-      <span className="truncate font-[family-name:var(--font-code)] text-xs text-text-secondary">
-        {provider.keyPrefix}
-        {MASK_DOTS}
-        {keyHint}
-      </span>
-      <motion.span
-        {...GLYPH_SWAP}
-        className="flex items-center gap-1.5 text-xs text-status-success"
-        transition={MOTION.chrome}
-      >
-        <CheckCheck size={ICON_GLYPH.inline} strokeWidth={1.75} aria-hidden />
-        Verified
-      </motion.span>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex h-9 items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3">
+        <AnimatePresence initial={false} mode="wait">
+          {mode === "masked" ? (
+            <motion.div
+              key="masked"
+              {...CHROME_FADE}
+              className="flex min-w-0 flex-1 items-center justify-between gap-3"
+              transition={MOTION.chrome}
+            >
+              <span className="truncate font-[family-name:var(--font-code)] text-xs text-text-secondary">
+                {provider.keyPrefix}
+                {MASK_DOTS}
+                {keyHint}
+              </span>
+              <button
+                aria-label={`Remove ${provider.name} key`}
+                className="flex h-6 min-w-[4.75rem] flex-none items-center justify-end rounded-[var(--radius)] text-xs"
+                onBlur={showVerifiedMark}
+                onClick={startConfirming}
+                onFocus={showRemoveMark}
+                onMouseEnter={showRemoveMark}
+                onMouseLeave={showVerifiedMark}
+                type="button"
+              >
+                <AnimatePresence initial={false} mode="wait">
+                  {isRemoveMarkShown ? (
+                    <motion.span
+                      key="remove"
+                      {...GLYPH_SWAP}
+                      className="flex items-center gap-1.5 text-destructive"
+                      transition={MOTION.chrome}
+                    >
+                      <X size={ICON_GLYPH.inline} strokeWidth={1.75} aria-hidden />
+                      Remove
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="verified"
+                      {...GLYPH_SWAP}
+                      className="flex items-center gap-1.5 text-status-success"
+                      transition={MOTION.chrome}
+                    >
+                      <CheckCheck size={ICON_GLYPH.inline} strokeWidth={1.75} aria-hidden />
+                      Verified
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="confirming"
+              {...CHROME_FADE}
+              className="flex min-w-0 flex-1 items-center justify-between gap-3"
+              transition={MOTION.chrome}
+            >
+              <span className="truncate text-xs text-text-primary">Remove this key?</span>
+              <div className="flex flex-none items-center gap-1.5">
+                <Button
+                  disabled={isRemoving}
+                  onClick={cancelConfirming}
+                  size="xs"
+                  type="button"
+                  variant="ghost"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="w-[4.5rem]"
+                  disabled={isRemoving}
+                  onClick={confirmRemoval}
+                  size="xs"
+                  type="button"
+                  variant="destructive"
+                >
+                  <AnimatePresence initial={false} mode="wait">
+                    {isRemoving ? (
+                      <motion.span
+                        key="removing"
+                        {...GLYPH_SWAP}
+                        className="flex items-center"
+                        transition={MOTION.chrome}
+                      >
+                        <DotmSquare18
+                          animated
+                          color="currentColor"
+                          dotSize={1.5}
+                          size={ICON_GLYPH.badge}
+                        />
+                      </motion.span>
+                    ) : (
+                      <motion.span key="confirm" {...GLYPH_SWAP} transition={MOTION.chrome}>
+                        Confirm
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      <AnimatePresence initial={false}>
+        {removeError && (
+          <motion.p
+            {...CHROME_FADE}
+            className="text-xs text-destructive"
+            role="alert"
+            transition={MOTION.chrome}
+          >
+            {removeError}
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -136,7 +276,12 @@ function KeyEntryForm({
   );
 }
 
-export function ProviderKeyField({ provider, keyHint, onSaveKey }: ProviderKeyFieldProps) {
+export function ProviderKeyField({
+  provider,
+  keyHint,
+  onSaveKey,
+  onRemoveKey,
+}: ProviderKeyFieldProps) {
   const fieldState = keyHint === undefined ? "loading" : keyHint === null ? "empty" : "saved";
   return (
     <AnimatePresence initial={false} mode="wait">
@@ -148,7 +293,9 @@ export function ProviderKeyField({ provider, keyHint, onSaveKey }: ProviderKeyFi
           />
         )}
         {fieldState === "empty" && <KeyEntryForm onSaveKey={onSaveKey} provider={provider} />}
-        {keyHint && <MaskedKey keyHint={keyHint} provider={provider} />}
+        {keyHint && (
+          <SavedKey keyHint={keyHint} onRemoveKey={onRemoveKey} provider={provider} />
+        )}
       </motion.div>
     </AnimatePresence>
   );

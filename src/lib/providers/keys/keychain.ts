@@ -25,3 +25,8 @@ export async function saveProviderKey(
 ): Promise<void> {
   await providerKeyEntry(providerId).setPassword(apiKey);
 }
+
+/** A key that is already gone counts as removed. */
+export async function deleteProviderKey(providerId: ProviderId): Promise<void> {
+  await providerKeyEntry(providerId).deletePassword();
+}

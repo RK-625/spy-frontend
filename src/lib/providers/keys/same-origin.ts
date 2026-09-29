@@ -1,13 +1,9 @@
 /**
- * Key-writing routes run on localhost, so any web page could POST to them.
- * Reject browser requests from another origin and non-JSON bodies (JSON
- * forces a CORS preflight, which these routes never approve).
+ * Key-writing routes run on localhost, so any web page could call them.
+ * Reject browser requests from another origin. Body-carrying requests must
+ * also be JSON (JSON forces a CORS preflight, which these routes never approve).
  */
-export function isSameOriginJsonRequest(request: Request): boolean {
-  const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.toLowerCase().startsWith("application/json")) {
-    return false;
-  }
+export function isSameOriginRequest(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (origin === null) {
     // Non-browser local clients (curl, scripts) send no Origin.
@@ -18,4 +14,12 @@ export function isSameOriginJsonRequest(request: Request): boolean {
   } catch {
     return false;
   }
+}
+
+export function isSameOriginJsonRequest(request: Request): boolean {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    return false;
+  }
+  return isSameOriginRequest(request);
 }

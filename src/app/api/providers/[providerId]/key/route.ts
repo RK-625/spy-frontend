@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { providers } from "@/lib/providers/registry";
-import { saveProviderKey } from "@/lib/providers/keys/keychain";
+import { deleteProviderKey, saveProviderKey } from "@/lib/providers/keys/keychain";
 import { toKeyHint } from "@/lib/providers/keys/resolve-key";
-import { isSameOriginJsonRequest } from "@/lib/providers/keys/same-origin";
+import {
+  isSameOriginJsonRequest,
+  isSameOriginRequest,
+} from "@/lib/providers/keys/same-origin";
 import { verifyProviderKey } from "@/lib/providers/keys/verify-key";
 import type { ProviderDefinition, ProviderKeyStatus } from "@/types/models";
 
@@ -79,5 +82,34 @@ export async function POST(
     id: provider.id,
     keyHint: toKeyHint(apiKey),
   };
+  return NextResponse.json({ ok: true, provider: status });
+}
+
+/** Remove a provider's saved key from the OS keychain. */
+export async function DELETE(
+  request: Request,
+  ctx: RouteContext<"/api/providers/[providerId]/key">,
+) {
+  if (!isSameOriginRequest(request)) {
+    return errorResponse("Cross-origin request refused", 403);
+  }
+
+  const { providerId } = await ctx.params;
+  const provider: ProviderDefinition | undefined = providers.find(
+    (entry) => entry.id === providerId,
+  );
+  if (!provider) {
+    return errorResponse(`Unknown provider: ${providerId}`, 404);
+  }
+
+  try {
+    await deleteProviderKey(provider.id);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[provider-keys] keychain delete failed for ${provider.id}: ${message}`);
+    return errorResponse("Could not remove the key from the system keychain", 500);
+  }
+
+  const status: ProviderKeyStatus = { id: provider.id, keyHint: null };
   return NextResponse.json({ ok: true, provider: status });
 }

@@ -20,7 +20,7 @@ export const embeddingProviders = providers.filter((provider) =>
   provider.capabilities.includes("embeddings"),
 );
 
-type ProviderPaneProps = Pick<ProviderKeyListProps, "keyHints" | "onSaveKey"> & {
+type ProviderPaneProps = Pick<ProviderKeyListProps, "keyHints" | "onSaveKey" | "onRemoveKey"> & {
   loadError: string | null;
 };
 
@@ -33,7 +33,7 @@ function LoadErrorNotice({ loadError }: { loadError: string | null }) {
   );
 }
 
-export function ProvidersPane({ keyHints, loadError, onSaveKey }: ProviderPaneProps) {
+export function ProvidersPane({ keyHints, loadError, onSaveKey, onRemoveKey }: ProviderPaneProps) {
   return (
     <>
       <SettingsPaneHeader
@@ -41,7 +41,12 @@ export function ProvidersPane({ keyHints, loadError, onSaveKey }: ProviderPanePr
         title="Providers"
       />
       <LoadErrorNotice loadError={loadError} />
-      <ProviderKeyList keyHints={keyHints} onSaveKey={onSaveKey} providers={chatProviders} />
+      <ProviderKeyList
+        keyHints={keyHints}
+        onRemoveKey={onRemoveKey}
+        onSaveKey={onSaveKey}
+        providers={chatProviders}
+      />
     </>
   );
 }
@@ -50,6 +55,7 @@ export function EmbeddingsPane({
   keyHints,
   loadError,
   onSaveKey,
+  onRemoveKey,
   isEmbeddingKeyMissing,
 }: ProviderPaneProps & { isEmbeddingKeyMissing: boolean }) {
   return (
@@ -82,7 +88,12 @@ export function EmbeddingsPane({
         )}
       </AnimatePresence>
       <LoadErrorNotice loadError={loadError} />
-      <ProviderKeyList keyHints={keyHints} onSaveKey={onSaveKey} providers={embeddingProviders} />
+      <ProviderKeyList
+        keyHints={keyHints}
+        onRemoveKey={onRemoveKey}
+        onSaveKey={onSaveKey}
+        providers={embeddingProviders}
+      />
     </>
   );
 }

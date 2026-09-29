@@ -7,6 +7,7 @@ import type { ProviderId, ProviderKeyStatus } from "@/types/models";
 export type ProviderKeyHints = Partial<Record<ProviderId, string | null>>;
 
 export type SaveProviderKeyResult = { ok: true } | { ok: false; error: string };
+export type RemoveProviderKeyResult = SaveProviderKeyResult;
 
 interface ProviderKeysResponse {
   ok: boolean;
@@ -71,5 +72,27 @@ export function useProviderKeys(enabled: boolean) {
     [],
   );
 
-  return { keyHints, loadError, saveProviderKey };
+  const removeProviderKey = useCallback(
+    async (providerId: ProviderId): Promise<RemoveProviderKeyResult> => {
+      let body: ProviderKeysResponse;
+      try {
+        const response = await fetch(`/api/providers/${providerId}/key`, {
+          method: "DELETE",
+        });
+        body = (await response.json()) as ProviderKeysResponse;
+      } catch (error: unknown) {
+        console.error("[settings] provider key remove failed:", error);
+        return { ok: false, error: NETWORK_ERROR };
+      }
+      if (!body.ok || !body.provider) {
+        return { ok: false, error: body.error ?? "Could not remove the key." };
+      }
+      const removed = body.provider;
+      setKeyHints((previous) => ({ ...previous, [removed.id]: removed.keyHint }));
+      return { ok: true };
+    },
+    [],
+  );
+
+  return { keyHints, loadError, saveProviderKey, removeProviderKey };
 }

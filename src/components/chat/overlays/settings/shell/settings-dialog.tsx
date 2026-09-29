@@ -17,11 +17,15 @@ export interface SettingsDialogProps {
 
 export function SettingsDialog({ onOpenChange, open }: SettingsDialogProps) {
   const [activePaneId, setActivePaneId] = useState<SettingsPaneId>("general");
-  const { keyHints, loadError, saveProviderKey } = useProviderKeys(open);
+  const { keyHints, loadError, saveProviderKey, removeProviderKey } = useProviderKeys(open);
 
   const handleSaveKey = useCallback(
     (provider: ProviderDefinition, apiKey: string) => saveProviderKey(provider.id, apiKey),
     [saveProviderKey],
+  );
+  const handleRemoveKey = useCallback(
+    (provider: ProviderDefinition) => removeProviderKey(provider.id),
+    [removeProviderKey],
   );
 
   // Unknown until the status loads, so no dot flashes on open.
@@ -53,13 +57,19 @@ export function SettingsDialog({ onOpenChange, open }: SettingsDialogProps) {
             >
               {activePaneId === "general" && <GeneralPane />}
               {activePaneId === "providers" && (
-                <ProvidersPane keyHints={keyHints} loadError={loadError} onSaveKey={handleSaveKey} />
+                <ProvidersPane
+                  keyHints={keyHints}
+                  loadError={loadError}
+                  onRemoveKey={handleRemoveKey}
+                  onSaveKey={handleSaveKey}
+                />
               )}
               {activePaneId === "embeddings" && (
                 <EmbeddingsPane
                   isEmbeddingKeyMissing={isEmbeddingKeyMissing}
                   keyHints={keyHints}
                   loadError={loadError}
+                  onRemoveKey={handleRemoveKey}
                   onSaveKey={handleSaveKey}
                 />
               )}
