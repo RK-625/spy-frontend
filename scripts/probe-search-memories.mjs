@@ -277,7 +277,7 @@ async function main() {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error(
-          `Embedding failed (check GOOGLE_GENERATIVE_AI_API_KEY / Google provider env): ${message}`,
+          `Embedding failed (check the Google key in Settings → Embeddings): ${message}`,
         );
         process.exit(1);
       }

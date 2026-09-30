@@ -15,6 +15,7 @@ import {
 } from "@/lib/graph/falkor";
 import { MEMORY_SEARCH_TOP_K } from "@/lib/graph/policy";
 import { publishTopologyUpdate } from "@/lib/graph/topology-events";
+import { readSavedKeyOrNull } from "@/lib/providers/keys/resolve-key";
 import type {
   Links,
   ManageLinksBatchResult,
@@ -87,11 +88,10 @@ function memoryQuestionCreateCypher(
   };
 }
 
-/** Lazy Exa client — never construct at module load (missing key must not kill chat). */
-function getExaClient(): Exa | null {
-  const key = process.env.EXA_API_KEY;
-  if (key == null || key.trim() === "") return null;
-  return new Exa(key);
+/** Lazy Exa client from the keychain key — never at module load (a missing key must not kill chat). */
+async function getExaClient(): Promise<Exa | null> {
+  const apiKey = await readSavedKeyOrNull("exa");
+  return apiKey ? new Exa(apiKey) : null;
 }
 
 /** Embed agent-provided probe texts into MemoryQuestion rows (ids + vectors). */
@@ -116,10 +116,10 @@ export function createToolSet() {
     inputSchema: webSearchInputSchema,
     execute: async ({ query }) => {
       try {
-        const exa = getExaClient();
+        const exa = await getExaClient();
         if (exa == null) {
           return {
-            error: "Web search is unavailable: EXA_API_KEY is not set.",
+            error: "Web search is unavailable: add an Exa key in Settings.",
           };
         }
         const response = await exa.search(query, {

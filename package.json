@@ -42,6 +42,7 @@
     "@milkdown/react": "^7.22.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@nanostores/react": "github:ai/react",
+    "@napi-rs/keyring": "^2.1.0",
     "@radix-ui/react-dialog": "^1.1.17",
     "@radix-ui/react-use-controllable-state": "^1.2.3",
     "@react-three/fiber": "^9.6.1",

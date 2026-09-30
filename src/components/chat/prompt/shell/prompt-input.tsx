@@ -55,8 +55,9 @@ import {
   formatAskUserQuestionAnswer,
   getPendingAskUserQuestion,
 } from "@/lib/ask-user-question";
-import { chefs, models } from "@/lib/models";
+import { chefs, models } from "@/lib/providers/registry";
 import { useChatContext } from "@/contexts/ChatContext";
+import { useProviderKeys } from "@/contexts/ProviderKeysContext";
 
 // PROMPT_INPUT_ACCEPT / MAX_FILES / MAX_FILE_SIZE live in attachments/prompt-input-files;
 // re-exported via the `@/components/chat/prompt` barrel.
@@ -107,6 +108,14 @@ const MOTION_DOM_PROP_KEYS = [
 // ============================================================================
 
 export type { PromptInputMessage };
+
+/** Thrown by the submit handler to keep the draft; an expected outcome, not a failure to log. */
+class SubmitRefusedError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "SubmitRefusedError";
+  }
+}
 
 export type PromptInputProps = Omit<
   HTMLAttributes<HTMLFormElement>,
@@ -232,8 +241,8 @@ export const PromptInput = ({
         attachments.clear();
         textInput.clear();
       } catch (error) {
-        // Conversion failed or onSubmit refused — keep draft; log only.
-        console.error(error);
+        // Keep the draft either way; only unexpected failures are logged.
+        if (!(error instanceof SubmitRefusedError)) console.error(error);
       }
     },
     [attachments, textInput, onSubmit]
@@ -372,10 +381,55 @@ function PromptInputWorkspaceContent() {
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
 
-  const selectedModelData = useMemo(
-    () => models.find((m) => m.id === model),
-    [model],
+  // Only models whose provider has a verified key are offered.
+  const { keyHints, loadError, reloadProviderKeys } = useProviderKeys();
+  const { openSettings } = useChatContext();
+  const availableModels = useMemo(
+    () => (keyHints ? models.filter((entry) => keyHints[entry.chefSlug]) : []),
+    [keyHints],
   );
+  // The default model is only a placeholder: it counts as selected once its
+  // provider has a key. While keys load, show it rather than flash empty.
+  const selectedModelData = useMemo(
+    () =>
+      keyHints === null
+        ? models.find((entry) => entry.id === model)
+        : availableModels.find((entry) => entry.id === model),
+    [availableModels, keyHints, model],
+  );
+  const availableChefs = useMemo(
+    () => chefs.filter((chef) => availableModels.some((entry) => entry.chef === chef)),
+    [availableModels],
+  );
+  const hasNoAvailableModels = keyHints !== null && availableModels.length === 0;
+
+  // A key removed elsewhere can strand the selection on an unusable model.
+  useEffect(() => {
+    if (availableModels.length === 0) return;
+    if (availableModels.some((entry) => entry.id === model)) return;
+    const [fallback] = availableModels;
+    setModel(fallback.id);
+    setMode(fallback.defaultMode);
+  }, [availableModels, model, setModel, setMode]);
+
+  const handleOpenProviderSettings = useCallback(() => {
+    setModelSelectorOpen(false);
+    openSettings("providers");
+  }, [openSettings]);
+
+  // Web search runs only with a verified Exa key; the saved toggle is kept as-is
+  // so it resumes once a key is added. The server re-checks the key per request.
+  const hasExaKey = Boolean(keyHints?.exa);
+  const isExaKeyMissing = keyHints !== null && !hasExaKey;
+  const isWebSearchActive = useWebSearch && hasExaKey;
+
+  const handleWebSearchClick = useCallback(() => {
+    if (isExaKeyMissing) {
+      openSettings("tools");
+      return;
+    }
+    toggleWebSearch();
+  }, [isExaKeyMissing, openSettings, toggleWebSearch]);
 
   /**
    * Single accept path for form submit and MCQ option clicks.
@@ -388,21 +442,36 @@ function PromptInputWorkspaceContent() {
   const handleSubmit = useCallback(
     (message: PromptInputMessage): void => {
       if (status !== "ready") {
-        throw new Error("Chat is not ready to send.");
+        throw new SubmitRefusedError("Chat is not ready to send.");
+      }
+      if (keyHints === null) {
+        // The status load failed: say so and retry, so a saved key isn't blocked
+        // silently. Otherwise it is still loading: refuse quietly; the draft stays.
+        if (loadError) {
+          toast.error(`${loadError} Retrying — send again in a moment.`);
+          reloadProviderKeys();
+        }
+        throw new SubmitRefusedError("Provider keys are not loaded.");
+      }
+      // No model with a saved key: send the user to add one; the draft stays.
+      if (!selectedModelData) {
+        toast.error("Add an API key to send messages");
+        openSettings("providers");
+        throw new SubmitRefusedError("No model with a saved API key.");
       }
 
       const answer = message.text?.trim() ?? "";
       const hasFiles = (message.files?.length ?? 0) > 0;
-      const prefs = { model, mode, useWebSearch, useExcalidraw };
+      const prefs = { model, mode, useWebSearch: isWebSearchActive, useExcalidraw };
 
       if (pendingAsk != null) {
         // Empty form / nothing to answer.
         if (!answer && !hasFiles) {
-          throw new Error("Empty message.");
+          throw new SubmitRefusedError("Empty message.");
         }
         // Pure MCQ: require a choice label; files alone are not an answer.
         if (!pendingAsk.allowCustomInput && !answer) {
-          throw new Error("Choice required.");
+          throw new SubmitRefusedError("Choice required.");
         }
 
         submitUserMessage(
@@ -419,7 +488,7 @@ function PromptInputWorkspaceContent() {
       }
 
       if (!answer && !hasFiles) {
-        throw new Error("Empty message.");
+        throw new SubmitRefusedError("Empty message.");
       }
 
       submitUserMessage(
@@ -434,9 +503,14 @@ function PromptInputWorkspaceContent() {
       submitUserMessage,
       pendingAsk,
       status,
+      keyHints,
+      loadError,
+      reloadProviderKeys,
+      selectedModelData,
+      openSettings,
       model,
       mode,
-      useWebSearch,
+      isWebSearchActive,
       useExcalidraw,
     ],
   );
@@ -531,23 +605,31 @@ function PromptInputWorkspaceContent() {
                 variant="ghost"
               />
               <PromptInputButton
-                onClick={toggleWebSearch}
+                onClick={handleWebSearchClick}
                 size="icon-sm"
-                variant={useWebSearch ? "default" : "ghost"}
+                variant={isWebSearchActive ? "default" : "ghost"}
                 aria-label={
-                  useWebSearch ? "Disable web search" : "Enable web search"
+                  isExaKeyMissing
+                    ? "Add an Exa key in Settings"
+                    : isWebSearchActive
+                      ? "Disable web search"
+                      : "Enable web search"
                 }
                 tooltip={{
-                  content: useWebSearch
-                    ? "Disable web search"
-                    : "Enable web search",
+                  content: isExaKeyMissing
+                    ? "Add an Exa key in Settings"
+                    : isWebSearchActive
+                      ? "Disable web search"
+                      : "Enable web search",
                   side: "top",
                 }}
                 className={cn(
                   "transition-colors",
-                  useWebSearch
-                    ? "bg-primary text-accent-ink hover:bg-primary-hover"
-                    : "text-text-primary hover:bg-[var(--surface-hover)]",
+                  isExaKeyMissing
+                    ? "text-text-dim hover:bg-[var(--surface-hover)]"
+                    : isWebSearchActive
+                      ? "bg-primary text-accent-ink hover:bg-primary-hover"
+                      : "text-text-primary hover:bg-[var(--surface-hover)]",
                 )}
               >
                 <Globe size={ICON_GLYPH.inline} strokeWidth={1.5} />
@@ -591,20 +673,33 @@ function PromptInputWorkspaceContent() {
                     ) : (
                       <Settings size={ICON_GLYPH.toolbar} strokeWidth={1.5} />
                     )}
-                    {selectedModelData ? (
-                      <span className="text-sm font-[family-name:var(--font-body)] font-medium tracking-wide">
-                        {selectedModelData.name}
-                      </span>
-                    ) : null}
+                    <span className="text-sm font-[family-name:var(--font-body)] font-medium tracking-wide">
+                      {selectedModelData ? selectedModelData.name : "Select model"}
+                    </span>
                   </PromptInputButton>
                 </ModelSelectorTrigger>
                 <ModelSelectorContent>
-                  <ModelSelectorInput placeholder="Search models..." />
+                  {hasNoAvailableModels ? (
+                    <button
+                      className="flex w-full flex-col gap-0.5 px-3 py-3 text-left text-sm transition-colors duration-[var(--duration-fast)] hover:bg-[var(--surface-hover)]"
+                      onClick={handleOpenProviderSettings}
+                      type="button"
+                    >
+                      <span className="text-text-primary">Add an API key in Settings</span>
+                      <span className="text-xs text-text-secondary">
+                        Models appear once a provider key is verified.
+                      </span>
+                    </button>
+                  ) : (
+                    <ModelSelectorInput placeholder="Search models..." />
+                  )}
                   <ModelSelectorList>
-                    <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                    {chefs.map((chef) => (
+                    {!hasNoAvailableModels && (
+                      <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                    )}
+                    {availableChefs.map((chef) => (
                       <ModelSelectorGroup heading={chef} key={chef}>
-                        {models
+                        {availableModels
                           .filter((entry) => entry.chef === chef)
                           .map((entry) => (
                             <ModelItem

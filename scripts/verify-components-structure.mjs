@@ -70,7 +70,9 @@ const required = [
   "src/components/chat/sidebar/footer/footer.tsx",
   "src/components/chat/overlays/index.ts",
   "src/components/chat/overlays/command-palette.tsx",
-  "src/components/chat/overlays/settings-dialog.tsx",
+  "src/components/chat/overlays/settings/index.ts",
+  "src/components/chat/overlays/settings/shell/settings-dialog.tsx",
+  "src/components/chat/overlays/settings/shell/settings-nav.tsx",
   "src/components/chat/conversation/index.ts",
   "src/components/chat/index.ts",
 
@@ -96,6 +98,7 @@ const required = [
   "src/components/logos/google.tsx",
   "src/components/logos/deepseek.tsx",
   "src/components/logos/meta.tsx",
+  "src/components/logos/exa.tsx",
 
   // graph host
   "src/components/graph/sigma-canvas.tsx",
@@ -126,6 +129,7 @@ const forbidden = [
   "src/components/chat/ai-elements",
   "src/components/chat/chat-sidebar.tsx",
   "src/components/chat/settings-dialog.tsx",
+  "src/components/chat/overlays/settings-dialog.tsx",
   "src/components/chat/command-palette.tsx",
   "src/components/chat/shell",
   "src/components/chat/prompt/prompt-input.tsx",

@@ -17,7 +17,7 @@ import {
   revokeFileUrls,
   type PromptAttachmentItem,
 } from "../attachments/prompt-input-files";
-import { models } from "@/lib/models";
+import { models } from "@/lib/providers/registry";
 import {
   deletePromptDraft,
   getPromptDraft,

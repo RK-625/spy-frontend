@@ -1,6 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { createUIMessageStreamResponse, toUIMessageStream } from "ai";
 import { runAgent } from "@/ai/agent";
+import { MissingProviderKeyError } from "@/lib/providers/keys/resolve-key";
 
 /** Agent tools touch FalkorDB native driver — must not run on Edge. */
 export const runtime = "nodejs";
@@ -38,6 +39,12 @@ export async function POST(req: Request) {
       stream: toUIMessageStream({ stream: streamResult.stream }),
     });
   } catch (error: unknown) {
+    if (error instanceof MissingProviderKeyError) {
+      return NextResponse.json(
+        { ok: false, error: error.message, providerId: error.providerId },
+        { status: 400 },
+      );
+    }
     console.error("API ROUTE ERROR DETECTED:", error);
     throw error;
   }
