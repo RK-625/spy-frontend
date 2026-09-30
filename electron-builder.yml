@@ -36,6 +36,7 @@ asarUnpack:
   - "**/falkordb/**"
 
 mac:
+  icon: electron/build-resources/icon.icns
   category: public.app-category.productivity
   target:
     - dir
