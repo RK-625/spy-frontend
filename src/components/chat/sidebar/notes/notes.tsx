@@ -3,7 +3,7 @@
 import {
   useCallback,
   useEffect,
-  useRef,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -11,9 +11,8 @@ import { useParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { usePrefersReducedMotion } from "@/components/dotmatrix";
 import { Separator } from "@/components/ui";
-import { useChatContext } from "@/contexts/ChatContext";
+import { useGraphTopology } from "@/contexts/GraphTopologyContext";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
-import type { GraphApiResponse } from "@/types/graph-topology";
 import { ChatSidebarNotesRow } from "./notes-row";
 import {
   buildNotesForest,
@@ -115,58 +114,39 @@ function noteIdFromParams(id: string | string[] | undefined): string | null {
 }
 
 export function ChatSidebarNotes() {
-  const { status, chatOrder } = useChatContext();
+  const { topology, error } = useGraphTopology();
   const router = useRouter();
   const params = useParams<{ id?: string | string[] }>();
   const selectedNoteId = noteIdFromParams(params.id);
-  const streamReady = status === "ready";
-  const [forest, setForest] = useState<NotesForestNode[]>([]);
-  const [notesLoadState, setNotesLoadState] = useState<
-    "loading" | "ready" | "error"
-  >("loading");
+  const forest = useMemo(
+    () => topology ? buildNotesForest(topology.memories, topology.links) : [],
+    [topology],
+  );
+  const notesLoadState = topology ? "ready" : error ? "error" : "loading";
   const [expandedNoteIds, setExpandedNoteIds] = useState<Set<string>>(
     () => new Set(),
   );
-  const expandedHydratedRef = useRef(false);
+  const [expansionHydrated, setExpansionHydrated] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   const chromeTransition = reducedMotion ? { duration: 0 } : MOTION.chrome;
 
   useEffect(() => {
+    if (topology === null || expansionHydrated) return;
     let cancelled = false;
-    void fetch("/api/graph")
-      .then(async (res) => {
-        const data = (await res.json()) as GraphApiResponse;
-        if (cancelled) return;
-        if (!data.ok) {
-          setForest([]);
-          setNotesLoadState("error");
-          return;
-        }
-        const nextForest = buildNotesForest(data.memories, data.links);
-        setForest(nextForest);
-        if (!expandedHydratedRef.current) {
-          const stored = readStoredExpandedNoteIds();
-          setExpandedNoteIds(
-            new Set(stored ?? rootExpandedNoteIds(nextForest)),
-          );
-          expandedHydratedRef.current = true;
-        }
-        setNotesLoadState("ready");
-      })
-      .catch((err: unknown) => {
-        console.error("notes graph:", err);
-        if (!cancelled) {
-          setForest([]);
-          setNotesLoadState("error");
-        }
-      });
+    // Restore external browser storage after commit, before enabling writes.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const stored = readStoredExpandedNoteIds();
+      setExpandedNoteIds(new Set(stored ?? rootExpandedNoteIds(forest)));
+      setExpansionHydrated(true);
+    });
     return () => {
       cancelled = true;
     };
-  }, [streamReady, chatOrder]);
+  }, [topology, forest, expansionHydrated]);
 
   useEffect(() => {
-    if (notesLoadState !== "ready") return;
+    if (notesLoadState !== "ready" || !expansionHydrated) return;
     try {
       localStorage.setItem(
         EXPANDED_NOTES_STORAGE_KEY,
@@ -175,7 +155,7 @@ export function ChatSidebarNotes() {
     } catch {
       // localStorage unavailable
     }
-  }, [expandedNoteIds, notesLoadState]);
+  }, [expandedNoteIds, notesLoadState, expansionHydrated]);
 
   const handleFolderExpandedChange = useCallback(
     (noteId: string, expanded: boolean) => {

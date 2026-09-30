@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
 import { createEdgeArrowProgram, drawDiscNodeHover } from "sigma/rendering";
 
 import { buildLayoutGraph, POINT_COLOR } from "@/lib/graph-functions";
-import type { Links, MemoryNode } from "@/types/graph-schema";
-import type { GraphApiResponse } from "@/types/graph-topology";
+import { useGraphTopology } from "@/contexts/GraphTopologyContext";
 
 import { Editor } from "./editor/editor";
 
@@ -33,61 +32,29 @@ function hostHasPositiveBox(host: HTMLElement): boolean {
   );
 }
 
-type SigmaTopology = {
-  memories: MemoryNode[];
-  links: Links[];
-};
-
 /**
  * Live-only knowledge graph host (graphology FA2 + Sigma).
- * GET `/api/graph` → circle seed → Sigma draw + live FA2 (rAF).
- * Empty KB / fetch error → blank canvas (no mock).
+ * Shared topology feed → circle seed → Sigma draw + live FA2 (rAF).
+ * Empty KB / initial fetch error → blank canvas (no mock).
  */
 export function SigmaCanvas() {
   const hostRef = useRef<HTMLDivElement>(null);
-  const memoriesByIdRef = useRef<Map<string, MemoryNode>>(new Map());
-  const [topology, setTopology] = useState<SigmaTopology | null>(null);
-  const [selectedNode, setSelectedNode] = useState<MemoryNode | null>(null);
+  const { topology } = useGraphTopology();
+  const memoriesById = useMemo(
+    () => new Map(topology?.memories.map((memory) => [memory.id, memory])),
+    [topology],
+  );
+  const [selectedMemoryId, setSelectedMemoryId] = useState<string | null>(null);
+  const selectedNode = selectedMemoryId === null
+    ? null : memoriesById.get(selectedMemoryId) ?? null;
 
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const res = await fetch("/api/graph");
-        const data = (await res.json()) as GraphApiResponse;
-        if (cancelled) return;
-
-        if (!data.ok || data.memories.length === 0) {
-          console.warn(
-            "[sigma] live feed unavailable:",
-            data.error ?? res.status,
-          );
-          setTopology(null);
-          return;
-        }
-
-        const byId = new Map<string, MemoryNode>();
-        for (const memory of data.memories) {
-          byId.set(memory.id, memory);
-        }
-        memoriesByIdRef.current = byId;
-        setTopology({ memories: data.memories, links: data.links });
-      } catch (err: unknown) {
-        if (cancelled) return;
-        console.warn("[sigma] live feed fetch failed:", err);
-        setTopology(null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  if (topology !== null && selectedMemoryId !== null && selectedNode === null) {
+    setSelectedMemoryId(null);
+  }
 
   useEffect(() => {
     const host = hostRef.current;
-    if (host == null || topology == null) return;
+    if (host == null || topology == null || topology.memories.length === 0) return;
 
     let cancelled = false;
     let renderer: Sigma | null = null;
@@ -113,9 +80,9 @@ export function SigmaCanvas() {
         allowInvalidContainer: false,
       });
       instance.on("clickNode", ({ node }) => {
-        const memory = memoriesByIdRef.current.get(node);
+        const memory = memoriesById.get(node);
         if (memory == null) return;
-        setSelectedNode(memory);
+        setSelectedMemoryId(memory.id);
       });
       renderer = instance;
 
@@ -166,7 +133,7 @@ export function SigmaCanvas() {
       observer.disconnect();
       renderer?.kill();
     };
-  }, [topology]);
+  }, [topology, memoriesById]);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background text-text-primary">
@@ -181,7 +148,7 @@ export function SigmaCanvas() {
         <Editor
           key={selectedNode.id}
           node={selectedNode}
-          onClose={() => setSelectedNode(null)}
+          onClose={() => setSelectedMemoryId(null)}
         />
       ) : null}
 

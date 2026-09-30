@@ -246,30 +246,27 @@ assert(
 );
 
 const falkor = fs.readFileSync(path.join(root, "src/lib/graph/falkor.ts"), "utf8");
-assert(
-  falkor.includes("export async function createParentOfLink"),
-  "falkor exports createParentOfLink",
-);
-assert(
-  falkor.includes("export async function createLink") &&
-    falkor.includes('parsed.type === "PARENT_OF"') &&
-    falkor.includes("createParentOfLink(parsed)"),
-  "createLink delegates PARENT_OF to createParentOfLink",
-);
-assert(
-  falkor.includes("export async function deleteLink"),
-  "falkor exports deleteLink",
-);
+// Single-writer discipline, inverted: hierarchy writes live only in the
+// toolset (manageLinks/upsertMemory tools). falkor.ts is reads + getDb;
+// any reintroduced write helper fails here.
+for (const name of [
+  "createLink",
+  "deleteLink",
+  "createParentOfLink",
+  "upsertMemory",
+  "patchMemory",
+  "setMemoryQuestions",
+  "hasIncomingLink",
+  "hasOutgoingLink",
+]) {
+  assert(
+    !falkor.includes(`export async function ${name}`),
+    `falkor has no ${name} — writes live only in toolset tools`,
+  );
+}
 assert(
   !falkor.includes("isParentOfAncestor"),
   "falkor has no isParentOfAncestor cycle walk",
-);
-assert(
-  falkor.includes("OPTIONAL MATCH (other)-[existing:PARENT_OF]->(target)") &&
-    (falkor.includes("other.id <> $source") ||
-      falkor.includes("WHERE other.id <> $source")) &&
-    falkor.includes("WHERE existing IS NULL"),
-  "createParentOfLink Cypher blocks only a different parent (other.id <> $source)",
 );
 
 const liveProduct = live.filter(
