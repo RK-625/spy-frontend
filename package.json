@@ -24,6 +24,7 @@
     "verify:topology-feed": "npx tsx scripts/verify-topology-feed.mjs",
     "verify:topology-events": "npx tsx scripts/verify-topology-events.mjs",
     "verify:electron-node-resolve": "node scripts/verify-electron-node-resolve.mjs",
+    "verify:e2e-app": "node scripts/verify-e2e-app.mjs",
     "electron:start": "SPY_NEXT_MODE=start electron .",
     "electron:pack": "npm run build && electron-builder --mac dir --config.mac.identity=null",
     "electron:dist": "npm run build && electron-builder --mac dmg zip --config.mac.identity=null"

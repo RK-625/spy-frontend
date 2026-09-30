@@ -13,15 +13,16 @@ files:
   - next.config.ts
   - public/**/*
   - .next/**/*
+  - .next/node_modules/**/*
   - node_modules/**/*
   - "!node_modules/.cache/**"
   - "!**/.env"
   - "!**/.env.*"
-  - "!**/.data/**"
-  - "!**/dist-electron/**"
-  - "!**/.git/**"
-  - "!**/src/**"
-  - "!**/*.md"
+  - "!.data/**"
+  - "!dist-electron/**"
+  - "!.git/**"
+  - "!src/**"
+  - "!*.md"
   - "!electron/build-resources/**"
 
 # asar: false — spawned system Node cannot read .next or node_modules from inside asar.
