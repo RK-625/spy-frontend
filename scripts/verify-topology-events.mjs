@@ -103,6 +103,51 @@ try {
     `T3: no delivery after unsubscribe (got ${received.length})`,
   );
 
+  // A broken subscriber cannot fail publication or starve later listeners.
+  const subscriberError = new Error("simulated closed SSE stream");
+  const deliveryOrder = [];
+  const warnings = [];
+  const originalWarn = console.warn;
+  const stopBefore = subscribeToTopologyUpdates((event) => {
+    deliveryOrder.push(["before", event.revision]);
+  });
+  const stopBroken = subscribeToTopologyUpdates(() => { throw subscriberError; });
+  const stopAfter = subscribeToTopologyUpdates((event) => {
+    deliveryOrder.push(["after", event.revision]);
+  });
+  const revisionBeforeFailure = getTopologyRevision();
+  let publicationError;
+  console.warn = (...args) => { warnings.push(args); };
+  try {
+    try {
+      publishTopologyUpdate();
+      publishTopologyUpdate();
+    } catch (error) {
+      publicationError = error;
+    }
+    assert(publicationError === undefined, "subscriber exceptions do not escape publication");
+    assert(
+      getTopologyRevision() === revisionBeforeFailure + 2,
+      "subscriber failures still advance each revision exactly once",
+    );
+    assert(
+      JSON.stringify(deliveryOrder) === JSON.stringify([
+        ["before", revisionBeforeFailure + 1], ["after", revisionBeforeFailure + 1],
+        ["before", revisionBeforeFailure + 2], ["after", revisionBeforeFailure + 2],
+      ]),
+      "healthy subscribers receive both revisions around a throwing listener",
+    );
+    assert(
+      warnings.length === 2 && warnings.every((warning) => warning[1] === subscriberError),
+      "subscriber failures are logged for diagnosis",
+    );
+  } finally {
+    console.warn = originalWarn;
+    stopBefore();
+    stopBroken();
+    stopAfter();
+  }
+
   // Independently evaluated Next route/tool chunks must share one channel.
   const channelCode = ts.transpileModule(
     readFileSync(path.join(root, "src/lib/graph/topology-events.ts"), "utf8"),

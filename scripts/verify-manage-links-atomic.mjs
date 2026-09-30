@@ -23,6 +23,10 @@ try {
     pathToFileURL(path.join(root, "src/lib/graph/falkor.ts")).href
   );
 
+  const { subscribeToTopologyUpdates } = await import(
+    pathToFileURL(path.join(root, "src/lib/graph/topology-events.ts")).href
+  );
+
   let failed = 0;
   function assert(cond, msg) {
     if (!cond) {
@@ -117,18 +121,34 @@ try {
     );
   }
 
-  // Seed A -PARENT_OF-> B
-  {
-    const r = await runManage({
+  // Completed tool writes must stay successful even if SSE delivery fails.
+  const deliveredUpdates = [];
+  const stopBrokenSubscriber = subscribeToTopologyUpdates(() => {
+    throw new Error("simulated closed SSE stream");
+  });
+  const stopHealthySubscriber = subscribeToTopologyUpdates((event) => {
+    deliveredUpdates.push(event);
+  });
+  try {
+    const linkResult = await runManage({
       remove: [],
       upsert: [{ source: "A", target: "B", type: "PARENT_OF" }],
     });
-    assert(successBatches(r, 0, 1), `seed PARENT_OF: ${JSON.stringify(r)}`);
-    assert(r.upsert.results[0].source === "A", "seed upsert has A→B");
+    assert(successBatches(linkResult, 0, 1), `link write survives subscriber failure: ${JSON.stringify(linkResult)}`);
+    assert((await parentOf("B")).join() === "A", "successful link is committed despite subscriber failure");
+
+    const memoryResult = await tools.upsertMemory.execute({ id: "A", name: "A updated" }, toolOpts);
     assert(
-      (await parentOf("B")).join() === "A",
-      "seed: A parents B",
+      memoryResult.error == null && memoryResult.id === "A" && memoryResult.name === "A updated",
+      `memory write survives subscriber failure: ${JSON.stringify(memoryResult)}`,
     );
+    const graph = await getDb();
+    const persistedMemory = await graph.query("MATCH (m:Memory {id: 'A'}) RETURN m.name AS name");
+    assert(persistedMemory.data[0]?.name === "A updated", "successful memory patch is committed despite subscriber failure");
+    assert(deliveredUpdates.length === 2, "healthy subscriber receives both completed tool writes");
+  } finally {
+    stopBrokenSubscriber();
+    stopHealthySubscriber();
   }
 
   // Happy reparent: remove A→B, upsert C→B

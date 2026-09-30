@@ -52,6 +52,12 @@ export function publishTopologyUpdate(): void {
     updatedAt: Date.now(),
   };
   for (const listener of topologyChannel.subscribers) {
-    listener(event);
+    try {
+      listener(event);
+    } catch (error: unknown) {
+      // Notification failures must not change the result of a committed write
+      // or prevent the remaining subscribers from receiving this revision.
+      console.warn("Topology subscriber failed:", error);
+    }
   }
 }
