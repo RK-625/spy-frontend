@@ -10,6 +10,7 @@
  */
 import path from "node:path";
 import { readFileSync } from "node:fs";
+import { getEventListeners } from "node:events";
 import { runInThisContext } from "node:vm";
 import ts from "typescript";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -158,6 +159,43 @@ try {
       secondJson?.revision === baseline + 1,
     "T6: live publish delivered after connect",
   );
+
+  // Abort and cancellation order must release listeners and subscriptions.
+  for (const scenario of ["abort", "cancel-then-abort", "abort-then-cancel", "pre-aborted"]) {
+    const aborter = new AbortController();
+    if (scenario === "pre-aborted") aborter.abort();
+    const request = new Request("http://verify.invalid/", { signal: aborter.signal });
+    const subscribersBefore = globalThis.__spyTopologyChannel.subscribers.size;
+    const listenersBefore = getEventListeners(request.signal, "abort").length;
+    const response = await GET(request);
+    const abortReader = response.body.getReader();
+    let deadline;
+    try {
+      if (scenario !== "pre-aborted") await abortReader.read();
+      if (scenario === "cancel-then-abort") await abortReader.cancel();
+      aborter.abort();
+      if (scenario === "abort-then-cancel") await abortReader.cancel();
+      const ended = await Promise.race([
+        abortReader.read(),
+        new Promise((_, reject) => {
+          deadline = setTimeout(() => reject(new Error(`${scenario}: stream did not end`)), 1000);
+        }),
+      ]);
+      assert(ended.done, `${scenario}: stream ends`);
+      publishTopologyUpdate();
+      assert(
+        globalThis.__spyTopologyChannel.subscribers.size === subscribersBefore,
+        `${scenario}: topology subscription released`,
+      );
+      assert(
+        getEventListeners(request.signal, "abort").length === listenersBefore,
+        `${scenario}: abort listener released`,
+      );
+    } finally {
+      clearTimeout(deadline);
+      await abortReader.cancel();
+    }
+  }
 } finally {
   // Release the SSE stream so the route's heartbeat interval is cleared.
   if (liveReader) {

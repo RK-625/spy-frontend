@@ -130,15 +130,23 @@ export function ChatSidebarNotes() {
   const reducedMotion = usePrefersReducedMotion();
   const chromeTransition = reducedMotion ? { duration: 0 } : MOTION.chrome;
 
-  // Hydrate once when the first successful snapshot supplies default roots.
-  if (topology !== null && !expansionHydrated) {
-    const stored = readStoredExpandedNoteIds();
-    setExpandedNoteIds(new Set(stored ?? rootExpandedNoteIds(forest)));
-    setExpansionHydrated(true);
-  }
+  useEffect(() => {
+    if (topology === null || expansionHydrated) return;
+    let cancelled = false;
+    // Restore external browser storage after commit, before enabling writes.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const stored = readStoredExpandedNoteIds();
+      setExpandedNoteIds(new Set(stored ?? rootExpandedNoteIds(forest)));
+      setExpansionHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [topology, forest, expansionHydrated]);
 
   useEffect(() => {
-    if (notesLoadState !== "ready") return;
+    if (notesLoadState !== "ready" || !expansionHydrated) return;
     try {
       localStorage.setItem(
         EXPANDED_NOTES_STORAGE_KEY,
@@ -147,7 +155,7 @@ export function ChatSidebarNotes() {
     } catch {
       // localStorage unavailable
     }
-  }, [expandedNoteIds, notesLoadState]);
+  }, [expandedNoteIds, notesLoadState, expansionHydrated]);
 
   const handleFolderExpandedChange = useCallback(
     (noteId: string, expanded: boolean) => {

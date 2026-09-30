@@ -11,9 +11,27 @@ export async function GET(request: Request): Promise<Response> {
   let closed = false;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let unsubscribe: (() => void) | undefined;
+  let abortListener: (() => void) | undefined;
+
+  const cleanup = () => {
+    if (closed) return false;
+    closed = true;
+    unsubscribe?.();
+    unsubscribe = undefined;
+    if (heartbeat) clearInterval(heartbeat);
+    heartbeat = undefined;
+    if (abortListener) request.signal.removeEventListener("abort", abortListener);
+    abortListener = undefined;
+    return true;
+  };
 
   const stream = new ReadableStream({
     start(controller) {
+      if (request.signal.aborted) {
+        closed = true;
+        controller.close();
+        return;
+      }
       const write = (event: string, data: unknown) => {
         if (closed) return;
         controller.enqueue(
@@ -57,27 +75,18 @@ export async function GET(request: Request): Promise<Response> {
         }
       }, 20_000);
 
-      request.signal.addEventListener(
-        "abort",
-        () => {
-          closed = true;
-          unsubscribe?.();
-          unsubscribe = undefined;
-          if (heartbeat) clearInterval(heartbeat);
-          try {
-            controller.close();
-          } catch {
-            // The stream may already be closed by the runtime.
-          }
-        },
-        { once: true },
-      );
+      abortListener = () => {
+        if (!cleanup()) return;
+        try {
+          controller.close();
+        } catch {
+          // The runtime may have already closed the response stream.
+        }
+      };
+      request.signal.addEventListener("abort", abortListener, { once: true });
     },
     cancel() {
-      closed = true;
-      unsubscribe?.();
-      unsubscribe = undefined;
-      if (heartbeat) clearInterval(heartbeat);
+      cleanup();
     },
   });
 
