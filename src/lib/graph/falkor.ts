@@ -83,6 +83,8 @@ function openDbClient(): Promise<FalkorClient> {
       // snapshots persist. Snapshot 1s after any write (lite default: 60s).
       const client = await FalkorDB.open({
         path: dataDir,
+        redisServerPath: process.env.SPY_REDIS_SERVER_PATH,
+        modulePath: process.env.SPY_FALKOR_MODULE_PATH,
         additionalConfig: { save: "1 1" },
       });
       falkorSingleton.client = client;

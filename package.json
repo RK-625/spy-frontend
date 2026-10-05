@@ -26,8 +26,10 @@
     "verify:electron-node-resolve": "node scripts/verify-electron-node-resolve.mjs",
     "verify:e2e-app": "node scripts/verify-e2e-app.mjs",
     "electron:start": "SPY_NEXT_MODE=start electron .",
-    "electron:pack": "npm run build && electron-builder --mac dir --config.mac.identity=null",
-    "electron:dist": "npm run build && electron-builder --mac dmg zip --config.mac.identity=null"
+    "prepare:graph-binaries": "node scripts/electron/graph-binaries/prepare.mjs",
+    "verify:graph-binaries": "node scripts/electron/graph-binaries/verify.mjs",
+    "electron:pack": "npm run prepare:graph-binaries && npm run build && electron-builder --mac dir --arm64 --config.mac.identity=null",
+    "electron:dist": "npm run prepare:graph-binaries && npm run build && electron-builder --mac dmg zip --arm64 --config.mac.identity=null"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.40",

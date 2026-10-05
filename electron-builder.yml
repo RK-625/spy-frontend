@@ -30,6 +30,12 @@ files:
 asar: false
 npmRebuild: false
 
+extraResources:
+  - from: build/graph-binaries/darwin-arm64
+    to: graph-binaries
+    filter:
+      - "**/*"
+
 asarUnpack:
   - "**/*.node"
   - "**/better-sqlite3/**"
@@ -37,6 +43,7 @@ asarUnpack:
   - "**/falkordb/**"
 
 mac:
+  minimumSystemVersion: "15.0"
   icon: electron/build-resources/icon.icns
   category: public.app-category.productivity
   target:
