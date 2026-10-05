@@ -4,9 +4,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
 import { createEdgeArrowProgram, drawDiscNodeHover } from "sigma/rendering";
+import { SlidersHorizontal } from "lucide-react";
+import { motion } from "motion/react";
 
 import { buildLayoutGraph, POINT_COLOR } from "@/lib/graph-functions";
 import { useGraphTopology } from "@/contexts/GraphTopologyContext";
+import { Button } from "@/components/ui/actions/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuTrigger,
+} from "@/components/ui/overlays/dropdown-menu";
+import { MOTION } from "@/lib/motion";
 
 import { Editor } from "./editor/editor";
 
@@ -20,6 +31,7 @@ const PARENT_ARROW_PROGRAM = createEdgeArrowProgram({
 /** Live FA2 budget: 360 steps × 2/frame ≈ 180 frames (~3s at 60fps). */
 const FA2_ITERATIONS = 360;
 const FA2_STEPS_PER_FRAME = 2;
+const MotionButton = motion.create(Button);
 
 /** Sigma `resize()`/`refresh()` throw when the host has no layout box. */
 function hostHasPositiveBox(host: HTMLElement): boolean {
@@ -39,6 +51,9 @@ function hostHasPositiveBox(host: HTMLElement): boolean {
  */
 export function SigmaCanvas() {
   const hostRef = useRef<HTMLDivElement>(null);
+  const rendererRef = useRef<Sigma | null>(null);
+  const relatesToVisibleRef = useRef(false);
+  const [relatesToVisible, setRelatesToVisible] = useState(false);
   const { topology } = useGraphTopology();
   const memoriesById = useMemo(
     () => new Map(topology?.memories.map((memory) => [memory.id, memory])),
@@ -51,6 +66,11 @@ export function SigmaCanvas() {
   if (topology !== null && selectedMemoryId !== null && selectedNode === null) {
     setSelectedMemoryId(null);
   }
+
+  useEffect(() => {
+    relatesToVisibleRef.current = relatesToVisible;
+    rendererRef.current?.refresh();
+  }, [relatesToVisible]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -77,6 +97,10 @@ export function SigmaCanvas() {
         minCameraRatio: 0.3,
         defaultEdgeType: "line",
         edgeProgramClasses: { arrow: PARENT_ARROW_PROGRAM },
+        edgeReducer: (_edge, attributes) => ({
+          ...attributes,
+          hidden: attributes.relationType === "RELATES_TO" && !relatesToVisibleRef.current,
+        }),
         allowInvalidContainer: false,
       });
       instance.on("clickNode", ({ node }) => {
@@ -85,6 +109,7 @@ export function SigmaCanvas() {
         setSelectedMemoryId(memory.id);
       });
       renderer = instance;
+      rendererRef.current = instance;
 
       const fa2Settings = {
         ...forceAtlas2.inferSettings(graph),
@@ -132,6 +157,7 @@ export function SigmaCanvas() {
       cancelAnimationFrame(fa2Frame);
       observer.disconnect();
       renderer?.kill();
+      rendererRef.current = null;
     };
   }, [topology, memoriesById]);
 
@@ -152,19 +178,32 @@ export function SigmaCanvas() {
         />
       ) : null}
 
-      <header
-        className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 p-3 sm:p-4"
-        style={{ fontFamily: "var(--font-vt323), ui-monospace, monospace" }}
-      >
-        <div className="pointer-events-none max-w-[min(100%,20rem)] select-none">
-          <div className="text-[15px] tracking-wide text-text-primary">
-            Spy graph
-          </div>
-          <div className="mt-1 text-[11px] leading-snug tracking-wide text-text-dim">
-            Click a node · drag to pan · wheel to zoom
-          </div>
-        </div>
-      </header>
+      <div className="absolute left-3 top-3 sm:left-4 sm:top-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <MotionButton
+              variant="outline"
+              size="icon-sm"
+              aria-label="Graph display options"
+              title="Graph display options"
+              whileTap={{ opacity: 0.7 }}
+              transition={MOTION.chrome}
+            >
+              <SlidersHorizontal strokeWidth={1.5} />
+            </MotionButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-auto min-w-56">
+            <DropdownMenuGroup>
+              <DropdownMenuCheckboxItem
+                checked={relatesToVisible}
+                onCheckedChange={setRelatesToVisible}
+              >
+                Show related connections
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }

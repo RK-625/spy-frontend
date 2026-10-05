@@ -18,6 +18,7 @@ export interface SigmaNodeAttrs {
 }
 
 export interface SigmaEdgeAttrs {
+  relationType: Links["type"];
   color: string;
   size: number;
   type: "arrow" | "line";
@@ -175,6 +176,7 @@ export function buildLayoutGraph(
     if (graph.hasEdge(edgeKey)) continue;
     const isParentOf = link.type === "PARENT_OF";
     graph.addEdgeWithKey(edgeKey, link.source, link.target, {
+      relationType: link.type,
       color: isParentOf ? LINK_PARENT_OF : LINK_RELATES,
       size: EDGE_SIZE,
       type: isParentOf ? "arrow" : "line",
