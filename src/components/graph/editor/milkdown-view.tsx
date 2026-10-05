@@ -84,6 +84,7 @@ function createLazyShikiParser(highlighter: Highlighter): Parser {
 export type MilkdownViewProps = {
   documentText: string;
   readOnly: boolean;
+  scrollMode?: "pane" | "document";
   onDocumentTextChange?: (next: string) => void;
 };
 
@@ -142,7 +143,11 @@ function MilkdownEditor({
 export function MilkdownView(props: MilkdownViewProps) {
   return (
     <div
-      className="milkdown-pane min-h-0 flex-1 overflow-y-auto"
+      className={
+        props.scrollMode === "document"
+          ? "milkdown-pane"
+          : "milkdown-pane min-h-0 flex-1 overflow-y-auto"
+      }
       data-readonly={props.readOnly ? "true" : "false"}
     >
       <MilkdownProvider>
