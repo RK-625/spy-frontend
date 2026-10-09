@@ -14,6 +14,8 @@ export interface PromptDraftRecord {
   mode: string;
   useWebSearch: boolean;
   useExcalidraw: boolean;
+  /** Optional: drafts saved before build mode lack it. */
+  useBuildMode?: boolean;
   attachments: StoredDraftAttachment[];
   updatedAt: number;
 }

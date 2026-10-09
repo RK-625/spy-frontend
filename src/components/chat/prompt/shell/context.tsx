@@ -2,7 +2,7 @@
 
 /**
  * Prompt input draft context: text, attachments, and chat prefs
- * (model / mode / web / excalidraw).
+ * (model / mode / web / excalidraw / build).
  * Requires outer PromptInputProvider. Must NOT import header/body/footer.
  *
  * PromptInput registers file-input open + attachment validation so children
@@ -78,6 +78,9 @@ export interface PromptInputPrefsValue {
   useExcalidraw: boolean;
   setUseExcalidraw: (enabled: boolean) => void;
   toggleExcalidraw: () => void;
+  useBuildMode: boolean;
+  setUseBuildMode: (enabled: boolean) => void;
+  toggleBuildMode: () => void;
 }
 
 /** Draft + prefs state exposed by PromptInputProvider. */
@@ -118,15 +121,16 @@ export const usePromptInputContext = (): PromptInputContextValue => {
 // Provider
 // ============================================================================
 
-/** Default model / mode / web / excalidraw prefs when the provider mounts. */
+/** Default model / mode / web / excalidraw / build prefs when the provider mounts. */
 export const DEFAULT_PROMPT_PREFS = {
   model: models[0]?.id ?? "deepseek-flash",
   mode: models[0]?.defaultMode ?? "high",
   useWebSearch: true,
   useExcalidraw: false,
+  useBuildMode: false,
 } satisfies Pick<
   PromptInputPrefsValue,
-  "model" | "mode" | "useWebSearch" | "useExcalidraw"
+  "model" | "mode" | "useWebSearch" | "useExcalidraw" | "useBuildMode"
 >;
 
 function persistPromptDraft(
@@ -136,6 +140,7 @@ function persistPromptDraft(
     mode: string;
     model: string;
     textInput: string;
+    useBuildMode: boolean;
     useExcalidraw: boolean;
     useWebSearch: boolean;
   },
@@ -152,7 +157,8 @@ function persistPromptDraft(
     current.model === DEFAULT_PROMPT_PREFS.model &&
     current.mode === DEFAULT_PROMPT_PREFS.mode &&
     current.useWebSearch === DEFAULT_PROMPT_PREFS.useWebSearch &&
-    current.useExcalidraw === DEFAULT_PROMPT_PREFS.useExcalidraw;
+    current.useExcalidraw === DEFAULT_PROMPT_PREFS.useExcalidraw &&
+    current.useBuildMode === DEFAULT_PROMPT_PREFS.useBuildMode;
 
   const isEmptyDraft =
     current.textInput.trim() === "" &&
@@ -169,6 +175,7 @@ function persistPromptDraft(
       model: current.model,
       text: current.textInput,
       updatedAt: Date.now(),
+      useBuildMode: current.useBuildMode,
       useExcalidraw: current.useExcalidraw,
       useWebSearch: current.useWebSearch,
     };
@@ -193,6 +200,9 @@ export const PromptInputProvider = ({
   const [useExcalidraw, setUseExcalidraw] = useState<boolean>(
     DEFAULT_PROMPT_PREFS.useExcalidraw
   );
+  const [useBuildMode, setUseBuildMode] = useState<boolean>(
+    DEFAULT_PROMPT_PREFS.useBuildMode
+  );
   const [attachmentFiles, setAttachmentFiles] = useState<PromptAttachmentItem[]>([]);
 
   const isHydratedRef = useRef<boolean>(false);
@@ -208,6 +218,7 @@ export const PromptInputProvider = ({
     mode,
     model,
     textInput,
+    useBuildMode,
     useExcalidraw,
     useWebSearch,
   });
@@ -218,6 +229,7 @@ export const PromptInputProvider = ({
       mode,
       model,
       textInput,
+      useBuildMode,
       useExcalidraw,
       useWebSearch,
     };
@@ -226,6 +238,7 @@ export const PromptInputProvider = ({
     mode,
     model,
     textInput,
+    useBuildMode,
     useExcalidraw,
     useWebSearch,
   ]);
@@ -250,6 +263,7 @@ export const PromptInputProvider = ({
       setUseExcalidraw(
         draft?.useExcalidraw ?? DEFAULT_PROMPT_PREFS.useExcalidraw,
       );
+      setUseBuildMode(draft?.useBuildMode ?? DEFAULT_PROMPT_PREFS.useBuildMode);
       setAttachmentFiles((prev) => {
         revokeFileUrls(prev);
         return (draft?.attachments || []).map(draftToAttachment);
@@ -307,6 +321,16 @@ export const PromptInputProvider = ({
     setUseExcalidraw((prev) => !prev);
   }, []);
 
+  const handleSetUseBuildMode = useCallback((enabled: boolean) => {
+    hasInteractedRef.current = true;
+    setUseBuildMode(enabled);
+  }, []);
+
+  const toggleBuildMode = useCallback(() => {
+    hasInteractedRef.current = true;
+    setUseBuildMode((prev) => !prev);
+  }, []);
+
   useLayoutEffect(() => {
     const previousId = chatIdRef.current;
     if (previousId !== chatId) {
@@ -317,6 +341,7 @@ export const PromptInputProvider = ({
           mode,
           model,
           textInput,
+          useBuildMode,
           useExcalidraw,
           useWebSearch,
         },
@@ -376,6 +401,7 @@ export const PromptInputProvider = ({
     model,
     mode,
     useWebSearch,
+    useBuildMode,
     useExcalidraw,
     attachmentFiles,
     flushSave,
@@ -467,10 +493,13 @@ export const PromptInputProvider = ({
       model,
       setMode: handleSetMode,
       setModel: handleSetModel,
+      setUseBuildMode: handleSetUseBuildMode,
       setUseExcalidraw: handleSetUseExcalidraw,
       setUseWebSearch: handleSetUseWebSearch,
+      toggleBuildMode,
       toggleExcalidraw,
       toggleWebSearch,
+      useBuildMode,
       useExcalidraw,
       useWebSearch,
     }),
@@ -479,10 +508,13 @@ export const PromptInputProvider = ({
       model,
       handleSetMode,
       handleSetModel,
+      handleSetUseBuildMode,
       handleSetUseExcalidraw,
       handleSetUseWebSearch,
+      toggleBuildMode,
       toggleExcalidraw,
       toggleWebSearch,
+      useBuildMode,
       useExcalidraw,
       useWebSearch,
     ]

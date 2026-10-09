@@ -48,7 +48,7 @@ import {
   ModelSelectorTrigger,
 } from "../footer/model-selector";
 import { PromptInputAttachments } from "../attachments/attachment-strip";
-import { Check, Globe, Plus, Settings } from "lucide-react";
+import { Check, Globe, Hammer, Plus, Settings } from "lucide-react";
 import { Excalidraw } from "@/components/logos";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import {
@@ -337,6 +337,8 @@ function PromptInputWorkspaceContent() {
       toggleWebSearch,
       useExcalidraw,
       toggleExcalidraw,
+      useBuildMode,
+      toggleBuildMode,
     },
   } = usePromptInputContext();
 
@@ -662,6 +664,28 @@ function PromptInputWorkspaceContent() {
                 )}
               >
                 <Excalidraw className="size-4 shrink-0" />
+              </PromptInputButton>
+              <PromptInputButton
+                onClick={toggleBuildMode}
+                size="icon-sm"
+                variant={useBuildMode ? "default" : "ghost"}
+                aria-label={
+                  useBuildMode ? "Disable build mode" : "Enable build mode"
+                }
+                tooltip={{
+                  content: useBuildMode
+                    ? "Disable build mode"
+                    : "Enable build mode",
+                  side: "top",
+                }}
+                className={cn(
+                  "transition-colors",
+                  useBuildMode
+                    ? "bg-primary text-accent-ink hover:bg-primary-hover"
+                    : "text-text-primary hover:bg-[var(--surface-hover)]",
+                )}
+              >
+                <Hammer size={ICON_GLYPH.inline} strokeWidth={1.5} />
               </PromptInputButton>
               <ModelSelector
                 onOpenChange={setModelSelectorOpen}
