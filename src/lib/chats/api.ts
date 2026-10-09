@@ -2,18 +2,19 @@
  * Browser client for `/api/chats` (fetch only).
  * Server SQLite lives in `@/lib/chats/sqlite` — do not import that from client.
  */
-import type { UIMessage } from "ai";
+import type { ModelMessage, UIMessage } from "ai";
 import type { ChatMeta, ChatWithMessages } from "@/types/chat-schema";
 
 /** POST create-or-replace full transcript. */
 export async function saveChatMessages(
   chatId: string,
   messages: UIMessage[],
+  graphMessages?: ModelMessage[],
 ): Promise<void> {
   const res = await fetch("/api/chats", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chatId, messages }),
+    body: JSON.stringify({ chatId, messages, graphMessages }),
   });
   if (!res.ok) {
     throw new Error(`POST /api/chats failed: ${res.status}`);

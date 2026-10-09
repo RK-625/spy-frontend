@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { UIMessage } from "ai";
+import type { ModelMessage, UIMessage } from "ai";
 import {
   CorruptChatError,
   deleteChatRecord,
@@ -189,7 +189,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const record = body as { chatId?: unknown; messages?: unknown };
+    const record = body as {
+      chatId?: unknown;
+      messages?: unknown;
+      graphMessages?: unknown;
+    };
 
     if (typeof record.chatId !== "string" || record.chatId.trim().length === 0) {
       return NextResponse.json(
@@ -207,10 +211,22 @@ export async function POST(req: Request) {
     }
     const messages = record.messages as UIMessage[];
 
+    let graphMessages: ModelMessage[] | undefined;
+    if (record.graphMessages !== undefined) {
+      if (!Array.isArray(record.graphMessages)) {
+        return NextResponse.json(
+          { ok: false, error: "graphMessages must be an array" },
+          { status: 400 },
+        );
+      }
+      graphMessages = record.graphMessages as ModelMessage[];
+    }
+
     const chat = upsertChatMessages({
       id: chatId,
       title: titleFromMessages(messages),
       messages,
+      graphMessages,
     });
 
     const response: ChatsPostResponse = { ok: true, chat };
