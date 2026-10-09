@@ -5,16 +5,24 @@
 import type { ModelMessage, UIMessage } from "ai";
 import type { ChatMeta, ChatWithMessages } from "@/types/chat-schema";
 
-/** POST create-or-replace full transcript. */
+/** POST create-or-replace full transcript. `parentChatId` is fork-create only. */
 export async function saveChatMessages(
   chatId: string,
   messages: UIMessage[],
   graphMessages?: ModelMessage[],
+  parentChatId?: string,
 ): Promise<void> {
   const res = await fetch("/api/chats", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chatId, messages, graphMessages }),
+    body: JSON.stringify({
+      chatId,
+      messages,
+      graphMessages,
+      ...(typeof parentChatId === "string" && parentChatId.length > 0
+        ? { parentChatId }
+        : {}),
+    }),
   });
   if (!res.ok) {
     throw new Error(`POST /api/chats failed: ${res.status}`);

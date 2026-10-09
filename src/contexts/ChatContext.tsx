@@ -425,15 +425,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const forkChat = useCallback(
     async (fromMessageId: string): Promise<string> => {
+      const parentChatId = activeChatIdRef.current;
       const targetIndex = messages.findIndex((m) => m.id === fromMessageId);
       const forkedMessages =
         targetIndex !== -1 ? messages.slice(0, targetIndex + 1) : [...messages];
 
       const currentGraph =
-        graphMessagesRef.current.get(activeChatIdRef.current) ?? graphMessages;
+        graphMessagesRef.current.get(parentChatId) ?? graphMessages;
       const forkedChatId = crypto.randomUUID();
 
-      await saveChatMessages(forkedChatId, forkedMessages, currentGraph);
+      await saveChatMessages(
+        forkedChatId,
+        forkedMessages,
+        currentGraph,
+        parentChatId,
+      );
 
       const chat = createChat(
         forkedChatId,

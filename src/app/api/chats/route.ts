@@ -3,6 +3,7 @@ import type { ModelMessage, UIMessage } from "ai";
 import {
   CorruptChatError,
   deleteChatRecord,
+  getChat,
   getChatWithMessages,
   listChats,
   upsertChatMessages,
@@ -85,6 +86,15 @@ function titleFromMessages(messages: UIMessage[]): string {
   return CHAT_TITLE_FALLBACK;
 }
 
+const FORK_TITLE_SUFFIX = " (fork)";
+
+function forkTitle(parentTitle: string): string {
+  const base =
+    parentTitle.trim().length > 0 ? parentTitle : CHAT_TITLE_FALLBACK;
+  const maxBaseLen = CHAT_TITLE_MAX_LEN - FORK_TITLE_SUFFIX.length;
+  return base.slice(0, maxBaseLen) + FORK_TITLE_SUFFIX;
+}
+
 /**
  * GET /api/chats
  * - `?id=` → chat + messages (404 if missing)
@@ -165,8 +175,9 @@ export async function GET(req: Request) {
 
 /**
  * POST /api/chats — create-or-replace full transcript
- * Body: `{ chatId: string, messages: UIMessage[] }`
+ * Body: `{ chatId: string, messages: UIMessage[], parentChatId?: string }`
  * - row missing → create with id = chatId, title from first user text
+ * - fork create (`parentChatId`) → title is `forkTitle(parent.title)`
  * - row exists → replace messages_json + updated_at (title kept)
  * Always returns meta: `{ ok: true, chat: ChatMeta }`.
  */
@@ -193,6 +204,7 @@ export async function POST(req: Request) {
       chatId?: unknown;
       messages?: unknown;
       graphMessages?: unknown;
+      parentChatId?: unknown;
     };
 
     if (typeof record.chatId !== "string" || record.chatId.trim().length === 0) {
@@ -222,9 +234,29 @@ export async function POST(req: Request) {
       graphMessages = record.graphMessages as ModelMessage[];
     }
 
+    let title = titleFromMessages(messages);
+    if (record.parentChatId !== undefined) {
+      if (typeof record.parentChatId !== "string") {
+        return NextResponse.json(
+          { ok: false, error: "parentChatId must be a string" },
+          { status: 400 },
+        );
+      }
+      if (record.parentChatId.length > 0) {
+        const parent = getChat(record.parentChatId);
+        if (!parent) {
+          return NextResponse.json(
+            { ok: false, error: "chat not found" },
+            { status: 404 },
+          );
+        }
+        title = forkTitle(parent.title);
+      }
+    }
+
     const chat = upsertChatMessages({
       id: chatId,
-      title: titleFromMessages(messages),
+      title,
       messages,
       graphMessages,
     });
