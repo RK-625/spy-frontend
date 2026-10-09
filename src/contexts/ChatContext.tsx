@@ -423,6 +423,40 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [landOnEmptyChat, updateChatOrder],
   );
 
+  const forkChat = useCallback(
+    async (fromMessageId: string): Promise<string> => {
+      const targetIndex = messages.findIndex((m) => m.id === fromMessageId);
+      const forkedMessages =
+        targetIndex !== -1 ? messages.slice(0, targetIndex + 1) : [...messages];
+
+      const currentGraph =
+        graphMessagesRef.current.get(activeChatIdRef.current) ?? graphMessages;
+      const forkedChatId = crypto.randomUUID();
+
+      await saveChatMessages(forkedChatId, forkedMessages, currentGraph);
+
+      const chat = createChat(
+        forkedChatId,
+        forkedMessages,
+        updateChatOrder,
+        deletedIdsRef,
+      );
+      chatsRef.current.set(forkedChatId, chat);
+      graphMessagesRef.current.set(forkedChatId, currentGraph);
+      graphJobStatusRef.current.set(forkedChatId, "idle");
+
+      setGraphMessages(currentGraph);
+      setGraphJobStatus("idle");
+      setActiveChat(chat);
+      activeChatIdRef.current = forkedChatId;
+      updateChatOrder();
+      syncChatUrl(forkedChatId, false, false);
+
+      return forkedChatId;
+    },
+    [messages, graphMessages, updateChatOrder],
+  );
+
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [settingsPaneId, setSettingsPaneId] = useState<SettingsPaneId>("general");
   const openSettings = useCallback((paneId?: SettingsPaneId) => {
@@ -443,6 +477,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       newChat,
       switchChat,
       deleteChat,
+      forkChat,
       chatOrder,
       isSettingsOpen,
       settingsPaneId,
@@ -462,6 +497,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       newChat,
       switchChat,
       deleteChat,
+      forkChat,
       chatOrder,
       isSettingsOpen,
       settingsPaneId,

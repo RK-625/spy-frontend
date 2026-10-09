@@ -64,6 +64,11 @@ export interface ChatContextValue {
    * Remove a conversation from SQLite and active memory.
    */
   deleteChat: (chatId: string) => Promise<void>;
+  /**
+   * Fork the conversation up to an assistant message into a new chat.
+   * Persists the slice and graph messages to SQLite, registers in memory, and activates.
+   */
+  forkChat: (fromMessageId: string) => Promise<string>;
   /** Catalog revision after persist; Recents refetch. */
   chatOrder: number;
   /** Settings dialog (rendered once by the sidebar; the model picker can open it too). */
