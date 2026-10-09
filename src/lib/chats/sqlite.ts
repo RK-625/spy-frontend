@@ -48,6 +48,7 @@ export type CreateChatRecordInput = {
   id: string;
   title: string;
   messages: UIMessage[];
+  graphMessages?: ModelMessage[];
 };
 
 // ---------------------------------------------------------------------------
@@ -235,18 +236,19 @@ export function createChatRecord(
     created_at: now,
     updated_at: now,
     messages: input.messages,
-    graph_messages: [],
+    graph_messages: input.graphMessages ?? [],
   };
 
   db.prepare(
-    `INSERT INTO chats (id, title, created_at, updated_at, messages_json)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO chats (id, title, created_at, updated_at, messages_json, graph_messages_json)
+     VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(
     chat.id,
     chat.title,
     chat.created_at,
     chat.updated_at,
     JSON.stringify(chat.messages),
+    JSON.stringify(chat.graph_messages),
   );
 
   return chat;
@@ -390,6 +392,7 @@ export function upsertChatMessages(input: {
   id: string;
   title: string;
   messages: UIMessage[];
+  graphMessages?: ModelMessage[];
 }): ChatMeta {
   const existing = getChat(input.id);
   if (existing) {
@@ -405,6 +408,7 @@ export function upsertChatMessages(input: {
     id: input.id,
     title: input.title,
     messages: input.messages,
+    graphMessages: input.graphMessages,
   });
   const meta = getChat(input.id);
   if (!meta) {
