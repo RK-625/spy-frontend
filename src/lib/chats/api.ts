@@ -5,11 +5,32 @@
 import type { ModelMessage, UIMessage } from "ai";
 import type { ChatMeta, ChatWithMessages } from "@/types/chat-schema";
 
+// Full-transcript writes must reach SQLite in the order they were requested.
+const pendingChatSaves = new Map<string, Promise<unknown>>();
+
+export async function waitForChatSaves(chatId: string): Promise<void> {
+  await pendingChatSaves.get(chatId)?.catch(() => undefined);
+}
+
 /**
  * POST create-or-replace full transcript. `parentChatId` is fork-create only.
  * `created` → this save inserted the chat (first save of a new chat).
  */
-export async function saveChatMessages(
+export function saveChatMessages(
+  ...args: Parameters<typeof writeChatMessages>
+): ReturnType<typeof writeChatMessages> {
+  const [chatId] = args;
+  const save = (pendingChatSaves.get(chatId) ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(() => writeChatMessages(...args));
+  pendingChatSaves.set(chatId, save);
+  void save.finally(() => {
+    if (pendingChatSaves.get(chatId) === save) pendingChatSaves.delete(chatId);
+  }).catch(() => undefined);
+  return save;
+}
+
+async function writeChatMessages(
   chatId: string,
   messages: UIMessage[],
   graphMessages?: ModelMessage[],

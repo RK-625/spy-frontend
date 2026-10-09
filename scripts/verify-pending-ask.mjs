@@ -117,7 +117,11 @@ const runner = `
 import {
   formatAskUserQuestionAnswer,
   getPendingAskUserQuestion,
+  dismissAskUserQuestion,
 } from ${JSON.stringify(moduleAbs)};
+import { Chat } from "@ai-sdk/react";
+import { convertToModelMessages } from "ai";
+import { saveChatMessages, waitForChatSaves } from "./src/lib/chats/api.ts";
 
 function assertEq(actual, expected, label) {
   const a = JSON.stringify(actual);
@@ -426,6 +430,92 @@ assertEq(
   ],
   "inline option map skips whitespace-only, stable source index ids",
 );
+
+async function verifyDismissal() {
+  const originalFetch = globalThis.fetch;
+  let savedMessages;
+  let modelRequests = 0;
+  let rejectSave = false;
+  let holdSave;
+  let reportStarted;
+  const writes = [];
+  globalThis.fetch = async (url, init) => {
+    if (url !== "/api/chats") {
+      modelRequests += 1;
+      throw new Error("Unexpected model request");
+    }
+    const { messages } = JSON.parse(init.body);
+    writes.push(messages);
+    if (reportStarted) { reportStarted(); reportStarted = undefined; }
+    if (holdSave) { const held = holdSave; holdSave = undefined; await held; }
+    if (rejectSave) { rejectSave = false; return new Response("", { status: 500 }); }
+    savedMessages = JSON.parse(JSON.stringify(messages));
+    return Response.json({ created: false });
+  };
+  const createPendingChat = (id) => new Chat({
+    id,
+    messages: [{ id: "ask", role: "assistant", parts: [{
+      type: "tool-askUserQuestion", toolCallId: "dismiss-call",
+      state: "input-available",
+      input: { question: "Pick?", options: ["A", "B"], allowCustomInput: false },
+    }] }],
+  });
+  try {
+    const chat = createPendingChat("dismiss");
+    const otherChat = createPendingChat("other");
+    let releaseSave;
+    holdSave = new Promise((resolve) => { releaseSave = resolve; });
+    const started = new Promise((resolve) => { reportStarted = resolve; });
+    const olderSave = saveChatMessages(chat.id, chat.messages);
+    await started;
+    const dismissal = dismissAskUserQuestion(chat, () => false);
+    releaseSave();
+    await Promise.all([olderSave, dismissal]);
+    assertEq(writes.map((messages) => messages[0].parts[0].state),
+      ["input-available", "output-available"], "older save precedes cancellation");
+    assertEq(getPendingAskUserQuestion(chat.messages), null, "dismissal removes prompt");
+    assertEq(chat.lastMessage.parts[0].output, { status: "cancelled" }, "SDK records cancellation output");
+    assertTrue(getPendingAskUserQuestion(otherChat.messages) !== null, "other chat remains pending");
+    const restored = new Chat({ id: chat.id, messages: savedMessages });
+    assertEq(getPendingAskUserQuestion(restored.messages), null, "saved cancellation stays closed after hydration");
+    const modelHistory = await convertToModelMessages(restored.messages, { ignoreIncompleteToolCalls: true });
+    assertTrue(modelHistory.some((message) => message.role === "tool"), "cancellation becomes a model tool result");
+    assertEq(modelRequests, 0, "dismissal never requests another model response");
+
+    const retryChat = createPendingChat("retry");
+    rejectSave = true;
+    let rejected = false;
+    try { await dismissAskUserQuestion(retryChat, () => false); } catch { rejected = true; }
+    assertTrue(rejected, "save failure is reported");
+    assertTrue(getPendingAskUserQuestion(retryChat.messages) !== null, "save failure restores pending question");
+    await dismissAskUserQuestion(retryChat, () => false);
+    assertEq(getPendingAskUserQuestion(retryChat.messages), null, "retry succeeds after failed save");
+
+    const deletedChat = createPendingChat("deleted");
+    const countBeforeDelete = writes.length;
+    await dismissAskUserQuestion(deletedChat, () => true);
+    assertEq(writes.length, countBeforeDelete, "deleted chat is never saved");
+
+    let releaseFinalSave;
+    holdSave = new Promise((resolve) => { releaseFinalSave = resolve; });
+    const finalStarted = new Promise((resolve) => { reportStarted = resolve; });
+    const finalSave = saveChatMessages(chat.id, chat.messages);
+    await finalStarted;
+    let drained = false;
+    const drain = waitForChatSaves(chat.id).then(() => { drained = true; });
+    await Promise.resolve();
+    assertEq(drained, false, "deletion drain waits for an in-flight save");
+    releaseFinalSave();
+    await Promise.all([finalSave, drain]);
+    assertEq(drained, true, "deletion can proceed after save finishes");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+verifyDismissal().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
 
 if (process.exitCode && process.exitCode !== 0) {
   process.exit(process.exitCode);

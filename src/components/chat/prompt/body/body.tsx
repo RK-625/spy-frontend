@@ -7,6 +7,9 @@
 import type { PendingAskUserQuestion } from "@/lib/ask-user-question";
 import { cn } from "@/lib/utils";
 import type { HTMLAttributes } from "react";
+import { X } from "lucide-react";
+import { ICON_GLYPH } from "@/lib/icon-tokens";
+import { PromptInputButton } from "../footer/button";
 import { useId } from "react";
 import {
   PromptInputOption,
@@ -16,6 +19,8 @@ import {
 
 export type PromptInputBodyProps = HTMLAttributes<HTMLDivElement> & {
   pendingAsk?: PendingAskUserQuestion | null;
+  onAskDismiss?: () => void;
+  askDismissDisabled?: boolean;
   onOptionSelect?: (option: PromptInputAskOption) => void;
 };
 
@@ -24,6 +29,8 @@ export const PromptInputBody = ({
   children,
   pendingAsk = null,
   onOptionSelect,
+  onAskDismiss,
+  askDismissDisabled = false,
   ...props
 }: PromptInputBodyProps) => {
   const questionId = useId();
@@ -54,9 +61,21 @@ export const PromptInputBody = ({
         )}
       >
         {showQuestion ? (
-          <PromptInputQuestion id={questionId}>
-            {questionText}
-          </PromptInputQuestion>
+          <div className="flex items-start gap-2">
+            <PromptInputQuestion id={questionId}>
+              {questionText}
+            </PromptInputQuestion>
+            {onAskDismiss ? (
+              <PromptInputButton
+                onClick={onAskDismiss}
+                disabled={askDismissDisabled}
+                aria-label="Dismiss question"
+                tooltip="Dismiss question"
+              >
+                <X size={ICON_GLYPH.inline} strokeWidth={1.5} />
+              </PromptInputButton>
+            ) : null}
+          </div>
         ) : null}
         {showOptions ? (
           <div

@@ -20,6 +20,7 @@ import {
   generateChatTitle,
   isChatNotFoundError,
   saveChatMessages,
+  waitForChatSaves,
 } from "@/lib/chats/api";
 import {
   discardDraftForDeletedChat,
@@ -31,6 +32,7 @@ import type {
   GraphJobStatus,
   SettingsPaneId,
 } from "@/types/chat";
+import { dismissAskUserQuestion } from "@/lib/ask-user-question";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
@@ -130,6 +132,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const activeChatIdRef = useRef(activeChat.id);
   const forkInFlightRef = useRef(false);
+
+  const dismissPendingAsk = useCallback(async () => {
+    const chat = chatsRef.current.get(activeChatIdRef.current);
+    if (!chat || chat.status !== "ready" || deletedIdsRef.current.has(chat.id)) return;
+    await dismissAskUserQuestion(chat, () => deletedIdsRef.current.has(chat.id));
+    updateChatOrder();
+  }, [updateChatOrder]);
 
   const switchGenerationRef = useRef(0);
   const switchAbortRef = useRef<AbortController | null>(null);
@@ -404,6 +413,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const wasActive = activeChatIdRef.current === id;
 
       try {
+        await waitForChatSaves(id);
         await deleteChatRequest(id);
         await discardDraftForDeletedChat(id);
         if (wasActive) {
@@ -514,6 +524,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       error,
       stop,
       sendMessage,
+      dismissPendingAsk,
       newChat,
       switchChat,
       deleteChat,
@@ -534,6 +545,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       error,
       stop,
       sendMessage,
+      dismissPendingAsk,
       newChat,
       switchChat,
       deleteChat,

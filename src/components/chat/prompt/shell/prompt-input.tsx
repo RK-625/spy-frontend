@@ -317,7 +317,9 @@ export function PromptInputWorkspace() {
 
 /** Reads stream state from ChatProvider; owns pending-ask derivation for the shell. */
 function PromptInputWorkspaceContent() {
-  const { sendMessage, status, stop, messages } = useChatContext();
+  const {
+    sendMessage, status, stop, messages, dismissPendingAsk,
+  } = useChatContext();
   const pendingAsk = useMemo(
     () => getPendingAskUserQuestion(messages),
     [messages],
@@ -548,8 +550,7 @@ function PromptInputWorkspaceContent() {
     () =>
       status === "ready" &&
       ((pendingAsk != null && !pendingAsk.allowCustomInput) ||
-        (!textInput.value.trim() &&
-          attachments.files.length === 0)),
+        (!textInput.value.trim() && attachments.files.length === 0)),
     [
       textInput.value,
       attachments.files.length,
@@ -571,6 +572,12 @@ function PromptInputWorkspaceContent() {
           </PromptInputHeader>
           <PromptInputBody
             pendingAsk={pendingAsk}
+            askDismissDisabled={status !== "ready"}
+            onAskDismiss={() => {
+              void dismissPendingAsk().catch(() => {
+                toast.error("Couldn't dismiss question. Please try again.");
+              });
+            }}
             onOptionSelect={(option) => {
               try {
                 handleSubmit({ text: option.label, files: [] });

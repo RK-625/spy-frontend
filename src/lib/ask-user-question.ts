@@ -1,4 +1,6 @@
 import type { UIMessage } from "ai";
+import type { Chat } from "@ai-sdk/react";
+import { saveChatMessages } from "@/lib/chats/api";
 import {
   askUserQuestionInputSchema,
   type AskUserQuestionInput,
@@ -68,4 +70,36 @@ export function getPendingAskUserQuestion(
     };
   }
   return null;
+}
+
+/** Resolve the displayed ask and persist it without starting another model turn. */
+export async function dismissAskUserQuestion(
+  chat: Chat<UIMessage>,
+  isDeleted: () => boolean,
+): Promise<void> {
+  const pending = getPendingAskUserQuestion(chat.messages);
+  if (!pending || isDeleted()) return;
+  const originalPart = chat.lastMessage?.parts.find(
+    (part) => "toolCallId" in part && part.toolCallId === pending.toolCallId,
+  );
+  if (!originalPart) return;
+
+  try {
+    await chat.addToolOutput({
+      tool: "askUserQuestion",
+      toolCallId: pending.toolCallId,
+      output: { status: "cancelled" },
+    });
+    if (!isDeleted()) await saveChatMessages(chat.id, chat.messages);
+  } catch (error: unknown) {
+    // Restore only this call; unrelated messages and chat switches stay intact.
+    chat.messages = chat.messages.map((message) =>
+      message.id !== pending.messageId ? message : {
+        ...message,
+        parts: message.parts.map((part) =>
+          "toolCallId" in part && part.toolCallId === pending.toolCallId
+            ? originalPart : part),
+      });
+    throw error;
+  }
 }
