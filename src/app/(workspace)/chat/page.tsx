@@ -47,7 +47,7 @@ import {
 } from "@/components/chat/prompt/shell/context";
 import { toast } from "@/components/ui";
 import { Excalidraw } from "@/components/logos";
-import { Check, Copy, GitFork, Globe, Lightbulb, Pencil } from "lucide-react";
+import { Check, Copy, Globe, Lightbulb, Pencil, Split } from "lucide-react";
 
 
 
@@ -388,7 +388,7 @@ const ChatWorkspace = () => {
                           />
                           {message.role === "assistant" && (
                             <ChatActionButton
-                              icon={GitFork}
+                              icon={Split}
                               label="Fork chat"
                               onClick={() => {
                                 handleForkMessage(message.id);
