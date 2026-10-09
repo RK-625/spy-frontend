@@ -17,6 +17,7 @@ import {
 import {
   deleteChat as deleteChatRequest,
   fetchChat,
+  generateChatTitle,
   isChatNotFoundError,
   saveChatMessages,
 } from "@/lib/chats/api";
@@ -580,8 +581,20 @@ function createChat(
           if (deletedIdsRef.current.has(id)) {
             throw new Error("chat deleted");
           }
-          await saveChatMessages(id, outgoing);
+          const { created } = await saveChatMessages(id, outgoing);
           updateChatOrder();
+          // First save of a new chat → AI title in the background; the reply
+          // streams without waiting. On failure the fallback title stays.
+          const model = body?.model;
+          if (created && typeof model === "string") {
+            void generateChatTitle(id, model)
+              .then((renamed) => {
+                if (renamed) updateChatOrder();
+              })
+              .catch((err: unknown) => {
+                console.error("generateChatTitle:", err);
+              });
+          }
         }
         return {
           body: {

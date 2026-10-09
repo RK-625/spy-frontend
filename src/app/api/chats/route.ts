@@ -12,21 +12,25 @@ import {
 } from "@/lib/chats/sqlite";
 import type { ChatMeta } from "@/types/chat-schema";
 import { clearGraphJobStatus } from "@/lib/chats/graph-events";
+import {
+  CHAT_TITLE_FALLBACK,
+  CHAT_TITLE_MAX_LEN,
+  firstUserText,
+} from "@/lib/chats/title";
 
 /** better-sqlite3 — Node.js only. */
 export const runtime = "nodejs";
 
-/** POST create-or-append success body (meta only; same shape for both paths). */
+/** POST create-or-append success body. `created` → this call inserted the row. */
 type ChatsPostResponse = {
   ok: true;
   chat: ChatMeta;
+  created: boolean;
 };
 
 const CHAT_LIST_LIMIT_DEFAULT = 30;
 const CHAT_LIST_LIMIT_MIN = 1;
 const CHAT_LIST_LIMIT_MAX = 100;
-const CHAT_TITLE_MAX_LEN = 80;
-const CHAT_TITLE_FALLBACK = "New chat";
 
 function encodeCursor(cursor: ChatListCursor): string {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
@@ -65,26 +69,10 @@ function parseLimit(raw: string | null): number | { error: string } {
   return n;
 }
 
-function textFromMessage(message: UIMessage): string {
-  const texts: string[] = [];
-  for (const part of message.parts ?? []) {
-    if (part.type === "text" && typeof part.text === "string") {
-      texts.push(part.text);
-    }
-  }
-  return texts.join(" ").trim();
-}
-
 /** First user text for create title; else fallback. */
 function titleFromMessages(messages: UIMessage[]): string {
-  for (const message of messages) {
-    if (message.role !== "user") continue;
-    const text = textFromMessage(message);
-    if (text.length > 0) {
-      return text.slice(0, CHAT_TITLE_MAX_LEN);
-    }
-  }
-  return CHAT_TITLE_FALLBACK;
+  const text = firstUserText(messages);
+  return text.length > 0 ? text.slice(0, CHAT_TITLE_MAX_LEN) : CHAT_TITLE_FALLBACK;
 }
 
 const FORK_TITLE_SUFFIX = " (fork)";
@@ -180,7 +168,7 @@ export async function GET(req: Request) {
  * - row missing → create with id = chatId, title from first user text
  * - fork create (`parentChatId`) → title is `forkTitle(parent.title)`
  * - row exists → replace messages_json + updated_at (title kept)
- * Always returns meta: `{ ok: true, chat: ChatMeta }`.
+ * Always returns `{ ok: true, chat: ChatMeta, created }` (`created` → row inserted).
  */
 export async function POST(req: Request) {
   try {
@@ -255,6 +243,8 @@ export async function POST(req: Request) {
       }
     }
 
+    // Synchronous SQLite: nothing runs between this check and the upsert.
+    const created = getChat(chatId) === null;
     const chat = upsertChatMessages({
       id: chatId,
       title,
@@ -262,7 +252,7 @@ export async function POST(req: Request) {
       graphMessages,
     });
 
-    const response: ChatsPostResponse = { ok: true, chat };
+    const response: ChatsPostResponse = { ok: true, chat, created };
     return NextResponse.json(response);
   } catch (error: unknown) {
     if (error instanceof CorruptChatError) {

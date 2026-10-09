@@ -5,13 +5,16 @@
 import type { ModelMessage, UIMessage } from "ai";
 import type { ChatMeta, ChatWithMessages } from "@/types/chat-schema";
 
-/** POST create-or-replace full transcript. `parentChatId` is fork-create only. */
+/**
+ * POST create-or-replace full transcript. `parentChatId` is fork-create only.
+ * `created` → this save inserted the chat (first save of a new chat).
+ */
 export async function saveChatMessages(
   chatId: string,
   messages: UIMessage[],
   graphMessages?: ModelMessage[],
   parentChatId?: string,
-): Promise<void> {
+): Promise<{ created: boolean }> {
   const res = await fetch("/api/chats", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -27,6 +30,8 @@ export async function saveChatMessages(
   if (!res.ok) {
     throw new Error(`POST /api/chats failed: ${res.status}`);
   }
+  const data = (await res.json()) as { created: boolean };
+  return { created: data.created };
 }
 
 /** Non-OK GET /api/chats?id= — 404 missing, 422 corrupt, 500 other. Abort is not this. */
@@ -108,4 +113,27 @@ export async function renameChat(chatId: string, title: string): Promise<void> {
   if (!res.ok) {
     throw new Error(`PATCH /api/chats failed: ${res.status}`);
   }
+}
+
+/**
+ * AI title for a new chat: POST /api/chats/[chatId]/title generates it, then
+ * `renameChat` saves it. Resolves false when there was nothing to title
+ * (no user text / empty model output) — the fallback title stays.
+ */
+export async function generateChatTitle(
+  chatId: string,
+  model: string,
+): Promise<boolean> {
+  const res = await fetch(`/api/chats/${encodeURIComponent(chatId)}/title`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model }),
+  });
+  if (!res.ok) {
+    throw new Error(`POST /api/chats/[chatId]/title failed: ${res.status}`);
+  }
+  if (res.status === 204) return false;
+  const data = (await res.json()) as { title: string };
+  await renameChat(chatId, data.title);
+  return true;
 }
