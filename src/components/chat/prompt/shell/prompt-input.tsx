@@ -343,7 +343,7 @@ function PromptInputWorkspaceContent() {
   } = usePromptInputContext();
 
   /**
-   * Transport only: kick off useChat sendMessage with model/mode/web/excalidraw prefs.
+   * Transport only: kick off useChat sendMessage with model/mode/web/excalidraw/build prefs.
    * No accept policy here — caller (handleSubmit) must validate first.
    * Fire-and-forget: late stream/network failures toast; form already cleared.
    */
@@ -355,6 +355,7 @@ function PromptInputWorkspaceContent() {
         mode: string;
         useWebSearch: boolean;
         useExcalidraw: boolean;
+        useBuildMode: boolean;
       },
     ): void => {
       clearPromptDraft();
@@ -371,6 +372,7 @@ function PromptInputWorkspaceContent() {
             model: prefs.model,
             useWebSearch: prefs.useWebSearch,
             useExcalidraw: prefs.useExcalidraw,
+            useBuildMode: prefs.useBuildMode,
             mode: prefs.mode,
           },
         },
@@ -466,7 +468,13 @@ function PromptInputWorkspaceContent() {
 
       const answer = message.text?.trim() ?? "";
       const hasFiles = (message.files?.length ?? 0) > 0;
-      const prefs = { model, mode, useWebSearch: isWebSearchActive, useExcalidraw };
+      const prefs = {
+        model,
+        mode,
+        useWebSearch: isWebSearchActive,
+        useExcalidraw,
+        useBuildMode,
+      };
 
       if (pendingAsk != null) {
         // Empty form / nothing to answer.
@@ -516,6 +524,7 @@ function PromptInputWorkspaceContent() {
       mode,
       isWebSearchActive,
       useExcalidraw,
+      useBuildMode,
     ],
   );
 

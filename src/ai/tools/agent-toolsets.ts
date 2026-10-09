@@ -16,6 +16,22 @@ export function createChatToolSet(): Pick<
   };
 }
 
+/** Build-mode chat tools: chat tools plus graph writes. MCP/Excalidraw is merged later in the agent. */
+export function createBuildToolSet(): Pick<
+  ProductToolSet,
+  "searchMemories" | "getMemories" | "upsertMemory" | "manageLinks" | "askUserQuestion" | "webSearch"
+> {
+  const tools = createToolSet();
+  return {
+    searchMemories: tools.searchMemories,
+    getMemories: tools.getMemories,
+    upsertMemory: tools.upsertMemory,
+    manageLinks: tools.manageLinks,
+    askUserQuestion: tools.askUserQuestion,
+    webSearch: tools.webSearch,
+  };
+}
+
 /** Graph-agent product tools. */
 export function createGraphToolSet(): Pick<
   ProductToolSet,

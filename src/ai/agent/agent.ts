@@ -5,11 +5,17 @@ import {
   isStepCount,
   type ToolSet,
 } from "ai";
-import { createChatToolSet } from "../tools/agent-toolsets";
+import {
+  createBuildToolSet,
+  createChatToolSet,
+} from "../tools/agent-toolsets";
 import { connectExcalidrawMcp } from "../tools/excalidraw-mcp";
 import { modelConfig } from "../models/modelstore";
 import { readSavedKeyOrNull } from "@/lib/providers/keys/resolve-key";
-import { buildChatInstructions } from "@/prompts/chat-instructions";
+import {
+  buildBuildModeInstructions,
+  buildChatInstructions,
+} from "@/prompts/chat-instructions";
 import { runChatAgent } from "./chat/agent";
 import { runGraphAgent } from "./graph/agent";
 import type {
@@ -59,6 +65,7 @@ export async function runAgent({
   model,
   useWebSearch,
   useExcalidraw,
+  useBuildMode,
   mode,
   abortSignal,
   chatId,
@@ -67,6 +74,7 @@ export async function runAgent({
   model: string;
   useWebSearch: boolean;
   useExcalidraw?: boolean;
+  useBuildMode?: boolean;
   mode: string;
   abortSignal: AbortSignal;
   chatId: string;
@@ -81,7 +89,8 @@ export async function runAgent({
     ignoreIncompleteToolCalls: true,
   });
   // Product tools are model-agnostic; chat model stays on modelConfig only.
-  const toolSet = createChatToolSet();
+  // Build mode adds graph writes; the Exa-key gate below applies to both sets.
+  const toolSet = useBuildMode ? createBuildToolSet() : createChatToolSet();
   // webSearch needs the user's toggle AND a verified Exa key in the keychain;
   // the client flag alone is never trusted. Retrieval + ask stay on.
   const isWebSearchEnabled =
@@ -100,13 +109,18 @@ export async function runAgent({
 
   const { model: resolvedModel, providerOptions: resolvedProviderOptions } =
     await modelConfig({ model, mode });
-  // Web or Excalidraw MCP tool loops need a higher step budget.
+  // Web or Excalidraw MCP tool loops need the highest step budget; build mode
+  // needs room for search, graph writes and links in one turn.
   const streamResult = runChatAgent({
     model: resolvedModel,
-    instructions: buildChatInstructions(),
+    instructions: useBuildMode
+      ? buildBuildModeInstructions()
+      : buildChatInstructions(),
     messages: modelMessages,
     tools,
-    stopWhen: isStepCount(isWebSearchEnabled || useExcalidraw ? 25 : 8),
+    stopWhen: isStepCount(
+      isWebSearchEnabled || useExcalidraw ? 25 : useBuildMode ? 25 : 8,
+    ),
     providerOptions: resolvedProviderOptions,
     abortSignal,
   });
@@ -146,6 +160,14 @@ export async function runAgent({
     const latestUserMessage = messages.at(-1);
 
     if (!latestUserMessage) {
+      return;
+    }
+
+    // Build mode: the chat agent wrote the graph itself this turn. Keep the
+    // turn out of graph history entirely, so a later maintainer run never
+    // replays a build instruction it did not see answered.
+    if (useBuildMode) {
+      console.log("[graph-agent] skipped: build mode");
       return;
     }
 
