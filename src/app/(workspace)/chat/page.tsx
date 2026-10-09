@@ -42,7 +42,7 @@ import type {
 
 import { useChatContext } from "@/contexts/ChatContext";
 import { Excalidraw } from "@/components/logos";
-import { Check, Copy, Globe, Lightbulb, Pencil } from "lucide-react";
+import { Check, Copy, GitFork, Globe, Lightbulb, Pencil } from "lucide-react";
 
 
 
@@ -104,7 +104,7 @@ const EmptyState = () => (
 const COPIED_FEEDBACK_MS = 1500;
 
 const ChatWorkspace = () => {
-  const { status, messages, error } = useChatContext();
+  const { status, messages, error, forkChat } = useChatContext();
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const copiedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -115,6 +115,15 @@ const ChatWorkspace = () => {
       }
     };
   }, []);
+
+  const handleForkMessage = useCallback(
+    (messageId: string) => {
+      void forkChat(messageId).catch((err: unknown) => {
+        console.error("Failed to fork chat:", err);
+      });
+    },
+    [forkChat],
+  );
 
   const handleCopyMessage = useCallback(async (message: UIMessage) => {
     const text = getMessagePlainText(message);
@@ -348,6 +357,15 @@ const ChatWorkspace = () => {
                         >
                           {message.role === "user" && (
                             <ChatActionButton icon={Pencil} label="Edit" />
+                          )}
+                          {message.role === "assistant" && (
+                            <ChatActionButton
+                              icon={GitFork}
+                              label="Fork chat"
+                              onClick={() => {
+                                handleForkMessage(message.id);
+                              }}
+                            />
                           )}
                           <ChatActionButton
                             icon={
