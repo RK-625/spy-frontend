@@ -41,6 +41,10 @@ import type {
 } from "ai";
 
 import { useChatContext } from "@/contexts/ChatContext";
+import {
+  DEFAULT_PROMPT_PREFS,
+  usePromptInputContext,
+} from "@/components/chat/prompt/shell/context";
 import { toast } from "@/components/ui";
 import { Excalidraw } from "@/components/logos";
 import { Check, Copy, GitFork, Globe, Lightbulb, Pencil } from "lucide-react";
@@ -106,6 +110,9 @@ const COPIED_FEEDBACK_MS = 1500;
 
 const ChatWorkspace = () => {
   const { status, messages, error, forkChat } = useChatContext();
+  const {
+    prefs: { model, mode, useWebSearch, useExcalidraw },
+  } = usePromptInputContext();
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const copiedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,12 +126,20 @@ const ChatWorkspace = () => {
 
   const handleForkMessage = useCallback(
     (messageId: string) => {
-      void forkChat(messageId).catch((err: unknown) => {
+      const composerDiffersFromDefaults =
+        model !== DEFAULT_PROMPT_PREFS.model ||
+        mode !== DEFAULT_PROMPT_PREFS.mode ||
+        useWebSearch !== DEFAULT_PROMPT_PREFS.useWebSearch ||
+        useExcalidraw !== DEFAULT_PROMPT_PREFS.useExcalidraw;
+      const fork = composerDiffersFromDefaults
+        ? forkChat(messageId, { model, mode, useWebSearch, useExcalidraw })
+        : forkChat(messageId);
+      void fork.catch((err: unknown) => {
         console.error("Failed to fork chat:", err);
         toast.error("Failed to fork chat");
       });
     },
-    [forkChat],
+    [forkChat, model, mode, useWebSearch, useExcalidraw],
   );
 
   const handleCopyMessage = useCallback(async (message: UIMessage) => {

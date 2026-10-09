@@ -38,6 +38,14 @@ export type GraphJobStatus = "idle" | "running" | "failed";
 /** Panes of the Settings dialog. */
 export type SettingsPaneId = "general" | "providers" | "embeddings" | "tools";
 
+/** On-screen model, mode, web search, and Excalidraw copied onto a fork. */
+export interface ForkChatComposer {
+  model: string;
+  mode: string;
+  useWebSearch: boolean;
+  useExcalidraw: boolean;
+}
+
 export interface ChatContextValue {
   /** Active conversation id (always registered in the Chat map). */
   chatId: string;
@@ -68,7 +76,7 @@ export interface ChatContextValue {
    * Fork the conversation up to an assistant message into a new chat.
    * Persists the slice and graph messages to SQLite, registers in memory, and activates.
    */
-  forkChat: (fromMessageId: string) => Promise<string>;
+  forkChat: (fromMessageId: string, composer?: ForkChatComposer) => Promise<string>;
   /** Catalog revision after persist; Recents refetch. */
   chatOrder: number;
   /** Settings dialog (rendered once by the sidebar; the model picker can open it too). */

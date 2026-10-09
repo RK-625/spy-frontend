@@ -20,8 +20,16 @@ import {
   isChatNotFoundError,
   saveChatMessages,
 } from "@/lib/chats/api";
-import { discardDraftForDeletedChat } from "@/lib/storage/prompt-draft-store";
-import type { ChatContextValue, GraphJobStatus, SettingsPaneId } from "@/types/chat";
+import {
+  discardDraftForDeletedChat,
+  savePromptDraft,
+} from "@/lib/storage/prompt-draft-store";
+import type {
+  ChatContextValue,
+  ForkChatComposer,
+  GraphJobStatus,
+  SettingsPaneId,
+} from "@/types/chat";
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
@@ -425,7 +433,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const forkChat = useCallback(
-    async (fromMessageId: string): Promise<string> => {
+    async (
+      fromMessageId: string,
+      composer?: ForkChatComposer,
+    ): Promise<string> => {
       if (forkInFlightRef.current) {
         return activeChatIdRef.current;
       }
@@ -446,6 +457,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           currentGraph,
           parentChatId,
         );
+
+        if (composer) {
+          await savePromptDraft({
+            attachments: [],
+            chatId: forkedChatId,
+            mode: composer.mode,
+            model: composer.model,
+            text: "",
+            updatedAt: Date.now(),
+            useExcalidraw: composer.useExcalidraw,
+            useWebSearch: composer.useWebSearch,
+          });
+        }
 
         const chat = createChat(
           forkedChatId,
