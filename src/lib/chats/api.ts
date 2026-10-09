@@ -97,3 +97,15 @@ export async function deleteChat(chatId: string): Promise<void> {
     throw new Error(`DELETE /api/chats failed: ${res.status}`);
   }
 }
+
+/** PATCH /api/chats — rename; server trims + caps the title. 404 if the chat is gone. */
+export async function renameChat(chatId: string, title: string): Promise<void> {
+  const res = await fetch("/api/chats", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chatId, title }),
+  });
+  if (!res.ok) {
+    throw new Error(`PATCH /api/chats failed: ${res.status}`);
+  }
+}

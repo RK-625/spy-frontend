@@ -427,3 +427,16 @@ export function deleteChatRecord(chatId: string): boolean {
   const result = db.prepare(`DELETE FROM chats WHERE id = ?`).run(chatId);
   return result.changes > 0;
 }
+
+/**
+ * Set the chats row title only. Leaves `updated_at` and both message
+ * histories untouched, so a rename does not reorder the sidebar.
+ * Returns whether a row was actually updated (false → chat missing).
+ */
+export function updateChatTitleRecord(chatId: string, title: string): boolean {
+  const db = getChatsDb();
+  const result = db
+    .prepare(`UPDATE chats SET title = ? WHERE id = ?`)
+    .run(title, chatId);
+  return result.changes > 0;
+}

@@ -6,6 +6,7 @@ import {
   getChat,
   getChatWithMessages,
   listChats,
+  updateChatTitleRecord,
   upsertChatMessages,
   type ChatListCursor,
 } from "@/lib/chats/sqlite";
@@ -306,6 +307,71 @@ export async function DELETE(req: Request) {
     return new NextResponse(null, { status: 204 });
   } catch (error: unknown) {
     console.error("DELETE /api/chats:", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * PATCH /api/chats — rename. Body `{ chatId, title }`.
+ * - invalid JSON / body, missing `chatId`, or blank `title` → 400
+ * - `title` trimmed and capped at CHAT_TITLE_MAX_LEN
+ * - no such chat → 404
+ * - success → 204 with empty body
+ */
+export async function PATCH(req: Request) {
+  try {
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: "invalid JSON body" },
+        { status: 400 },
+      );
+    }
+
+    if (typeof body !== "object" || body === null) {
+      return NextResponse.json(
+        { ok: false, error: "invalid body" },
+        { status: 400 },
+      );
+    }
+
+    const record = body as { chatId?: unknown; title?: unknown };
+    const chatId =
+      typeof record.chatId === "string" ? record.chatId.trim() : "";
+    if (chatId.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "chatId is required" },
+        { status: 400 },
+      );
+    }
+    const title =
+      typeof record.title === "string"
+        ? record.title.trim().slice(0, CHAT_TITLE_MAX_LEN)
+        : "";
+    if (title.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: "title is required" },
+        { status: 400 },
+      );
+    }
+
+    if (!updateChatTitleRecord(chatId, title)) {
+      return NextResponse.json(
+        { ok: false, error: "chat not found" },
+        { status: 404 },
+      );
+    }
+    return new NextResponse(null, { status: 204 });
+  } catch (error: unknown) {
+    console.error("PATCH /api/chats:", error);
     return NextResponse.json(
       {
         ok: false,
