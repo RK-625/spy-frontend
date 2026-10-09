@@ -41,6 +41,7 @@ import type {
 } from "ai";
 
 import { useChatContext } from "@/contexts/ChatContext";
+import { toast } from "@/components/ui";
 import { Excalidraw } from "@/components/logos";
 import { Check, Copy, GitFork, Globe, Lightbulb, Pencil } from "lucide-react";
 
@@ -120,6 +121,7 @@ const ChatWorkspace = () => {
     (messageId: string) => {
       void forkChat(messageId).catch((err: unknown) => {
         console.error("Failed to fork chat:", err);
+        toast.error("Failed to fork chat");
       });
     },
     [forkChat],
@@ -358,15 +360,6 @@ const ChatWorkspace = () => {
                           {message.role === "user" && (
                             <ChatActionButton icon={Pencil} label="Edit" />
                           )}
-                          {message.role === "assistant" && (
-                            <ChatActionButton
-                              icon={GitFork}
-                              label="Fork chat"
-                              onClick={() => {
-                                handleForkMessage(message.id);
-                              }}
-                            />
-                          )}
                           <ChatActionButton
                             icon={
                               copiedMessageId === message.id ? Check : Copy
@@ -378,6 +371,15 @@ const ChatWorkspace = () => {
                               void handleCopyMessage(message);
                             }}
                           />
+                          {message.role === "assistant" && (
+                            <ChatActionButton
+                              icon={GitFork}
+                              label="Fork chat"
+                              onClick={() => {
+                                handleForkMessage(message.id);
+                              }}
+                            />
+                          )}
                         </ChatActionRail>
                       )}
                     </div>
