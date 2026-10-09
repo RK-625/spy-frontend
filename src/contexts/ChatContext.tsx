@@ -120,6 +120,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const activeChatIdRef = useRef(activeChat.id);
+  const forkInFlightRef = useRef(false);
 
   const switchGenerationRef = useRef(0);
   const switchAbortRef = useRef<AbortController | null>(null);
@@ -425,40 +426,48 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const forkChat = useCallback(
     async (fromMessageId: string): Promise<string> => {
-      const parentChatId = activeChatIdRef.current;
-      const targetIndex = messages.findIndex((m) => m.id === fromMessageId);
-      const forkedMessages =
-        targetIndex !== -1 ? messages.slice(0, targetIndex + 1) : [...messages];
+      if (forkInFlightRef.current) {
+        return activeChatIdRef.current;
+      }
+      forkInFlightRef.current = true;
+      try {
+        const parentChatId = activeChatIdRef.current;
+        const targetIndex = messages.findIndex((m) => m.id === fromMessageId);
+        const forkedMessages =
+          targetIndex !== -1 ? messages.slice(0, targetIndex + 1) : [...messages];
 
-      const currentGraph =
-        graphMessagesRef.current.get(parentChatId) ?? graphMessages;
-      const forkedChatId = crypto.randomUUID();
+        const currentGraph =
+          graphMessagesRef.current.get(parentChatId) ?? graphMessages;
+        const forkedChatId = crypto.randomUUID();
 
-      await saveChatMessages(
-        forkedChatId,
-        forkedMessages,
-        currentGraph,
-        parentChatId,
-      );
+        await saveChatMessages(
+          forkedChatId,
+          forkedMessages,
+          currentGraph,
+          parentChatId,
+        );
 
-      const chat = createChat(
-        forkedChatId,
-        forkedMessages,
-        updateChatOrder,
-        deletedIdsRef,
-      );
-      chatsRef.current.set(forkedChatId, chat);
-      graphMessagesRef.current.set(forkedChatId, currentGraph);
-      graphJobStatusRef.current.set(forkedChatId, "idle");
+        const chat = createChat(
+          forkedChatId,
+          forkedMessages,
+          updateChatOrder,
+          deletedIdsRef,
+        );
+        chatsRef.current.set(forkedChatId, chat);
+        graphMessagesRef.current.set(forkedChatId, currentGraph);
+        graphJobStatusRef.current.set(forkedChatId, "idle");
 
-      setGraphMessages(currentGraph);
-      setGraphJobStatus("idle");
-      setActiveChat(chat);
-      activeChatIdRef.current = forkedChatId;
-      updateChatOrder();
-      syncChatUrl(forkedChatId, false, false);
+        setGraphMessages(currentGraph);
+        setGraphJobStatus("idle");
+        setActiveChat(chat);
+        activeChatIdRef.current = forkedChatId;
+        updateChatOrder();
+        syncChatUrl(forkedChatId, false, false);
 
-      return forkedChatId;
+        return forkedChatId;
+      } finally {
+        forkInFlightRef.current = false;
+      }
     },
     [messages, graphMessages, updateChatOrder],
   );
