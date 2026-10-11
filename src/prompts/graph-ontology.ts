@@ -65,19 +65,19 @@ export const GRAPH_ONTOLOGY =
 ## Probe cookbook
   Tone: third-person, agent-stateful, about the user's knowledge of the **topic** — not the surface wrapper.
   Prefer "Has the user studied / seen / learned / worked with / is familiar with …? {TOPIC}"
-  Do not any put the surface material in the probe unless surface ≈ topic.
+  Do not put any surface material in the probe unless surface ≈ topic.
 
   Two jobs, same grammar:
 
-  **Search probes** : Used, find related Memories. Classify surface → topic, then pass 1–${MEMORY_SEARCH_MAX_QUESTIONS} probes covering that topic's **family**.
+  **Search probes**: Used to find related Memories. Classify surface → topic, then pass 1–${MEMORY_SEARCH_MAX_QUESTIONS} probes covering that topic's **family**.
 
   **Retrieval probes**: Used during storing a Memory to make it findable (later during search). Pass ${MEMORY_QUESTION_COUNT_MIN}–${MEMORY_QUESTION_COUNT_MAX} probes covering inward keys for that specific Memory.
 
-  Search probes are broad they fan out across a topic family to find what already exists.
+  Search probes are broad: they fan out across a topic family to find what already exists.
   Search does not store probes on the Memory.
-  Retrieval probes are specific for the Memory they are the inward keys that later search should land on.
+  Retrieval probes are specific for the Memory: they are the inward keys that later search should land on.
 
- Example for probes:
+  Examples of probes:
   - LC 198 House Robber → DP on arrays → "Has the user studied DP on arrays?", "Does the user know about linear DP on arrays?", "Has the user worked with house-robber-style DP?" — not "Has the user seen LeetCode 198 House Robber?"
   - Raft paper → Raft / consensus → "Has the user studied Raft?", "Does the user know about consensus algorithms?", "Has the user learned leader election?", "Has the user read the Raft paper?"
   - "Why does a handshake fail?" → TCP handshake → "Has the user studied the TCP handshake?", "Does the user know about the three-way handshake?", "Is the user familiar with SYN/ACK?" — not "Does the user understand why a handshake fails?"
@@ -87,8 +87,7 @@ export const GRAPH_ONTOLOGY =
 
   Reject:
   - First-person search probes ("What do I know about…?", "What have I learned regarding…?")
-  - Surface content in search probes for Example ("Has the user seen LeetCode 3622 Check Divisibility by Digit Sum and Product?",
-    "","Does the user understand Alice and Bob win conditions for Sum Game?")
+  - Surface content in search probes, for example: ("Has the user seen LeetCode 3622 Check Divisibility by Digit Sum and Product?", "Does the user understand Alice and Bob win conditions for Sum Game?")
   - Vague fluff ("What is this?", "Tell me more", "Does the user know things?")
   - Wikipedia-only phrasing with no user-knowledge frame ("What is Dijkstra?")
 `;

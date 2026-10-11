@@ -24,11 +24,11 @@ Empty inner list = that probe missed; all empty = no stored match (retry with a 
 Does not write nodes or invent layout.`;
 
 /** Short how-to bullet for the chat-agent system prompt. */
-export const SEARCH_MEMORIES_CHAT_BULLET = `Semantic recall to understand what the user already knows and ground the teaching response.
+export const SEARCH_MEMORIES_CHAT_BULLET = `Vector ANN semantic search (Q↔Q) over stored memory probes to recall what the user already knows and ground teaching responses.
 Does not write nodes or invent ids.`;
 
 /** Short how-to bullet for the graph-agent system prompt. */
-export const SEARCH_MEMORIES_GRAPH_BULLET = `Semantic recall to find related Memories before create, refine, or attach; reuse over duplicates.
+export const SEARCH_MEMORIES_GRAPH_BULLET = `Vector ANN semantic search (Q↔Q) over stored memory probes to find related Memories before create, refine, or attach; reuse over duplicates.
 Does not write nodes or invent ids.`;
 
 /** Zod `.describe(...)` for the `questions` field on searchMemories input schema. */

@@ -48,7 +48,6 @@ export const upsertMemoryInputSchema = z
       .describe(upsertMemoryContentFieldDescription),
     impression: z
       .string()
-      .min(1)
       .optional()
       .describe(upsertMemoryImpressionFieldDescription),
     confidence: z
@@ -78,7 +77,7 @@ export const upsertMemoryInputSchema = z
           path: ["content"],
         });
       }
-      if (data.impression === undefined) {
+      if (data.impression === undefined || data.impression.trim().length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "impression is required to create a Memory",
