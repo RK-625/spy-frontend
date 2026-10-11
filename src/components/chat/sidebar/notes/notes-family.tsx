@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useIsPresent } from "motion/react";
 import { ArrowLeft } from "lucide-react";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
@@ -28,6 +28,7 @@ export function ChatSidebarNotesFamily({
   onBrowseFamily: (noteId: string | null, direction: 1 | -1) => void;
 }) {
   const familyPresent = useIsPresent();
+  const [previewNoteId, setPreviewNoteId] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const headingRef = useRef<HTMLElement | null>(null);
   const restoreFocus = useRef(focusHeading);
@@ -86,16 +87,26 @@ export function ChatSidebarNotesFamily({
         <ul
           ref={listRef}
           aria-label={familyTitle ? `Children of ${familyTitle}` : "All topics"}
-          onScroll={(event) => scrollPositions.current.set(familyId, event.currentTarget.scrollTop)}
+          onScroll={(event) => {
+            setPreviewNoteId(null);
+            scrollPositions.current.set(familyId, event.currentTarget.scrollTop);
+          }}
           className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-2"
         >
           {nodes.map((node) => (
             <ChatSidebarNotesRow
               key={node.note.id}
               title={node.note.name?.trim() || node.note.id}
-              hasChildren={node.children.length > 0}
+              childNotes={node.children}
               noteSelected={node.note.id === selectedNoteId}
+              selectedNoteId={selectedNoteId}
+              previewEnabled={familyPresent}
+              previewOpen={previewNoteId === node.note.id}
+              onPreviewChange={(open) => setPreviewNoteId((current) =>
+                open ? node.note.id : current === node.note.id ? null : current,
+              )}
               onOpenNote={() => onOpenNote(node.note.id)}
+              onOpenChildNote={onOpenNote}
               onBrowseChildren={() => onBrowseFamily(node.note.id, 1)}
             />
           ))}

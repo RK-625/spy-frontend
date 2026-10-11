@@ -79,6 +79,21 @@
   --ease-chrome: cubic-bezier(0, 0, 0.2, 1);
 }
 
+/* Child-note flyouts share the sidebar's density and popover tokens. */
+.notes-children-flyout {
+  @apply z-50 w-64 overflow-y-auto overscroll-contain rounded-lg border border-border-subtle bg-popover text-popover-foreground shadow-lg;
+}
+
+.notes-children-flyout-item {
+  @apply flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[0.8125rem] text-text-primary transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-chrome);
+}
+
+.notes-children-flyout-item[aria-current="page"] {
+  background: var(--surface-focus);
+}
+
 /* Base layer: body styles, utility overrides */
 @layer base {
   * {
