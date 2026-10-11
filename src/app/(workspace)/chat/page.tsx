@@ -48,6 +48,8 @@ import {
 import { toast } from "@/components/ui";
 import { Excalidraw } from "@/components/logos";
 import { Check, Copy, Globe, Lightbulb, Pencil, Split } from "lucide-react";
+import { MessageSelectionToolbar } from "@/components/chat/conversation/selection/selection-toolbar";
+import { formatMessageExcerpt, type MessageExcerpt } from "@/components/chat/conversation/selection/message-selection";
 
 
 
@@ -109,8 +111,9 @@ const EmptyState = () => (
 const COPIED_FEEDBACK_MS = 1500;
 
 const ChatWorkspace = () => {
-  const { status, messages, error, forkChat } = useChatContext();
+  const { chatId, status, messages, error, forkChat } = useChatContext();
   const {
+    textInput,
     prefs: { model, mode, useWebSearch, useExcalidraw },
   } = usePromptInputContext();
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -159,15 +162,21 @@ const ChatWorkspace = () => {
         copiedResetRef.current = null;
       }, COPIED_FEEDBACK_MS);
     } catch {
-      // Clipboard permission denied or unavailable — keep the rail quiet.
+      toast.error("Couldn't copy message. Try copying again.");
     }
   }, []);
+
+  const handleAddQuote = (excerpt: MessageExcerpt) => {
+    textInput.setValue([textInput.value, formatMessageExcerpt(excerpt)].filter(Boolean).join("\n\n"));
+    document.querySelector<HTMLTextAreaElement>('textarea[name="message"]')?.focus();
+  };
 
   return (
     <div className="relative flex size-full flex-col overflow-hidden">
       <GraphPane />
       <Conversation aria-live="polite">
         <ConversationContent
+          data-chat-selection-scope
           aria-label="Conversation messages"
           className="pb-16"
         >
@@ -351,7 +360,13 @@ const ChatWorkspace = () => {
                           }
                           if (part.type === "text") {
                             return (
-                              <MessageContent key={index}>
+                              <MessageContent
+                                key={index}
+                                data-message-text
+                                data-message-id={message.id}
+                                data-message-role={message.role}
+                                data-message-complete={showRail}
+                              >
                                 <MessageResponse>{part.text}</MessageResponse>
                               </MessageContent>
                             );
@@ -406,6 +421,7 @@ const ChatWorkspace = () => {
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
+      <MessageSelectionToolbar key={chatId} chatId={chatId} onAddQuote={handleAddQuote} />
       {/* Keep the composer in flow so pending questions reserve their full height. */}
       <div className="relative z-20 shrink-0">
         <div className="mx-auto w-full max-w-4xl">
