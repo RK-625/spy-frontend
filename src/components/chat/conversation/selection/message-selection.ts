@@ -1,8 +1,6 @@
-export interface MessageExcerpt {
-  messageId: string;
-  role: "user" | "assistant";
-  text: string;
-}
+import type { PromptQuote } from "@/types/chat";
+
+export type MessageExcerpt = Omit<PromptQuote, "id">;
 
 export interface MessageSelection extends MessageExcerpt {
   range: Range;
@@ -37,10 +35,5 @@ export function readMessageSelection(
   if (range.cloneContents().querySelector(excludedSelection)) return null;
   const text = selection.toString();
   if (!text.trim()) return null;
-  return { messageId, role, text, range: range.cloneRange() };
-}
-
-export function formatMessageExcerpt(excerpt: MessageExcerpt): string {
-  const label = excerpt.role === "assistant" ? "Spy" : "You";
-  return `> **${label}:**\n>\n${excerpt.text.replace(/\r\n?/g, "\n").split("\n").map((line) => `> ${line}`).join("\n")}`;
+  return { sourceMessageId: messageId, sourceRole: role, text, range: range.cloneRange() };
 }

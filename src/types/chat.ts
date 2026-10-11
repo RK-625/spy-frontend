@@ -5,9 +5,17 @@ import {
   UIMessage,
 } from "ai";
 
+export interface PromptQuote {
+  id: string;
+  sourceMessageId: string;
+  sourceRole: "user" | "assistant";
+  text: string;
+}
+
 export interface PromptInputMessage {
   text: string;
   files: FileUIPart[];
+  quotes?: PromptQuote[];
 }
 
 /** Which agent issued a graph-history message. */

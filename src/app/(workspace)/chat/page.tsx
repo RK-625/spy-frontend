@@ -49,7 +49,7 @@ import { toast } from "@/components/ui";
 import { Excalidraw } from "@/components/logos";
 import { Check, Copy, Globe, Lightbulb, Pencil, Split } from "lucide-react";
 import { MessageSelectionToolbar } from "@/components/chat/conversation/selection/selection-toolbar";
-import { formatMessageExcerpt, type MessageExcerpt } from "@/components/chat/conversation/selection/message-selection";
+import type { MessageExcerpt } from "@/components/chat/conversation/selection/message-selection";
 
 
 
@@ -113,7 +113,8 @@ const COPIED_FEEDBACK_MS = 1500;
 const ChatWorkspace = () => {
   const { chatId, status, messages, error, forkChat } = useChatContext();
   const {
-    textInput,
+    quotes,
+    focusInput,
     prefs: { model, mode, useWebSearch, useExcalidraw },
   } = usePromptInputContext();
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -167,8 +168,8 @@ const ChatWorkspace = () => {
   }, []);
 
   const handleAddQuote = (excerpt: MessageExcerpt) => {
-    textInput.setValue([textInput.value, formatMessageExcerpt(excerpt)].filter(Boolean).join("\n\n"));
-    document.querySelector<HTMLTextAreaElement>('textarea[name="message"]')?.focus();
+    quotes.add({ sourceMessageId: excerpt.sourceMessageId, sourceRole: excerpt.sourceRole, text: excerpt.text });
+    focusInput();
   };
 
   return (

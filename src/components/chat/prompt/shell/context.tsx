@@ -18,6 +18,8 @@ import {
   type PromptAttachmentItem,
 } from "../attachments/prompt-input-files";
 import { models } from "@/lib/providers/registry";
+import type { PromptQuote } from "@/types/chat";
+import { appendPromptQuote, restorePromptQuotes } from "../quotes/quote-state";
 import {
   deletePromptDraft,
   getPromptDraft,
@@ -85,8 +87,17 @@ export interface PromptInputPrefsValue {
 
 /** Draft + prefs state exposed by PromptInputProvider. */
 export interface PromptInputContextValue {
+  chatId: string;
   textInput: TextInputValue;
   attachments: AttachmentsValue;
+  quotes: {
+    items: PromptQuote[];
+    add: (quote: Omit<PromptQuote, "id">) => void;
+    remove: (id: string) => void;
+    clear: () => void;
+  };
+  focusInput: () => void;
+  __registerComposerFocus: (focus: (() => void) | null) => void;
   prefs: PromptInputPrefsValue;
   clearDraft: () => void;
   /** INTERNAL: PromptInput registers hidden file input ref */
@@ -140,6 +151,7 @@ function persistPromptDraft(
     mode: string;
     model: string;
     textInput: string;
+    quoteItems: PromptQuote[];
     useBuildMode: boolean;
     useExcalidraw: boolean;
     useWebSearch: boolean;
@@ -163,6 +175,7 @@ function persistPromptDraft(
   const isEmptyDraft =
     current.textInput.trim() === "" &&
     attachmentsToStore.length === 0 &&
+    current.quoteItems.length === 0 &&
     isDefaultSettings;
 
   if (isEmptyDraft) {
@@ -174,6 +187,7 @@ function persistPromptDraft(
       mode: current.mode,
       model: current.model,
       text: current.textInput,
+      quotes: current.quoteItems,
       updatedAt: Date.now(),
       useBuildMode: current.useBuildMode,
       useExcalidraw: current.useExcalidraw,
@@ -192,6 +206,7 @@ export const PromptInputProvider = ({
   chatId,
 }: PropsWithChildren<{ chatId: string }>) => {
   const [textInput, setTextInput] = useState("");
+  const [quoteItems, setQuoteItems] = useState<PromptQuote[]>([]);
   const [model, setModel] = useState(DEFAULT_PROMPT_PREFS.model);
   const [mode, setMode] = useState(DEFAULT_PROMPT_PREFS.mode);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(
@@ -211,10 +226,38 @@ export const PromptInputProvider = ({
 
   const registeredInputRef = useRef<RefObject<HTMLInputElement | null> | null>(null);
   const validatorRef = useRef<AttachmentAddValidator | null>(null);
+  const composerFocusRef = useRef<(() => void) | null>(null);
+
+  const __registerComposerFocus = useCallback((focus: (() => void) | null) => {
+    composerFocusRef.current = focus;
+  }, []);
+
+  const focusInput = useCallback(() => {
+    if (composerFocusRef.current) composerFocusRef.current();
+    else document.querySelector<HTMLTextAreaElement>('textarea[name="message"]')?.focus();
+  }, []);
+
+  const addQuote = useCallback((quote: Omit<PromptQuote, "id">) => {
+    const item = { ...quote, id: crypto.randomUUID() };
+    hasInteractedRef.current = true;
+    setQuoteItems((previous) => appendPromptQuote(previous, item));
+  }, []);
+
+  const removeQuote = useCallback((id: string) => {
+    hasInteractedRef.current = true;
+    setQuoteItems((previous) => previous.filter((quote) => quote.id !== id));
+  }, []);
+
+  const clearQuotes = useCallback(() => setQuoteItems([]), []);
+
+  const quotes = useMemo(() => ({
+    items: quoteItems, add: addQuote, remove: removeQuote, clear: clearQuotes,
+  }), [quoteItems, addQuote, removeQuote, clearQuotes]);
 
   // Snapshot ref of current draft state to avoid stale closures in callbacks/timers/unload
   const draftRef = useRef({
     attachmentFiles,
+    quoteItems,
     mode,
     model,
     textInput,
@@ -226,6 +269,7 @@ export const PromptInputProvider = ({
   useEffect(() => {
     draftRef.current = {
       attachmentFiles,
+      quoteItems,
       mode,
       model,
       textInput,
@@ -235,6 +279,7 @@ export const PromptInputProvider = ({
     };
   }, [
     attachmentFiles,
+    quoteItems,
     mode,
     model,
     textInput,
@@ -255,6 +300,7 @@ export const PromptInputProvider = ({
   const applyComposerDraft = useCallback(
     (draft: PromptDraftRecord | null | undefined) => {
       setTextInput(draft?.text ?? "");
+      setQuoteItems(restorePromptQuotes(draft));
       setModel(draft?.model || DEFAULT_PROMPT_PREFS.model);
       setMode(draft?.mode || DEFAULT_PROMPT_PREFS.mode);
       setUseWebSearch(
@@ -275,6 +321,7 @@ export const PromptInputProvider = ({
   const handleClearDraft = useCallback(() => {
     hasInteractedRef.current = false;
     setTextInput("");
+    setQuoteItems([]);
     setAttachmentFiles((prev) => {
       revokeFileUrls(prev);
       return [];
@@ -338,6 +385,7 @@ export const PromptInputProvider = ({
         previousId,
         {
           attachmentFiles,
+          quoteItems,
           mode,
           model,
           textInput,
@@ -404,6 +452,7 @@ export const PromptInputProvider = ({
     useBuildMode,
     useExcalidraw,
     attachmentFiles,
+    quoteItems,
     flushSave,
   ]);
 
@@ -536,6 +585,10 @@ export const PromptInputProvider = ({
 
   const value = useMemo<PromptInputContextValue>(
     () => ({
+      chatId,
+      quotes,
+      focusInput,
+      __registerComposerFocus,
       __registerAttachmentValidator,
       __registerFileInput,
       attachments,
@@ -548,6 +601,10 @@ export const PromptInputProvider = ({
       },
     }),
     [
+      chatId,
+      quotes,
+      focusInput,
+      __registerComposerFocus,
       __registerAttachmentValidator,
       __registerFileInput,
       attachments,

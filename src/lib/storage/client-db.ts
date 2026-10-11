@@ -1,4 +1,5 @@
 import Dexie, { type Table } from "dexie";
+import type { PromptQuote } from "@/types/chat";
 
 export interface StoredDraftAttachment {
   id: string;
@@ -17,6 +18,7 @@ export interface PromptDraftRecord {
   /** Optional: drafts saved before build mode lack it. */
   useBuildMode?: boolean;
   attachments: StoredDraftAttachment[];
+  quotes?: PromptQuote[];
   updatedAt: number;
 }
 

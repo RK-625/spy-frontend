@@ -1,0 +1,21 @@
+import type { PromptQuote } from "@/types/chat";
+
+export function appendPromptQuote(quotes: PromptQuote[], quote: PromptQuote): PromptQuote[] {
+  return quotes.some((item) => item.sourceMessageId === quote.sourceMessageId && item.text === quote.text)
+    ? quotes
+    : [...quotes, quote];
+}
+
+export function restorePromptQuotes(draft: { quotes?: PromptQuote[] } | null | undefined): PromptQuote[] {
+  return draft?.quotes ?? [];
+}
+
+/** Quote snapshots travel as normal Markdown, including through transcript reloads. */
+export function formatQuotedMessage(text: string, quotes: readonly PromptQuote[] = []): string {
+  const blocks = quotes.map((quote) => {
+    const label = quote.sourceRole === "assistant" ? "Spy" : "You";
+    const lines = quote.text.replace(/\r\n?/g, "\n").split("\n");
+    return `> **${label}:**\n>\n${lines.map((line) => `> ${line}`).join("\n")}`;
+  });
+  return [...blocks, text.trim()].filter(Boolean).join("\n\n");
+}

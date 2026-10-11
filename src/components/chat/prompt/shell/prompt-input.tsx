@@ -48,6 +48,8 @@ import {
   ModelSelectorTrigger,
 } from "../footer/model-selector";
 import { PromptInputAttachments } from "../attachments/attachment-strip";
+import { PromptQuoteStrip } from "../quotes/quote-strip";
+import { formatQuotedMessage } from "../quotes/quote-state";
 import { Check, Globe, Hammer, Plus, Settings } from "lucide-react";
 import { Excalidraw } from "@/components/logos";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
@@ -151,6 +153,7 @@ export const PromptInput = ({
   const {
     attachments,
     textInput,
+    quotes,
     __registerFileInput,
     __registerAttachmentValidator,
   } = usePromptInputContext();
@@ -237,15 +240,16 @@ export const PromptInput = ({
 
         // Clear-on-accept: sync onSubmit only. Throw to refuse (keep draft);
         // return to accept (clear). Do not await stream work here.
-        onSubmit({ files: convertedFiles, text }, event);
+        onSubmit({ files: convertedFiles, text, quotes: quotes.items }, event);
         attachments.clear();
         textInput.clear();
+        quotes.clear();
       } catch (error) {
         // Keep the draft either way; only unexpected failures are logged.
         if (!(error instanceof SubmitRefusedError)) console.error(error);
       }
     },
-    [attachments, textInput, onSubmit]
+    [attachments, textInput, quotes, onSubmit]
   );
 
   // Strip motion-incompatible DOM drag/animation handlers from rest spread
@@ -328,6 +332,7 @@ function PromptInputWorkspaceContent() {
     attachments,
     textInput,
     clearDraft: clearPromptDraft,
+    quotes,
     prefs: {
       model,
       setModel,
@@ -361,7 +366,7 @@ function PromptInputWorkspaceContent() {
       clearPromptDraft();
       void sendMessage(
         {
-          text: message.text?.trim() || "",
+          text: formatQuotedMessage(message.text, message.quotes),
           files:
             message.files && message.files.length > 0
               ? message.files
@@ -493,6 +498,7 @@ function PromptInputWorkspaceContent() {
               answer: answer.length > 0 ? answer : "(attachment)",
             }),
             files: message.files,
+            quotes: message.quotes,
           },
           prefs,
         );
@@ -507,6 +513,7 @@ function PromptInputWorkspaceContent() {
         {
           text: answer,
           files: message.files,
+          quotes: message.quotes,
         },
         prefs,
       );
@@ -579,6 +586,7 @@ function PromptInputWorkspaceContent() {
           onError={handleAttachmentError}
         >
           <PromptInputHeader>
+            <PromptQuoteStrip />
             <PromptInputAttachments />
           </PromptInputHeader>
           <PromptInputBody
@@ -591,7 +599,7 @@ function PromptInputWorkspaceContent() {
             }}
             onOptionSelect={(option) => {
               try {
-                handleSubmit({ text: option.label, files: [] });
+                handleSubmit({ text: option.label, files: [], quotes: quotes.items });
                 textInput.clear();
               } catch {
                 // Not ready / refused — keep the current draft.
