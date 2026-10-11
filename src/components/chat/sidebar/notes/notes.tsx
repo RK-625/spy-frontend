@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -12,182 +13,109 @@ import { AnimatePresence, motion } from "motion/react";
 import { usePrefersReducedMotion } from "@/components/dotmatrix";
 import { Separator } from "@/components/ui";
 import { useGraphTopology } from "@/contexts/GraphTopologyContext";
-import { CHROME_FADE, MOTION } from "@/lib/motion";
-import { ChatSidebarNotesRow } from "./notes-row";
-import {
-  buildNotesForest,
-  rootExpandedNoteIds,
-  type NotesForestNode,
-} from "./notes-forest";
+import { FAMILY_SLIDE, MOTION } from "@/lib/motion";
+import { ChatSidebarNotesFamily } from "./notes-family";
+import { buildNotesForest, indexNotesFamilies } from "./notes-forest";
 
-const EXPANDED_NOTES_STORAGE_KEY = "spy-notes";
+const FAMILY_STORAGE_KEY = "spy-notes-family";
 
-function ChatSidebarNotesRule() {
-  return (
-    <Separator className="h-px w-auto flex-1 bg-[var(--accent-border)]" />
-  );
-}
+type FamilyNavigation = {
+  familyId: string | null;
+  direction: 1 | -1;
+  focusHeading: boolean;
+};
 
-function readStoredExpandedNoteIds(): string[] | null {
+function readStoredFamilyId(): string | null {
   try {
-    const raw = localStorage.getItem(EXPANDED_NOTES_STORAGE_KEY);
-    if (raw == null) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      !Array.isArray(parsed) ||
-      parsed.some((id) => typeof id !== "string")
-    ) {
-      return null;
-    }
-    return parsed;
+    const stored: unknown = JSON.parse(
+      localStorage.getItem(FAMILY_STORAGE_KEY) ?? "null",
+    );
+    return typeof stored === "string" ? stored : null;
   } catch {
     return null;
   }
-}
-
-function ChatSidebarNotesBranch({
-  node,
-  depth,
-  expandedNoteIds,
-  selectedNoteId,
-  onSelectNote,
-  onFolderExpandedChange,
-  chromeTransition,
-}: {
-  node: NotesForestNode;
-  depth: number;
-  expandedNoteIds: ReadonlySet<string>;
-  selectedNoteId: string | null;
-  onSelectNote: (noteId: string) => void;
-  onFolderExpandedChange: (noteId: string, expanded: boolean) => void;
-  chromeTransition: { duration: number; ease?: "easeOut" };
-}) {
-  const hasChildren = node.children.length > 0;
-  const folderExpanded = expandedNoteIds.has(node.note.id);
-
-  return (
-    <div>
-      <ChatSidebarNotesRow
-        title={node.note.name?.trim() || node.note.id}
-        depth={depth}
-        hasChildren={hasChildren}
-        folderExpanded={folderExpanded}
-        noteSelected={node.note.id === selectedNoteId}
-        onOpenNote={() => onSelectNote(node.note.id)}
-        onFolderExpandedChange={(expanded) =>
-          onFolderExpandedChange(node.note.id, expanded)
-        }
-        chromeTransition={chromeTransition}
-      />
-      <AnimatePresence initial={false}>
-        {hasChildren && folderExpanded ? (
-          <motion.div
-            key={`${node.note.id}-children`}
-            className="overflow-hidden"
-            initial={{ ...CHROME_FADE.initial, height: 0 }}
-            animate={{ ...CHROME_FADE.animate, height: "auto" }}
-            exit={{ ...CHROME_FADE.exit, height: 0 }}
-            transition={chromeTransition}
-          >
-            {node.children.map((child) => (
-              <ChatSidebarNotesBranch
-                key={child.note.id}
-                node={child}
-                depth={depth + 1}
-                expandedNoteIds={expandedNoteIds}
-                selectedNoteId={selectedNoteId}
-                onSelectNote={onSelectNote}
-                onFolderExpandedChange={onFolderExpandedChange}
-                chromeTransition={chromeTransition}
-              />
-            ))}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function noteIdFromParams(id: string | string[] | undefined): string | null {
-  if (typeof id !== "string" || id.length === 0) return null;
-  return id;
 }
 
 export function ChatSidebarNotes() {
   const { topology, error } = useGraphTopology();
   const router = useRouter();
   const params = useParams<{ id?: string | string[] }>();
-  const selectedNoteId = noteIdFromParams(params.id);
+  const selectedNoteId = typeof params.id === "string" ? params.id : null;
   const forest = useMemo(
     () => topology ? buildNotesForest(topology.memories, topology.links) : [],
     [topology],
   );
-  const notesLoadState = topology ? "ready" : error ? "error" : "loading";
-  const [expandedNoteIds, setExpandedNoteIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [expansionHydrated, setExpansionHydrated] = useState(false);
+  const families = useMemo(() => indexNotesFamilies(forest), [forest]);
+  const [navigation, setNavigation] = useState<FamilyNavigation>({
+    familyId: null,
+    direction: 1,
+    focusHeading: false,
+  });
+  const [familyHydrated, setFamilyHydrated] = useState(false);
+  const scrollPositions = useRef(new Map<string | null, number>());
   const reducedMotion = usePrefersReducedMotion();
-  const chromeTransition = reducedMotion ? { duration: 0 } : MOTION.chrome;
+  const family = navigation.familyId
+    ? families.get(navigation.familyId) ?? null
+    : null;
+  const currentFamilyId = family?.node.note.id ?? null;
+  const parent = family?.parentId ? families.get(family.parentId) : null;
+  const parentTitle =
+    parent?.node.note.name?.trim() || parent?.node.note.id || "All topics";
 
   useEffect(() => {
-    if (topology === null || expansionHydrated) return;
     let cancelled = false;
-    // Restore external browser storage after commit, before enabling writes.
     queueMicrotask(() => {
       if (cancelled) return;
-      const stored = readStoredExpandedNoteIds();
-      setExpandedNoteIds(new Set(stored ?? rootExpandedNoteIds(forest)));
-      setExpansionHydrated(true);
+      setNavigation({
+        familyId: readStoredFamilyId(),
+        direction: 1,
+        focusHeading: false,
+      });
+      setFamilyHydrated(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [topology, forest, expansionHydrated]);
+  }, []);
+
+  // Refreshed topology rebuilds the forest. A removed family returns to the roots.
+  if (topology && familyHydrated && navigation.familyId !== null && !family) {
+    setNavigation({ familyId: null, direction: -1, focusHeading: false });
+  }
 
   useEffect(() => {
-    if (notesLoadState !== "ready" || !expansionHydrated) return;
+    if (!topology || !familyHydrated) return;
     try {
-      localStorage.setItem(
-        EXPANDED_NOTES_STORAGE_KEY,
-        JSON.stringify([...expandedNoteIds]),
-      );
+      localStorage.setItem(FAMILY_STORAGE_KEY, JSON.stringify(currentFamilyId));
     } catch {
-      // localStorage unavailable
+      // Browser storage can be unavailable; navigation still works for this session.
     }
-  }, [expandedNoteIds, notesLoadState, expansionHydrated]);
+  }, [currentFamilyId, familyHydrated, topology]);
 
-  const handleFolderExpandedChange = useCallback(
-    (noteId: string, expanded: boolean) => {
-      setExpandedNoteIds((prev) => {
-        const next = new Set(prev);
-        if (expanded) next.add(noteId);
-        else next.delete(noteId);
-        return next;
-      });
-    },
-    [],
-  );
-
-  const handleSelectNote = useCallback(
+  const handleOpenNote = useCallback(
     (noteId: string) => {
       router.push(`/notes/${encodeURIComponent(noteId)}`);
     },
     [router],
   );
 
+  const handleBrowseFamily = useCallback(
+    (familyId: string | null, direction: 1 | -1) => {
+      if (familyId === currentFamilyId) return;
+      if (direction === 1 && (!familyId || !families.get(familyId)?.node.children.length)) {
+        return;
+      }
+      setNavigation({ familyId, direction, focusHeading: true });
+    },
+    [currentFamilyId, families],
+  );
+
   let body: ReactNode;
-  if (notesLoadState === "loading") {
-    body = (
-      <div className="flex flex-1 items-center justify-center px-3">
-        <span className="text-sm text-text-secondary">Loading notes…</span>
-      </div>
-    );
-  } else if (notesLoadState === "error") {
+  if (!topology || !familyHydrated) {
     body = (
       <div className="flex flex-1 items-center justify-center px-3">
         <span className="text-sm text-text-secondary">
-          Couldn&apos;t load notes
+          {error ? "Couldn't load notes" : "Loading notes…"}
         </span>
       </div>
     );
@@ -201,24 +129,31 @@ export function ChatSidebarNotes() {
     );
   } else {
     body = (
-      <div
-        role="tree"
-        aria-label="Notes"
-        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-2"
-      >
-        {forest.map((node) => (
-          <ChatSidebarNotesBranch
-            key={node.note.id}
-            node={node}
-            depth={0}
-            expandedNoteIds={expandedNoteIds}
-            selectedNoteId={selectedNoteId}
-            onSelectNote={handleSelectNote}
-            onFolderExpandedChange={handleFolderExpandedChange}
-            chromeTransition={chromeTransition}
-          />
-        ))}
-      </div>
+      <nav aria-label="Note families" className="relative min-h-0 flex-1 overflow-hidden">
+        <AnimatePresence initial={false} custom={navigation.direction}>
+          <motion.div
+            key={currentFamilyId ?? "all-topics"}
+            custom={navigation.direction}
+            variants={FAMILY_SLIDE}
+            initial={reducedMotion ? false : "initial"}
+            animate="animate"
+            exit={reducedMotion ? { opacity: 0 } : "exit"}
+            transition={reducedMotion ? { duration: 0 } : MOTION.familySlide}
+            className="absolute inset-0 min-h-0"
+          >
+            <ChatSidebarNotesFamily
+              family={family}
+              parentTitle={parentTitle}
+              nodes={family?.node.children ?? forest}
+              selectedNoteId={selectedNoteId}
+              scrollPositions={scrollPositions}
+              focusHeading={navigation.focusHeading}
+              onOpenNote={handleOpenNote}
+              onBrowseFamily={handleBrowseFamily}
+            />
+          </motion.div>
+        </AnimatePresence>
+      </nav>
     );
   }
 
@@ -228,7 +163,7 @@ export function ChatSidebarNotes() {
         <span className="font-[family-name:var(--font-terminal)] text-[0.8125rem] font-medium uppercase tracking-[0.2em] text-text-secondary">
           Notes
         </span>
-        <ChatSidebarNotesRule />
+        <Separator className="h-px w-auto flex-1 bg-[var(--accent-border)]" />
       </div>
       {body}
     </div>

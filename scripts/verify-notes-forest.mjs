@@ -20,7 +20,7 @@ function assert(cond, msg) {
   }
 }
 
-const { buildNotesForest, rootExpandedNoteIds } = await import(
+const { buildNotesForest, indexNotesFamilies } = await import(
   pathToFileURL(
     path.join(root, "src/components/chat/sidebar/notes/notes-forest.ts"),
   ).href
@@ -92,10 +92,23 @@ assert(
   "cycle does not recurse forever; A is root, B is child",
 );
 
-assert(
-  rootExpandedNoteIds(forest).join(",") === "ideas",
-  "default expanded = root folders only",
-);
+const families = indexNotesFamilies(forest);
+assert(families.size === notes.length, "every note is indexed as a family");
+assert(families.get("ideas").parentId === null, "root family backs to All topics");
+assert(families.get("telepathy").parentId === "ideas", "child family backs to its parent");
+assert(families.get("meta").node.children.length === 0, "leaf family has no children to browse");
+const nested = buildNotesForest(notes, [...links,
+  {source: "evergreen", target: "meta", type: "PARENT_OF"},
+]);
+const nestedFamilies = indexNotesFamilies(nested);
+assert(nestedFamilies.get("meta").parentId === "evergreen", "deep family has its immediate parent");
+assert(nestedFamilies.get("evergreen").parentId === "ideas", "deep family can return through each ancestor");
+const refreshedFamilies = indexNotesFamilies(buildNotesForest(
+  notes.filter((note) => note.id !== "evergreen"), links,
+));
+assert(!refreshedFamilies.has("evergreen"), "refresh removes deleted families");
+assert(refreshedFamilies.get("ideas").node.children.length === 1, "refresh rebuilds remaining children");
+assert(indexNotesFamilies(cycleForest).size === 2, "family index retains cycle-safe forest behavior");
 
 if (failed) {
   console.error("\nverify-notes-forest: FAILED");

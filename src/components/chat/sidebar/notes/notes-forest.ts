@@ -90,11 +90,23 @@ export function buildNotesForest(
   return forest;
 }
 
-/** Root folders (nodes with children) — default expanded set. */
-export function rootExpandedNoteIds(
+/** One family per note; parent pointers come from the rendered forest. */
+export type NotesFamily = {
+  node: NotesForestNode;
+  parentId: string | null;
+};
+
+export function indexNotesFamilies(
   forest: readonly NotesForestNode[],
-): string[] {
-  return forest
-    .filter((node) => node.children.length > 0)
-    .map((node) => node.note.id);
+): Map<string, NotesFamily> {
+  const families = new Map<string, NotesFamily>();
+  const pending: NotesFamily[] = forest.map((node) => ({ node, parentId: null }));
+  while (pending.length > 0) {
+    const family = pending.pop()!;
+    families.set(family.node.note.id, family);
+    for (const child of family.node.children) {
+      pending.push({ node: child, parentId: family.node.note.id });
+    }
+  }
+  return families;
 }
