@@ -13,7 +13,7 @@ export type ConversationProps = ComponentProps<typeof StickToBottom>;
 
 export const Conversation = ({ className, ...props }: ConversationProps) => (
   <StickToBottom
-    className={cn("relative flex-1 overflow-y-hidden", className)}
+    className={cn("relative min-h-0 flex-1 overflow-y-hidden", className)}
     initial="smooth"
     resize="smooth"
     role="log"
@@ -55,7 +55,7 @@ export const ConversationScrollButton = ({
           animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
           exit={{ opacity: 0, y: 8, scale: 0.95, x: "-50%" }}
           transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
-          className="absolute bottom-32 left-[50%] z-30"
+          className="absolute bottom-4 left-[50%] z-30"
         >
           <Button
             className={cn(

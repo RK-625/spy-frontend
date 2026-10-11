@@ -166,10 +166,10 @@ const ChatWorkspace = () => {
   return (
     <div className="relative flex size-full flex-col overflow-hidden">
       <GraphPane />
-      <Conversation className="chat-fade-bottom" aria-live="polite">
+      <Conversation aria-live="polite">
         <ConversationContent
           aria-label="Conversation messages"
-          className="pb-40"
+          className="pb-16"
         >
           {error && (
             <div className="mb-4 flex items-center gap-3 rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
@@ -406,8 +406,9 @@ const ChatWorkspace = () => {
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
-        <div className="pointer-events-auto mx-auto w-full max-w-4xl">
+      {/* Keep the composer in flow so pending questions reserve their full height. */}
+      <div className="relative z-20 shrink-0">
+        <div className="mx-auto w-full max-w-4xl">
           <PromptInputWorkspace />
         </div>
       </div>

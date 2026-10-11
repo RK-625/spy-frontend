@@ -653,28 +653,6 @@ function PromptInputWorkspaceContent() {
                 <Globe size={ICON_GLYPH.inline} strokeWidth={1.5} />
               </PromptInputButton>
               <PromptInputButton
-                onClick={toggleExcalidraw}
-                size="icon-sm"
-                variant={useExcalidraw ? "default" : "ghost"}
-                aria-label={
-                  useExcalidraw ? "Disable Excalidraw" : "Enable Excalidraw"
-                }
-                tooltip={{
-                  content: useExcalidraw
-                    ? "Disable Excalidraw"
-                    : "Enable Excalidraw",
-                  side: "top",
-                }}
-                className={cn(
-                  "transition-colors",
-                  useExcalidraw
-                    ? "bg-primary text-accent-ink hover:bg-primary-hover"
-                    : "text-text-primary hover:bg-[var(--surface-hover)]",
-                )}
-              >
-                <Excalidraw className="size-4 shrink-0" />
-              </PromptInputButton>
-              <PromptInputButton
                 onClick={toggleBuildMode}
                 size="icon-sm"
                 variant={useBuildMode ? "default" : "ghost"}
@@ -695,6 +673,28 @@ function PromptInputWorkspaceContent() {
                 )}
               >
                 <Hammer size={ICON_GLYPH.inline} strokeWidth={1.5} />
+              </PromptInputButton>
+              <PromptInputButton
+                onClick={toggleExcalidraw}
+                size="icon-sm"
+                variant={useExcalidraw ? "default" : "ghost"}
+                aria-label={
+                  useExcalidraw ? "Disable Excalidraw" : "Enable Excalidraw"
+                }
+                tooltip={{
+                  content: useExcalidraw
+                    ? "Disable Excalidraw"
+                    : "Enable Excalidraw",
+                  side: "top",
+                }}
+                className={cn(
+                  "transition-colors",
+                  useExcalidraw
+                    ? "bg-primary text-accent-ink hover:bg-primary-hover"
+                    : "text-text-primary hover:bg-[var(--surface-hover)]",
+                )}
+              >
+                <Excalidraw className="size-4 shrink-0" />
               </PromptInputButton>
               <ModelSelector
                 onOpenChange={setModelSelectorOpen}
