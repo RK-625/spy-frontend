@@ -87,26 +87,25 @@ function pushLinkChanges(
   });
 }
 
-function resultOutputName(output: ToolResultOutput): string | undefined {
-  if (output.type !== "json") return undefined;
+function resultOutputName(output: ToolResultOutput | undefined): string | undefined {
+  if (output?.type !== "json") return undefined;
   const value = output.value;
   if (!isRecord(value)) return undefined;
   const name = value.name;
   return typeof name === "string" && name.length > 0 ? name : undefined;
 }
 
-function collectResultNames(messages: ModelMessage[]): Map<string, string> {
-  const names = new Map<string, string>();
+function collectResultOutputs(messages: ModelMessage[]): Map<string, ToolResultOutput> {
+  const outputs = new Map<string, ToolResultOutput>();
   for (const message of messages) {
     const content = message.content;
     if (!Array.isArray(content)) continue;
     for (const part of content) {
       if (!isToolResultPart(part)) continue;
-      const name = resultOutputName(part.output);
-      if (name !== undefined) names.set(part.toolCallId, name);
+      outputs.set(part.toolCallId, part.output);
     }
   }
-  return names;
+  return outputs;
 }
 
 function pushToolCallChanges(
@@ -115,7 +114,7 @@ function pushToolCallChanges(
   toolCallId: string,
   input: unknown,
   failed: boolean,
-  resultName: string | undefined,
+  resultOutput: ToolResultOutput | undefined,
   origin: GraphMessageSource | null,
 ): void {
   switch (toolName) {
@@ -135,7 +134,8 @@ function pushToolCallChanges(
         return;
       }
       const inputName = name && name.length > 0 ? name : undefined;
-      const resolved = inputName ?? (failed ? undefined : resultName);
+      const resolved =
+        inputName ?? (failed ? undefined : resultOutputName(resultOutput));
       changes.push({
         key: toolCallId,
         kind: "updated",
@@ -172,14 +172,23 @@ function pushToolCallChanges(
     case "getMemories": {
       const parsed = getMemoriesInputSchema.safeParse(input);
       if (!parsed.success) return;
-      const hops = parsed.data.hops ?? 0;
-      const hopsLabel = hops > 0 ? ` (${hops} hop${hops === 1 ? "" : "s"})` : "";
-      changes.push({
-        key: toolCallId,
-        kind: "read",
-        label: `Read ${shortId(parsed.data.id)}${hopsLabel}`,
-        failed,
-        origin,
+      const outputValue =
+        resultOutput?.type === "json" ? resultOutput.value : undefined;
+      const results =
+        isRecord(outputValue) && Array.isArray(outputValue.results)
+          ? outputValue.results
+          : [];
+      parsed.data.memories.forEach(({ id, hops = 0 }, index) => {
+        const result: unknown = results[index];
+        const lookupFailed = failed || (isRecord(result) && result.ok === false);
+        const hopsLabel = hops > 0 ? ` (${hops} hop${hops === 1 ? "" : "s"})` : "";
+        changes.push({
+          key: `${toolCallId}-read-${index}`,
+          kind: "read",
+          label: `${lookupFailed ? "Failed to read" : "Read"} ${shortId(id)}${hopsLabel}`,
+          failed: lookupFailed,
+          origin,
+        });
       });
       return;
     }
@@ -231,7 +240,7 @@ function messageSource(message: ModelMessage): GraphMessageSource | null {
  */
 export function parseGraphChanges(messages: ModelMessage[]): GraphChange[] {
   const failedCallIds = collectFailedCallIds(messages);
-  const resultNames = collectResultNames(messages);
+  const resultOutputs = collectResultOutputs(messages);
   const changes: GraphChange[] = [];
   for (const message of messages) {
     const content = message.content;
@@ -246,7 +255,7 @@ export function parseGraphChanges(messages: ModelMessage[]): GraphChange[] {
         part.toolCallId,
         part.input,
         failedCallIds.has(part.toolCallId),
-        resultNames.get(part.toolCallId),
+        resultOutputs.get(part.toolCallId),
         source,
       );
     }

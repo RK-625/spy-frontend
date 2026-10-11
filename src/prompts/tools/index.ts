@@ -25,6 +25,7 @@ export {
   GET_MEMORIES_CHAT_BULLET,
   GET_MEMORIES_GRAPH_BULLET,
   getMemoriesToolDescription,
+  getMemoriesMemoriesFieldDescription,
   getMemoriesIdFieldDescription,
   getMemoriesHopsFieldDescription,
   getMemoriesLinkTypesFieldDescription,

@@ -683,8 +683,8 @@ function PromptInputWorkspaceContent() {
                 }
                 tooltip={{
                   content: useBuildMode
-                    ? "Disable build mode"
-                    : "Enable build mode",
+                    ? "Disable build mode · return to discussing your memories"
+                    : "Enable build mode · create, update, and link memories",
                   side: "top",
                 }}
                 className={cn(

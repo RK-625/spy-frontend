@@ -17,6 +17,8 @@ import { MEMORY_SEARCH_TOP_K } from "@/lib/graph/policy";
 import { publishTopologyUpdate } from "@/lib/graph/topology-events";
 import { readSavedKeyOrNull } from "@/lib/providers/keys/resolve-key";
 import type {
+  GetMemoryResult,
+  GetMemoriesResult,
   Links,
   ManageLinksBatchResult,
   ManageLinksResult,
@@ -409,22 +411,30 @@ export function createToolSet() {
     },
   });
 
-  const getMemories: Tool = tool({
+  const getMemories = tool({
     description: getMemoriesToolDescription,
     inputSchema: getMemoriesInputSchema,
-    execute: async ({ id, hops, linkTypes }) => {
-      try {
-        const cone = await falkorGetMemoryCone(id, hops ?? 0, linkTypes);
-        if (cone == null) {
-          return { error: "Memory not found" };
-        }
-        return cone;
-      } catch (error) {
-        console.error("getMemories tool error:", error);
-        const message =
-          error instanceof Error ? error.message : "Failed to get memories.";
-        return { error: message };
-      }
+    execute: async ({ memories }): Promise<GetMemoriesResult> => {
+      const results = await Promise.all(
+        memories.map(async ({ id, hops, linkTypes }): Promise<GetMemoryResult> => {
+          try {
+            const cone = await falkorGetMemoryCone(id, hops ?? 0, linkTypes);
+            if (cone == null) {
+              return { id, ok: false, error: "Memory not found" };
+            }
+            return { id, ok: true, ...cone };
+          } catch (error: unknown) {
+            console.error(`getMemories lookup failed for ${id}:`, error);
+            return {
+              id,
+              ok: false,
+              error:
+                error instanceof Error ? error.message : "Failed to get memory.",
+            };
+          }
+        }),
+      );
+      return { results };
     },
   });
 

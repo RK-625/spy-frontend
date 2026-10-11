@@ -77,6 +77,13 @@ export type MemoryCone = {
   relatesTo: Links[];
 };
 
+/** Independent lookup outcome; batch results preserve request order. */
+export type GetMemoryResult =
+  | ({ id: string; ok: true } & MemoryCone)
+  | { id: string; ok: false; error: string };
+
+export type GetMemoriesResult = { results: GetMemoryResult[] };
+
 export const Concept = z.object({
   id: z.string().describe("A unique identifier to the node"),
   name: z.string().describe("The main title of the node"),
