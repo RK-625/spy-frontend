@@ -11,7 +11,7 @@ export function PromptQuoteStrip() {
   const { quotes } = usePromptInputContext();
   const reducedMotion = usePrefersReducedMotion();
   return (
-    <div role="group" aria-label="Quoted excerpts" className="flex min-w-0 flex-wrap gap-2 empty:hidden">
+    <div role="group" aria-label="Quoted excerpts" className="flex min-w-0 flex-wrap gap-2 px-prompt-body-x pt-prompt-body-y empty:hidden">
       <AnimatePresence initial={false}>
         {quotes.items.map((quote) => {
           const source = quote.sourceRole === "assistant" ? "Spy" : "You";

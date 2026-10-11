@@ -95,8 +95,8 @@ export const PromptInputBody = ({
             ))}
           </div>
         ) : null}
-        {/* Textarea last when shown; omitted for forced-choice pending asks. */}
-        {showTextarea ? children : null}
+        {/* Keep the editor mounted while a forced choice temporarily hides it. */}
+        <div hidden={!showTextarea}>{children}</div>
       </div>
     </div>
   );

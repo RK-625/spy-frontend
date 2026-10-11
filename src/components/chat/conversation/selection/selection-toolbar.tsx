@@ -108,8 +108,8 @@ export function MessageSelectionToolbar({ chatId, onAddQuote }: {
               }}
             >
               <Button size="sm" variant="ghost" type="button" onClick={() => {
-                onAddQuote(selection);
                 window.getSelection()?.removeAllRanges();
+                onAddQuote(selection);
                 dismiss();
               }}>
                 <MessageSquarePlus data-icon="inline-start" />Add to chat

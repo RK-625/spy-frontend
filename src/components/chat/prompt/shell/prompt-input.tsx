@@ -29,7 +29,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePromptInputContext } from "./context";
 import { PromptInputHeader } from "../header/header";
 import { PromptInputBody } from "../body/body";
-import { PromptInputTextarea } from "../body/textarea";
+import { PromptEditor } from "../editor/prompt-editor";
 import { PromptInputFooter } from "../footer/footer";
 import { PromptInputTools } from "../footer/tools";
 import { PromptInputButton } from "../footer/button";
@@ -606,7 +606,7 @@ function PromptInputWorkspaceContent() {
               }
             }}
           >
-            <PromptInputTextarea />
+            <PromptEditor />
           </PromptInputBody>
           <PromptInputFooter>
             <PromptInputTools>

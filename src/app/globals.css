@@ -970,3 +970,77 @@
   color: #C8ACFB !important;
   background-color: transparent !important;
 }
+
+/* Composer Markdown uses the same typography, surfaces and spacing as notes. */
+.prompt-markdown-editor .milkdown {
+  min-width: 0;
+}
+
+.prompt-markdown-editor .ProseMirror {
+  position: relative;
+  min-height: var(--prompt-textarea-min-h);
+  max-height: calc(var(--spacing) * 48);
+  overflow: auto;
+  outline: none;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  caret-color: var(--color-highlight);
+}
+
+.prompt-markdown-editor .ProseMirror > :first-child { margin-top: 0; }
+.prompt-markdown-editor .ProseMirror > :last-child { margin-bottom: 0; }
+.prompt-markdown-editor p { margin: 0.35em 0; }
+.prompt-markdown-editor strong { font-weight: 600; }
+.prompt-markdown-editor em { font-style: italic; }
+.prompt-markdown-editor :is(del, s) { text-decoration: line-through; }
+.prompt-markdown-editor :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--color-highlight);
+  font-weight: 600;
+  margin: 0.6em 0 0.3em;
+}
+.prompt-markdown-editor a {
+  color: var(--color-highlight);
+  text-decoration: underline;
+}
+.prompt-markdown-editor :is(ul, ol) { padding-left: 1.3rem; margin: 0.4em 0; }
+.prompt-markdown-editor ul { list-style: disc; }
+.prompt-markdown-editor ol { list-style: decimal; }
+.prompt-markdown-editor li::marker { color: var(--list-marker); }
+.prompt-markdown-editor blockquote {
+  border-left: 2px solid var(--border-subtle);
+  padding-left: 1em;
+  color: var(--color-text-secondary);
+}
+.prompt-markdown-editor code {
+  font-family: var(--font-code);
+  background: var(--code-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 0.1em 0.35em;
+}
+.prompt-markdown-editor pre {
+  overflow-x: auto;
+  white-space: pre;
+  background: var(--code-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 0.65rem 0.75rem;
+  margin: 0.5em 0;
+}
+.prompt-markdown-editor pre code { background: transparent; border: none; padding: 0; }
+.prompt-markdown-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+}
+.prompt-markdown-editor :is(th, td) { border: 1px solid var(--border-subtle); padding: 0.35em 0.5em; }
+.prompt-markdown-editor th { color: var(--color-highlight); font-weight: 600; }
+.prompt-markdown-editor .ProseMirror:has(> p:only-child > br:only-child)::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  pointer-events: none;
+  color: var(--color-text-secondary);
+}
