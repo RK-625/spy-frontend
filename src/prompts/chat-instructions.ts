@@ -2,7 +2,7 @@
  * Chat-agent instructions.
  * - buildChatInstructions: tutor/guide surface. Retrieval only; no graph writes.
  * - buildBuildModeInstructions: build mode. Graph writes on explicit user request
- *   (create, patch, and link Memories), with the graph maintenance rules.
+ *   (create, patch, delete, and link Memories), with the graph maintenance rules.
  * Do not invent long tool narratives here — import from tools/* modules.
  */
 
@@ -10,6 +10,7 @@ import { GRAPH_MAINTENANCE } from "./graph-maintenance";
 import { GRAPH_ONTOLOGY } from "./graph-ontology";
 import {
   ASK_USER_QUESTION_AGENT_BULLET,
+  DELETE_MEMORIES_AGENT_BULLET,
   GET_MEMORIES_CHAT_BULLET,
   GET_MEMORIES_GRAPH_BULLET,
   MANAGE_LINKS_AGENT_BULLET,
@@ -52,13 +53,15 @@ const BUILD_BEHAVIOR =
   `## Behavior
   Search before creating, patch existing Memories by id rather than duplicating them and confirm what was stored or changed.
   Use askUserQuestion tool when user intent is ambiguous instead of guessing.
-  After writing, reply with a short summary of what was created, patched, or linked.`;
+  Delete only Memories the user explicitly asks to remove; resolve unclear targets before deleting.
+  After writing, reply with a short summary of what was created, patched, deleted, or linked.`;
 
 
 const BUILD_TOOLSET = `## These are the tools you can use to build the user's notes, retrieve existing ones, ask the user questions when needed, and interact with the web:
 - **searchMemories**: ${SEARCH_MEMORIES_GRAPH_BULLET}
 - **getMemories**: ${GET_MEMORIES_GRAPH_BULLET}
 - **upsertMemory**: ${UPSERT_MEMORY_AGENT_BULLET}
+- **deleteMemories**: ${DELETE_MEMORIES_AGENT_BULLET}
 - **manageLinks**: ${MANAGE_LINKS_AGENT_BULLET}
 - **askUserQuestion**: ${ASK_USER_QUESTION_AGENT_BULLET}
 - **webSearch**: ${WEB_SEARCH_AGENT_BULLET}

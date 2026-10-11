@@ -84,6 +84,11 @@ export type GetMemoryResult =
 
 export type GetMemoriesResult = { results: GetMemoryResult[] };
 
+/** Batch deletion is one graph write; absent ids are successful no-ops. */
+export type DeleteMemoriesResult =
+  | { deleted: Pick<Memory, "id" | "name">[]; missingIds: string[] }
+  | { error: string };
+
 export const Concept = z.object({
   id: z.string().describe("A unique identifier to the node"),
   name: z.string().describe("The main title of the node"),

@@ -4,7 +4,8 @@ import type { ModelMessage, ToolCallPart, ToolResultPart } from "ai";
 import type { GraphMessageSource } from "@/types/chat";
 
 type ToolResultOutput = ToolResultPart["output"];
-import { Link2, Pencil, Plus, Search, Unlink } from "lucide-react";
+import { Link2, Pencil, Plus, Search, Trash2, Unlink } from "lucide-react";
+import { deleteMemoriesInputSchema } from "@/ai/schemas/delete-schema";
 import { getMemoriesInputSchema } from "@/ai/schemas/get-schema";
 import { manageLinksInputSchema } from "@/ai/schemas/link-schema";
 import { searchMemoriesInputSchema } from "@/ai/schemas/search-schema";
@@ -13,10 +14,11 @@ import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { cn } from "@/lib/utils";
 import type { Links } from "@/types/graph-schema";
 
-export type GraphChangeKind = "created" | "updated" | "linked" | "unlinked" | "read";
+export type GraphChangeKind = "created" | "updated" | "deleted" | "linked" | "unlinked" | "read";
 
 const GRAPH_FEED_TOOLS = [
   "upsertMemory",
+  "deleteMemories",
   "manageLinks",
   "searchMemories",
   "getMemories",
@@ -148,6 +150,41 @@ function pushToolCallChanges(
       });
       return;
     }
+    case "deleteMemories": {
+      const parsed = deleteMemoriesInputSchema.safeParse(input);
+      if (!parsed.success) return;
+      const outputValue =
+        resultOutput?.type === "json" ? resultOutput.value : undefined;
+      const missingIds = new Set(
+        isRecord(outputValue) && Array.isArray(outputValue.missingIds)
+          ? outputValue.missingIds.filter((id): id is string => typeof id === "string")
+          : [],
+      );
+      const deletedIds = new Set(
+        isRecord(outputValue) && Array.isArray(outputValue.deleted)
+          ? outputValue.deleted.flatMap((memory: unknown) =>
+              isRecord(memory) && typeof memory.id === "string" ? [memory.id] : [],
+            )
+          : [],
+      );
+      [...new Set(parsed.data.ids)].forEach((id, index) => {
+        const verb = failed
+          ? "Failed to delete"
+          : missingIds.has(id)
+            ? "Already absent:"
+            : deletedIds.has(id)
+              ? "Deleted"
+              : "Deletion requested for";
+        changes.push({
+          key: `${toolCallId}-deleted-${index}`,
+          kind: "deleted",
+          label: `${verb} memory ${shortId(id)}`,
+          failed,
+          origin,
+        });
+      });
+      return;
+    }
     case "manageLinks": {
       const parsed = manageLinksInputSchema.safeParse(input);
       if (!parsed.success) return;
@@ -272,6 +309,7 @@ function originPrefix(origin: GraphMessageSource | null): string | null {
 const CHANGE_ICON = {
   created: Plus,
   updated: Pencil,
+  deleted: Trash2,
   linked: Link2,
   unlinked: Unlink,
   read: Search,

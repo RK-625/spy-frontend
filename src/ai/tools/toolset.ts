@@ -2,6 +2,7 @@ import { tool, Tool } from "ai";
 import { nanoid } from "nanoid";
 import Exa from "exa-js";
 import { askUserQuestionInputSchema } from "../schemas/ask-schema";
+import { deleteMemoriesInputSchema } from "../schemas/delete-schema";
 import { upsertMemoryInputSchema } from "../schemas/upsert-schema";
 import { manageLinksInputSchema } from "../schemas/link-schema";
 import { searchMemoriesInputSchema } from "../schemas/search-schema";
@@ -17,6 +18,7 @@ import { MEMORY_SEARCH_TOP_K } from "@/lib/graph/policy";
 import { publishTopologyUpdate } from "@/lib/graph/topology-events";
 import { readSavedKeyOrNull } from "@/lib/providers/keys/resolve-key";
 import type {
+  DeleteMemoriesResult,
   GetMemoryResult,
   GetMemoriesResult,
   Links,
@@ -26,6 +28,7 @@ import type {
 } from "@/types/graph-schema";
 import {
   askUserQuestionToolDescription,
+  deleteMemoriesToolDescription,
   manageLinksToolDescription,
   getMemoriesToolDescription,
   searchMemoriesToolDescription,
@@ -270,6 +273,52 @@ export function createToolSet() {
     },
   });
 
+  const deleteMemories = tool({
+    description: deleteMemoriesToolDescription,
+    inputSchema: deleteMemoriesInputSchema,
+    execute: async ({ ids }): Promise<DeleteMemoriesResult> => {
+      const uniqueIds = [...new Set(ids)];
+      try {
+        const graph = await getDb();
+        // Delete probes first, then each distinct Memory. DETACH removes every
+        // incident relationship without deleting neighboring Memory nodes.
+        const result = await graph.query<{
+          id: string;
+          name: string;
+        }>(
+          `
+          MATCH (m:Memory)
+          WHERE m.id IN $ids
+          OPTIONAL MATCH (m)<-[:FOR_MEMORY]-(q:MemoryQuestion)
+          WITH m, m.id AS id, m.name AS name, q
+          DETACH DELETE q
+          WITH DISTINCT m, id, name
+          DETACH DELETE m
+          RETURN id, name
+          `,
+          { params: { ids: uniqueIds } },
+        );
+        const deletedById = new Map(
+          (result.data ?? []).map((memory) => [memory.id, memory]),
+        );
+        const deleted = uniqueIds.flatMap((id) => {
+          const memory = deletedById.get(id);
+          return memory ? [memory] : [];
+        });
+        if (deleted.length > 0) publishTopologyUpdate();
+        return {
+          deleted,
+          missingIds: uniqueIds.filter((id) => !deletedById.has(id)),
+        };
+      } catch (error: unknown) {
+        console.error("deleteMemories tool error:", error);
+        const message =
+          error instanceof Error ? error.message : "Failed to delete memories.";
+        return { error: `deleteMemories failed; graph unchanged. ${message}` };
+      }
+    },
+  });
+
   const manageLinks: Tool = tool({
     description: manageLinksToolDescription,
     inputSchema: manageLinksInputSchema,
@@ -442,6 +491,7 @@ export function createToolSet() {
     webSearch,
     askUserQuestion,
     upsertMemory,
+    deleteMemories,
     manageLinks,
     searchMemories,
     getMemories,

@@ -6,6 +6,7 @@
 import { GRAPH_MAINTENANCE } from "./graph-maintenance";
 import { GRAPH_ONTOLOGY } from "./graph-ontology";
 import {
+  DELETE_MEMORIES_AGENT_BULLET,
   GET_MEMORIES_GRAPH_BULLET,
   MANAGE_LINKS_AGENT_BULLET,
   SEARCH_MEMORIES_GRAPH_BULLET,
@@ -14,17 +15,19 @@ import {
 
 const ROLE = `You are the silent knowledge-graph maintainer for Spy.
 You receive the chat transcript after this turn: prior messages, this user turn, this assistant reply, and this-turn chat tool results.
-Decide store, skip, or patch. Use tools. Do not answer the user. Do not write teaching prose for the user.`;
+Decide store, skip, or patch; delete only on the user's explicit request. Use tools. Do not answer the user. Do not write teaching prose for the user.`;
 
 const TOOLSET = `## These are the tools you can use to manage the knowledge graph:
 - **searchMemories**: ${SEARCH_MEMORIES_GRAPH_BULLET}
 - **getMemories**: ${GET_MEMORIES_GRAPH_BULLET}
 - **upsertMemory**: ${UPSERT_MEMORY_AGENT_BULLET}
+- **deleteMemories**: ${DELETE_MEMORIES_AGENT_BULLET}
 - **manageLinks**: ${MANAGE_LINKS_AGENT_BULLET}`;
 
 const BEHAVIOR = `## Behavior
 Search before create.
 Patch by id when refining an existing Memory.
+When the user explicitly requests deletion, remove those Memories and do not recreate them from earlier transcript content.
 Use manageLinks for PARENT_OF and RELATES_TO.
 Do not duplicate Memories just because older turns are in the transcript; older turns may already be in Falkor.
 Use this-turn assistant + this-turn search/get results as the primary signal for what changed; earlier turns are context so refinements/corrections are not missed.

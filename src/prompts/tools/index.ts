@@ -3,6 +3,12 @@
  */
 
 export {
+  DELETE_MEMORIES_AGENT_BULLET,
+  deleteMemoriesToolDescription,
+  deleteMemoriesIdsFieldDescription,
+} from "./delete-memories";
+
+export {
   UPSERT_MEMORY_AGENT_BULLET,
   upsertMemoryToolDescription,
   upsertMemoryNameFieldDescription,
