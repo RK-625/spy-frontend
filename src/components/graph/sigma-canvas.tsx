@@ -28,9 +28,8 @@ const PARENT_ARROW_PROGRAM = createEdgeArrowProgram({
   lengthToThicknessRatio: 10,
   widenessToThicknessRatio: 8,
 });
-/** Live FA2 budget: 360 steps × 2/frame ≈ 180 frames (~3s at 60fps). */
+/** Settle the layout before Sigma draws its first frame. */
 const FA2_ITERATIONS = 360;
-const FA2_STEPS_PER_FRAME = 2;
 const MotionButton = motion.create(Button);
 
 /** Sigma `resize()`/`refresh()` throw when the host has no layout box. */
@@ -46,7 +45,7 @@ function hostHasPositiveBox(host: HTMLElement): boolean {
 
 /**
  * Live-only knowledge graph host (graphology FA2 + Sigma).
- * Shared topology feed → circle seed → Sigma draw + live FA2 (rAF).
+ * Shared topology feed → settled FA2 layout → Sigma draw.
  * Empty KB / initial fetch error → blank canvas (no mock).
  */
 export function SigmaCanvas() {
@@ -78,13 +77,21 @@ export function SigmaCanvas() {
 
     let cancelled = false;
     let renderer: Sigma | null = null;
-    let fa2Frame = 0;
 
     const mount = () => {
       if (cancelled || renderer != null) return;
       if (!hostHasPositiveBox(host)) return;
 
       const graph = buildLayoutGraph(topology.memories, topology.links);
+      forceAtlas2.assign(graph, {
+        iterations: FA2_ITERATIONS,
+        getEdgeWeight: "weight",
+        settings: {
+          ...forceAtlas2.inferSettings(graph),
+          adjustSizes: true,
+          edgeWeightInfluence: 1,
+        },
+      });
       const instance = new Sigma(graph, host, {
         defaultNodeColor: POINT_COLOR,
         renderLabels: false,
@@ -111,30 +118,6 @@ export function SigmaCanvas() {
       renderer = instance;
       rendererRef.current = instance;
 
-      const fa2Settings = {
-        ...forceAtlas2.inferSettings(graph),
-        adjustSizes: true,
-        edgeWeightInfluence: 1,
-      };
-      let remaining = FA2_ITERATIONS;
-
-      const stepFa2 = () => {
-        if (cancelled || remaining <= 0) return;
-        if (hostHasPositiveBox(host)) {
-          const iterations = Math.min(FA2_STEPS_PER_FRAME, remaining);
-          forceAtlas2.assign(graph, {
-            iterations,
-            getEdgeWeight: "weight",
-            settings: fa2Settings,
-          });
-          instance.refresh();
-          remaining -= iterations;
-        }
-        if (remaining > 0) {
-          fa2Frame = requestAnimationFrame(stepFa2);
-        }
-      };
-      fa2Frame = requestAnimationFrame(stepFa2);
     };
 
     const syncSigmaToHostBox = () => {
@@ -154,7 +137,6 @@ export function SigmaCanvas() {
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(fa2Frame);
       observer.disconnect();
       renderer?.kill();
       rendererRef.current = null;

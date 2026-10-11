@@ -6,7 +6,7 @@ export const POINT_COLOR = "#c8acfb";
 export const LINK_PARENT_OF = "#8a96b4";
 export const LINK_RELATES = "#9a7ab8";
 /** FA2 edge weight for RELATES_TO (not a layout spring). */
-export const RELATES_FA2_WEIGHT = 0.3;
+export const RELATES_FA2_WEIGHT = 0;
 export const EDGE_SIZE = 1;
 
 export interface SigmaNodeAttrs {
@@ -149,7 +149,7 @@ function layoutEdgeKey(link: Links): string {
   return `${link.source}\0${link.target}\0${link.type}`;
 }
 
-/** Circle-seeded topology only — FA2 runs live after Sigma mounts. */
+/** Circle-seeded topology — the canvas settles FA2 before Sigma mounts. */
 export function buildLayoutGraph(
   memories: MemoryNode[],
   links: Links[],
