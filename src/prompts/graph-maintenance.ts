@@ -1,5 +1,6 @@
 /**
- * Graph-agent write rules. Imperative. Chat never imports this module.
+ * Graph-agent write rules. Imperative. Used by the graph agent and by build-mode chat;
+ * normal chat does not import this module.
  */
 
 import {
@@ -7,14 +8,10 @@ import {
   MEMORY_QUESTION_COUNT_MIN,
 } from "@/lib/graph/policy";
 
-export const GRAPH_MAINTENANCE = `## Content authoring
+export const GRAPH_MAINTENANCE =
+`## Content authoring
   Write **content** so it is cohesive with the user's existing knowledge — personalized, familiar, easy to grasp.
-  Do not store surface wrappers in content unless the source/reference from the surface ≈ topic.
-  Surface can be a random doubt, a quant problem, an article, a snippet, a document, a discussion, or a fundamental — distill it.
-  - Quant problem → store the underlying concept, pattern, or logic, not the problem statement.
-  - Doubt about a concept → store the concept, pattern, or logic, not the doubt.
-  - Surface ≈ topic (they asked to learn the source itself) → the source may live in content.
-  Derive from the source/reference whether surface ≈ topic, and write content accordingly.
+  Do not store surface material in content unless the surface ≈ topic.
 
 ## Retrieval generation
   Whenever a Memory is created or its name/content is patched, author retrieval probes in the GRAPH_ONTOLOGY style.
@@ -48,10 +45,10 @@ export const GRAPH_MAINTENANCE = `## Content authoring
   If the parent is unclear, skip the edge. Do not ask the user.
 
 ## Construct a Memory
-  Surface → source/reference → topic → Memory.
+  Surface → raw material → topic → Memory.
   Distill check: strip surface identifiers, wrappers, narrative, or instantiation that carries the topic but is not the reusable principle. Derive the raw concept from a mere application of it.
   Convert that into a Memory node personalized to the user's learning style.
-  Exception: surface ≈ topic — if they asked about the source/reference itself (OOP, TCP, Java classes), that is the home.
+  Exception: surface ≈ topic — if they asked about the topic itself (OOP, TCP, Java classes), that is the home.
   Prefer one concept or pattern per node — not one mega-note, and not one node per example.
 
 ## After the chat turn

@@ -45,8 +45,6 @@ export {
 
 export { EXCALIDRAW_AGENT_BULLET } from "./excalidraw";
 
-export { BUILD_MODE_AGENT_BULLET } from "./build";
-
 export {
   ASK_USER_QUESTION_AGENT_BULLET,
   askUserQuestionToolDescription,

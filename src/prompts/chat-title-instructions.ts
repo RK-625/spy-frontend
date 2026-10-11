@@ -9,8 +9,7 @@ and reply with a short title that says what the chat is about.`;
 const RULES = `## Rules
 - 3–4 words, in the same language as the message.
 - Name the topic or the task, not the user ("React dashboard for expenses", not "User wants help").
-- No quotes, no trailing punctuation, no emoji, no markdown.
-- Reply with the title only — no preamble, no explanation.`;
+- No quotes, no trailing punctuation, no emoji, no markdown.`;
 
 export function buildChatTitleInstructions(): string {
   return [ROLE, RULES].join("\n\n");
