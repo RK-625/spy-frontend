@@ -31,7 +31,7 @@ export const upsertMemoryIdFieldDescription = `Omit to create (system generates 
 Send only the fields you change.`;
 
 /** Zod `.describe(...)` for the `name` field on upsertMemory input schema. */
-export const upsertMemoryNameFieldDescription = `Short topic label — the concept, of the topic not the source identifier unless it is the topic itself (e.g. 'DP on arrays', not 'LeetCode 198 House Robber').
+export const upsertMemoryNameFieldDescription = `Just the topic, clean and simple. Nothing from the source unless the source itself is the topic.
 Required on create; optional on patch (omit to leave the stored name).`;
 
 /** Zod `.describe(...)` for the `content` field on upsertMemory input schema. */
