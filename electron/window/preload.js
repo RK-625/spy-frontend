@@ -1,7 +1,7 @@
 /**
  * Sandboxed preload: the page gets one narrow function, never ipcRenderer itself.
  * Sandboxed preloads cannot require local files, so the channel and allowed values
- * are repeated from electron/theme.js.
+ * are repeated from ./theme.js.
  */
 const { contextBridge, ipcRenderer } = require("electron");
 

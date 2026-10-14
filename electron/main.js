@@ -2,11 +2,11 @@ const path = require("node:path");
 const { app, BrowserWindow, dialog, shell } = require("electron");
 
 app.setName("Spy");
-const { startNextServer } = require("./next-server");
-const { applyElectronDataEnv, applyElectronGraphBinaryEnv, assertFalkorPath } = require("./data-paths");
-const { loadUserEnv } = require("./user-env");
-const { installApplicationMenu } = require("./menu");
-const { registerThemeSync, resolveWindowBackground, restoreThemePreference } = require("./theme");
+const { startNextServer } = require("./server/next-server");
+const { applyElectronDataEnv, applyElectronGraphBinaryEnv, assertFalkorPath } = require("./server/data-paths");
+const { loadUserEnv } = require("./server/user-env");
+const { installApplicationMenu } = require("./window/menu");
+const { registerThemeSync, resolveWindowBackground, restoreThemePreference } = require("./window/theme");
 
 function resolveNextMode() {
   const fromEnv = process.env.SPY_NEXT_MODE;
@@ -23,7 +23,7 @@ let PORT = null;
 let START_PATH = null;
 let NEXT_MODE = null;
 
-/** @type {import('./next-server').NextServerHandle | null} */
+/** @type {import('./server/next-server').NextServerHandle | null} */
 let nextServer = null;
 /** @type {"idle" | "stopping" | "done"} */
 let quitState = "idle";
@@ -126,7 +126,7 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "window", "preload.js"),
     },
   });
 

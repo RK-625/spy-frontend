@@ -138,7 +138,8 @@ function getProjectRoot() {
   } catch {
     // Plain node (syntax checks) has no electron module.
   }
-  return path.join(__dirname, "..");
+  // electron/server/ → project root.
+  return path.join(__dirname, "..", "..");
 }
 
 function resolveWorkingDirectory(projectRoot) {

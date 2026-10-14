@@ -53,7 +53,7 @@ const {
   nodeMajor,
   pickCompatibleNode,
   resolveNodeBinary,
-} = require("../electron/next-server.js");
+} = require("../electron/server/next-server.js");
 
 // Quiet the expected skip warnings; failures still throw.
 console.warn = () => {};

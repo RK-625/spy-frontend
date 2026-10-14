@@ -29,7 +29,7 @@ try {
     if (request === "electron") return { app: { isPackaged: true, getPath: () => fixtureDirectory } };
     return originalLoad.call(this, request, ...args);
   };
-  const { applyElectronDataEnv, applyElectronGraphBinaryEnv } = require(join(projectRoot, "electron/data-paths.js"));
+  const { applyElectronDataEnv, applyElectronGraphBinaryEnv } = require(join(projectRoot, "electron/server/data-paths.js"));
   Module._load = originalLoad;
   applyElectronDataEnv();
   applyElectronGraphBinaryEnv();
