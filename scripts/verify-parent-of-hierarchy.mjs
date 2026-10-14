@@ -87,7 +87,25 @@ assert(
   "RELATES_TO does not attach networks under dsa",
 );
 
-const colors = findNodeColors({ ranks, rootById });
+// Mirrors the graph tokens in src/styles/tokens/palette-{dark,light}.css.
+const darkPalette = {
+  node: "#c8acfb",
+  linkParentOf: "#8a96b4",
+  linkRelatesTo: "#9a7ab8",
+  nodeLightnessRoot: 0.62,
+  nodeLightnessStep: -0.07,
+  nodeLightnessLimit: 0.38,
+};
+const lightPalette = {
+  node: "#7a52d1",
+  linkParentOf: "#8d94ab",
+  linkRelatesTo: "#a487c9",
+  nodeLightnessRoot: 0.46,
+  nodeLightnessStep: 0.07,
+  nodeLightnessLimit: 0.72,
+};
+
+const colors = findNodeColors({ ranks, rootById }, darkPalette);
 assert(colors.get("lonely") === "#c8acfb", "isolated stays lavender");
 assert(
   colors.get("dsa") !== colors.get("networks"),
@@ -100,6 +118,14 @@ assert(
 assert(
   lum(colors.get("arrays")) > lum(colors.get("binary-search")),
   "grandchild darker than child",
+);
+
+const lightColors = findNodeColors({ ranks, rootById }, lightPalette);
+assert(lightColors.get("lonely") === "#7a52d1", "light: isolated uses the light node color");
+assert(
+  lum(lightColors.get("dsa")) < lum(lightColors.get("arrays")) &&
+    lum(lightColors.get("arrays")) < lum(lightColors.get("binary-search")),
+  "light: deeper ranks lighten toward the paper",
 );
 
 const sizes = findNodeSizes({ ranks, rootById });
@@ -156,7 +182,7 @@ const multiMemories = [
 const typedPair = buildLayoutGraph(multiMemories, [
   { source: "a", target: "b", type: "PARENT_OF" },
   { source: "a", target: "b", type: "RELATES_TO" },
-]);
+], darkPalette);
 assert(
   typedPair.size === 2 && typedPair.multi === true,
   "A PARENT_OF B + A RELATES_TO B → two edges on multi graph",
@@ -164,7 +190,7 @@ assert(
 const dupParent = buildLayoutGraph(multiMemories, [
   { source: "a", target: "b", type: "PARENT_OF" },
   { source: "a", target: "b", type: "PARENT_OF" },
-]);
+], darkPalette);
 assert(
   dupParent.size === 1 &&
     [...dupParent.edgeEntries()].every(

@@ -46,8 +46,11 @@ function isLoadableLanguage(lang: string): lang is BundledLanguage {
   return lang in bundledLanguages || lang in bundledLanguagesAlias;
 }
 
+/** Both palettes ship; tokens carry --shiki-light / --shiki-dark and CSS picks by theme. */
+const SHIKI_THEMES = { light: "github-light", dark: "github-dark" } as const;
+
 function createLazyShikiParser(highlighter: Highlighter): Parser {
-  const parse = createParser(highlighter);
+  const parse = createParser(highlighter, { themes: SHIKI_THEMES, defaultColor: false });
   const skippedLangs = new Set<string>();
 
   const run: Parser = (options) => {
@@ -153,7 +156,7 @@ export function MilkdownView(props: MilkdownViewProps) {
     // Resolve Shiki before editor.create(): its async config timers should not
     // depend on language loading while a learning card can be unmounted.
     getSingletonHighlighter({
-      themes: ["github-dark"],
+      themes: Object.values(SHIKI_THEMES),
       langs: [...PRELOADED_LANGS],
     }).then(
       (readyHighlighter) => {

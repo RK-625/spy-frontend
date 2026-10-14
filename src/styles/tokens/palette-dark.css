@@ -1,0 +1,135 @@
+/* ═══════════════════════════════════════════════════════════
+   Dark palette — the original Spy register.
+   Same keys as palette-light.css; only values differ.
+   ═══════════════════════════════════════════════════════════ */
+
+.dark {
+  color-scheme: dark;
+
+  /* ── Text ── */
+  --text-primary: #e8e4df;
+  --text-secondary: #7a7685;
+  --text-dim: #4a4658;
+  --primary-hover: #f0eaff;
+
+  /* ── Borders — lavender (#C8ACFB) at various opacities ── */
+  --border-faint: rgba(200, 172, 251, 0.05);
+  --border-subtle: rgba(200, 172, 251, 0.08);
+  --border-default: rgba(200, 172, 251, 0.10);
+  --border-medium: rgba(200, 172, 251, 0.12);
+  --border-strong: rgba(200, 172, 251, 0.15);
+
+  /* ── Surfaces — lavender washes ── */
+  --surface-subtle: rgba(200, 172, 251, 0.04);
+  --surface-hover: rgba(200, 172, 251, 0.08);
+  --surface-focus: rgba(200, 172, 251, 0.20);
+  --focus-glow: rgba(200, 172, 251, 0.03);
+  --code-inline-border: rgba(200, 172, 251, 0.06);
+
+  /* ── Accent washes — (#e8dff8) at various opacities ── */
+  --accent-selection: rgba(232, 223, 248, 0.15);
+  --accent-decoration: rgba(232, 223, 248, 0.25);
+  --accent-border: rgba(232, 223, 248, 0.30);
+  --list-marker: rgba(200, 172, 251, 0.40);
+  --glow-line: rgba(200, 172, 251, 0.30);
+
+  /* ── Chat surfaces ── */
+  --surface-chat: #150c28;
+  --surface-elevated: #0a0516;
+  /* Frosted input / elevated panels on chat surface */
+  --surface-input: rgba(10, 5, 22, 0.65);
+  --surface-input-strong: rgba(10, 5, 22, 0.85);
+  --surface-input-opaque: rgba(10, 5, 22, 0.95);
+  --surface-chat-veil: rgba(21, 12, 40, 0.5);
+  --surface-chat-panel: rgba(21, 12, 40, 0.8);
+  --shadow-elevated: rgba(0, 0, 0, 0.3);
+
+  /* ── Lavender scale (solid) ── */
+  --lavender: #c8acfb;
+  --lavender-muted: #9a8cc0;
+  /* Ink on solid primary buttons */
+  --accent-ink: #0a0a0c;
+
+  /* ── Pills — source / URL and status chips ── */
+  --pill-source-bg: rgba(200, 172, 251, 0.06);
+  --pill-source-border: rgba(200, 172, 251, 0.12);
+  --pill-source-text-hover: #e8dff8;
+  --pill-source-border-hover: rgba(200, 172, 251, 0.25);
+  --pill-status-bg: rgba(200, 172, 251, 0.12);
+
+  /* ── Status ── */
+  /* Verified state (e.g. a provider key the provider accepted). The one green in the system. */
+  --status-success: #7dd3a8;
+
+  /* ── Prose, tables and diagrams (assistant markdown) ── */
+  --text-tinted: #ded4f0;
+  --surface-row-hover: rgba(200, 172, 251, 0.03);
+  --surface-header: rgba(200, 172, 251, 0.05);
+  --surface-selected: rgba(200, 172, 251, 0.12);
+  --thread-line: rgba(200, 172, 251, 0.2);
+  --diagram-node-fill: rgba(18, 10, 36, 0.9);
+  --diagram-node-stroke: rgba(200, 172, 251, 0.25);
+  --diagram-edge: rgba(200, 172, 251, 0.35);
+  --bubble-user-from: rgba(30, 21, 64, 0.95);
+  --bubble-user-to: rgba(26, 16, 56, 0.85);
+
+  /* ── Overlays ── */
+  --overlay-scrim: rgba(0, 0, 0, 0.3);
+  --shadow-dialog: rgba(0, 0, 0, 0.5);
+  --shadow-palette: rgba(10, 10, 10, 0.12);
+
+  /* ── Knowledge graph (WebGL; read via useThemeTokens) ── */
+  --graph-canvas: #0a0a0c;
+  --graph-node: #c8acfb;
+  --graph-link-parent: #8a96b4;
+  --graph-link-relates: #9a7ab8;
+  /* Domain colors: HSL lightness of a root, change per rank, and the bound it stops at.
+     Deeper ranks darken into the canvas. */
+  --graph-node-lightness-root: 0.62;
+  --graph-node-lightness-step: -0.07;
+  --graph-node-lightness-limit: 0.38;
+
+  /* ── Landing (shader sphere, hero text) ── */
+  --landing-sphere-body: #4a1280;
+  --landing-sphere-surface: #8838de;
+  --landing-sphere-highlight: #ddb8f8;
+  --hero-shadow: rgb(6, 6, 16);
+  --hero-glow: rgb(222, 212, 240);
+  --hero-shine: #ffffff;
+  --glossy-stop-1: #e8dff8;
+  --glossy-stop-2: #d0b8f5;
+  --glossy-stop-3: #b992f0;
+  --glossy-stop-4: #9a6ae0;
+  --glossy-shadow: rgb(30, 12, 80);
+  --glossy-glow-inner: rgb(188, 153, 251);
+  --glossy-glow-outer: rgb(116, 59, 232);
+
+  /* ── shadcn/ui ── */
+  --background: #060610;
+  --foreground: #e8e4df;
+  --card: #100a1e;
+  --card-foreground: #e8e4df;
+  --popover: #100a1e;
+  --popover-foreground: #e8e4df;
+  --primary: #e8dff8;
+  --primary-foreground: #150c28;
+  --secondary: #1a1038;
+  --secondary-foreground: #C8ACFB;
+  --muted: #181230;
+  --muted-foreground: #C8ACFB;
+  --accent: #362a60; /* visible highlight on popover (1.5:1); accent-foreground 9.9:1 */
+  --accent-foreground: #e8dff8;
+  --destructive: #c45c5c; /* glanceable on dark */
+  --destructive-foreground: #e8e4df;
+  --border: rgba(208, 184, 245, 0.15);
+  --input: rgba(208, 184, 245, 0.15);
+  --ring: rgba(200, 172, 251, 0.40);
+  --sidebar: #060610;
+  --sidebar-foreground: #e8e4df;
+  --sidebar-primary: #e8dff8;
+  --sidebar-primary-foreground: #060610;
+  --sidebar-accent: #11111a;
+  --sidebar-accent-foreground: #e8dff8;
+  --sidebar-border: rgba(200, 172, 251, 0.15);
+  --sidebar-ring: #e8dff8;
+}

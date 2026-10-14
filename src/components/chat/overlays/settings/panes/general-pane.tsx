@@ -1,11 +1,11 @@
 "use client";
 
 import { useChatContext } from "@/contexts/ChatContext";
-import { SettingsPaneHeader } from "./settings-pane-header";
-
-const cardClassName =
-  "rounded-[var(--radius)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-3";
-const cardLabelClassName = "mb-1 text-[0.7rem] tracking-wider text-text-secondary uppercase";
+import {
+  SETTINGS_CARD_CLASS,
+  SETTINGS_CARD_LABEL_CLASS,
+  SettingsPaneHeader,
+} from "./settings-pane-chrome";
 
 export function GeneralPane() {
   const { status, messages, error } = useChatContext();
@@ -14,8 +14,8 @@ export function GeneralPane() {
     <>
       <SettingsPaneHeader description="Spy session state and preferences." title="General" />
       <div className="flex flex-col gap-3 text-sm">
-        <div className={cardClassName}>
-          <div className={cardLabelClassName}>Status</div>
+        <div className={SETTINGS_CARD_CLASS}>
+          <div className={SETTINGS_CARD_LABEL_CLASS}>Status</div>
           <div className="flex items-center gap-2 font-mono">
             <span
               className={`inline-block size-1.5 rounded-[var(--radius-badge)] ${
@@ -30,8 +30,8 @@ export function GeneralPane() {
           </div>
         </div>
 
-        <div className={cardClassName}>
-          <div className={cardLabelClassName}>Messages</div>
+        <div className={SETTINGS_CARD_CLASS}>
+          <div className={SETTINGS_CARD_LABEL_CLASS}>Messages</div>
           <div className="font-mono text-text-primary">{messages.length}</div>
         </div>
 
@@ -42,7 +42,7 @@ export function GeneralPane() {
         )}
 
         <p className="mt-2 text-xs text-text-secondary">
-          Theme, key bindings, and account preferences will be available in a future release.
+          Key bindings and account preferences will be available in a future release.
         </p>
       </div>
     </>

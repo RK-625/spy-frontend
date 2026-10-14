@@ -13,6 +13,7 @@ import {
 } from "@ai-sdk/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { Excalidraw } from "@/components/logos";
+import { DEFAULT_RESOLVED_THEME, useThemeSwitch } from "@/components/theme";
 import {
   createMcpAppBridgeHandlers,
   fetchAppVisibleToolNames,
@@ -96,6 +97,14 @@ export function MCPAppCard({ part }: { part: DynamicToolUIPart }) {
     [iframeHeightPx],
   );
 
+  // A new object tells the open app the theme changed (host-context-changed notification).
+  const { resolvedTheme } = useThemeSwitch();
+  const appTheme = resolvedTheme ?? DEFAULT_RESOLVED_THEME;
+  const hostContext = useMemo(
+    () => ({ theme: appTheme, displayMode: "inline" as const }),
+    [appTheme],
+  );
+
   return (
     <Card
       size="sm"
@@ -117,7 +126,7 @@ export function MCPAppCard({ part }: { part: DynamicToolUIPart }) {
             loadResource={loadMcpAppResource}
             handlers={handlers}
             hostInfo={{ name: "Spy", version: "0.1.0" }}
-            hostContext={{ theme: "dark", displayMode: "inline" }}
+            hostContext={hostContext}
             fallback={loadingFallback}
           />
         )}

@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useScramble } from "use-scramble";
 import ShinyText from "./shiny-text";
+import "./glossy-text.css";
 
 const PHASE_1 = "KNOWLEDGE UNSTRUCTURED IS JUST NOISE !!!";
 const PHASE_2 = "MANAGE THE CHAOS";
@@ -86,8 +87,8 @@ export default function HeroSection() {
     replayBRef.current = replayB;
   }, [replayB]);
 
-  const whiteGlow =
-    "[text-shadow:2px_2px_0_rgba(6,6,16,0.9),4px_4px_0_rgba(6,6,16,0.7),0_0_12px_rgba(222,212,240,0.15)]";
+  const heroTextShadow =
+    "[text-shadow:2px_2px_0_color-mix(in_srgb,var(--hero-shadow)_90%,transparent),4px_4px_0_color-mix(in_srgb,var(--hero-shadow)_70%,transparent),0_0_12px_color-mix(in_srgb,var(--hero-glow)_15%,transparent)]";
 
   const isPhase3 = currentPhase === 3;
 
@@ -97,7 +98,7 @@ export default function HeroSection() {
         <div className="flex gap-[2em]">
           <span
             ref={refA}
-            className={`font-[family-name:var(--font-terminal)] font-bold text-[#ded4f0] text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none ${whiteGlow}`}
+            className={`font-[family-name:var(--font-terminal)] font-bold text-[var(--text-tinted)] text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none ${heroTextShadow}`}
           />
           <ShinyText
             ref={refB}
@@ -110,7 +111,7 @@ export default function HeroSection() {
       ) : (
         <h1
           ref={ref}
-          className={`font-[family-name:var(--font-terminal)] font-bold text-[#ded4f0] text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none ${whiteGlow}`}
+          className={`font-[family-name:var(--font-terminal)] font-bold text-[var(--text-tinted)] text-[clamp(1.5rem,4vw,3.5rem)] uppercase tracking-[0.15em] select-none ${heroTextShadow}`}
         />
       )}
     </div>

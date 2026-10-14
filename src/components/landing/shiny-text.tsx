@@ -34,7 +34,7 @@ const ShinyText = forwardRef<HTMLSpanElement, ShinyTextProps>(
       disabled = false,
       speed = 2,
       className = "",
-      shineColor = "#ffffff",
+      shineColor = "var(--hero-shine)",
       spread = 120,
       yoyo = false,
       pauseOnHover = false,
@@ -121,7 +121,7 @@ const ShinyText = forwardRef<HTMLSpanElement, ShinyTextProps>(
     }, [pauseOnHover]);
 
     const gradientStyle = {
-      backgroundImage: `linear-gradient(${spread}deg, transparent 0%, transparent 35%, ${shineColor} 50%, transparent 65%, transparent 100%), linear-gradient(180deg, #e8dff8 0%, #d0b8f5 30%, #b992f0 60%, #9a6ae0 100%)`,
+      backgroundImage: `linear-gradient(${spread}deg, transparent 0%, transparent 35%, ${shineColor} 50%, transparent 65%, transparent 100%), linear-gradient(180deg, var(--glossy-stop-1) 0%, var(--glossy-stop-2) 30%, var(--glossy-stop-3) 60%, var(--glossy-stop-4) 100%)`,
       backgroundSize: "200% auto, 100% 100%",
       WebkitBackgroundClip: "text" as const,
       backgroundClip: "text" as const,

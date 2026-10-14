@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { CommandPalette, SettingsDialog } from "../overlays";
 import { usePrefersReducedMotion } from "@/components/dotmatrix";
+import { findOppositeTheme, RESOLVED_THEME_LABEL, useThemeSwitch } from "@/components/theme";
 import { useChatContext } from "@/contexts/ChatContext";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import {
@@ -20,6 +21,7 @@ import { ChatSidebarBody, ChatSidebarBodySpacer } from "./body/body";
 import { ChatSidebarItem } from "./chrome/item";
 import { SwitcherDivider } from "./chrome/rail";
 import { RouteSwitcherStrip } from "./chrome/route-switcher-strip";
+import { ThemeToggleGlyph } from "./chrome/theme-toggle-glyph";
 import { ChatSidebarFooter } from "./footer/footer";
 import { ChatSidebarHeader } from "./header/header";
 import { ChatSidebarNotes } from "./notes/notes";
@@ -132,6 +134,12 @@ export function ChatSidebar() {
   const handleOpenSettings = useCallback(() => {
     openSettings();
   }, [openSettings]);
+
+  const { resolvedTheme, switchTheme } = useThemeSwitch();
+  const toggleTargetTheme = findOppositeTheme(resolvedTheme);
+  const handleToggleTheme = useCallback(() => {
+    switchTheme(toggleTargetTheme);
+  }, [switchTheme, toggleTargetTheme]);
 
   const handleOpenCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
@@ -320,6 +328,12 @@ export function ChatSidebar() {
         </ChatSidebarBody>
         <ChatSidebarFooter>
           <ChatSidebarItem
+            icon={ThemeToggleGlyph}
+            label={`${RESOLVED_THEME_LABEL[toggleTargetTheme]} theme`}
+            onClick={handleToggleTheme}
+            showLabel={isSidebarFull}
+          />
+          <ChatSidebarItem
             icon={(props) => <Settings {...props} strokeWidth={1.5} />}
             label="Settings"
             onClick={handleOpenSettings}
@@ -333,6 +347,7 @@ export function ChatSidebar() {
         open={commandPaletteOpen}
         placeholder="Search conversations, actions…"
         shortcutKey="k"
+        showThemeGroup
         trigger={null}
       />
       <SettingsDialog

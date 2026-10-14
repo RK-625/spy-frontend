@@ -1,24 +1,26 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "../styles/tokens/palette-light.css";
+@import "../styles/tokens/palette-dark.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-background: #060610;
-  --color-foreground: #e8e4df;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
 
-  --color-text-primary: #e8e4df;
-  --color-text-secondary: #7a7685;
-  --color-text-dim: #4a4658;
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-dim: var(--text-dim);
 
   /* Light lavender ink: focus outline, caret, headings. `accent` stays shadcn's dark fill. */
   --color-highlight: var(--primary);
-  --color-primary-hover: #f0eaff;
+  --color-primary-hover: var(--primary-hover);
   --color-accent: var(--accent);
 
-  --color-surface-chat: #150c28;
-  --color-surface-elevated: #0a0516;
+  --color-surface-chat: var(--surface-chat);
+  --color-surface-elevated: var(--surface-elevated);
   --color-surface-input: var(--surface-input);
   --color-lavender: var(--lavender);
   --color-lavender-muted: var(--lavender-muted);
@@ -247,59 +249,14 @@
 
 :root {
   /* ── Design Tokens ── */
+  /* Colors live in src/styles/tokens/palette-{light,dark}.css; this block holds
+     theme-independent tokens and aliases that resolve against the active palette. */
 
   /* Typography */
   --font-code: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
 
-  /* Border tokens — lavender (#C8ACFB) at various opacities */
-  --border-faint: rgba(200, 172, 251, 0.05);
-  --border-subtle: rgba(200, 172, 251, 0.08);
-  --border-default: rgba(200, 172, 251, 0.10);
-  --border-medium: rgba(200, 172, 251, 0.12);
-  --border-strong: rgba(200, 172, 251, 0.15);
-
-  /* Surface tokens — lavender backgrounds */
-  --surface-subtle: rgba(200, 172, 251, 0.04);
-  --surface-hover: rgba(200, 172, 251, 0.08);
-  --surface-focus: rgba(200, 172, 251, 0.20);
-
-  /* Focus tokens */
-  --focus-glow: rgba(200, 172, 251, 0.03);
-
   /* Code tokens */
-  --code-inline-border: rgba(200, 172, 251, 0.06);
   --code-surface: color-mix(in srgb, var(--surface-elevated) 80%, transparent);
-
-  /* Accent tokens — (#e8dff8) at various opacities */
-  --accent-selection: rgba(232, 223, 248, 0.15);
-  --accent-decoration: rgba(232, 223, 248, 0.25);
-  --accent-border: rgba(232, 223, 248, 0.30);
-
-  /* Semantic tokens */
-  --list-marker: rgba(200, 172, 251, 0.40);
-  --glow-line: rgba(200, 172, 251, 0.30);
-
-  /* Chat surface tokens */
-  --surface-chat: #150c28;
-  --surface-elevated: #0a0516;
-  /* Frosted input / elevated panels on chat surface */
-  --surface-input: rgba(10, 5, 22, 0.65);
-  --surface-input-strong: rgba(10, 5, 22, 0.85);
-  --surface-input-opaque: rgba(10, 5, 22, 0.95);
-  --surface-chat-veil: rgba(21, 12, 40, 0.5);
-  --surface-chat-panel: rgba(21, 12, 40, 0.8);
-  --shadow-elevated: rgba(0, 0, 0, 0.3);
-
-  /* Lavender scale (solid) */
-  --lavender: #c8acfb;
-  --lavender-muted: #9a8cc0;
-  /* Ink on solid light accent buttons */
-  --accent-ink: #0a0a0c;
-
-  /* Shader gradient sphere (workspace backdrop) */
-  --shader-color-1: #4a1280;
-  --shader-color-2: #8838de;
-  --shader-color-3: #ddb8f8;
 
   /* Prompt input body gutter + textarea floor */
   --prompt-body-px: 0.625rem; /* 10px — was Tailwind px-2.5 */
@@ -307,15 +264,8 @@
   --prompt-textarea-min-h: 1.25rem; /* 20px — was min-h-5 */
   --prompt-input-radius: 0.825rem;
 
-  /* Pill tokens — source / URL chips (pill-shaped by design) */
-  --pill-source-bg: rgba(200, 172, 251, 0.06);
-  --pill-source-border: rgba(200, 172, 251, 0.12);
+  /* Pill aliases */
   --pill-source-text: var(--lavender-muted);
-  --pill-source-text-hover: #e8dff8;
-  --pill-source-border-hover: rgba(200, 172, 251, 0.25);
-
-  /* Pill tokens — status / step count chips */
-  --pill-status-bg: rgba(200, 172, 251, 0.12);
   --pill-status-text: var(--lavender);
 
   /* Session status dots (settings / HUD) — lavender system, no ad-hoc red/emerald */
@@ -323,8 +273,6 @@
   --status-dot-ready: var(--lavender-muted);
   /* Same red as --destructive so size-1.5 dots stay glanceable on dark cards */
   --status-dot-error: var(--destructive);
-  /* Verified state (e.g. a provider key the provider accepted). The one green in the system. */
-  --status-success: #7dd3a8;
 
   /* Settings dialog — two-pane layout */
   --settings-dialog-w: 764px;
@@ -332,25 +280,6 @@
   --settings-nav-w: 176px;
 
   /* ── shadcn/ui tokens ── */
-  --background: #060610;
-  --foreground: #e8e4df;
-  --card: #100a1e;
-  --card-foreground: #e8e4df;
-  --popover: #100a1e;
-  --popover-foreground: #e8e4df;
-  --primary: #e8dff8;
-  --primary-foreground: #150c28;
-  --secondary: #1a1038;
-  --secondary-foreground: #C8ACFB;
-  --muted: #181230;
-  --muted-foreground: #C8ACFB;
-  --accent: #362a60; /* visible highlight on popover (1.5:1); accent-foreground 9.9:1 */
-  --accent-foreground: #e8dff8;
-  --destructive: #c45c5c; /* glanceable on dark */
-  --destructive-foreground: #e8e4df;
-  --border: rgba(208, 184, 245, 0.15);
-  --input: rgba(208, 184, 245, 0.15);
-  --ring: rgba(200, 172, 251, 0.40);
   --radius: 0.55rem;
   /* Icon control tokens — densified 3-role system (Plan B) */
   --control-toolbar-box: 32px;
@@ -359,78 +288,6 @@
   --control-badge-glyph: 14px;
   --glyph-inline-size: 16px;
   --radius-badge: calc(var(--radius) * 0.45);
-  --sidebar: #060610;
-  --sidebar-foreground: #e8e4df;
-  --sidebar-primary: #e8dff8;
-  --sidebar-primary-foreground: #060610;
-  --sidebar-accent: #11111a;
-  --sidebar-accent-foreground: #e8dff8;
-  --sidebar-border: rgba(200, 172, 251, 0.15);
-  --sidebar-ring: #e8dff8;
-}
-
-/* Glossy purple text effect — mascot palette (bright for dark bg) */
-.glossy-text {
-  background: linear-gradient(
-    180deg,
-    #e8dff8 0%,
-    #d0b8f5 30%,
-    #b992f0 60%,
-    #9a6ae0 100%
-  );
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  transform: translateZ(0);
-  isolation: isolate;
-  cursor: pointer;
-  filter:
-    drop-shadow(2px 2px 0 rgba(30, 12, 80, 0.9))
-    drop-shadow(4px 4px 0 rgba(30, 12, 80, 0.7))
-    drop-shadow(0 0 10px rgba(188, 153, 251, 0.5))
-    drop-shadow(0 0 24px rgba(116, 59, 232, 0.3));
-  transition: filter 500ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glossy-text:hover {
-  filter:
-    drop-shadow(2px 2px 0 rgba(30, 12, 80, 0.9))
-    drop-shadow(4px 4px 0 rgba(30, 12, 80, 0.7))
-    drop-shadow(0 0 14px rgba(188, 153, 251, 0.95))
-    drop-shadow(0 0 32px rgba(116, 59, 232, 0.65))
-    drop-shadow(0 0 60px rgba(116, 59, 232, 0.4))
-    brightness(1.1);
-}
-
-.dark {
-  --background: #060610;
-  --foreground: #e8e4df;
-  --card: #100a1e;
-  --card-foreground: #e8e4df;
-  --popover: #100a1e;
-  --popover-foreground: #e8e4df;
-  --primary: #e8dff8;
-  --primary-foreground: #150c28;
-  --secondary: #1a1038;
-  --secondary-foreground: #C8ACFB;
-  --muted: #181230;
-  --muted-foreground: #C8ACFB;
-  --accent: #362a60; /* visible highlight on popover (1.5:1); accent-foreground 9.9:1 */
-  --accent-foreground: #e8dff8;
-  --destructive: #c45c5c; /* glanceable on dark */
-  --destructive-foreground: #e8e4df;
-  --border: rgba(208, 184, 245, 0.15);
-  --input: rgba(208, 184, 245, 0.15);
-  --ring: rgba(200, 172, 251, 0.40);
-  --radius: 0.55rem;
-  --sidebar: #060610;
-  --sidebar-foreground: #e8e4df;
-  --sidebar-primary: #e8dff8;
-  --sidebar-primary-foreground: #060610;
-  --sidebar-accent: #11111a;
-  --sidebar-accent-foreground: #e8dff8;
-  --sidebar-border: rgba(200, 172, 251, 0.15);
-  --sidebar-ring: #e8dff8;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -440,8 +297,8 @@
 /* ── Global minimal scrollbar — thin, fades naturally ── */
 *::-webkit-scrollbar { width: 2px; height: 2px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: rgba(200, 172, 251, 0.15); border-radius: 0; }
-* { scrollbar-width: thin; scrollbar-color: rgba(200, 172, 251, 0.15) transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 0; }
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 
 /* ── Conversation scrollbar — always visible, faint ── */
 [role="log"] *::-webkit-scrollbar,
@@ -450,12 +307,12 @@
 }
 [role="log"] *::-webkit-scrollbar-thumb,
 [role="log"]::-webkit-scrollbar-thumb {
-  background-color: rgba(200, 172, 251, 0.15);
+  background-color: var(--border-strong);
   min-height: 40px;
 }
 [role="log"] *,
 [role="log"] {
-  scrollbar-color: rgba(200, 172, 251, 0.15) transparent;
+  scrollbar-color: var(--border-strong) transparent;
   scrollbar-width: thin;
 }
 
@@ -480,7 +337,7 @@
   background: var(--surface-subtle);
   border: 1px solid var(--border-subtle);
   font-size: 0.75rem;
-  color: #C8ACFB;
+  color: var(--lavender);
   transition: background 0.2s, border-color 0.2s;
   cursor: pointer;
 }
@@ -557,19 +414,19 @@
 .group.is-assistant h1 {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #e8dff8;
+  color: var(--primary);
   margin: 0.6em 0 0.3em !important;
 }
 .group.is-assistant h2 {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #ded4f0;
+  color: var(--text-tinted);
   margin: 0.5em 0 0.25em !important;
 }
 .group.is-assistant h3 {
   font-size: 0.85rem;
   font-weight: 500;
-  color: #C8ACFB;
+  color: var(--lavender);
   margin: 0.4em 0 0.2em !important;
 }
 .group.is-assistant h4,
@@ -577,7 +434,7 @@
 .group.is-assistant h6 {
   font-size: 0.82rem;
   font-weight: 500;
-  color: #9a8cc0;
+  color: var(--lavender-muted);
   margin: 0.3em 0 0.2em !important;
 }
 
@@ -585,14 +442,14 @@
 .group.is-assistant p {
   margin: 0.35em 0;
   line-height: 1.72;
-  color: #e8e4df;
+  color: var(--text-primary);
 }
 .group.is-assistant strong {
-  color: #e8dff8;
+  color: var(--primary);
   font-weight: 600;
 }
 .group.is-assistant em {
-  color: #C8ACFB;
+  color: var(--lavender);
 }
 .group.is-assistant ul,
 .group.is-assistant ol {
@@ -613,7 +470,7 @@
 }
 [data-streamdown="code-block"] {
   background: var(--surface-input);
-  border: 1px solid rgba(200, 172, 251, 0.08);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.825rem;
   padding: 0;
   position: relative;
@@ -658,7 +515,12 @@
   line-height: 1.6;
 }
 
+/* Streamdown highlights with github-light (--sdm-c) and github-dark (--shiki-dark). */
 [data-streamdown="code-block-body"] code span {
+  color: var(--sdm-c, inherit);
+}
+
+.dark [data-streamdown="code-block-body"] code span {
   color: var(--shiki-dark, var(--sdm-c, inherit));
 }
 
@@ -685,15 +547,15 @@
   border-radius: var(--radius) !important;
   background: transparent !important;
   border: none !important;
-  color: #ded4f0 !important;
+  color: var(--text-tinted) !important;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 [data-streamdown="code-block-copy-button"]:hover,
 [data-streamdown="table-wrapper"] > div:first-child > div.relative > button:hover {
-  background: rgba(200, 172, 251, 0.08) !important;
-  color: #f0eaff !important;
+  background: var(--surface-hover) !important;
+  color: var(--primary-hover) !important;
 }
 
 [data-streamdown="code-block-copy-button"] svg,
@@ -707,28 +569,28 @@
 /* Table Copy Dropdown Menu */
 [data-streamdown="table-wrapper"] .absolute.top-full {
   background: var(--surface-input-opaque) !important;
-  border: 1px solid rgba(200, 172, 251, 0.15) !important;
+  border: 1px solid var(--border-strong) !important;
   backdrop-filter: blur(12px) !important;
   border-radius: var(--radius) !important;
   padding: 0.25rem !important;
 }
 
 [data-streamdown="table-wrapper"] .absolute.top-full button {
-  color: #ded4f0 !important;
+  color: var(--text-tinted) !important;
   background: transparent !important;
   border-radius: calc(var(--radius) - 2px) !important;
   padding: 0.35rem 0.5rem !important;
 }
 
 [data-streamdown="table-wrapper"] .absolute.top-full button:hover {
-  background: rgba(200, 172, 251, 0.12) !important;
-  color: #f0eaff !important;
+  background: var(--surface-selected) !important;
+  color: var(--primary-hover) !important;
 }
 
 /* ── Code: inline and pre ── */
 .group.is-assistant code:not(pre code) {
   background: var(--surface-hover);
-  color: #C8ACFB;
+  color: var(--lavender);
   padding: 0.12em 0.45em;
   font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   font-size: 0.85em;
@@ -755,18 +617,18 @@
   border-left: 2px solid var(--accent-border);
   padding: 0.3em 0 0.3em 1em;
   margin: 0.5em 0;
-  color: #7a7685;
+  color: var(--text-secondary);
 }
 .group.is-assistant a {
-  color: #e8dff8;
+  color: var(--primary);
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-color: var(--accent-decoration);
   transition: color 0.2s, text-decoration-color 0.2s;
 }
 .group.is-assistant a:hover {
-  color: #f0eaff;
-  text-decoration-color: #f0eaff;
+  color: var(--primary-hover);
+  text-decoration-color: var(--primary-hover);
 }
 .group.is-assistant hr {
   border: none;
@@ -776,7 +638,7 @@
 /* ── Streamdown Table Overrides ── */
 [data-streamdown="table-wrapper"] {
   background: var(--surface-input) !important;
-  border: 1px solid rgba(200, 172, 251, 0.08) !important;
+  border: 1px solid var(--border-subtle) !important;
   border-radius: 0.825rem !important;
   padding: 0.5rem !important;
   margin: 0.75em 0 !important;
@@ -802,7 +664,7 @@
 
 [data-streamdown="table-wrapper"] > div.border-collapse {
   background: transparent !important;
-  border: 1px solid rgba(200, 172, 251, 0.08) !important;
+  border: 1px solid var(--border-subtle) !important;
   border-radius: 0.5rem !important;
   margin-top: 0 !important;
 }
@@ -815,23 +677,23 @@
 }
 
 [data-streamdown="table-header"] {
-  background: rgba(200, 172, 251, 0.05) !important;
+  background: var(--surface-header) !important;
 }
 
 [data-streamdown="table-header-cell"] {
-  color: #C8ACFB !important;
+  color: var(--lavender) !important;
   font-weight: 500 !important;
   text-align: left;
   padding: 0.6rem 0.8rem !important;
   border: none !important;
-  border-bottom: 1px solid rgba(200, 172, 251, 0.1) !important;
+  border-bottom: 1px solid var(--border-default) !important;
 }
 
 [data-streamdown="table-cell"] {
-  color: #ded4f0 !important;
+  color: var(--text-tinted) !important;
   padding: 0.6rem 0.8rem !important;
   border: none !important;
-  border-bottom: 1px solid rgba(200, 172, 251, 0.05) !important;
+  border-bottom: 1px solid var(--border-faint) !important;
 }
 
 [data-streamdown="table-row"]:last-child [data-streamdown="table-cell"] {
@@ -839,7 +701,7 @@
 }
 
 [data-streamdown="table-row"]:hover {
-  background: rgba(200, 172, 251, 0.03) !important;
+  background: var(--surface-row-hover) !important;
 }
 
 /* Disable Streamdown's ugly default divide-y borders */
@@ -853,7 +715,7 @@
   align-items: flex-end;
 }
 .group.is-user [class*="bg-secondary"] {
-  background: linear-gradient(135deg, rgba(30, 21, 64, 0.95), rgba(26, 16, 56, 0.85)) !important;
+  background: linear-gradient(135deg, var(--bubble-user-from), var(--bubble-user-to)) !important;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   max-width: 70%;
@@ -875,11 +737,11 @@
 /* ── Selection ── */
 .group.is-assistant ::selection {
   background: var(--surface-focus);
-  color: #e8e4df;
+  color: var(--text-primary);
 }
 .group.is-user ::selection {
   background: var(--accent-selection);
-  color: #e8e4df;
+  color: var(--text-primary);
 }
 
 /* ── Conversation Bottom Fade ── */
@@ -894,7 +756,7 @@
   left: 0;
   right: 0;
   height: 140px;
-  background: linear-gradient(to bottom, transparent, rgba(21, 12, 40, 0.9));
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--surface-chat) 90%, transparent));
   pointer-events: none;
   z-index: 5;
 }
@@ -927,7 +789,7 @@
 /* ── Streamdown Mermaid Overrides ── */
 [data-streamdown="mermaid-block"] {
   background: var(--surface-input) !important;
-  border: 1px solid rgba(200, 172, 251, 0.08) !important;
+  border: 1px solid var(--border-subtle) !important;
   border-radius: 0.825rem !important;
   padding: 0 !important;
   position: relative !important;
@@ -996,14 +858,14 @@
   border-radius: var(--radius) !important;
   background: transparent !important;
   border: none !important;
-  color: #ded4f0 !important;
+  color: var(--text-tinted) !important;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 [data-streamdown="mermaid-block-actions"] button:hover {
-  background: rgba(200, 172, 251, 0.08) !important;
-  color: #f0eaff !important;
+  background: var(--surface-hover) !important;
+  color: var(--primary-hover) !important;
 }
 
 
@@ -1014,8 +876,8 @@
 [data-streamdown="mermaid"] svg .node ellipse,
 [data-streamdown="mermaid"] svg .node polygon,
 [data-streamdown="mermaid"] svg .node path {
-  fill: rgba(18, 10, 36, 0.9) !important;
-  stroke: rgba(200, 172, 251, 0.25) !important;
+  fill: var(--diagram-node-fill) !important;
+  stroke: var(--diagram-node-stroke) !important;
   stroke-width: 1.5px !important;
 }
 
@@ -1023,19 +885,19 @@
 [data-streamdown="mermaid"] svg .node .label text,
 [data-streamdown="mermaid"] svg .node .label span,
 [data-streamdown="mermaid"] svg .node .label p {
-  color: #e8e4df !important;
-  fill: #e8e4df !important;
+  color: var(--text-primary) !important;
+  fill: var(--text-primary) !important;
 }
 
 [data-streamdown="mermaid"] svg .edgePath .path {
-  stroke: rgba(200, 172, 251, 0.35) !important;
+  stroke: var(--diagram-edge) !important;
   stroke-width: 1.5px !important;
 }
 
 [data-streamdown="mermaid"] svg .marker,
 [data-streamdown="mermaid"] svg .arrowheadPath {
-  fill: rgba(200, 172, 251, 0.35) !important;
-  stroke: rgba(200, 172, 251, 0.35) !important;
+  fill: var(--diagram-edge) !important;
+  stroke: var(--diagram-edge) !important;
 }
 
 [data-streamdown="mermaid"] svg .edgeLabel rect {
@@ -1047,17 +909,17 @@
 [data-streamdown="mermaid"] svg .edgeLabel {
   fill: var(--surface-input-opaque) !important;
   background-color: var(--surface-input-opaque) !important;
-  stroke: rgba(200, 172, 251, 0.15) !important;
+  stroke: var(--border-strong) !important;
   rx: 4px !important;
   ry: 4px !important;
   border-radius: 4px !important;
-  color: #C8ACFB !important;
+  color: var(--lavender) !important;
 }
 
 [data-streamdown="mermaid"] svg .edgeLabel span,
 [data-streamdown="mermaid"] svg .edgeLabel p,
 [data-streamdown="mermaid"] svg .edgeLabel div {
-  color: #C8ACFB !important;
+  color: var(--lavender) !important;
   background-color: transparent !important;
 }
 

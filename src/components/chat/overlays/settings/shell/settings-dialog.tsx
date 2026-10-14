@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription } from "@/components/ui";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import type { ProviderDefinition } from "@/types/models";
 import { useProviderKeys } from "@/contexts/ProviderKeysContext";
+import { AppearancePane } from "../panes/appearance-pane";
 import { GeneralPane } from "../panes/general-pane";
 import {
   EmbeddingsPane,
@@ -54,11 +55,11 @@ export function SettingsDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
-        className="flex h-[min(var(--settings-dialog-h),calc(100%-2rem))] gap-0 overflow-hidden rounded-[var(--radius)] border border-[var(--border-medium)] bg-[var(--surface-input-opaque)] p-0 shadow-[0_24px_60px_rgba(0,0,0,0.5)] backdrop-blur-md sm:max-w-[var(--settings-dialog-w)]"
+        className="flex h-[min(var(--settings-dialog-h),calc(100%-2rem))] gap-0 overflow-hidden rounded-[var(--radius)] border border-[var(--border-medium)] bg-[var(--surface-input-opaque)] p-0 shadow-[0_24px_60px_var(--shadow-dialog)] backdrop-blur-md sm:max-w-[var(--settings-dialog-w)]"
         showCloseButton
       >
         <DialogDescription className="sr-only">
-          Spy preferences, provider API keys and embeddings.
+          Spy preferences, appearance, provider API keys and embeddings.
         </DialogDescription>
         <SettingsNav
           activePaneId={activePaneId}
@@ -74,6 +75,7 @@ export function SettingsDialog({
               transition={MOTION.chrome}
             >
               {activePaneId === "general" && <GeneralPane />}
+              {activePaneId === "appearance" && <AppearancePane />}
               {activePaneId === "providers" && (
                 <ProvidersPane
                   keyHints={keyHints}

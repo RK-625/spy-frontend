@@ -10,6 +10,7 @@ export type { SettingsPaneId };
 
 const settingsPanes: { id: SettingsPaneId; label: string }[] = [
   { id: "general", label: "General" },
+  { id: "appearance", label: "Appearance" },
   { id: "providers", label: "Providers" },
   { id: "embeddings", label: "Embeddings" },
   { id: "tools", label: "Tools" },

@@ -6,6 +6,20 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "spy-dev-isolated",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "FALKOR_PATH=/Users/apple/.spy-verify/falkor",
+        "CHATS_DB_PATH=/Users/apple/.spy-verify/chats.db",
+        "npx",
+        "next",
+        "dev",
+        "-p",
+        "3100"
+      ],
+      "port": 3100
     }
   ]
 }
