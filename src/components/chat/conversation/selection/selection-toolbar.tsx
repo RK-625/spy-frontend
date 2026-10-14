@@ -80,7 +80,7 @@ export function MessageSelectionToolbar({ chatId, onAddQuote }: {
     const snapshot = selectionRef.current;
     if (!snapshot) return;
     try {
-      await navigator.clipboard.writeText(snapshot.text);
+      await navigator.clipboard.writeText(snapshot.plainText);
       if (selectionRef.current !== snapshot) return;
       setCopied(true);
       if (feedbackTimer.current) clearTimeout(feedbackTimer.current);

@@ -1,17 +1,24 @@
 import type { PromptQuote } from "@/types/chat";
+import { rangeToMarkdown } from "./selection-markdown";
 
 export type MessageExcerpt = Omit<PromptQuote, "id">;
 
 export interface MessageSelection extends MessageExcerpt {
   range: Range;
+  /** Rendered text for Copy; `text` is the Markdown sent with a quote. */
+  plainText: string;
 }
 
-const excludedSelection =
-  'button, a, input, textarea, select, [role="button"], [contenteditable="true"], [data-selection-exclude]';
+/**
+ * Interactive chrome: a selection may span it (it is stripped), but may not start or end in it.
+ * Links are content, including Streamdown's link-safety buttons.
+ */
+const selectionChrome =
+  'button:not([data-streamdown="link"]), input, textarea, select, [role="button"], [contenteditable="true"], [data-selection-exclude]';
 
 function textSurface(node: Node): HTMLElement | null {
   const element = node instanceof Element ? node : node.parentElement;
-  if (element?.closest(excludedSelection)) return null;
+  if (element?.closest(selectionChrome)) return null;
   return element?.closest<HTMLElement>("[data-message-text]") ?? null;
 }
 
@@ -32,8 +39,9 @@ export function readMessageSelection(
     (role !== "user" && role !== "assistant") ||
     start.dataset.messageComplete !== "true" || end.dataset.messageComplete !== "true"
   ) return null;
-  if (range.cloneContents().querySelector(excludedSelection)) return null;
-  const text = selection.toString();
-  if (!text.trim()) return null;
-  return { sourceMessageId: messageId, sourceRole: role, text, range: range.cloneRange() };
+  const plainText = selection.toString();
+  if (!plainText.trim()) return null;
+  const text = rangeToMarkdown(range, start, selectionChrome);
+  if (!text) return null;
+  return { sourceMessageId: messageId, sourceRole: role, text, plainText, range: range.cloneRange() };
 }
