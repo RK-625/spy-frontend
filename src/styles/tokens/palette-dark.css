@@ -78,6 +78,32 @@
   --shadow-dialog: rgba(0, 0, 0, 0.5);
   --shadow-palette: rgba(10, 10, 10, 0.12);
 
+  /* ── Knowledge graph (WebGL; read via useThemeTokens) ── */
+  --graph-canvas: #0a0a0c;
+  --graph-node: #c8acfb;
+  --graph-link-parent: #8a96b4;
+  --graph-link-relates: #9a7ab8;
+  /* Domain colors: HSL lightness of a root, change per rank, and the bound it stops at.
+     Deeper ranks darken into the canvas. */
+  --graph-node-lightness-root: 0.62;
+  --graph-node-lightness-step: -0.07;
+  --graph-node-lightness-limit: 0.38;
+
+  /* ── Landing (shader sphere, hero text) ── */
+  --landing-sphere-body: #4a1280;
+  --landing-sphere-surface: #8838de;
+  --landing-sphere-highlight: #ddb8f8;
+  --hero-shadow: rgb(6, 6, 16);
+  --hero-glow: rgb(222, 212, 240);
+  --hero-shine: #ffffff;
+  --glossy-stop-1: #e8dff8;
+  --glossy-stop-2: #d0b8f5;
+  --glossy-stop-3: #b992f0;
+  --glossy-stop-4: #9a6ae0;
+  --glossy-shadow: rgb(30, 12, 80);
+  --glossy-glow-inner: rgb(188, 153, 251);
+  --glossy-glow-outer: rgb(116, 59, 232);
+
   /* ── shadcn/ui ── */
   --background: #060610;
   --foreground: #e8e4df;

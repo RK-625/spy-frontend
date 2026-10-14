@@ -515,7 +515,12 @@
   line-height: 1.6;
 }
 
+/* Streamdown highlights with github-light (--sdm-c) and github-dark (--shiki-dark). */
 [data-streamdown="code-block-body"] code span {
+  color: var(--sdm-c, inherit);
+}
+
+.dark [data-streamdown="code-block-body"] code span {
   color: var(--shiki-dark, var(--sdm-c, inherit));
 }
 

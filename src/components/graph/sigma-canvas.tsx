@@ -7,7 +7,12 @@ import { drawDiscNodeHover } from "sigma/rendering";
 import { SlidersHorizontal } from "lucide-react";
 import { motion } from "motion/react";
 
-import { buildLayoutGraph, POINT_COLOR } from "@/lib/graph-functions";
+import {
+  buildLayoutGraph,
+  paintLayoutGraph,
+  type SigmaEdgeAttrs,
+  type SigmaNodeAttrs,
+} from "@/lib/graph-functions";
 import { useGraphTopology } from "@/contexts/GraphTopologyContext";
 import { Button } from "@/components/ui/actions/button";
 import {
@@ -20,12 +25,13 @@ import {
 import { MOTION } from "@/lib/motion";
 
 import { Editor } from "./editor/editor";
+import { useGraphPalette } from "./graph-palette";
 
-/** Deepest register — same family as former GRAPH_BG (0x0a0a0c). */
-const GRAPH_BG = "#0a0a0c";
 /** Settle the layout before Sigma draws its first frame. */
 const FA2_ITERATIONS = 360;
 const MotionButton = motion.create(Button);
+
+type GraphRenderer = Sigma<SigmaNodeAttrs, SigmaEdgeAttrs>;
 
 /** Sigma `resize()`/`refresh()` throw when the host has no layout box. */
 function hostHasPositiveBox(host: HTMLElement): boolean {
@@ -45,7 +51,7 @@ function hostHasPositiveBox(host: HTMLElement): boolean {
  */
 export function SigmaCanvas() {
   const hostRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<Sigma | null>(null);
+  const rendererRef = useRef<GraphRenderer | null>(null);
   const relatesToVisibleRef = useRef(false);
   const [relatesToVisible, setRelatesToVisible] = useState(false);
   const { topology } = useGraphTopology();
@@ -61,6 +67,20 @@ export function SigmaCanvas() {
     setSelectedMemoryId(null);
   }
 
+  const graphPalette = useGraphPalette();
+  const graphPaletteRef = useRef(graphPalette);
+  const isGraphPaletteReady = graphPalette !== null;
+
+  // Theme change: recolor the mounted graph in place, keeping its settled layout.
+  useEffect(() => {
+    graphPaletteRef.current = graphPalette;
+    const renderer = rendererRef.current;
+    if (renderer == null || graphPalette == null) return;
+    paintLayoutGraph(renderer.getGraph(), graphPalette);
+    renderer.setSetting("defaultNodeColor", graphPalette.node);
+    renderer.refresh();
+  }, [graphPalette]);
+
   useEffect(() => {
     relatesToVisibleRef.current = relatesToVisible;
     rendererRef.current?.refresh();
@@ -69,15 +89,17 @@ export function SigmaCanvas() {
   useEffect(() => {
     const host = hostRef.current;
     if (host == null || topology == null || topology.memories.length === 0) return;
+    if (!isGraphPaletteReady) return;
 
     let cancelled = false;
-    let renderer: Sigma | null = null;
+    let renderer: GraphRenderer | null = null;
 
     const mount = () => {
       if (cancelled || renderer != null) return;
-      if (!hostHasPositiveBox(host)) return;
+      const palette = graphPaletteRef.current;
+      if (!hostHasPositiveBox(host) || palette == null) return;
 
-      const graph = buildLayoutGraph(topology.memories, topology.links);
+      const graph = buildLayoutGraph(topology.memories, topology.links, palette);
       forceAtlas2.assign(graph, {
         iterations: FA2_ITERATIONS,
         getEdgeWeight: "weight",
@@ -88,7 +110,7 @@ export function SigmaCanvas() {
         },
       });
       const instance = new Sigma(graph, host, {
-        defaultNodeColor: POINT_COLOR,
+        defaultNodeColor: palette.node,
         renderLabels: false,
         defaultDrawNodeHover: (context, data, settings) =>
           drawDiscNodeHover(context, { ...data, label: null }, settings),
@@ -135,14 +157,13 @@ export function SigmaCanvas() {
       renderer?.kill();
       rendererRef.current = null;
     };
-  }, [topology, memoriesById]);
+  }, [topology, memoriesById, isGraphPaletteReady]);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background text-text-primary">
       <div
         ref={hostRef}
-        className="absolute inset-0"
-        style={{ background: GRAPH_BG }}
+        className="absolute inset-0 bg-[var(--graph-canvas)]"
         aria-label="Knowledge graph canvas. Click a node to inspect. Drag to pan, wheel to zoom."
       />
 

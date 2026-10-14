@@ -7,6 +7,8 @@ export type ResolvedTheme = Exclude<ThemePreference, "system">;
 
 export const THEME_STORAGE_KEY = "spy-theme";
 export const DEFAULT_THEME_PREFERENCE: ThemePreference = "dark";
+/** What is painted before the stored preference is readable (server render, hydration). */
+export const DEFAULT_RESOLVED_THEME: ResolvedTheme = "dark";
 
 export interface ThemePreferenceOption {
   id: ThemePreference;

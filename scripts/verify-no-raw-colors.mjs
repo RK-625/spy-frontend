@@ -24,12 +24,8 @@ const EXEMPT_PATHS = [
  * Not theme-aware yet. Each entry must still contain raw colors, so a finished
  * file fails the check until it is removed from this list.
  */
-const PENDING_PATHS = [
-  { path: "src/app/page.tsx", reason: "landing shader backdrop (theme sprint 4)" },
-  { path: "src/components/landing/", reason: "landing hero text effects (theme sprint 4)" },
-  { path: "src/components/graph/sigma-canvas.tsx", reason: "WebGL graph canvas (theme sprint 4)" },
-  { path: "src/lib/graph-functions.ts", reason: "WebGL graph node colors (theme sprint 4)" },
-];
+/** @type {{ path: string, reason: string }[]} */
+const PENDING_PATHS = [];
 
 const TAILWIND_COLOR_FAMILIES =
   "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";

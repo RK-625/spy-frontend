@@ -2,9 +2,17 @@ import { MultiDirectedGraph } from "graphology";
 
 import type { Links, MemoryNode } from "@/types/graph-schema";
 
-export const POINT_COLOR = "#c8acfb";
-export const LINK_PARENT_OF = "#8a96b4";
-export const LINK_RELATES = "#9a7ab8";
+/** Theme colors for the graph, read from the palette tokens (src/styles/tokens). */
+export interface GraphPalette {
+  /** Nodes outside any PARENT_OF domain. */
+  node: string;
+  linkParentOf: string;
+  linkRelatesTo: string;
+  /** HSL lightness of a domain root; each rank moves by `nodeLightnessStep` until `nodeLightnessLimit`. */
+  nodeLightnessRoot: number;
+  nodeLightnessStep: number;
+  nodeLightnessLimit: number;
+}
 /** FA2 edge weight for RELATES_TO (not a layout spring). */
 export const RELATES_FA2_WEIGHT = 0;
 export const EDGE_SIZE = 1;
@@ -82,16 +90,16 @@ export function findNodeRanks(
   return { ranks, rootById };
 }
 
-/** Same PARENT_OF root → same hue. Deeper rank → darker. No root → lavender. */
-export function findNodeColors({
-  ranks,
-  rootById,
-}: NodeHierarchy): Map<string, string> {
+/** Same PARENT_OF root → same hue. Deeper rank → toward the canvas. No root → palette node color. */
+export function findNodeColors(
+  { ranks, rootById }: NodeHierarchy,
+  palette: GraphPalette,
+): Map<string, string> {
   const colors = new Map<string, string>();
   for (const [id, rootId] of rootById) {
     colors.set(
       id,
-      rootId == null ? POINT_COLOR : shade(hueOf(rootId), ranks.get(id) ?? 0),
+      rootId == null ? palette.node : shade(hueOf(rootId), ranks.get(id) ?? 0, palette),
     );
   }
   return colors;
@@ -131,8 +139,13 @@ function hueOf(id: string): number {
   return h >= 32 ? h + 26 : h;
 }
 
-function shade(h: number, rank: number): string {
-  const l = Math.max(0.38, 0.62 - rank * 0.07);
+function shade(h: number, rank: number, palette: GraphPalette): string {
+  const { nodeLightnessRoot, nodeLightnessStep, nodeLightnessLimit } = palette;
+  const rankLightness = nodeLightnessRoot + rank * nodeLightnessStep;
+  const l =
+    nodeLightnessStep < 0
+      ? Math.max(nodeLightnessLimit, rankLightness)
+      : Math.min(nodeLightnessLimit, rankLightness);
   const a = 0.54 * Math.min(l, 1 - l);
   const f = (n: number) => {
     const k = (n + h / 30) % 12;
@@ -144,6 +157,10 @@ function shade(h: number, rank: number): string {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
+function findLinkColor(type: Links["type"], palette: GraphPalette): string {
+  return type === "PARENT_OF" ? palette.linkParentOf : palette.linkRelatesTo;
+}
+
 /** Edge key: source + target + link type (exact-duplicate guard). */
 function layoutEdgeKey(link: Links): string {
   return `${link.source}\0${link.target}\0${link.type}`;
@@ -153,11 +170,12 @@ function layoutEdgeKey(link: Links): string {
 export function buildLayoutGraph(
   memories: MemoryNode[],
   links: Links[],
+  palette: GraphPalette,
 ): SigmaGraph {
   const graph = new MultiDirectedGraph<SigmaNodeAttrs, SigmaEdgeAttrs>();
   const ids = memories.map((memory) => memory.id);
   const hierarchy = findNodeRanks(ids, links);
-  const colors = findNodeColors(hierarchy);
+  const colors = findNodeColors(hierarchy, palette);
   const sizes = findNodeSizes(hierarchy);
   const count = memories.length;
   memories.forEach((memory, index) => {
@@ -166,7 +184,7 @@ export function buildLayoutGraph(
       x: Math.cos(angle),
       y: Math.sin(angle),
       size: sizes.get(memory.id) ?? 1,
-      color: colors.get(memory.id) ?? POINT_COLOR,
+      color: colors.get(memory.id) ?? palette.node,
       label: memory.name,
     });
   });
@@ -177,7 +195,7 @@ export function buildLayoutGraph(
     const isParentOf = link.type === "PARENT_OF";
     graph.addEdgeWithKey(edgeKey, link.source, link.target, {
       relationType: link.type,
-      color: isParentOf ? LINK_PARENT_OF : LINK_RELATES,
+      color: findLinkColor(link.type, palette),
       size: EDGE_SIZE,
       type: "line",
       weight: isParentOf
@@ -187,4 +205,22 @@ export function buildLayoutGraph(
   }
 
   return graph;
+}
+
+/** Recolors a built graph in place (theme change) without touching its layout. */
+export function paintLayoutGraph(graph: SigmaGraph, palette: GraphPalette): void {
+  const links = graph.mapEdges((_edge, attributes, source, target): Links => ({
+    source,
+    target,
+    type: attributes.relationType,
+  }));
+  const colors = findNodeColors(findNodeRanks(graph.nodes(), links), palette);
+  graph.updateEachNodeAttributes((id, attributes) => ({
+    ...attributes,
+    color: colors.get(id) ?? palette.node,
+  }));
+  graph.updateEachEdgeAttributes((_edge, attributes) => ({
+    ...attributes,
+    color: findLinkColor(attributes.relationType, palette),
+  }));
 }

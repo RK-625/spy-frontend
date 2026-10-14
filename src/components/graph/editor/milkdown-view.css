@@ -140,7 +140,19 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   padding: 0.65rem 0.75rem;
-  color: var(--prosemirror-highlight, inherit);
+  color: var(--shiki-light, inherit);
+}
+
+.dark .milkdown-pane pre {
+  color: var(--shiki-dark, inherit);
+}
+
+.milkdown-pane .shiki {
+  color: var(--shiki-light);
+}
+
+.dark .milkdown-pane .shiki {
+  color: var(--shiki-dark);
 }
 
 .milkdown-pane pre code {

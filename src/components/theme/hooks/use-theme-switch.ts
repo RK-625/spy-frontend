@@ -9,7 +9,7 @@ import {
   isThemePreference,
   type ResolvedTheme,
   type ThemePreference,
-} from "./theme-preference";
+} from "../theme-preference";
 
 const subscribeToNothing = () => () => {};
 
