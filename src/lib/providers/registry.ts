@@ -3,12 +3,12 @@
  * their chat models. Server-only SDK wiring lives in `@/ai/models/modelstore`.
  */
 import {
-  AnthropicWhite,
+  Anthropic,
   Deepseek,
   Exa,
   Google,
   Meta,
-  OpenAIDark,
+  OpenAI,
 } from "@/components/logos";
 import type {
   AIModel,
@@ -51,7 +51,7 @@ export const providers: ProviderDefinition[] = [
   {
     id: "openai",
     name: "OpenAI",
-    icon: OpenAIDark,
+    icon: OpenAI,
     keyPrefix: "sk-",
     capabilities: ["chat"],
     models: [
@@ -72,7 +72,7 @@ export const providers: ProviderDefinition[] = [
   {
     id: "anthropic",
     name: "Anthropic",
-    icon: AnthropicWhite,
+    icon: Anthropic,
     keyPrefix: "sk-ant-",
     capabilities: ["chat"],
     models: [

@@ -1,9 +1,10 @@
 import type { SVGProps } from "react";
 
-const AnthropicWhite = (props: SVGProps<SVGSVGElement>) => (
+/** Single-color mark: draws in the surrounding text color, so it fits both themes. */
+const Anthropic = (props: SVGProps<SVGSVGElement>) => (
   <svg
+    fill="currentColor"
     {...props}
-    fill="#ffff"
     fillRule="evenodd"
     style={{ flex: "none", lineHeight: "1" }}
     viewBox="0 0 24 24"
@@ -13,4 +14,4 @@ const AnthropicWhite = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-export { AnthropicWhite };
+export { Anthropic };

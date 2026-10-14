@@ -99,7 +99,7 @@ const required = [
 
   // logos (provider marks)
   "src/components/logos/openai.tsx",
-  "src/components/logos/anthropic-white.tsx",
+  "src/components/logos/anthropic.tsx",
   "src/components/logos/google.tsx",
   "src/components/logos/deepseek.tsx",
   "src/components/logos/meta.tsx",
