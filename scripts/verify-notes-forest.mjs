@@ -22,7 +22,7 @@ function assert(cond, msg) {
 
 const { buildNotesForest, indexNotesFamilies } = await import(
   pathToFileURL(
-    path.join(root, "src/components/chat/sidebar/notes/notes-forest.ts"),
+    path.join(root, "src/lib/notes/hierarchy.ts"),
   ).href
 );
 

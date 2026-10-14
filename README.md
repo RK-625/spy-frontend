@@ -16,10 +16,16 @@ Open [http://localhost:3000](http://localhost:3000).
 |-------|------|
 | `/` | Landing (ShaderGradient; mascot host not mounted) |
 | `/chat` | Chat UI (`?c=<chatId>`). Conversation, sidebar, prompt shell. |
-| `/notes` | Notes master (blank detail). `/notes/[id]` is read-only Milkdown. |
+| `/notes` | Notes master (blank detail). `/notes/[id]` has hierarchy breadcrumbs, read-only Milkdown, and BFS learning sessions. |
 | `/graph` | Knowledge graph (Sigma + same sidebar shell) |
 
 API keys for model providers (DeepSeek, Meta, OpenAI, Anthropic, Google) and for Exa web search (**Settings → Tools**) are added in **Settings** and stored in the OS keychain after the provider accepts them; `.env` is not read for them. Web search is only offered once a verified Exa key is saved.
+
+### Learning from notes
+
+Open any note and choose **Learn** to read it and its `PARENT_OF` descendants in breadth-first order, with siblings sorted like the sidebar. The three chevrons move back, skip, or mark reviewed and advance. Progress counts reviewed and skipped notes; confidence stays unchanged.
+
+The completion summary retains the note hierarchy, with collapsible folders and ticks/skipped labels beside names. Select a name to revisit its captured document, then use **Back to summary**. **Learn again** starts from the latest topology with cleared outcomes. Active sessions capture stable content and ordering, and remain local to the current note window: closing, navigating away, or a full refresh discards them. There is no scheduling or saved learning history.
 
 ## Docs
 
@@ -89,6 +95,7 @@ npm run verify:pending-ask
 # Graph / chats (tsx does not load .env: prefix FALKOR_PATH=$HOME/.spy/falkor …)
 npm run verify:parent-of-hierarchy
 npm run verify:notes-forest
+npm run verify:note-learning
 npm run verify:chat-delete
 npm run verify:graph-history
 

@@ -29,7 +29,8 @@
     "prepare:graph-binaries": "node scripts/electron/graph-binaries/prepare.mjs",
     "verify:graph-binaries": "node scripts/electron/graph-binaries/verify.mjs",
     "electron:pack": "npm run prepare:graph-binaries && npm run build && electron-builder --mac dir --arm64 --config.mac.identity=null",
-    "electron:dist": "npm run prepare:graph-binaries && npm run build && electron-builder --mac dmg zip --arm64 --config.mac.identity=null"
+    "electron:dist": "npm run prepare:graph-binaries && npm run build && electron-builder --mac dmg zip --arm64 --config.mac.identity=null",
+    "verify:note-learning": "node --import tsx scripts/verify-note-learning.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.40",
@@ -74,6 +75,7 @@
     "falkordblite": "^0.3.0",
     "graphology": "^0.26.0",
     "graphology-layout-forceatlas2": "^0.10.1",
+    "graphology-traversal": "^0.3.1",
     "lucide-react": "^1.47.0",
     "media-chrome": "^4.19.2",
     "motion": "^12.40.0",

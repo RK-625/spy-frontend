@@ -144,9 +144,9 @@ assert(
   "layout graph does not skip on endpoint-only hasEdge",
 );
 assert(
-  layoutGraph.includes('type: isParentOf ? "arrow" : "line"') &&
+  layoutGraph.includes('type: "line"') &&
     layoutGraph.includes("strengthFromChildRank"),
-  "strength/arrow still hierarchy vs RELATES",
+  "hierarchy strength retained with line-only rendering",
 );
 
 const multiMemories = [
@@ -168,7 +168,7 @@ const dupParent = buildLayoutGraph(multiMemories, [
 assert(
   dupParent.size === 1 &&
     [...dupParent.edgeEntries()].every(
-      ({ attributes }) => attributes.type === "arrow",
+      ({ attributes }) => attributes.type === "line",
     ),
   "duplicate PARENT_OF A→B collapses to one hierarchy edge",
 );

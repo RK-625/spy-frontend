@@ -17,12 +17,12 @@ import {
   useRole,
   useTransitionStatus,
 } from "@floating-ui/react";
-import { ChevronRight, FileText } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { MOTION } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import type { NotesForestNode } from "./notes-forest";
+import type { NotesForestNode } from "@/lib/notes/hierarchy";
 
 const CHILD_PREVIEW_DELAY = { open: 500, close: 150 };
 const CHILD_PREVIEW_PADDING = 8;
@@ -190,7 +190,6 @@ export function ChatSidebarNotesRow({
                       }}
                       className="notes-children-flyout-item"
                     >
-                      <FileText size={ICON_GLYPH.inline} strokeWidth={1.5} className="shrink-0 text-lavender-muted" aria-hidden />
                       <span className="min-w-0 wrap-break-word">{note.name?.trim() || note.id}</span>
                     </button>
                   </li>

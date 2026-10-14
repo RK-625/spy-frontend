@@ -16,21 +16,19 @@ function NoteByIdStatus({
   children: ReactNode;
 }) {
   return (
-    <div
-      role="status"
-      aria-label={ariaLabel}
-      className="flex min-h-0 flex-1 flex-col items-center justify-center"
-    >
-      {children}
-    </div>
+    <NoteWorkspace>
+      <div
+        role="status"
+        aria-label={ariaLabel}
+        className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-8"
+      >
+        {children}
+      </div>
+    </NoteWorkspace>
   );
 }
 
-async function NoteByIdBody({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+async function NoteByIdBody({ params }: { params: Promise<{ id: string }> }) {
   const { id: rawId } = await params;
 
   let noteId: string;
@@ -73,7 +71,7 @@ async function NoteByIdBody({
       </NoteByIdStatus>
     );
   }
-  return <NoteReadyBody node={load.note} />;
+  return <NoteReadyBody key={noteId} node={load.note} />;
 }
 
 /**
@@ -86,16 +84,14 @@ export default function NoteByIdPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <NoteWorkspace>
-      <Suspense
-        fallback={
-          <NoteByIdStatus ariaLabel="Loading note">
-            <DotmHex9 animated={true} />
-          </NoteByIdStatus>
-        }
-      >
-        <NoteByIdBody params={params} />
-      </Suspense>
-    </NoteWorkspace>
+    <Suspense
+      fallback={
+        <NoteByIdStatus ariaLabel="Loading note">
+          <DotmHex9 animated={true} />
+        </NoteByIdStatus>
+      }
+    >
+      <NoteByIdBody params={params} />
+    </Suspense>
   );
 }

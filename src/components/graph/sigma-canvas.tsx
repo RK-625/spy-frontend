@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
-import { createEdgeArrowProgram, drawDiscNodeHover } from "sigma/rendering";
+import { drawDiscNodeHover } from "sigma/rendering";
 import { SlidersHorizontal } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -23,11 +23,6 @@ import { Editor } from "./editor/editor";
 
 /** Deepest register — same family as former GRAPH_BG (0x0a0a0c). */
 const GRAPH_BG = "#0a0a0c";
-/** PARENT_OF heads only — 4× Sigma default (2.5 / 2). Shaft stays EDGE_SIZE. */
-const PARENT_ARROW_PROGRAM = createEdgeArrowProgram({
-  lengthToThicknessRatio: 10,
-  widenessToThicknessRatio: 8,
-});
 /** Settle the layout before Sigma draws its first frame. */
 const FA2_ITERATIONS = 360;
 const MotionButton = motion.create(Button);
@@ -103,7 +98,6 @@ export function SigmaCanvas() {
         autoCenter: true,
         minCameraRatio: 0.3,
         defaultEdgeType: "line",
-        edgeProgramClasses: { arrow: PARENT_ARROW_PROGRAM },
         edgeReducer: (_edge, attributes) => ({
           ...attributes,
           hidden: attributes.relationType === "RELATES_TO" && !relatesToVisibleRef.current,

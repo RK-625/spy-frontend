@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { cn } from "@/lib/utils";
 import { ChatSidebarNotesRow } from "./notes-row";
-import type { NotesFamily, NotesForestNode } from "./notes-forest";
+import type { NotesFamily, NotesForestNode } from "@/lib/notes/hierarchy";
 
 export function ChatSidebarNotesFamily({
   family,

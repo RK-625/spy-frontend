@@ -21,7 +21,7 @@ export interface SigmaEdgeAttrs {
   relationType: Links["type"];
   color: string;
   size: number;
-  type: "arrow" | "line";
+  type: "line";
   weight: number;
 }
 
@@ -179,7 +179,7 @@ export function buildLayoutGraph(
       relationType: link.type,
       color: isParentOf ? LINK_PARENT_OF : LINK_RELATES,
       size: EDGE_SIZE,
-      type: isParentOf ? "arrow" : "line",
+      type: "line",
       weight: isParentOf
         ? strengthFromChildRank(hierarchy.ranks.get(link.target) ?? 1)
         : RELATES_FA2_WEIGHT,

@@ -79,6 +79,96 @@
   --ease-chrome: cubic-bezier(0, 0, 0.2, 1);
 }
 
+/* Text-sized note glyphs share the existing ghost control and hover tokens. */
+.note-control {
+  background: transparent;
+  min-height: var(--control-toolbar-box);
+  height: auto;
+  max-width: 100%;
+  white-space: normal;
+  transition-property: background-color, color, opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-chrome);
+}
+.note-control:hover {
+  background: var(--surface-hover);
+}
+.note-control svg {
+  width: 1em;
+  height: 1em;
+}
+
+/* Folder-style session hierarchy. Every last sibling has a short terminal spine. */
+.note-learning-tree {
+  --note-tree-indent: 1.5rem;
+  --note-tree-row: 2.5rem;
+}
+.note-learning-children {
+  margin-left: 1rem;
+}
+.note-learning-branch {
+  position: relative;
+  padding-left: var(--note-tree-indent);
+}
+.note-learning-branch::before,
+.note-learning-branch::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  background: var(--border-subtle);
+  pointer-events: none;
+}
+.note-learning-branch::before {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.note-learning-branch:last-child::before {
+  bottom: auto;
+  height: calc(var(--note-tree-row) / 2);
+}
+.note-learning-branch::after {
+  top: calc(var(--note-tree-row) / 2);
+  width: var(--note-tree-indent);
+  height: 1px;
+}
+.note-learning-row {
+  display: flex;
+  align-items: flex-start;
+  min-height: var(--note-tree-row);
+  padding-block: 0.25rem;
+}
+.note-learning-name {
+  min-width: 0;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--radius);
+  text-align: left;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+  transition: background-color var(--duration-fast) var(--ease-chrome);
+}
+.note-learning-name:hover {
+  background: var(--surface-hover);
+}
+.note-learning-name:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@container (width < 20rem) {
+  .note-learning-tree {
+    --note-tree-indent: 0.5rem;
+  }
+  .note-learning-children {
+    margin-left: 0.25rem;
+  }
+  .note-learning-leaf-space {
+    display: none;
+  }
+}
+
 /* Child-note flyouts share the sidebar's density and popover tokens. */
 .notes-children-flyout {
   @apply z-50 w-64 overflow-y-auto overscroll-contain rounded-lg border border-border-subtle bg-popover text-popover-foreground shadow-lg;

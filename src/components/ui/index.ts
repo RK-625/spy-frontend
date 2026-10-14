@@ -19,3 +19,4 @@ export * from "./layout/card";
 export * from "./layout/separator";
 export * from "./layout/collapsible";
 export * from "./navigation/command";
+export * from "./navigation/breadcrumb";

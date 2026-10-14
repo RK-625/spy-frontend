@@ -15,6 +15,7 @@ type GraphTopologyState = {
   topology: GraphTopology | null;
   loading: boolean;
   error: Error | undefined;
+  retry: () => void;
 };
 
 const GraphTopologyContext = createContext<GraphTopologyState | null>(null);
@@ -40,7 +41,8 @@ export function GraphTopologyProvider({ children }: { children: ReactNode }) {
     topology: data ?? null,
     loading: isLoading,
     error,
-  }), [data, isLoading, error]);
+    retry: () => { void mutate().catch(() => undefined); },
+  }), [data, isLoading, error, mutate]);
 
   return (
     <GraphTopologyContext.Provider value={value}>

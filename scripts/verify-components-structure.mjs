@@ -66,7 +66,12 @@ const required = [
   "src/components/chat/sidebar/recents/recents-row.tsx",
   "src/components/chat/sidebar/notes/notes.tsx",
   "src/components/chat/sidebar/notes/notes-row.tsx",
-  "src/components/chat/sidebar/notes/notes-forest.ts",
+  "src/lib/notes/hierarchy.ts",
+  "src/lib/notes/session.ts",
+  "src/components/chat/workspace/document/note-document.tsx",
+  "src/components/chat/workspace/navigation/note-header.tsx",
+  "src/components/chat/workspace/learning/learning-summary.tsx",
+  "src/components/ui/navigation/breadcrumb.tsx",
   "src/components/chat/sidebar/footer/footer.tsx",
   "src/components/chat/overlays/index.ts",
   "src/components/chat/overlays/command-palette.tsx",
@@ -366,7 +371,7 @@ if (!noteWorkspace.includes('event.key === "Escape"')) {
 if (!noteWorkspace.includes("{children}")) {
   failures.push("NoteWorkspace must take children as the note body");
 }
-if (!noteWorkspace.includes("readOnly={true}")) {
+if (!fs.readFileSync(path.join(root, "src/components/chat/workspace/document/note-document.tsx"), "utf8").includes("readOnly={true}")) {
   failures.push("NoteWorkspace Milkdown must stay readOnly");
 }
 const graphEditor = fs.readFileSync(

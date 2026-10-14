@@ -15,7 +15,8 @@ import { Separator } from "@/components/ui";
 import { useGraphTopology } from "@/contexts/GraphTopologyContext";
 import { FAMILY_SLIDE, MOTION } from "@/lib/motion";
 import { ChatSidebarNotesFamily } from "./notes-family";
-import { buildNotesForest, indexNotesFamilies } from "./notes-forest";
+import { notifyNoteNavigation } from "@/lib/notes/navigation";
+import { buildNotesForest, indexNotesFamilies } from "@/lib/notes/hierarchy";
 
 const FAMILY_STORAGE_KEY = "spy-notes-family";
 
@@ -94,6 +95,7 @@ export function ChatSidebarNotes() {
 
   const handleOpenNote = useCallback(
     (noteId: string) => {
+      notifyNoteNavigation();
       router.push(`/notes/${encodeURIComponent(noteId)}`);
     },
     [router],

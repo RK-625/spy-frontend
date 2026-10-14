@@ -12,7 +12,8 @@ import { gfm } from "@milkdown/kit/preset/gfm";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 import { createParser, type Parser } from "@milkdown/plugin-highlight/shiki";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Spinner } from "@/components/ui";
 import {
   bundledLanguages,
   bundledLanguagesAlias,
@@ -88,11 +89,14 @@ export type MilkdownViewProps = {
   onDocumentTextChange?: (next: string) => void;
 };
 
+let documentHighlighter: Highlighter | null | undefined;
+
 function MilkdownEditor({
+  highlighter,
   documentText,
   readOnly,
   onDocumentTextChange,
-}: MilkdownViewProps) {
+}: MilkdownViewProps & { highlighter: Highlighter | null }) {
   const readOnlyRef = useRef(readOnly);
   const onDocumentTextChangeRef = useRef(onDocumentTextChange);
 
@@ -104,35 +108,36 @@ function MilkdownEditor({
     onDocumentTextChangeRef.current = onDocumentTextChange;
   }, [onDocumentTextChange]);
 
-  useEditor((container) => {
-    return Editor.make()
-      .config(async (ctx) => {
-        ctx.set(rootCtx, container);
-        ctx.set(defaultValueCtx, documentText);
-        ctx.update(editorViewOptionsCtx, (prev) => ({
-          ...prev,
-          editable: () => !readOnlyRef.current,
-        }));
+  useEditor(
+    (container) => {
+      return Editor.make()
+        .config((ctx) => {
+          ctx.set(rootCtx, container);
+          ctx.set(defaultValueCtx, documentText);
+          ctx.update(editorViewOptionsCtx, (prev) => ({
+            ...prev,
+            editable: () => !readOnlyRef.current,
+          }));
 
-        ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, prevMarkdown) => {
-          if (readOnlyRef.current) return;
-          if (markdown === prevMarkdown) return;
-          onDocumentTextChangeRef.current?.(markdown);
-        });
+          ctx
+            .get(listenerCtx)
+            .markdownUpdated((_ctx, markdown, prevMarkdown) => {
+              if (readOnlyRef.current) return;
+              if (markdown === prevMarkdown) return;
+              onDocumentTextChangeRef.current?.(markdown);
+            });
 
-        const highlighter = await getSingletonHighlighter({
-          themes: ["github-dark"],
-          langs: [...PRELOADED_LANGS],
-        });
-        ctx.set(highlightPluginConfig.key, {
-          parser: createLazyShikiParser(highlighter),
-        });
-      })
-      .use(commonmark)
-      .use(gfm)
-      .use(listener)
-      .use(highlight);
-  }, [documentText]);
+          ctx.set(highlightPluginConfig.key, {
+            parser: highlighter ? createLazyShikiParser(highlighter) : () => [],
+          });
+        })
+        .use(commonmark)
+        .use(gfm)
+        .use(listener)
+        .use(highlight);
+    },
+    [documentText, highlighter],
+  );
 
   return <Milkdown />;
 }
@@ -141,6 +146,30 @@ function MilkdownEditor({
  * CommonMark + GFM WYSIWYG over `node.content`. Markdown string stays source of truth.
  */
 export function MilkdownView(props: MilkdownViewProps) {
+  const [highlighter, setHighlighter] = useState(() => documentHighlighter);
+  useEffect(() => {
+    if (highlighter !== undefined) return;
+    let cancelled = false;
+    // Resolve Shiki before editor.create(): its async config timers should not
+    // depend on language loading while a learning card can be unmounted.
+    getSingletonHighlighter({
+      themes: ["github-dark"],
+      langs: [...PRELOADED_LANGS],
+    }).then(
+      (readyHighlighter) => {
+        documentHighlighter = readyHighlighter;
+        if (!cancelled) setHighlighter(readyHighlighter);
+      },
+      () => {
+        // Markdown still works if optional syntax highlighting cannot load.
+        documentHighlighter = null;
+        if (!cancelled) setHighlighter(null);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [highlighter]);
   return (
     <div
       className={
@@ -150,9 +179,19 @@ export function MilkdownView(props: MilkdownViewProps) {
       }
       data-readonly={props.readOnly ? "true" : "false"}
     >
-      <MilkdownProvider>
-        <MilkdownEditor {...props} />
-      </MilkdownProvider>
+      {highlighter === undefined ? (
+        <div
+          role="status"
+          aria-label="Loading document"
+          className="flex items-center py-4"
+        >
+          <Spinner />
+        </div>
+      ) : (
+        <MilkdownProvider>
+          <MilkdownEditor {...props} highlighter={highlighter} />
+        </MilkdownProvider>
+      )}
     </div>
   );
 }

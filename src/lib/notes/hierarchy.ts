@@ -11,10 +11,7 @@ export type NotesForestNode = {
   children: NotesForestNode[];
 };
 
-function compareNoteNames(
-  left: MemoryNode,
-  right: MemoryNode ,
-): number {
+function compareNoteNames(left: MemoryNode, right: MemoryNode): number {
   const leftName = left.name || left.id || "";
   const rightName = right.name || right.id || "";
   return leftName.localeCompare(rightName);
@@ -84,9 +81,7 @@ export function buildNotesForest(
     if (node) forest.push(node);
   }
 
-  forest.sort((left, right) =>
-    compareNoteNames(left.note, right.note),
-  );
+  forest.sort((left, right) => compareNoteNames(left.note, right.note));
   return forest;
 }
 
@@ -100,7 +95,10 @@ export function indexNotesFamilies(
   forest: readonly NotesForestNode[],
 ): Map<string, NotesFamily> {
   const families = new Map<string, NotesFamily>();
-  const pending: NotesFamily[] = forest.map((node) => ({ node, parentId: null }));
+  const pending: NotesFamily[] = forest.map((node) => ({
+    node,
+    parentId: null,
+  }));
   while (pending.length > 0) {
     const family = pending.pop()!;
     families.set(family.node.note.id, family);
@@ -109,4 +107,23 @@ export function indexNotesFamilies(
     }
   }
   return families;
+}
+
+/** Ancestors and current note from the normalized, sidebar-visible hierarchy. */
+export function getNotePath(
+  families: ReadonlyMap<string, NotesFamily>,
+  noteId: string,
+): MemoryNode[] {
+  const path: MemoryNode[] = [];
+  let family = families.get(noteId);
+  while (family) {
+    path.push(family.node.note);
+    family =
+      family.parentId === null ? undefined : families.get(family.parentId);
+  }
+  return path.reverse();
+}
+
+export function getNoteTitle(note: MemoryNode): string {
+  return note.name?.trim() || note.id || "Note";
 }

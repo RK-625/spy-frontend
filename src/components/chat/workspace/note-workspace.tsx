@@ -1,108 +1,233 @@
 "use client";
 
-import { useCallback, useEffect, type ReactNode } from "react";
+import { useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
-import { MilkdownView } from "@/components/graph/editor/milkdown-view";
 import { Button } from "@/components/ui";
+import { useGraphTopology } from "@/contexts/GraphTopologyContext";
+import {
+  buildNotesForest,
+  indexNotesFamilies,
+  getNotePath,
+  getNoteTitle,
+} from "@/lib/notes/hierarchy";
+import {
+  createNoteLearningSnapshot,
+  noteLearningReducer,
+  getNoteLearningCounts,
+} from "@/lib/notes/session";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { NOTE_NAVIGATION_EVENT } from "@/lib/notes/navigation";
+import { FAMILY_SLIDE, MOTION } from "@/lib/motion";
+import {
+  NoteLearningActions,
+  LearningSummaryFooter,
+} from "./learning/learning-actions";
+import { LearningSummary } from "./learning/learning-summary";
+import {
+  LearningNavigation,
+  LearningProgress,
+} from "./learning/learning-navigation";
+import { NoteDocument } from "./document/note-document";
+import { NoteHeader } from "./navigation/note-header";
 import type { MemoryNode } from "@/types/graph-schema";
 
-export type NoteWorkspaceProps = {
+/** Shared ready/loading/error chrome; unmounting the route discards local learning. */
+export function NoteWorkspace({
+  children,
+  header,
+  footer,
+}: {
   children: ReactNode;
-};
-
-function formatConfidence(value: number | undefined): string | null {
-  if (value == null || !Number.isFinite(value)) return null;
-  const pct = Math.round(Math.min(1, Math.max(0, value)) * 100);
-  return `${pct}%`;
-}
-
-/**
- * Full-bleed note chrome at `/notes/[id]`.
- * Always on (X / Escape → `/notes`). Body is passed as children.
- */
-export function NoteWorkspace({ children }: NoteWorkspaceProps) {
+  header?: ReactNode;
+  footer?: ReactNode;
+}) {
   const router = useRouter();
-  const handleDismissNote = useCallback(() => {
-    router.push("/notes");
-  }, [router]);
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (event.key === "Escape") {
-        handleDismissNote();
-      }
+      if (!event.defaultPrevented && event.key === "Escape")
+        router.push("/notes");
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleDismissNote]);
-
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [router]);
   return (
     <div
       role="region"
       aria-label="Note"
-      className="relative flex h-full w-full flex-col overflow-hidden bg-surface-chat"
+      className="@container relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-surface-chat"
     >
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={handleDismissNote}
-        aria-label="Close note"
-        className="absolute top-8 right-6 z-10"
-      >
-        <X size={16} strokeWidth={1.5} />
-      </Button>
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8">
-        <div className="flex min-h-full flex-col">{children}</div>
-      </div>
+      {header ?? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="note-control absolute top-6 right-6 z-10"
+          onClick={() => router.push("/notes")}
+          aria-label="Close note"
+        >
+          <X aria-hidden="true" strokeWidth={1.5} />
+        </Button>
+      )}
+      {children}
+      {footer}
     </div>
   );
 }
 
-/** Ready document: title, read-only Milkdown, impression. */
 export function NoteReadyBody({ node }: { node: MemoryNode }) {
-  const title = node.name?.trim() || node.id || "Note";
-  const confidenceLabel = formatConfidence(node.confidence);
-  const documentText =
-    node.content?.trim() || `No content woven for “${title}” yet.`;
-  const impression = node.impression?.trim();
+  const { topology, loading, error, retry } = useGraphTopology();
+  const families = useMemo(
+    () =>
+      indexNotesFamilies(
+        buildNotesForest(topology?.memories ?? [], topology?.links ?? []),
+      ),
+    [topology],
+  );
+  const availableCount = useMemo(() => {
+    const selectedFamily = families.get(node.id);
+    return selectedFamily
+      ? indexNotesFamilies([selectedFamily.node]).size
+      : null;
+  }, [families, node.id]);
+  const [session, dispatch] = useReducer(noteLearningReducer, null);
+  useEffect(() => {
+    const resetSession = () => dispatch({ type: "exit" });
+    window.addEventListener(NOTE_NAVIGATION_EVENT, resetSession);
+    return () =>
+      window.removeEventListener(NOTE_NAVIGATION_EVENT, resetSession);
+  }, []);
+  const reduceMotion = useReducedMotion();
+  const scrollContainer = useRef<HTMLDivElement>(null);
+  const counts = session ? getNoteLearningCounts(session) : null;
+  const currentId = session
+    ? session.mode === "revisit"
+      ? session.revisitedNoteId!
+      : session.snapshot.cardIds[session.currentIndex]
+    : node.id;
+  const currentNote = session ? session.snapshot.notes.get(currentId)! : node;
+  const summary = session?.mode === "completed";
+  const displayedId = summary ? session.snapshot.rootId : currentId;
+  const livePath = getNotePath(families, node.id);
+  const path = session
+    ? session.snapshot.paths.get(displayedId)!
+    : livePath.length
+      ? livePath
+      : [node];
+  const viewKey = `${session?.mode ?? "document"}:${displayedId}`;
+  const startSession = () => {
+    const snapshot = createNoteLearningSnapshot(families, node.id);
+    if (snapshot) dispatch({ type: "start", snapshot });
+  };
+  useEffect(() => {
+    scrollContainer.current?.scrollTo({ top: 0, behavior: "instant" });
+    if (summary || session?.mode === "revisit")
+      scrollContainer.current?.focus({ preventScroll: true });
+  }, [viewKey, summary, session?.mode]);
 
+  const headerActions = (
+    <NoteLearningActions
+      session={session}
+      availableCount={availableCount}
+      loading={loading}
+      onStart={startSession}
+      dispatch={dispatch}
+    />
+  );
+  const footer =
+    session?.mode === "active" ? (
+      <LearningNavigation
+        firstCard={session.currentIndex === 0}
+        processed={counts!.processed}
+        total={counts!.total}
+        onPrevious={() => dispatch({ type: "previous" })}
+        onDecide={(outcome) => dispatch({ type: "decide", outcome })}
+      />
+    ) : summary ? (
+      <LearningSummaryFooter
+        processed={counts!.processed}
+        total={counts!.total}
+        canRestart={Boolean(availableCount)}
+        onRestart={startSession}
+      />
+    ) : undefined;
   return (
-    <>
-      <header className="flex shrink-0 items-start gap-3 pr-10">
-        <h1 className="min-w-0 flex-1 wrap-break-word font-sans text-[1.75rem] font-semibold tracking-wide text-text-primary uppercase">
-          {title}
-        </h1>
-        {confidenceLabel ? (
-          <span className="shrink-0 font-mono text-sm text-text-secondary">
-            {confidenceLabel}
-          </span>
-        ) : null}
-      </header>
-
-      <div className="mt-4 shrink-0">
-        <MilkdownView
-          key={node.id}
-          documentText={documentText}
-          readOnly={true}
-          scrollMode="document"
+    <NoteWorkspace
+      header={
+        <NoteHeader
+          path={path}
+          actions={headerActions}
+          onNavigate={() => dispatch({ type: "exit" })}
         />
-      </div>
-
-      {impression ? (
-        <section className="mt-4 shrink-0">
-          <div className="text-[0.7rem] font-medium tracking-wider text-text-secondary uppercase">
-            IMPRESSION
-          </div>
-          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-text-primary">
-            {impression}
-          </p>
-        </section>
+      }
+      footer={footer}
+    >
+      {session ? (
+        <LearningProgress processed={counts!.processed} total={counts!.total} />
       ) : null}
-    </>
+      {error && !topology && !session ? (
+        <div
+          role="status"
+          className="flex items-center gap-2 px-6 text-sm text-text-secondary"
+        >
+          Couldn&apos;t load learning notes.
+          <Button variant="ghost" className="note-control" onClick={retry}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
+      <p
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {summary
+          ? `Session complete. ${counts!.reviewed} reviewed, ${counts!.skipped} skipped.`
+          : session
+            ? `${session.mode === "active" ? `Note ${session.currentIndex + 1} of ${counts!.total}.` : "Revisiting."} ${getNoteTitle(currentNote)}`
+            : ""}
+      </p>
+      <div
+        role="region"
+        ref={scrollContainer}
+        tabIndex={-1}
+        aria-label={summary ? "Session summary" : "Note document"}
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-4 outline-none"
+      >
+        <AnimatePresence
+          initial={false}
+          mode="wait"
+          custom={session?.direction ?? 1}
+          onExitComplete={() =>
+            scrollContainer.current?.scrollTo({ top: 0, behavior: "instant" })
+          }
+        >
+          <motion.div
+            key={viewKey}
+            custom={session?.direction ?? 1}
+            variants={reduceMotion ? undefined : FAMILY_SLIDE}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={reduceMotion ? { duration: 0 } : MOTION.familySlide}
+          >
+            {summary ? (
+              <LearningSummary
+                session={session}
+                reviewed={counts!.reviewed}
+                skipped={counts!.skipped}
+                onExpand={(noteId, expanded) =>
+                  dispatch({ type: "expand", noteId, expanded })
+                }
+                onRevisit={(noteId) => dispatch({ type: "revisit", noteId })}
+              />
+            ) : (
+              <NoteDocument node={currentNote} />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </NoteWorkspace>
   );
 }
