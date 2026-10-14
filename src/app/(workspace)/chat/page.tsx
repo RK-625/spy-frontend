@@ -168,7 +168,12 @@ const ChatWorkspace = () => {
   }, []);
 
   const handleAddQuote = (excerpt: MessageExcerpt) => {
-    quotes.add({ sourceMessageId: excerpt.sourceMessageId, sourceRole: excerpt.sourceRole, text: excerpt.text });
+    quotes.add({
+      sourceMessageId: excerpt.sourceMessageId,
+      sourceRole: excerpt.sourceRole,
+      text: excerpt.text,
+      plainText: excerpt.plainText,
+    });
     focusInput();
   };
 

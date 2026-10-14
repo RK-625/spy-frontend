@@ -9,8 +9,14 @@ export interface PromptQuote {
   id: string;
   sourceMessageId: string;
   sourceRole: "user" | "assistant";
+  /** Markdown of the excerpt; this is what is sent. */
   text: string;
+  /** Rendered text of the excerpt, for compact previews. */
+  plainText: string;
 }
+
+/** Drafts saved before `plainText` existed held plain-text quotes only. */
+export type StoredPromptQuote = Omit<PromptQuote, "plainText"> & { plainText?: string };
 
 export interface PromptInputMessage {
   text: string;

@@ -5,8 +5,6 @@ export type MessageExcerpt = Omit<PromptQuote, "id">;
 
 export interface MessageSelection extends MessageExcerpt {
   range: Range;
-  /** Rendered text for Copy; `text` is the Markdown sent with a quote. */
-  plainText: string;
 }
 
 /**

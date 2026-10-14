@@ -1,4 +1,4 @@
-import type { PromptQuote } from "@/types/chat";
+import type { PromptQuote, StoredPromptQuote } from "@/types/chat";
 
 export function appendPromptQuote(quotes: PromptQuote[], quote: PromptQuote): PromptQuote[] {
   return quotes.some((item) => item.sourceMessageId === quote.sourceMessageId && item.text === quote.text)
@@ -6,8 +6,13 @@ export function appendPromptQuote(quotes: PromptQuote[], quote: PromptQuote): Pr
     : [...quotes, quote];
 }
 
-export function restorePromptQuotes(draft: { quotes?: PromptQuote[] } | null | undefined): PromptQuote[] {
-  return draft?.quotes ?? [];
+export function restorePromptQuotes(draft: { quotes?: StoredPromptQuote[] } | null | undefined): PromptQuote[] {
+  return (draft?.quotes ?? []).map((quote) => ({ ...quote, plainText: quote.plainText ?? quote.text }));
+}
+
+/** One-line chip label from the rendered excerpt. */
+export function formatQuotePreview(quote: PromptQuote): string {
+  return quote.plainText.replace(/\s+/g, " ").trim();
 }
 
 /** Quote snapshots travel as normal Markdown, including through transcript reloads. */
