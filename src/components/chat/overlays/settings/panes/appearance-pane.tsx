@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "motion/react";
+import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import { usePrefersReducedMotion } from "@/components/dotmatrix";
-import { THEME_PREFERENCE_OPTIONS, useThemeSwitch } from "@/components/theme";
+import { isThemePreference, THEME_PREFERENCE_OPTIONS, useThemeSwitch } from "@/components/theme";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { MOTION } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -39,22 +40,26 @@ export function AppearancePane() {
         <div className={SETTINGS_CARD_LABEL_CLASS} id="appearance-theme-label">
           Theme
         </div>
-        <div
+        {/* Radix radio group: arrow keys move and select, one Tab stop for the whole group. */}
+        <RadioGroupPrimitive.Root
           aria-labelledby="appearance-theme-label"
           className="mt-2 flex h-9 w-full items-center gap-1 rounded-[8px] bg-[var(--surface-chat)] p-1"
-          role="radiogroup"
+          loop
+          onValueChange={(nextPreference) => {
+            if (isThemePreference(nextPreference)) switchTheme(nextPreference);
+          }}
+          orientation="horizontal"
+          // "" until hydrated: no option checked, but the group stays controlled.
+          value={themePreference ?? ""}
         >
           {THEME_PREFERENCE_OPTIONS.map((option) => {
             const isSelected = option.id === themePreference;
             const OptionIcon = option.icon;
             return (
-              <button
-                aria-checked={isSelected}
+              <RadioGroupPrimitive.Item
                 className={cn(THEME_SLOT_CLASS, themeSlotTone(isSelected))}
                 key={option.id}
-                onClick={() => switchTheme(option.id)}
-                role="radio"
-                type="button"
+                value={option.id}
               >
                 {isSelected && (
                   <motion.span
@@ -69,10 +74,10 @@ export function AppearancePane() {
                   strokeWidth={1.5}
                 />
                 <span className="relative">{option.label}</span>
-              </button>
+              </RadioGroupPrimitive.Item>
             );
           })}
-        </div>
+        </RadioGroupPrimitive.Root>
       </div>
     </>
   );
