@@ -16,15 +16,16 @@ export function createChatToolSet(): Pick<
   };
 }
 
-/** Build-mode chat tools: chat tools plus graph writes. MCP/Excalidraw is merged later in the agent. */
+/** Build-mode chat tools: chat tools plus full Memory listing and graph writes. */
 export function createBuildToolSet(): Pick<
   ProductToolSet,
-  "searchMemories" | "getMemories" | "upsertMemory" | "deleteMemories" | "manageLinks" | "askUserQuestion" | "webSearch"
+  "searchMemories" | "getMemories" | "getAllMemories" | "upsertMemory" | "deleteMemories" | "manageLinks" | "askUserQuestion" | "webSearch"
 > {
   const tools = createToolSet();
   return {
     searchMemories: tools.searchMemories,
     getMemories: tools.getMemories,
+    getAllMemories: tools.getAllMemories,
     upsertMemory: tools.upsertMemory,
     deleteMemories: tools.deleteMemories,
     manageLinks: tools.manageLinks,

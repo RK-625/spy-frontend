@@ -5,6 +5,15 @@
 
 import { MEMORY_GET_MAX_REQUESTS } from "@/lib/graph/policy";
 
+export const getAllMemoriesToolDescription = `Map the whole Memory graph in one read-only call. No arguments required.
+Returns { tree, relatesTo }. tree is the PARENT_OF hierarchy: root nodes { note: { id, name, confidence }, children }, nested to any depth and sorted by name; disconnected Memories are roots with no children.
+If a Memory has several PARENT_OF parents, it appears under the first one only. relatesTo lists every RELATES_TO link as { source, target } ids.
+An empty graph returns { tree: [], relatesTo: [] }. A failed read returns { error }.
+Use when the user asks to list, review, or reorganize all stored Memories. Excludes content, impression, MemoryQuestion nodes, and embeddings — call getMemories with the ids you need for those.`;
+
+export const GET_ALL_MEMORIES_BUILD_BULLET = `Map every stored Memory in one call: the PARENT_OF tree of { note: { id, name, confidence }, children } plus all RELATES_TO links as { source, target }.
+No arguments required. Returns { tree, relatesTo }; check for { error } before using the result. Use getMemories for content or impression.`;
+
 /** `tool({ description })` for getMemories in the product toolset. */
 export const getMemoriesToolDescription = `Inspect one or more Memories and their topology in one call.
 Pass memories: an array of 1–${MEMORY_GET_MAX_REQUESTS} objects, each with id, optional hops, and required linkTypes.

@@ -37,3 +37,6 @@ export const getMemoriesInputSchema = z.object({
 });
 
 export type GetMemoriesInput = z.infer<typeof getMemoriesInputSchema>;
+
+/** Full Memory listing needs no search terms, ids, or traversal settings. */
+export const getAllMemoriesInputSchema = z.object({});

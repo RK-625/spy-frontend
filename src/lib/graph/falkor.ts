@@ -9,6 +9,8 @@ import {
   type MemorySearchHit,
   type MemoryChild,
   type MemoryCone,
+  type MemoryListItem,
+  type MemoryListing,
   type MemoryNode,
 } from "@/types/graph-schema";
 import type { GraphTopology } from "@/types/graph-topology";
@@ -238,6 +240,23 @@ const MEMORY_CORE_RETURN = `
            m.impression AS impression,
            m.confidence AS confidence
 `;
+
+/** List every Memory's id, name, and confidence plus all PARENT_OF / RELATES_TO links. */
+export async function getAllMemories(): Promise<MemoryListing> {
+  const graph = await getDb();
+  const [memoryResult, linkResult] = await Promise.all([
+    graph.query<MemoryListItem>(`
+      MATCH (m:Memory)
+      RETURN m.id AS id, m.name AS name, m.confidence AS confidence
+    `),
+    graph.query<Links>(`
+      MATCH (a:Memory)-[r]->(b:Memory)
+      WHERE type(r) IN ['PARENT_OF', 'RELATES_TO']
+      RETURN a.id AS source, b.id AS target, type(r) AS type
+    `),
+  ]);
+  return { memories: memoryResult.data ?? [], links: linkResult.data ?? [] };
+}
 
 /**
  * Read one Memory by id (core fields only). Unknown id → null (does not throw).

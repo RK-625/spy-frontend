@@ -28,6 +28,8 @@ export {
 } from "./search-memories";
 
 export {
+  GET_ALL_MEMORIES_BUILD_BULLET,
+  getAllMemoriesToolDescription,
   GET_MEMORIES_CHAT_BULLET,
   GET_MEMORIES_GRAPH_BULLET,
   getMemoriesToolDescription,

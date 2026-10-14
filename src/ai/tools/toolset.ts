@@ -6,19 +6,22 @@ import { deleteMemoriesInputSchema } from "../schemas/delete-schema";
 import { upsertMemoryInputSchema } from "../schemas/upsert-schema";
 import { manageLinksInputSchema } from "../schemas/link-schema";
 import { searchMemoriesInputSchema } from "../schemas/search-schema";
-import { getMemoriesInputSchema } from "../schemas/get-schema";
+import { getAllMemoriesInputSchema, getMemoriesInputSchema } from "../schemas/get-schema";
 import { webSearchInputSchema } from "../schemas/web-search-schema";
 import { generateEmbedding } from "../models/embeddings";
 import {
   getDb,
   vectorSearchByQuestions as falkorVectorSearchByQuestions,
   getMemoryCone as falkorGetMemoryCone,
+  getAllMemories as falkorGetAllMemories,
 } from "@/lib/graph/falkor";
 import { MEMORY_SEARCH_TOP_K } from "@/lib/graph/policy";
+import { buildNotesForest } from "@/lib/notes/hierarchy";
 import { publishTopologyUpdate } from "@/lib/graph/topology-events";
 import { readSavedKeyOrNull } from "@/lib/providers/keys/resolve-key";
 import type {
   DeleteMemoriesResult,
+  GetAllMemoriesResult,
   GetMemoryResult,
   GetMemoriesResult,
   Links,
@@ -31,6 +34,7 @@ import {
   deleteMemoriesToolDescription,
   manageLinksToolDescription,
   getMemoriesToolDescription,
+  getAllMemoriesToolDescription,
   searchMemoriesToolDescription,
   upsertMemoryToolDescription,
   webSearchToolDescription,
@@ -487,6 +491,27 @@ export function createToolSet() {
     },
   });
 
+  const getAllMemories = tool({
+    description: getAllMemoriesToolDescription,
+    inputSchema: getAllMemoriesInputSchema,
+    execute: async (): Promise<GetAllMemoriesResult> => {
+      try {
+        const { memories, links } = await falkorGetAllMemories();
+        return {
+          tree: buildNotesForest(memories, links),
+          relatesTo: links
+            .filter((link) => link.type === "RELATES_TO")
+            .map(({ source, target }) => ({ source, target })),
+        };
+      } catch (error: unknown) {
+        console.error("getAllMemories tool error:", error);
+        return {
+          error: error instanceof Error ? error.message : "Failed to get all memories.",
+        };
+      }
+    },
+  });
+
   return {
     webSearch,
     askUserQuestion,
@@ -495,5 +520,6 @@ export function createToolSet() {
     manageLinks,
     searchMemories,
     getMemories,
+    getAllMemories,
   };
 }

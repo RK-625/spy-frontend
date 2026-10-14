@@ -6,22 +6,25 @@
  */
 import type { Links, MemoryNode } from "@/types/graph-schema";
 
-export type NotesForestNode = {
-  note: MemoryNode;
-  children: NotesForestNode[];
+/** Fields the forest reads; any lean or full Memory row satisfies it. */
+type NoteIdentity = Pick<MemoryNode, "id" | "name">;
+
+export type NotesForestNode<T extends NoteIdentity = MemoryNode> = {
+  note: T;
+  children: NotesForestNode<T>[];
 };
 
-function compareNoteNames(left: MemoryNode, right: MemoryNode): number {
+function compareNoteNames(left: NoteIdentity, right: NoteIdentity): number {
   const leftName = left.name || left.id || "";
   const rightName = right.name || right.id || "";
   return leftName.localeCompare(rightName);
 }
 
-export function buildNotesForest(
-  notes: readonly MemoryNode[],
+export function buildNotesForest<T extends NoteIdentity>(
+  notes: readonly T[],
   links: readonly Links[],
-): NotesForestNode[] {
-  const byId = new Map<string, MemoryNode>();
+): NotesForestNode<T>[] {
+  const byId = new Map<string, T>();
   for (const note of notes) {
     byId.set(note.id, note);
   }
@@ -50,13 +53,13 @@ export function buildNotesForest(
   const visiting = new Set<string>();
   const built = new Set<string>();
 
-  const buildBranch = (id: string): NotesForestNode | null => {
+  const buildBranch = (id: string): NotesForestNode<T> | null => {
     const note = byId.get(id);
     if (!note) return null;
     if (visiting.has(id) || built.has(id)) return null;
     visiting.add(id);
     const childIds = sortIds(childrenOf.get(id) ?? []);
-    const children: NotesForestNode[] = [];
+    const children: NotesForestNode<T>[] = [];
     for (const childId of childIds) {
       const child = buildBranch(childId);
       if (child) children.push(child);
@@ -66,7 +69,7 @@ export function buildNotesForest(
     return { note, children };
   };
 
-  const forest: NotesForestNode[] = [];
+  const forest: NotesForestNode<T>[] = [];
   for (const id of sortIds(
     notes.filter((note) => !parentOf.has(note.id)).map((note) => note.id),
   )) {

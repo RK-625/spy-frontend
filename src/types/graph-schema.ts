@@ -84,6 +84,25 @@ export type GetMemoryResult =
 
 export type GetMemoriesResult = { results: GetMemoryResult[] };
 
+/** Lean full-graph listing row: enough to identify a Memory; getMemories reads the body. */
+export type MemoryListItem = Pick<Memory, "id" | "name" | "confidence">;
+
+/** Lean full-graph read: listing rows plus every Memory↔Memory link. */
+export type MemoryListing = {
+  memories: MemoryListItem[];
+  links: Links[];
+};
+
+/** PARENT_OF tree node built from a MemoryListing (same forest as the notes sidebar). */
+export type MemoryTreeNode = {
+  note: MemoryListItem;
+  children: MemoryTreeNode[];
+};
+
+export type GetAllMemoriesResult =
+  | { tree: MemoryTreeNode[]; relatesTo: Pick<Links, "source" | "target">[] }
+  | { error: string };
+
 /** Batch deletion is one graph write; absent ids are successful no-ops. */
 export type DeleteMemoriesResult =
   | { deleted: Pick<Memory, "id" | "name">[]; missingIds: string[] }

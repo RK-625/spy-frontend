@@ -11,6 +11,7 @@ import { GRAPH_ONTOLOGY } from "./graph-ontology";
 import {
   ASK_USER_QUESTION_AGENT_BULLET,
   DELETE_MEMORIES_AGENT_BULLET,
+  GET_ALL_MEMORIES_BUILD_BULLET,
   GET_MEMORIES_CHAT_BULLET,
   GET_MEMORIES_GRAPH_BULLET,
   MANAGE_LINKS_AGENT_BULLET,
@@ -60,6 +61,7 @@ const BUILD_BEHAVIOR =
 const BUILD_TOOLSET = `## These are the tools you can use to build the user's notes, retrieve existing ones, ask the user questions when needed, and interact with the web:
 - **searchMemories**: ${SEARCH_MEMORIES_GRAPH_BULLET}
 - **getMemories**: ${GET_MEMORIES_GRAPH_BULLET}
+- **getAllMemories**: ${GET_ALL_MEMORIES_BUILD_BULLET}
 - **upsertMemory**: ${UPSERT_MEMORY_AGENT_BULLET}
 - **deleteMemories**: ${DELETE_MEMORIES_AGENT_BULLET}
 - **manageLinks**: ${MANAGE_LINKS_AGENT_BULLET}
