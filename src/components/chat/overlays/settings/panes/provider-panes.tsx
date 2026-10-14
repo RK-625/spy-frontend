@@ -11,7 +11,7 @@ import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import { providers } from "@/lib/providers/registry";
 import { ProviderKeyList, type ProviderKeyListProps } from "../keys/provider-key-list";
-import { SettingsPaneHeader } from "./settings-pane-header";
+import { SettingsPaneHeader } from "./settings-pane-chrome";
 
 export const chatProviders = providers.filter(
   (provider) =>

@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription } from "@/components/ui";
 import { CHROME_FADE, MOTION } from "@/lib/motion";
 import type { ProviderDefinition } from "@/types/models";
 import { useProviderKeys } from "@/contexts/ProviderKeysContext";
+import { AppearancePane } from "../panes/appearance-pane";
 import { GeneralPane } from "../panes/general-pane";
 import {
   EmbeddingsPane,
@@ -58,7 +59,7 @@ export function SettingsDialog({
         showCloseButton
       >
         <DialogDescription className="sr-only">
-          Spy preferences, provider API keys and embeddings.
+          Spy preferences, appearance, provider API keys and embeddings.
         </DialogDescription>
         <SettingsNav
           activePaneId={activePaneId}
@@ -74,6 +75,7 @@ export function SettingsDialog({
               transition={MOTION.chrome}
             >
               {activePaneId === "general" && <GeneralPane />}
+              {activePaneId === "appearance" && <AppearancePane />}
               {activePaneId === "providers" && (
                 <ProvidersPane
                   keyHints={keyHints}

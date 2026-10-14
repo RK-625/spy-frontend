@@ -2,14 +2,14 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import { Monitor, Moon, Search, Sun, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 import { motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import * as React from "react";
 
 import { usePrefersReducedMotion } from "@/components/dotmatrix";
+import { THEME_PREFERENCE_OPTIONS, useThemeSwitch } from "@/components/theme";
 import { ICON_GLYPH } from "@/lib/icon-tokens";
 import { MOTION } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -76,7 +76,7 @@ interface CommandPaletteTriggerProps
 
 export interface CommandPaletteProps {
   groups?: CommandPaletteGroupDef[];
-  /** Opt-in theme actions. Product shell keeps this off (dark register). */
+  /** Opt-in Light / Dark / System theme actions. */
   showThemeGroup?: boolean;
   placeholder?: string;
   shortcutKey?: string;
@@ -194,7 +194,7 @@ function CommandPalette({
 }: CommandPaletteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { setTheme } = useTheme();
+  const { switchTheme } = useThemeSwitch();
   const paletteId = React.useId().replace(/:/g, "");
 
   const [paletteOpen, setPaletteOpen] = useControllableState({
@@ -277,34 +277,19 @@ function CommandPalette({
   const themeItems = React.useMemo<CommandPaletteItemDef[]>(
     () =>
       showThemeGroup
-        ? [
-            {
-              label: "Light Mode",
+        ? THEME_PREFERENCE_OPTIONS.map((option) => {
+            const OptionIcon = option.icon;
+            return {
+              label: `${option.label} theme`,
               icon: (props: { className?: string }) => (
-                <Sun size={16} strokeWidth={1.5} className={props.className} />
+                <OptionIcon size={ICON_GLYPH.inline} strokeWidth={1.5} className={props.className} />
               ),
-              action: () => setTheme("light"),
-              keywords: ["light", "bright", "white", "day"],
-            },
-            {
-              label: "Dark Mode",
-              icon: (props: { className?: string }) => (
-                <Moon size={16} strokeWidth={1.5} className={props.className} />
-              ),
-              action: () => setTheme("dark"),
-              keywords: ["dark", "night", "black"],
-            },
-            {
-              label: "System Theme",
-              icon: (props: { className?: string }) => (
-                <Monitor size={16} strokeWidth={1.5} className={props.className} />
-              ),
-              action: () => setTheme("system"),
-              keywords: ["system", "auto", "os", "default"],
-            },
-          ]
+              action: () => switchTheme(option.id),
+              keywords: option.keywords,
+            };
+          })
         : [],
-    [setTheme, showThemeGroup]
+    [switchTheme, showThemeGroup]
   );
 
   const filteredGroups = React.useMemo(

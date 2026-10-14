@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { AppThemeProvider } from "@/components/theme";
 import { cn } from "@/lib/utils";
 
 const unbounded = localFont({
@@ -46,11 +47,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn(unbounded.variable, vt323.variable, "font-sans", inter.variable, interBody.variable, "dark")}
+      className={cn(unbounded.variable, vt323.variable, "font-sans", inter.variable, interBody.variable)}
       suppressHydrationWarning
     >
       <body className="min-h-screen flex flex-col bg-background text-text-primary font-sans">
-        {children}
+        <AppThemeProvider>{children}</AppThemeProvider>
       </body>
     </html>
   );

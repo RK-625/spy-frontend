@@ -50,7 +50,7 @@ type UseChatApi = ReturnType<typeof import("@ai-sdk/react").useChat>;
 export type GraphJobStatus = "idle" | "running" | "failed";
 
 /** Panes of the Settings dialog. */
-export type SettingsPaneId = "general" | "providers" | "embeddings" | "tools";
+export type SettingsPaneId = "general" | "appearance" | "providers" | "embeddings" | "tools";
 
 /** On-screen model, mode, web search, and Excalidraw copied onto a fork. */
 export interface ForkChatComposer {
