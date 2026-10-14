@@ -60,7 +60,24 @@
 
   /* ── Status ── */
   /* Verified state (e.g. a provider key the provider accepted). The one green in the system. */
-  --status-success: #2e8a5e;
+  --status-success: #25774f;
+
+  /* ── Prose, tables and diagrams (assistant markdown) ── */
+  --text-tinted: #33294f;
+  --surface-row-hover: rgba(122, 82, 209, 0.04);
+  --surface-header: rgba(122, 82, 209, 0.05);
+  --surface-selected: rgba(122, 82, 209, 0.10);
+  --thread-line: rgba(122, 82, 209, 0.25);
+  --diagram-node-fill: rgba(255, 255, 255, 0.9);
+  --diagram-node-stroke: rgba(122, 82, 209, 0.40);
+  --diagram-edge: rgba(58, 36, 112, 0.45);
+  --bubble-user-from: rgba(233, 225, 247, 0.95);
+  --bubble-user-to: rgba(237, 230, 247, 0.85);
+
+  /* ── Overlays ── */
+  --overlay-scrim: rgba(29, 24, 48, 0.25);
+  --shadow-dialog: rgba(29, 24, 48, 0.18);
+  --shadow-palette: rgba(29, 24, 48, 0.12);
 
   /* ── shadcn/ui ── */
   --background: #f7f4ee;

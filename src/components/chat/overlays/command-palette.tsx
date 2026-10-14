@@ -478,7 +478,7 @@ function CommandPalette({
             className={cn(
               // Desktop-first placement (product is desktop-only v1).
               // Avoid undefined --nav-stack-height-* tokens that invalidate calc().
-              "fixed inset-x-4 top-[12vh] z-[221] flex max-h-[min(560px,calc(100dvh-4rem))] flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-background shadow-[0_28px_90px_rgba(10,10,10,0.12)] outline-none duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 sm:inset-x-6 sm:left-1/2 sm:w-[min(680px,calc(100vw-2rem))] sm:-translate-x-1/2",
+              "fixed inset-x-4 top-[12vh] z-[221] flex max-h-[min(560px,calc(100dvh-4rem))] flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-background shadow-[0_28px_90px_var(--shadow-palette)] outline-none duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 sm:inset-x-6 sm:left-1/2 sm:w-[min(680px,calc(100vw-2rem))] sm:-translate-x-1/2",
               className
             )}
             onOpenAutoFocus={(event) => {

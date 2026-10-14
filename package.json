@@ -14,6 +14,7 @@
     "verify:widget-cleanup": "node scripts/verify-widget-cleanup.mjs",
     "verify:components-structure": "node scripts/verify-components-structure.mjs",
     "verify:icon-inventory": "node scripts/verify-icon-inventory.mjs",
+    "verify:no-raw-colors": "node scripts/verify-no-raw-colors.mjs",
     "verify:pending-ask": "node scripts/verify-pending-ask.mjs",
     "verify:parent-of-hierarchy": "npx tsx scripts/verify-parent-of-hierarchy.mjs",
     "verify:notes-forest": "npx tsx scripts/verify-notes-forest.mjs",

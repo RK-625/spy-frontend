@@ -1705,7 +1705,7 @@ export const ChainOfThoughtContent = memo(
           {...props}
         >
           {/* Top divider */}
-          <div className="mb-3 mt-1 h-px bg-gradient-to-r from-transparent via-[rgba(200,172,251,0.15)] to-transparent" />
+          <div className="mb-3 mt-1 h-px bg-gradient-to-r from-transparent via-[var(--border-strong)] to-transparent" />
           {children}
         </CollapsibleContent>
       </Collapsible>
@@ -1776,7 +1776,7 @@ export const ChainOfThoughtStep = memo(
         </div>
         {/* Vertical connector — always draw unless isLast */}
         {!isLast && (
-          <div className="mt-1 w-px flex-1 bg-gradient-to-b from-[rgba(200,172,251,0.2)] to-transparent" />
+          <div className="mt-1 w-px flex-1 bg-gradient-to-b from-[var(--thread-line)] to-transparent" />
         )}
       </div>
 
