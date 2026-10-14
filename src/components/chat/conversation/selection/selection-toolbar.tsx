@@ -1,6 +1,6 @@
 "use client";
 
-import { autoUpdate, flip, FloatingPortal, inline, offset, shift, useFloating } from "@floating-ui/react";
+import { autoUpdate, flip, FloatingPortal, hide, inline, offset, shift, useFloating } from "@floating-ui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Copy, MessageSquarePlus } from "lucide-react";
 import { Button, toast } from "@/components/ui";
@@ -19,11 +19,12 @@ export function MessageSelectionToolbar({ chatId, onAddQuote }: {
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reducedMotion = usePrefersReducedMotion();
-  const { refs: { setReference, setPositionReference, setFloating }, floatingStyles } = useFloating({
+  // Scrolling repositions the toolbar (autoUpdate) and hides it while the selection is out of view.
+  const { refs: { setReference, setPositionReference, setFloating }, floatingStyles, middlewareData } = useFloating({
     open: selection !== null,
     placement: "top",
     strategy: "fixed",
-    middleware: [inline(), offset(8), flip(), shift({ padding: 8 })],
+    middleware: [inline(), offset(8), flip(), shift({ padding: 8 }), hide()],
     whileElementsMounted: autoUpdate,
   });
 
@@ -44,8 +45,10 @@ export function MessageSelectionToolbar({ chatId, onAddQuote }: {
       setSelection(next);
       setCopied(false);
       if (next) {
+        const common = next.range.commonAncestorContainer;
         setPositionReference({
-          contextElement: scope,
+          // The selection's own element, so scrolling any container around it (chat, wide table, code) repositions.
+          contextElement: common instanceof Element ? common : common.parentElement ?? scope,
           getBoundingClientRect: () => next.range.getBoundingClientRect(),
           getClientRects: () => next.range.getClientRects(),
         });
@@ -66,12 +69,10 @@ export function MessageSelectionToolbar({ chatId, onAddQuote }: {
     document.addEventListener("selectionchange", updateSelection);
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("scroll", dismiss, true);
     return () => {
       document.removeEventListener("selectionchange", updateSelection);
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("scroll", dismiss, true);
       if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
     };
   }, [chatId, dismiss, setReference, setPositionReference]);
@@ -94,7 +95,11 @@ export function MessageSelectionToolbar({ chatId, onAddQuote }: {
     <FloatingPortal>
       <AnimatePresence>
         {selection ? (
-          <div ref={setFloating} style={floatingStyles} className="z-50">
+          <div
+            ref={setFloating}
+            style={{ ...floatingStyles, visibility: middlewareData.hide?.referenceHidden ? "hidden" : "visible" }}
+            className="z-50"
+          >
             <motion.div
               ref={toolbarRef}
               role="toolbar"
