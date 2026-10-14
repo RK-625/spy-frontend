@@ -1,3 +1,4 @@
+const path = require("node:path");
 const { app, BrowserWindow, dialog, shell } = require("electron");
 
 app.setName("Spy");
@@ -5,6 +6,7 @@ const { startNextServer } = require("./next-server");
 const { applyElectronDataEnv, applyElectronGraphBinaryEnv, assertFalkorPath } = require("./data-paths");
 const { loadUserEnv } = require("./user-env");
 const { installApplicationMenu } = require("./menu");
+const { registerThemeSync, resolveWindowBackground, restoreThemePreference } = require("./theme");
 
 function resolveNextMode() {
   const fromEnv = process.env.SPY_NEXT_MODE;
@@ -118,10 +120,13 @@ function createMainWindow() {
     minHeight: 600,
     show: false,
     title: "Spy",
+    // Painted until the page's own background arrives; matches the stored theme.
+    backgroundColor: resolveWindowBackground(),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: path.join(__dirname, "preload.js"),
     },
   });
 
@@ -175,6 +180,8 @@ function destroyWindows() {
 
 async function bootstrap() {
   installApplicationMenu();
+  await restoreThemePreference();
+  registerThemeSync(isAllowedAppUrl);
 
   // User env, then data paths, both before startNextServer.
   // The child inherits process.env at spawn; already-set vars win.

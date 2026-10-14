@@ -71,6 +71,7 @@
     "cmdk": "^1.1.1",
     "dexie": "^4.4.6",
     "dotenv": "^18.0.4",
+    "electron-store": "^11.0.2",
     "exa-js": "^2.16.0",
     "falkordb": "^6.6.2",
     "falkordblite": "^0.3.0",

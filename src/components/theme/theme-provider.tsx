@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { ThemeProvider } from "next-themes";
+import { DesktopThemeSync } from "./desktop-theme-sync";
 import { DEFAULT_THEME_PREFERENCE, THEME_STORAGE_KEY } from "./theme-preference";
 
 // next-themes 0.4.6 renders an inline <script> that React 19 flags when it renders on the
@@ -25,6 +26,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
       scriptProps={THEME_SCRIPT_PROPS}
       storageKey={THEME_STORAGE_KEY}
     >
+      <DesktopThemeSync />
       {children}
     </ThemeProvider>
   );

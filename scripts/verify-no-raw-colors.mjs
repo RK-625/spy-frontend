@@ -98,7 +98,27 @@ for (const entry of stalePending) {
   console.error(`FAIL: ${entry.path} has no raw colors left — remove it from PENDING_PATHS`);
 }
 
-const ok = violations.length === 0 && stalePending.length === 0;
+/** Electron paints this before the page loads (electron/theme.js), so it must match --background. */
+function findBackgroundMismatches() {
+  const windowTheme = fs.readFileSync(path.join(root, "electron/theme.js"), "utf8");
+  return ["light", "dark"].flatMap((themeName) => {
+    const palette = fs.readFileSync(path.join(root, `src/styles/tokens/palette-${themeName}.css`), "utf8");
+    const paletteBackground = palette.match(/\n\s*--background:\s*([^;]+);/)?.[1].trim().toLowerCase();
+    const windowBackground = windowTheme
+      .match(new RegExp(`\\b${themeName}:\\s*"([^"]+)"`))?.[1]
+      .toLowerCase();
+    return paletteBackground && paletteBackground === windowBackground
+      ? []
+      : [`${themeName}: palette ${paletteBackground} vs electron/theme.js ${windowBackground}`];
+  });
+}
+
+const backgroundMismatches = findBackgroundMismatches();
+for (const mismatch of backgroundMismatches) {
+  console.error(`FAIL: Electron window background out of sync — ${mismatch}`);
+}
+
+const ok = violations.length === 0 && stalePending.length === 0 && backgroundMismatches.length === 0;
 console.log(
   JSON.stringify(
     {
